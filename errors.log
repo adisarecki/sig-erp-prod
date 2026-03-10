@@ -1,0 +1,2 @@
+src/app/page.tsx(92,9): error TS7034: Variable 'allAlerts' implicitly has type 'any[]' in some locations where its type cannot be determined.
+src/app/page.tsx(133,24): error TS7005: Variable 'allAlerts' implicitly has an 'any[]' type.

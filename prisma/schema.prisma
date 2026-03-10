@@ -1,0 +1,246 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------
+// Wymagane dla Multi-Tenancy (Firmy obsługiwane w systemie)
+// ---------------------------------------------------------
+model Tenant {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  nip         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users              User[]
+  contractors        Contractor[]
+  projects           Project[]
+  invoices           Invoice[]
+  transactions       Transaction[]
+  liabilities        Liability[]
+  bankAccounts       BankAccount[]
+  bankTransactions   BankTransactionRaw[]
+  auditLogs          AuditLog[]
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g., OWNER, MANAGER, EMPLOYEE
+  permissions Json?
+  users       User[]
+}
+
+model User {
+  id            String   @id @default(uuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  email         String   @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  roleId        String
+  role          Role     @relation(fields: [roleId], references: [id])
+  auditLogs     AuditLog[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ---------------------------------------------------------
+// CRM & Projekty
+// ---------------------------------------------------------
+model Contractor {
+  id           String    @id @default(uuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+  nip          String?   @unique
+  name         String
+  address      String?
+  status       String    @default("ACTIVE")
+  creditRating Int?
+  objects      Object[]
+  contacts     Contact[]
+  projects     Project[]
+  invoices     Invoice[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Object {
+  id           String     @id @default(uuid())
+  contractorId String
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  name         String
+  address      String?
+  description  String?
+  projects     Project[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Contact {
+  id           String     @id @default(uuid())
+  contractorId String
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  firstName    String
+  lastName     String
+  email        String?
+  phone        String?
+  position     String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Project {
+  id              String         @id @default(uuid())
+  tenantId        String
+  tenant          Tenant         @relation(fields: [tenantId], references: [id])
+  contractorId    String
+  contractor      Contractor     @relation(fields: [contractorId], references: [id])
+  objectId        String
+  object          Object         @relation(fields: [objectId], references: [id])
+  name            String
+  type            String
+  status          String         @default("PLANNED")
+  budgetEstimated Decimal        @default(0) @db.Decimal(12, 2)
+  budgetUsed      Decimal        @default(0) @db.Decimal(12, 2)
+  stages          ProjectStage[]
+  invoices        Invoice[]
+  transactions    Transaction[]
+  lifecycleStatus String         @default("ACTIVE")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model ProjectStage {
+  id        String    @id @default(uuid())
+  projectId String
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  deadline  DateTime?
+  status    String    @default("PENDING")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// ---------------------------------------------------------
+// Finanse & Cash Flow
+// ---------------------------------------------------------
+model Invoice {
+  id           String        @id @default(uuid())
+  tenantId     String
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  contractorId String
+  contractor   Contractor    @relation(fields: [contractorId], references: [id])
+  projectId    String
+  project      Project       @relation(fields: [projectId], references: [id])
+  type         String
+  amountNet    Decimal       @db.Decimal(12, 2)
+  amountGross  Decimal       @db.Decimal(12, 2)
+  taxRate      Decimal       @db.Decimal(5, 4)
+  issueDate    DateTime
+  dueDate      DateTime
+  status       String        @default("UNPAID") // UNPAID, PARTIALLY_PAID, PAID
+  scanUrl      String?       // OCR: Link do skanu/zasobu zewnętrznego
+  payments     Payment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+// Płatność reprezentująca "spłatę" konkretnej faktury (częściową lub całościową).
+// Powiązana 1:1 z realną wpłatą gotówki na konto (Transaction)
+model Payment {
+  id            String      @id @default(uuid())
+  invoiceId     String
+  invoice       Invoice     @relation(fields: [invoiceId], references: [id])
+  transactionId String      @unique
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  amountApplied Decimal     @db.Decimal(12, 2)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model Transaction {
+  id                    String                @id @default(uuid())
+  tenantId              String
+  tenant                Tenant                @relation(fields: [tenantId], references: [id])
+  projectId             String?
+  project               Project?              @relation(fields: [projectId], references: [id])
+  amount                Decimal               @db.Decimal(12, 2)
+  type                  String
+  transactionDate       DateTime
+  category              String
+  description           String?
+  scanUrl               String?               // OCR: Link do paragonu/dokumentu kosztowego
+  payment               Payment?              // Jeśli transakcja spłaca fakturę, będzie tu relacja
+  bankTransactions      BankTransactionRaw[]  @relation("PairedTransaction")
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+}
+
+model Liability {
+  id                String   @id @default(uuid())
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+  name              String
+  totalAmount       Decimal  @db.Decimal(12, 2)
+  installmentAmount Decimal  @db.Decimal(12, 2)
+  startDate         DateTime
+  endDate           DateTime
+  paymentDayOfMonth Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// ---------------------------------------------------------
+// Bankowość Centralna (Open Banking)
+// ---------------------------------------------------------
+model BankAccount {
+  id                 String               @id @default(uuid())
+  tenantId           String
+  tenant             Tenant               @relation(fields: [tenantId], references: [id])
+  bankName           String
+  iban               String               @unique
+  currency           String               @default("PLN")
+  providerAccountId  String?              // Zewnętrzny ID konta (np. z Plaid / Nordigen)
+  rawTransactions    BankTransactionRaw[]
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+}
+
+model BankTransactionRaw {
+  id                  String       @id @default(uuid())
+  tenantId            String
+  tenant              Tenant       @relation(fields: [tenantId], references: [id])
+  bankAccountId       String
+  bankAccount         BankAccount  @relation(fields: [bankAccountId], references: [id])
+  rawAmount           Decimal      @db.Decimal(12, 2)
+  bookingDate         DateTime
+  description         String
+  senderName          String?
+  status              String       @default("UNPAIRED")
+  pairedTransactionId String?
+  pairedTransaction   Transaction? @relation("PairedTransaction", fields: [pairedTransactionId], references: [id])
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+}
+
+// ---------------------------------------------------------
+// Bezpieczeństwo i Dziennik Zdarzeń
+// ---------------------------------------------------------
+model AuditLog {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String   // np. CREATE_INVOICE, UPDATE_PROJECT_STATUS
+  entity    String   // np. Invoice, Project
+  entityId  String
+  details   Json?    // Przed/Po zmianie
+  createdAt DateTime @default(now())
+}
