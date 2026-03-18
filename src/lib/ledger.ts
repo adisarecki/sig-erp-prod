@@ -1,7 +1,5 @@
-import { PrismaClient } from "@prisma/client"
+import prisma from "@/lib/prisma"
 import Decimal from "decimal.js"
-
-const prisma = new PrismaClient()
 
 /**
  * Konfiguracja precyzji finansowej Sig ERP.

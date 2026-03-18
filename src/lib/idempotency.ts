@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
+import prisma from "@/lib/prisma"
 
 /**
  * Sprawdza czy zdarzenie o podanym ID zostało już przetworzone.
