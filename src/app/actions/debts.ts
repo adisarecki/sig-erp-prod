@@ -1,3 +1,5 @@
+"use server"
+
 import { revalidatePath } from "next/cache"
 import Decimal from "decimal.js"
 import { getCurrentTenantId } from "@/lib/tenant"
