@@ -28,8 +28,13 @@ const getNextDateForDayOfMonth = (day: number) => {
   return date
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams: { period?: string } }) {
-  const period = searchParams.period || 'ALL'
+export default async function DashboardPage({ 
+  searchParams 
+}: { 
+  searchParams: Promise<{ period?: string }> 
+}) {
+  const params = await searchParams
+  const period = params.period || 'ALL'
   const tenantId = await getCurrentTenantId()
   const leakageAlerts = await scanForLeaks(tenantId)
 
