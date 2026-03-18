@@ -1,38 +1,44 @@
-# Sig ERP – Modern Financial Management
+# Sig ERP – Modern Financial Management (Firestore Edition)
 
-System do zarządzania finansami, projektami i CRM dla nowoczesnych firm.
+Nowoczesny system operacyjny dla firm, zoptymalizowany pod Next.js 15, Vercel oraz Google Cloud Firestore.
 
-## 🚀 Quick Start (Local Dev)
+## 🚀 Architektura (Stack Technologiczny)
 
-1. **Install Dependencies**:
-   ```bash
-   npm install
-   ```
+- **Hosting**: Vercel (Serverless Next.js 15)
+- **Baza Danych**: Cloud Firestore (NoSQL)
+- **Autoryzacja**: Firebase Auth (Google + Email/Hasło z wymuszoną zmianą PESEL)
+- **Magazyn**: Firebase Storage
 
-2. **Environment Setup**:
-   Copy `.env.example` to `.env` and configure your `DATABASE_URL`.
+## 🛠 Konfiguracja Lokalna
 
-3. **Database Migration**:
-   ```bash
-   npx prisma db push
-   npx prisma generate
-   ```
-
-4. **Run Development Server**:
-   ```bash
-   npm run dev
-   ```
-
-5. **Open App**:
-   Navigate to [http://localhost:3000](http://localhost:3000)
+1. **Instalacja**: `npm install`
+2. **Środowisko (.env)**: Wypełnij klucze Firebase z prefixem `NEXT_PUBLIC_`.
+3. **Uruchomienie**: `npm run dev`
 
 ---
 
-## 🧠 AI Agent Guidance
+## 🔐 System Bezpieczeństwa (Gatekeeper)
 
-Wszystkie kluczowe zasady systemu, schematy bazy danych oraz kontrakty API znajdują się w katalogu `docs/`. 
+Dostęp do systemu jest całkowicie zablokowany dla osób spoza Whitelist.
+- **Logowanie Google**: Dla CEO i Wspólnika.
+- **Logowanie Email**: Dostęp z wymuszoną zmianą hasła przy pierwszym zalogowaniu (protokół PESEL -> Private Password).
 
-**Agent AI MUSI zapoznać się z dokumentem:**
+## 🧠 Zasady SYSTEM_DNA
+
+Katalog `docs/` zawiera fundamenty logiki biznesowej:
 👉 **[docs/SYSTEM_DNA.md](./docs/SYSTEM_DNA.md)**
 
-Jest to jedyne źródło prawdy (Single Source of Truth) dotyczące logiki biznesowej, append-only ledger oraz modelu Contractor.
+**Logika Finansowa (Ekstraklasa):**
+- **Tax Guard**: Rezerwacja 19% CIT + VAT Netto na Dashboardzie.
+- **Cash Reality**: Symulacja "Realista" uwzględniająca 14-dniowe opóźnienia w płatnościach.
+- **Append-Only Ledger**: Historia transakcji jest niezmienna (korekty przez rewers).
+
+---
+
+## 📈 Deployment (Vercel)
+
+System jest skonfigurowany pod automatyczny deployment z GitHuba.
+- **Build Bypass**: ESLint oraz TypeScript są ignorowane podczas buildu produkcyjnego (flaga `ignoreDuringBuilds`), aby umożliwić szybkie iteracje UI przy zachowaniu stabilności logicznej.
+
+---
+*Vercel & Firestore Ready 🚀*
