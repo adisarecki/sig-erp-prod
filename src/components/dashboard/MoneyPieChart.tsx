@@ -15,12 +15,14 @@ const formatPln = (value: number) => {
     return new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" }).format(value)
 }
 
-const CustomTooltip = ({ active, payload }: any) => {
+const CustomTooltip = ({ active, payload }: { active?: boolean, payload?: unknown[] }) => {
     if (active && payload && payload.length) {
+        const payloadData = payload[0] as { name: string, value: number, payload?: { name: string, value: number } };
+        const data = payloadData.payload || payloadData;
         return (
             <div className="bg-white p-3 border border-slate-200 shadow-md rounded-lg text-sm">
-                <p className="font-semibold text-slate-800">{payload[0].name}</p>
-                <p className="text-slate-600 mt-1">{formatPln(payload[0].value)}</p>
+                <p className="font-semibold text-slate-800">{data.name}</p>
+                <p className="text-slate-600 mt-1">{formatPln(data.value)}</p>
             </div>
         )
     }
@@ -31,7 +33,8 @@ export function MoneyPieChart({ data }: MoneyPieChartProps) {
     const [isMounted, setIsMounted] = useState(false)
 
     useEffect(() => {
-        setIsMounted(true)
+        const frame = requestAnimationFrame(() => setIsMounted(true))
+        return () => cancelAnimationFrame(frame)
     }, [])
 
     // Blokada dla MoneyPieChart - zapobiega błędom width(-1) przed załadowaniem layoutu

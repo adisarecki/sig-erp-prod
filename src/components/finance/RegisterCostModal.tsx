@@ -1,14 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-    DialogFooter,
-    DialogDescription
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,133 +10,324 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PlusCircle } from "lucide-react"
-import { addTransaction } from "@/app/actions/transactions"
-import { useFormStatus } from "react-dom"
+import { addCostInvoice } from "@/app/actions/invoices"
+import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
 
-interface Project {
-    id: string
-    name: string
-}
+interface Project { id: string; name: string }
+interface Contractor { id: string; name: string; nip?: string | null }
 
 interface RegisterCostModalProps {
     projects: Project[]
+    contractors: Contractor[]
+    ocrData?: SanitizedOcrDraft
+    lockedProjectId?: string
 }
 
-export function RegisterCostModal({ projects }: RegisterCostModalProps) {
+export function RegisterCostModal({ projects, contractors, ocrData, lockedProjectId }: RegisterCostModalProps) {
     const [open, setOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
 
+    // Form State
+    const [amountNet, setAmountNet] = useState("")
+    const [taxRate, setTaxRate] = useState("0.23")
+    const [amountVat, setAmountVat] = useState("")
+    const [issueDate, setIssueDate] = useState("")
+    const [dueDate, setDueDate] = useState("")
+    const [selectedContractorId, setSelectedContractorId] = useState<string>("")
+    const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || "NONE")
+    const [description, setDescription] = useState("")
+    const [retainedAmount, setRetainedAmount] = useState("")
+    const [retentionReleaseDate, setRetentionReleaseDate] = useState("")
+
+    // New Contractor State
+    const [isNewContractor, setIsNewContractor] = useState(false)
+    const [newContractorName, setNewContractorName] = useState("")
+    const [newContractorNip, setNewContractorNip] = useState("")
+    const [newContractorAddress, setNewContractorAddress] = useState("")
+
+    const lastOcrRef = useRef<SanitizedOcrDraft | undefined>(undefined)
+
+    useEffect(() => {
+        if (lockedProjectId) {
+            setSelectedProjectId(lockedProjectId)
+        }
+    }, [lockedProjectId])
+
+    // --- LOGIKA OCR AUTO-FILL ---
+    useEffect(() => {
+        if (ocrData && ocrData !== lastOcrRef.current) {
+            lastOcrRef.current = ocrData
+
+            setAmountNet((ocrData.netAmountCents / 100).toFixed(2))
+            setTaxRate(ocrData.vatRate || "0.23")
+            setAmountVat((ocrData.vatAmountCents / 100).toFixed(2))
+            if (ocrData.issueDate) setIssueDate(ocrData.issueDate)
+            if (ocrData.dueDate) setDueDate(ocrData.dueDate)
+            if (ocrData.invoiceNumber) setDescription(`Faktura nr ${ocrData.invoiceNumber}`)
+
+            // Szukanie kontrahenta po NIP
+            if (ocrData.nip) {
+                const found = contractors.find(c => c.nip === ocrData.nip)
+                if (found) {
+                    setSelectedContractorId(found.id)
+                    setIsNewContractor(false)
+                } else {
+                    setSelectedContractorId("")
+                    setIsNewContractor(true)
+                    setNewContractorName(ocrData.parsedName || "")
+                    setNewContractorNip(ocrData.nip)
+                    // @ts-ignore - address might not be in the type but could be in ocrData
+                    setNewContractorAddress(ocrData.address || "")
+                }
+            }
+
+            setOpen(true)
+        }
+    }, [ocrData, contractors])
+
+    // --- MATH LOGIC ---
+    useEffect(() => {
+        if (amountNet) {
+            const net = parseFloat(amountNet)
+            const rate = parseFloat(taxRate)
+            const vat = (net * rate).toFixed(2)
+            setAmountVat(vat)
+        }
+    }, [amountNet, taxRate])
+
+    const amountGross = (parseFloat(amountNet || "0") + parseFloat(amountVat || "0")).toFixed(2)
+
+    // --- HANDLERS ---
     async function handleSubmit(formData: FormData) {
         setIsLoading(true)
+        formData.set("amountGross", amountGross)
+        
+        if (isNewContractor) {
+            formData.set("isNewContractor", "true")
+            formData.set("newContractorName", newContractorName)
+            formData.set("newContractorNip", newContractorNip)
+            formData.set("newContractorAddress", newContractorAddress)
+            formData.set("contractorId", "")
+        } else {
+            formData.set("isNewContractor", "false")
+            formData.set("contractorId", selectedContractorId)
+        }
+
+        formData.set("projectId", selectedProjectId)
+        formData.set("retainedAmount", retainedAmount)
+        formData.set("retentionReleaseDate", retentionReleaseDate)
+
         try {
-            const result = await addTransaction(formData)
+            const result = await addCostInvoice(formData)
             if (result.success) {
                 setOpen(false)
+                resetForm()
             }
-        } catch (error: any) {
-            alert(error.message || "Błąd podczas zapisywania kosztu.")
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "Błąd zapisu.")
         } finally {
             setIsLoading(false)
         }
     }
 
+    const resetForm = () => {
+        setAmountNet(""); setAmountVat(""); setSelectedContractorId(""); setDescription("")
+        setIsNewContractor(false); setNewContractorName(""); setNewContractorNip(""); setNewContractorAddress("")
+    }
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button className="bg-orange-600 hover:bg-orange-700 text-white gap-2 shadow-lg shadow-orange-100 transition-all active:scale-95">
-                    <PlusCircle className="h-4 w-4" />
-                    Zarejestruj koszt
+                <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-lg active:scale-95">
+                    <PlusCircle className="h-4 w-4" /> Dodaj Koszt
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px] rounded-2xl border-slate-200">
+            <DialogContent className="sm:max-w-[650px] rounded-2xl max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
                 <DialogHeader>
-                    <DialogTitle className="text-2xl font-bold text-slate-900">Zarejestruj Nowy Koszt</DialogTitle>
-                    <DialogDescription className="text-slate-500">
-                        Wprowadź dane wydatku. Zostanie on przypisany do wybranego projektu i uwzględniony w analityce.
-                    </DialogDescription>
+                    <DialogTitle className="text-2xl font-bold">Dodaj Koszt</DialogTitle>
+                    <DialogDescription>Wpisz dane netto – VAT i brutto wyliczymy za Ciebie.</DialogDescription>
                 </DialogHeader>
-                <form action={handleSubmit} className="space-y-5 mt-4">
-                    <div className="grid gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="amount" className="text-slate-700 font-semibold">Kwota (PLN)</Label>
-                            <Input
-                                id="amount"
-                                name="amount"
-                                type="number"
-                                step="0.01"
-                                placeholder="0.00"
-                                required
-                                className="h-11 border-slate-200 focus:ring-orange-500"
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
+
+                <form action={handleSubmit} className="space-y-5">
+                    <input type="hidden" name="type" value="KOSZT" />
+
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
+                        <div className="grid grid-cols-3 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="date" className="text-slate-700 font-semibold">Data</Label>
-                                <Input
-                                    id="date"
-                                    name="date"
-                                    type="date"
-                                    defaultValue={new Date().toISOString().split('T')[0]}
-                                    required
-                                    className="h-11 border-slate-200"
-                                />
+                                <Label className="text-slate-700 font-semibold text-xs uppercase">Netto</Label>
+                                <Input type="number" step="0.01" name="amountNet" value={amountNet} onChange={(e) => setAmountNet(e.target.value)} required className="h-11 font-mono" />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="category" className="text-slate-700 font-semibold">Kategoria</Label>
-                                <Select name="category" defaultValue="MATERIAŁY">
-                                    <SelectTrigger className="h-11 border-slate-200">
-                                        <SelectValue placeholder="Wybierz kategorię" />
+                                <Label className="text-slate-700 font-semibold text-xs uppercase">VAT %</Label>
+                                <Select name="taxRate" value={taxRate} onValueChange={(v) => setTaxRate(v || "0.23")}>
+                                    <SelectTrigger className="h-11 bg-white"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="0.23">23%</SelectItem>
+                                        <SelectItem value="0.08">8%</SelectItem>
+                                        <SelectItem value="0.00">0%</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-slate-700 font-semibold text-xs uppercase text-slate-400">Kwota VAT</Label>
+                                <Input value={amountVat} readOnly className="h-11 bg-transparent font-mono" />
+                            </div>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-dashed">
+                            <span className="text-sm font-medium text-slate-500 tracking-tight">DO ZAPŁATY (BRUTTO)</span>
+                            <span className="text-2xl font-black text-rose-600 font-mono">{amountGross}</span>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <Label className="font-semibold">Sprzedawca / Dostawca *</Label>
+                                <Button 
+                                    type="button" 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="text-xs text-blue-600 h-7"
+                                    onClick={() => setIsNewContractor(!isNewContractor)}
+                                >
+                                    {isNewContractor ? "Wybierz z listy" : "+ Dodaj nowego"}
+                                </Button>
+                            </div>
+
+                            {!isNewContractor ? (
+                                <Select name="contractorId" value={selectedContractorId} onValueChange={(v) => setSelectedContractorId(v || "")} required={!isNewContractor}>
+                                    <SelectTrigger className="h-12 border-slate-200">
+                                        <SelectValue placeholder="Wybierz firmę ze słownika" />
                                     </SelectTrigger>
                                     <SelectContent>
+                                        {contractors.map((c) => (
+                                            <SelectItem key={c.id} value={c.id}>{c.name} {c.nip ? `(NIP: ${c.nip})` : ""}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <div className="space-y-3 p-4 bg-blue-50/50 border border-blue-100 rounded-xl animate-in fade-in slide-in-from-top-2">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <Label className="text-[10px] uppercase font-bold text-slate-500">Nazwa firmy *</Label>
+                                            <Input 
+                                                placeholder="np. Demetrix Sp. z o.o." 
+                                                value={newContractorName} 
+                                                onChange={(e) => setNewContractorName(e.target.value)}
+                                                className="bg-white"
+                                                required={isNewContractor}
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-[10px] uppercase font-bold text-slate-500">NIP</Label>
+                                            <Input 
+                                                placeholder="10 cyfr" 
+                                                value={newContractorNip} 
+                                                onChange={(e) => setNewContractorNip(e.target.value)}
+                                                className="bg-white font-mono"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-bold text-slate-500">Adres (Ulica, Kod, Miasto)</Label>
+                                        <Input 
+                                            placeholder="ul. Słoneczna 1, 00-001 Warszawa" 
+                                            value={newContractorAddress} 
+                                            onChange={(e) => setNewContractorAddress(e.target.value)}
+                                            className="bg-white"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2"><Label>Data Faktury</Label><Input type="date" name="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} required /></div>
+                            <div className="space-y-2"><Label>Termin Płatności</Label><Input type="date" name="dueDate" value={dueDate} onChange={(e) => setDueDate(e.target.value)} required /></div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Projekt</Label>
+                                <Select 
+                                    name="projectId" 
+                                    value={selectedProjectId} 
+                                    onValueChange={(v) => setSelectedProjectId(v || "NONE")}
+                                    disabled={!!lockedProjectId}
+                                >
+                                    <SelectTrigger className={`h-12 ${lockedProjectId ? 'bg-slate-50 border-slate-200 text-slate-500' : ''}`}>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="NONE">Brak</SelectItem>
+                                        {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Kategoria</Label>
+                                <Select name="category" defaultValue="MATERIAŁY">
+                                    <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
                                         <SelectItem value="MATERIAŁY">Materiały</SelectItem>
-                                        <SelectItem value="ROBOCIZNA">Robocizna</SelectItem>
-                                        <SelectItem value="SPRZĘT">Sprzęt</SelectItem>
+                                        <SelectItem value="ROBOCIZNA">Usługi obce</SelectItem>
                                         <SelectItem value="PALIWO">Paliwo</SelectItem>
-                                        <SelectItem value="BIURO">Biuro</SelectItem>
-                                        <SelectItem value="INNE">Inne</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                         </div>
+
                         <div className="space-y-2">
-                            <Label htmlFor="projectId" className="text-slate-700 font-semibold">Projekt (Opcjonalnie)</Label>
-                            <Select name="projectId" defaultValue="NONE">
-                                <SelectTrigger className="h-11 border-slate-200">
-                                    <SelectValue placeholder="Wybierz projekt" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="NONE">Brak przypisania</SelectItem>
-                                    {projects.map((p) => (
-                                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Label>Opis / Nr Faktury</Label>
+                            <Textarea name="description" value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-[60px]" />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="description" className="text-slate-700 font-semibold">Opis (Opcjonalnie)</Label>
-                            <Textarea
-                                id="description"
-                                name="description"
-                                placeholder="Np. Faktura za beton B25..."
-                                className="min-h-[80px] border-slate-200"
-                            />
+
+                        {/* Kaucja Gwarancyjna section */}
+                        <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl space-y-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 bg-indigo-500 rounded-full" />
+                                <Label className="text-indigo-900 font-bold text-xs uppercase tracking-wider">Kaucja Gwarancyjna (Opcjonalnie)</Label>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="retainedAmount" className="text-[10px] text-indigo-700 font-bold">KWOTA KAUCJI (PLN)</Label>
+                                    <Input
+                                        id="retainedAmount"
+                                        name="retainedAmount"
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="0.00"
+                                        value={retainedAmount}
+                                        onChange={(e) => setRetainedAmount(e.target.value)}
+                                        className="h-9 border-indigo-200 focus:ring-indigo-500 bg-white/50 text-sm font-mono"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="retentionReleaseDate" className="text-[10px] text-indigo-700 font-bold">TERMIN ZWROTU</Label>
+                                    <Input
+                                        id="retentionReleaseDate"
+                                        name="retentionReleaseDate"
+                                        type="date"
+                                        value={retentionReleaseDate}
+                                        onChange={(e) => setRetentionReleaseDate(e.target.value)}
+                                        className="h-9 border-indigo-200 focus:ring-indigo-500 bg-white/50 text-sm"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-2">
+                            <input type="checkbox" id="isPaidImmediately" name="isPaidImmediately" value="true" className="w-5 h-5 text-orange-500 rounded border-slate-300 focus:ring-orange-500 cursor-pointer" />
+                            <Label htmlFor="isPaidImmediately" className="text-sm font-bold text-slate-800 cursor-pointer">
+                                Opłacono natychmiast (Dodaje Cash Flow)
+                            </Label>
                         </div>
                     </div>
-                    <DialogFooter className="pt-4 border-t border-slate-100 flex gap-3">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setOpen(false)}
-                            className="flex-1 h-11"
-                        >
-                            Anuluj
-                        </Button>
-                        <Button
-                            type="submit"
-                            disabled={isLoading}
-                            className="flex-1 h-11 bg-slate-900 hover:bg-slate-800 text-white"
-                        >
-                            {isLoading ? "Zapisywanie..." : "Dodaj Koszt"}
+
+                    <DialogFooter className="gap-2 pt-2">
+                        <Button type="button" variant="ghost" onClick={() => setOpen(false)} className="flex-1">Anuluj</Button>
+                        <Button type="submit" disabled={isLoading || (!selectedContractorId && !isNewContractor)} className="flex-1 bg-slate-900 text-white">
+                            {isLoading ? "Przetwarzanie..." : "Księguj Fakturę"}
                         </Button>
                     </DialogFooter>
                 </form>

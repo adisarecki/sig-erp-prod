@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Trash2, AlertTriangle, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { resetOperationalData } from "@/app/actions/admin"
+import { fullResetTenantData } from "@/app/actions/admin"
 
 export default function SettingsPage() {
     const [isPending, setIsPending] = useState(false)
@@ -18,7 +18,7 @@ export default function SettingsPage() {
 
         setIsPending(true)
         try {
-            await resetOperationalData()
+            await fullResetTenantData()
             setIsDone(true)
             setTimeout(() => setIsDone(false), 5000)
         } catch (error) {

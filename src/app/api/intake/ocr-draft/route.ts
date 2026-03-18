@@ -1,0 +1,80 @@
+import { NextRequest, NextResponse } from "next/server"
+import Decimal from "decimal.js"
+import { ocrDraftSchema, type SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
+
+const SYSTEM_TENANT_ID = "default-tenant"
+
+export async function POST(request: NextRequest) {
+    let body: any
+    try {
+        body = await request.json()
+
+        // --- ZAAWANSOWANA LOGIKA "ZAPŁACONO" I CZYSZCZENIE DAT ---
+        const rawDueDate = String(body.dueDate || "").trim().toLowerCase();
+        const isStandardDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDueDate);
+
+        if (!isStandardDate) {
+            // TUTAJ JEST ROZWIĄZANIE! Zod nienawidzi "null". 
+            // Skoro to nie jest poprawna data (bo jest pusto albo jest napisane "Zapłacono"),
+            // od razu zasilamy to pole datą wystawienia faktury.
+            body.dueDate = body.issueDate || "";
+        }
+
+        // Zabezpieczenie innych pól przed byciem "null" dla spokoju Zoda
+        if (!body.invoiceNumber) body.invoiceNumber = "";
+        if (!body.nip) body.nip = "";
+
+    } catch {
+        return NextResponse.json({ error: "Nieprawidłowy format JSON." }, { status: 400 })
+    }
+
+    const validation = ocrDraftSchema.safeParse(body)
+
+    if (!validation.success) {
+        return NextResponse.json({
+            error: "Błąd walidacji pól.",
+            details: validation.error.issues.map(issue => ({
+                field: issue.path.join("."),
+                message: issue.message,
+            })),
+        }, { status: 422 })
+    }
+
+    const data = validation.data
+    let netAmountCents: number, grossAmountCents: number, vatAmountCents: number
+
+    try {
+        netAmountCents = new Decimal(data.netAmount).times(100).toDecimalPlaces(0).toNumber()
+        grossAmountCents = new Decimal(data.grossAmount).times(100).toDecimalPlaces(0).toNumber()
+        vatAmountCents = new Decimal(data.vatAmount).times(100).toDecimalPlaces(0).toNumber()
+
+        const expectedGrossCents = netAmountCents + vatAmountCents
+        const diff = Math.abs(expectedGrossCents - grossAmountCents)
+
+        if (diff > 1) {
+            return NextResponse.json({
+                error: "Niespójność finansowa na dokumencie.",
+                details: [{ field: "grossAmount", message: `Obliczone Brutto (${expectedGrossCents / 100}) różni się od wpisanego (${grossAmountCents / 100})` }],
+            }, { status: 422 })
+        }
+    } catch (err) {
+        return NextResponse.json({ error: "Błąd obliczeń groszy." }, { status: 422 })
+    }
+
+    const sanitized: SanitizedOcrDraft = {
+        nip: data.nip,
+        parsedName: data.parsedName,
+        issueDate: data.issueDate,
+        dueDate: data.dueDate || data.issueDate,
+        netAmountCents,
+        grossAmountCents,
+        vatAmountCents,
+        invoiceNumber: data.invoiceNumber ?? null,
+        type: data.type,
+        vatRate: data.vatRate ?? "0.23",
+        ocrConfidence: data.ocrConfidence ?? null,
+        tenantId: SYSTEM_TENANT_ID,
+    }
+
+    return NextResponse.json({ status: "validated", draft: sanitized }, { status: 200 })
+}

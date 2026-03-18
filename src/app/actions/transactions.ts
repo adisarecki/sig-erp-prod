@@ -1,42 +1,37 @@
-"use server"
-
-import { PrismaClient } from "@prisma/client"
 import { revalidatePath } from "next/cache"
-
-const prisma = new PrismaClient()
-
-async function getCurrentTenantId() {
-    const tenant = await prisma.tenant.findFirst()
-    if (!tenant) throw new Error("Brak ustawionego środowiska (Dzierżawy).")
-    return tenant.id
-}
+import { getCurrentTenantId } from "@/lib/tenant"
+import { adminDb } from "@/lib/firebase/admin"
 
 export async function addTransaction(formData: FormData) {
     const amountStr = formData.get("amount") as string
     const dateStr = formData.get("date") as string
     const category = formData.get("category") as string
-    const projectId = formData.get("projectId") as string
+    const rawProjectId = formData.get("projectId") as string
     const description = formData.get("description") as string
-    const type = formData.get("type") as string || "KOSZT" // Domyślnie KOSZT
+    const type = formData.get("type") as string || "KOSZT"
+    const source = formData.get("source") as string || "MANUAL"
 
     if (!amountStr || !dateStr || !category) {
         throw new Error("Pola Kwota, Data i Kategoria są wymagane.")
     }
 
     const tenantId = await getCurrentTenantId()
-    const amount = parseFloat(amountStr)
+    const amount = Number(amountStr)
     const transactionDate = new Date(dateStr)
+    
+    const projectId = (!rawProjectId || rawProjectId === "NONE") ? null : rawProjectId;
 
-    await prisma.transaction.create({
-        data: {
-            tenantId,
-            projectId: projectId || null,
-            amount: amount,
-            type,
-            transactionDate,
-            category,
-            description: description || null,
-        }
+    await adminDb.collection("transactions").add({
+        tenantId,
+        projectId,
+        amount,
+        type,
+        transactionDate: transactionDate.toISOString(),
+        category,
+        status: "ACTIVE",
+        source,
+        description: description || null,
+        createdAt: new Date().toISOString()
     })
 
     revalidatePath("/")

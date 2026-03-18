@@ -14,6 +14,8 @@ export const metadata: Metadata = {
   description: "Zarządzanie finansami, płatnościami i CRM pod klucz.",
 };
 
+import { Gatekeeper } from "@/components/auth/Gatekeeper";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -22,15 +24,17 @@ export default function RootLayout({
   return (
     <html lang="pl" className={cn("font-sans", geist.variable)}>
       <body className={inter.className}>
-        <div className="flex min-h-screen bg-slate-50">
-          <Sidebar />
-          <div className="flex-1 flex flex-col">
-            <Navbar />
-            <main className="flex-1 p-6 overflow-auto">
-              {children}
-            </main>
+        <Gatekeeper>
+          <div className="flex min-h-screen bg-slate-50">
+            <Sidebar />
+            <div className="flex-1 flex flex-col">
+              <Navbar />
+              <main className="flex-1 p-6 overflow-auto">
+                {children}
+              </main>
+            </div>
           </div>
-        </div>
+        </Gatekeeper>
       </body>
     </html>
   );

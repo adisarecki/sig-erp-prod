@@ -20,7 +20,7 @@ export function AddContractorModal() {
         setIsPending(true)
         try {
             await addContractor(formData)
-            setOpen(false) // Zamknij modal po sukcesie
+            setOpen(false)
         } catch (error) {
             console.error(error)
             alert("Wystąpił błąd przy dodawaniu kontrahenta.")
@@ -33,62 +33,66 @@ export function AddContractorModal() {
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
-                    Dodaj Kontrahenta
+                    Dodaj Firmę
                 </button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Nowy Kontrahent</DialogTitle>
+                    <DialogTitle>Nowy Partner Biznesowy</DialogTitle>
                     <DialogDescription>
-                        Dodaj nową firmę do bazy wiedzy. Możesz powiązać z nią przyszłe projekty sprzedażowe i instalacyjne.
+                        Dodaj nową firmę do bazy. Będziesz mógł ją przypisać do projektów i faktur.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form action={handleSubmit} className="space-y-4 mt-2">
                     <div>
-                        <label className="text-sm font-medium text-slate-700 block mb-1">Nazwa firmy *</label>
+                        <label className="text-sm font-semibold text-slate-700 block mb-1">Nazwa firmy *</label>
                         <input
                             name="name"
                             required
                             className="w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="np. Budimex S.A."
+                            placeholder="np. Demetrix"
                         />
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-slate-700 block mb-1">NIP (Opcjonalnie)</label>
+                        <label className="text-sm font-semibold text-slate-700 block mb-1">NIP (10 cyfr)</label>
                         <input
                             name="nip"
+                            maxLength={10}
                             className="w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="0000000000"
+                            placeholder="5260001222"
                         />
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-slate-700 block mb-1">Adres</label>
+                        <label className="text-sm font-semibold text-slate-700 block mb-1">Adres siedziby</label>
                         <input
                             name="address"
                             className="w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="ul. Długa 1, Warszawa"
+                            placeholder="ul. Słoneczna 1, Siemianowice"
                         />
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-slate-700 block mb-1">Status Relacji</label>
+                        <label className="text-sm font-semibold text-slate-700 block mb-1">Status Współpracy</label>
                         <select
                             name="status"
                             className="w-full border border-slate-300 rounded-md px-3 py-2 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            <option value="ACTIVE">Aktywny (Standard)</option>
-                            <option value="IN_REVIEW">Wycena / W sprawdzaniu (IN_REVIEW)</option>
-                            <option value="INACTIVE">Zablokowany / Nieaktywny</option>
+                            <option value="ACTIVE">Aktywny (Widoczny na listach)</option>
+                            <option value="IN_REVIEW">Weryfikacja / Oferta w toku</option>
+                            <option value="INACTIVE">Zablokowany / Archiwalny</option>
                         </select>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                            Status "Zablokowany" ukryje firmę przy wystawianiu faktur.
+                        </p>
                     </div>
 
-                    <DialogFooter>
+                    <DialogFooter className="pt-2">
                         <button
                             type="submit"
                             disabled={isPending}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition disabled:opacity-50"
+                            className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition disabled:opacity-50 font-medium"
                         >
-                            {isPending ? "Zapisywanie..." : "Zapisz Firmę"}
+                            {isPending ? "Zapisywanie..." : "Zapisz Firmę w Bazie"}
                         </button>
                     </DialogFooter>
                 </form>

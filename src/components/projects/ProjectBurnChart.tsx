@@ -14,7 +14,7 @@ import {
 } from "recharts"
 
 interface ProjectBurnChartProps {
-    transactions: any[]
+    transactions: { type: string, amount: number | string | { toNumber: () => number }, transactionDate: string | Date }[]
     budgetEstimated: number
 }
 
@@ -34,7 +34,8 @@ export function ProjectBurnChart({ transactions, budgetEstimated }: ProjectBurnC
     const [isMounted, setIsMounted] = useState(false)
 
     useEffect(() => {
-        setIsMounted(true)
+        const frame = requestAnimationFrame(() => setIsMounted(true))
+        return () => cancelAnimationFrame(frame)
     }, [])
     // 1. Wyciągnięcie tylko transakcji z typu COST/WYDATEK
     const costTransactions = transactions
@@ -49,14 +50,15 @@ export function ProjectBurnChart({ transactions, budgetEstimated }: ProjectBurnC
         )
     }
 
-    // 2. Budowa tabeli narastającej
-    let cumulativeCost = 0
-    const chartData = costTransactions.map((t) => {
-        cumulativeCost += Number(t.amount)
-        return {
-            date: t.transactionDate,
-            Koszt: cumulativeCost,
-        }
+    // 2. Budowa tabeli narastającej (Unikamy mutacji wewnątrz map)
+    const chartData: { date: string, Koszt: number }[] = []
+    let currentCumulative = 0
+    costTransactions.forEach((t) => {
+        currentCumulative += Number(t.amount)
+        chartData.push({
+            date: typeof t.transactionDate === 'string' ? t.transactionDate : (t.transactionDate as Date).toISOString(),
+            Koszt: currentCumulative,
+        })
     })
 
     // Dla lepszego efektu wizualnego dodajemy punkt startowy (jeśli nie ma z pierwszego dnia miesiąca)
@@ -71,8 +73,7 @@ export function ProjectBurnChart({ transactions, budgetEstimated }: ProjectBurnC
     }
 
     // 3. Sprawdzenie, czy projekt przekracza np. 85% budżetu
-    const currentTotalCost = cumulativeCost
-    const isDanger = budgetEstimated > 0 && currentTotalCost > budgetEstimated * 0.85
+    const isDanger = budgetEstimated > 0 && currentCumulative > budgetEstimated * 0.85
 
     if (!isMounted) {
         return <div className="w-full h-[320px] bg-slate-50/50 animate-pulse rounded-xl border border-slate-100" />
@@ -99,9 +100,9 @@ export function ProjectBurnChart({ transactions, budgetEstimated }: ProjectBurnC
                         tickLine={false}
                     />
                     <Tooltip
-                        labelFormatter={(label: any) => `Data: ${formatDate(label as string)}`}
-                        formatter={(value: any) => [
-                            `${new Intl.NumberFormat("pl-PL").format(value)} zł`,
+                        labelFormatter={(label: unknown) => `Data: ${formatDate(label as string)}`}
+                        formatter={(value: unknown) => [
+                            `${new Intl.NumberFormat("pl-PL").format(Number(value))} zł`,
                             "Całkowite koszty wyniosły"
                         ]}
                         contentStyle={{

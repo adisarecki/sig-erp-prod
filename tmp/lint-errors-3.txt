@@ -1,0 +1,16 @@
+
+Oops! Something went wrong! :(
+
+ESLint: 9.39.4
+
+TypeError: Plugin "" not found.
+    at findPluginConfig (C:\Users\adisa\Sig\node_modules\@eslint\config-helpers\dist\cjs\index.cjs:259:9)
+    at C:\Users\adisa\Sig\node_modules\@eslint\config-helpers\dist\cjs\index.cjs:430:25
+    at Array.map (<anonymous>)
+    at processExtends (C:\Users\adisa\Sig\node_modules\@eslint\config-helpers\dist\cjs\index.cjs:428:36)
+    at C:\Users\adisa\Sig\node_modules\@eslint\config-helpers\dist\cjs\index.cjs:504:38
+    at Array.flatMap (<anonymous>)
+    at processConfigList (C:\Users\adisa\Sig\node_modules\@eslint\config-helpers\dist\cjs\index.cjs:504:20)
+    at defineConfig (C:\Users\adisa\Sig\node_modules\@eslint\config-helpers\dist\cjs\index.cjs:540:9)
+    at file:///C:/Users/adisa/Sig/eslint.config.mjs?mtime=1773587762839:5:22
+    at ModuleJob.run (node:internal/modules/esm/module_job:413:25)

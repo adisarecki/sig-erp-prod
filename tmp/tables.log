@@ -1,0 +1,50 @@
+Tabele w bazie: [
+  {
+    "table_name": "Role"
+  },
+  {
+    "table_name": "Contractor"
+  },
+  {
+    "table_name": "Object"
+  },
+  {
+    "table_name": "Contact"
+  },
+  {
+    "table_name": "Project"
+  },
+  {
+    "table_name": "ProjectStage"
+  },
+  {
+    "table_name": "Invoice"
+  },
+  {
+    "table_name": "Payment"
+  },
+  {
+    "table_name": "Tenant"
+  },
+  {
+    "table_name": "Liability"
+  },
+  {
+    "table_name": "BankAccount"
+  },
+  {
+    "table_name": "BankTransactionRaw"
+  },
+  {
+    "table_name": "Transaction"
+  },
+  {
+    "table_name": "AuditLog"
+  },
+  {
+    "table_name": "ProcessedEvent"
+  },
+  {
+    "table_name": "User"
+  }
+]

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, Users, Briefcase, DollarSign, Settings } from "lucide-react";
+import { LayoutDashboard, Building2, Briefcase, DollarSign, Settings } from "lucide-react";
 
 export function Sidebar() {
     return (
@@ -13,8 +13,8 @@ export function Sidebar() {
                     <span>Dashboard</span>
                 </Link>
                 <Link href="/crm" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800 transition-colors">
-                    <Users className="w-5 h-5" />
-                    <span>CRM</span>
+                    <Building2 className="w-5 h-5" />
+                    <span>Kontrahenci</span>
                 </Link>
                 <Link href="/projects" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800 transition-colors">
                     <Briefcase className="w-5 h-5" />

@@ -44,7 +44,7 @@ export function AddProjectModal({ contractors }: AddProjectModalProps) {
                 <DialogHeader>
                     <DialogTitle>Utwórz Nowy Projekt Inżynieryjny</DialogTitle>
                     <DialogDescription>
-                        Dodaj projekt do systemu, przypisz mu głównego inwestora z CRM oraz określ początkowy szacowany budżet.
+                        Dodaj projekt do systemu, przypisz mu głównego inwestora z bazy firm oraz określ początkowy szacowany budżet.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -65,7 +65,7 @@ export function AddProjectModal({ contractors }: AddProjectModalProps) {
                             required
                             className="w-full border border-slate-300 rounded-md px-3 py-2 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            <option value="" disabled selected>-- Wybierz firmę z bazy CRM --</option>
+                            <option value="" disabled selected>-- Wybierz firmę z bazy --</option>
                             {contractors.map(c => (
                                 <option key={c.id} value={c.id}>{c.name}</option>
                             ))}

@@ -1,0 +1,26 @@
+[RESET] Rozpoczynam BRUTALNE czyszczenie danych dla tenanta: bb5e0e73-2c99-4389-ac93-6d0f71c89f88...
+- Wykonuję: DELETE FROM "InvoicePayment" WHERE "invoiceId" IN (SELECT id FROM "Invoice" WHERE "tenantId" = 'bb5e0e73-2c99-4389-ac93-6d0f71c89f88')
+  POMINIĘTO: Tabela "InvoicePayment" nie istnieje lub błąd: 
+- Wykonuję: DELETE FROM "Payment" WHERE "invoiceId" IN (SELECT id FROM "Invoice" WHERE "tenantId" = 'bb5e0e73-2c99-4389-ac93-6d0f71c89f88')
+  Sukces, usunięto rekordów: 0
+- Wykonuję: DELETE FROM "Invoice" WHERE "tenantId" = 'bb5e0e73-2c99-4389-ac93-6d0f71c89f88'
+  Sukces, usunięto rekordów: 0
+- Wykonuję: DELETE FROM "Transaction" WHERE "tenantId" = 'bb5e0e73-2c99-4389-ac93-6d0f71c89f88'
+  Sukces, usunięto rekordów: 0
+- Wykonuję: DELETE FROM "ProjectStage" WHERE "projectId" IN (SELECT id FROM "Project" WHERE "tenantId" = 'bb5e0e73-2c99-4389-ac93-6d0f71c89f88')
+  Sukces, usunięto rekordów: 0
+- Wykonuję: DELETE FROM "Project" WHERE "tenantId" = 'bb5e0e73-2c99-4389-ac93-6d0f71c89f88'
+  Sukces, usunięto rekordów: 1
+- Wykonuję: DELETE FROM "Contact" WHERE "contractorId" IN (SELECT id FROM "Contractor" WHERE "tenantId" = 'bb5e0e73-2c99-4389-ac93-6d0f71c89f88')
+  Sukces, usunięto rekordów: 0
+- Wykonuję: DELETE FROM "Object" WHERE "contractorId" IN (SELECT id FROM "Contractor" WHERE "tenantId" = 'bb5e0e73-2c99-4389-ac93-6d0f71c89f88')
+  Sukces, usunięto rekordów: 1
+- Wykonuję: DELETE FROM "Contractor" WHERE "tenantId" = 'bb5e0e73-2c99-4389-ac93-6d0f71c89f88'
+  Sukces, usunięto rekordów: 173
+- Wykonuję: DELETE FROM "Liability" WHERE "tenantId" = 'bb5e0e73-2c99-4389-ac93-6d0f71c89f88'
+  Sukces, usunięto rekordów: 0
+- Wykonuję: DELETE FROM "BankTransactionRaw" WHERE "tenantId" = 'bb5e0e73-2c99-4389-ac93-6d0f71c89f88'
+  Sukces, usunięto rekordów: 0
+- Wykonuję: DELETE FROM "AuditLog" WHERE "tenantId" = 'bb5e0e73-2c99-4389-ac93-6d0f71c89f88'
+  Sukces, usunięto rekordów: 0
+[RESET] Sukces! Baza danych została wyczyszczona dla Twojego tenanta.

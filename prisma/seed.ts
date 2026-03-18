@@ -9,7 +9,7 @@ async function main() {
     await prisma.auditLog.deleteMany()
     await prisma.bankTransactionRaw.deleteMany()
     await prisma.bankAccount.deleteMany()
-    await prisma.payment.deleteMany()
+    await prisma.invoicePayment.deleteMany()
     await prisma.transaction.deleteMany()
     await prisma.invoice.deleteMany()
     await prisma.projectStage.deleteMany()
@@ -143,8 +143,8 @@ async function main() {
             taxRate: 0.23,
             issueDate: new Date('2026-03-01'),
             dueDate: new Date('2026-03-15'),
-            status: 'PARTIALLY_PAID', // Oczekiwana modyfikacja z zadania
-            scanUrl: 'https://storage.nasza-firma.pl/faktury/fv-01-2026.pdf',
+            externalId: 'FV-001/2026',
+            scanUrl: 'https://storage.nasNasza-firma.pl/faktury/fv-01-2026.pdf',
         }
     })
 
@@ -157,11 +157,13 @@ async function main() {
             type: 'PRZYCHÓD',
             transactionDate: new Date('2026-03-05'),
             category: 'Zaliczka',
+            status: 'ACTIVE',
+            source: 'MANUAL'
         }
     })
 
-    // Powiązanie tej transakcji z Fakturą poprzez tabelę relacyjną "Payment"
-    await prisma.payment.create({
+    // Powiązanie tej transakcji z Fakturą poprzez nową tabelę relacyjną "InvoicePayment"
+    await prisma.invoicePayment.create({
         data: {
             invoiceId: invoice1.id,
             transactionId: zaliczka.id,
@@ -169,16 +171,18 @@ async function main() {
         }
     })
 
-    // Koszty Materiałowe do projektu Elektrycznego (Wydatki)
-    await prisma.transaction.create({
+    const kosztelekInv = await prisma.invoice.create({
         data: {
             tenantId: tenant.id,
+            contractorId: contractor1.id,
             projectId: projectElec.id,
-            amount: 45000.00,
             type: 'KOSZT',
-            transactionDate: new Date('2026-03-02'),
-            category: 'Materiały (Kable, Koryta)',
-            scanUrl: 'https://storage.nasza-firma.pl/skany/hurtownia-1.jpg',
+            amountNet: 45000.00,
+            amountGross: 55350.00,
+            taxRate: 0.23,
+            issueDate: new Date('2026-03-02'),
+            dueDate: new Date('2026-03-09'),
+            externalId: 'FV-002/2026',
         }
     })
 
@@ -186,10 +190,41 @@ async function main() {
         data: {
             tenantId: tenant.id,
             projectId: projectElec.id,
-            amount: 15000.00,
+            amount: 55350.00,
+            type: 'KOSZT',
+            transactionDate: new Date('2026-03-02'),
+            category: 'Materiały (Kable, Koryta)',
+            status: 'ACTIVE',
+            source: 'MANUAL',
+            scanUrl: 'https://storage.nasza-firma.pl/skany/hurtownia-1.jpg',
+        }
+    })
+
+    const kosztRobocInv = await prisma.invoice.create({
+        data: {
+            tenantId: tenant.id,
+            contractorId: contractor1.id,
+            projectId: projectElec.id,
+            type: 'KOSZT',
+            amountNet: 15000.00,
+            amountGross: 18450.00,
+            taxRate: 0.23,
+            issueDate: new Date('2026-03-08'),
+            dueDate: new Date('2026-03-15'),
+            externalId: 'FV-003/2026',
+        }
+    })
+
+    await prisma.transaction.create({
+        data: {
+            tenantId: tenant.id,
+            projectId: projectElec.id,
+            amount: 18450.00,
             type: 'KOSZT',
             transactionDate: new Date('2026-03-08'),
             category: 'Robocizna Podwykonawcy',
+            status: 'ACTIVE',
+            source: 'MANUAL'
         }
     })
 
