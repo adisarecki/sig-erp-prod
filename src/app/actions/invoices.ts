@@ -13,7 +13,7 @@ export async function addIncomeInvoice(formData: FormData) {
     const amountGrossStr = formData.get("amountGross") as string
     const dateStr = formData.get("date") as string
     const dueDateStr = formData.get("dueDate") as string
-    
+
     const category = formData.get("category") as string
     const projectId = formData.get("projectId") as string
     const contractorId = formData.get("contractorId") as string
@@ -31,12 +31,12 @@ export async function addIncomeInvoice(formData: FormData) {
     const amountNet = new Decimal(amountNetStr)
     const taxRate = new Decimal(taxRateStr)
     const amountGross = new Decimal(amountGrossStr)
-    
+
     const issueDate = new Date(dateStr)
     const dueDate = new Date(dueDateStr)
 
     const isPaidImmediately = formData.get("isPaidImmediately") === "true"
-    
+
     // retention
     const retainedAmountStr = formData.get("retainedAmount") as string
     const retentionReleaseDateStr = formData.get("retentionReleaseDate") as string
@@ -114,7 +114,7 @@ export async function addCostInvoice(formData: FormData) {
     const amountGrossStr = formData.get("amountGross") as string
     const dateStr = formData.get("date") as string
     const dueDateStr = formData.get("dueDate") as string
-    
+
     const category = formData.get("category") as string
     const projectId = formData.get("projectId") as string
     const contractorId = formData.get("contractorId") as string
@@ -146,10 +146,10 @@ export async function addCostInvoice(formData: FormData) {
     const amountNet = new Decimal(amountNetStr)
     const taxRate = new Decimal(taxRateStr)
     const amountGross = new Decimal(amountGrossStr)
-    
+
     const issueDate = new Date(dateStr)
     const dueDate = new Date(dueDateStr)
-    
+
     const finalProjectId = (!projectId || projectId === "NONE") ? "" : projectId;
 
     if (!finalProjectId) {
@@ -195,7 +195,7 @@ export async function addCostInvoice(formData: FormData) {
                 createdAt: new Date().toISOString()
             })
             finalContractorId = contractorRef.id
-            
+
             // Opcjonalnie stwórz domyślny obiekt
             const objectRef = adminDb.collection("objects").doc()
             transaction.set(objectRef, {
@@ -261,16 +261,16 @@ export async function markInvoiceAsPaid(invoiceId: string, paymentDateStr: strin
     await adminDb.runTransaction(async (transaction) => {
         const invoiceRef = adminDb.collection("invoices").doc(invoiceId)
         const invDoc = await transaction.get(invoiceRef)
-        
+
         if (!invDoc.exists) throw new Error("Faktura nie istnieje.")
         const inv = invDoc.data()!
         if (inv.tenantId !== tenantId) throw new Error("Brak dostępu do tej faktury.")
         if (inv.status === "PAID") return // Idempotentność
 
         // 1. Aktualizuj status faktury
-        transaction.update(invoiceRef, { 
-            status: "PAID", 
-            updatedAt: new Date().toISOString() 
+        transaction.update(invoiceRef, {
+            status: "PAID",
+            updatedAt: new Date().toISOString()
         })
 
         // 2. Stwórz transakcję (Zasilenie Dashboardu)
