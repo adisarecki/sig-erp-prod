@@ -1,8 +1,12 @@
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server"
-import { getAdminDb } from "@/lib/firebaseAdmin"
+import { initFirebaseAdmin, getAdminDb } from "@/lib/firebaseAdmin"
 import Decimal from "decimal.js"
 import { getCurrentTenantId } from "@/lib/tenant"
+
+// Inicjalizacja Firebase Admin natychmiast po imporcie, 
+// aby uniknąć błędów 'app does not exist' podczas statycznego zbierania danych.
+initFirebaseAdmin();
 
 /**
  * Zmodernizowany Import Wyciągów Bankowych (Firestore NoSQL Edition) 🚀
@@ -56,7 +60,7 @@ export async function POST(request: NextRequest) {
                 if (!matchingInvoiceQuery.empty) {
                     const invDoc = matchingInvoiceQuery.docs[0]
                     const inv = invDoc.data()
-                    
+
                     await adminDb.runTransaction(async (transaction) => {
                         // Rozliczamy fakturę
                         transaction.update(invDoc.ref, {
@@ -103,8 +107,8 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        return NextResponse.json({ 
-            success: true, 
+        return NextResponse.json({
+            success: true,
             message: "Import zakończony (Firestore)",
             report: results
         })

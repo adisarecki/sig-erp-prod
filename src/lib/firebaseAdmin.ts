@@ -1,58 +1,66 @@
-import * as admin from "firebase-admin";
+import { initializeApp, getApps, cert, ServiceAccount } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
+import { getStorage } from "firebase-admin/storage";
 
 /**
- * Zintegrowany Singleton Firebase Admin (Fort Knox Initialization) 🛡️
- * Rozwiązuje błędy 'The default Firebase app does not exist' i 'Collecting page data' na Vercelu.
+ * Senior-Grade Firebase Admin Singleton 🛡️
+ * Resolves Vercel build-time errors and 'default app top-level' issues.
  */
-export function getFirebaseAdmin() {
-  if (admin.apps.length === 0) {
+export function initFirebaseAdmin() {
+  if (getApps().length === 0) {
+    const projectId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 
-    if (!serviceAccountJson) {
+    let credential = null;
+
+    if (projectId && clientEmail && privateKey) {
+      credential = cert({
+        projectId,
+        clientEmail,
+        privateKey: privateKey.replace(/\\n/g, "\n"),
+      } as ServiceAccount);
+    } else if (serviceAccountJson) {
+      try {
+        const sa = JSON.parse(serviceAccountJson);
+        if (sa.private_key) sa.private_key = sa.private_key.replace(/\\n/g, "\n");
+        credential = cert(sa);
+      } catch (e) {
+        console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON", e);
+      }
+    }
+
+    if (!credential) {
       if (process.env.NODE_ENV === "production") {
-        console.warn("FIREBASE_SERVICE_ACCOUNT_JSON is missing! Firebase Admin will fail at runtime.");
+        throw new Error("Missing Firebase Admin credentials (PROJECT_ID/EMAIL/KEY or JSON).");
       }
       return null;
     }
 
-    try {
-      const serviceAccount = JSON.parse(serviceAccountJson);
-
-      // Naprawa klucza prywatnego (obsługa znaków nowej linii \n)
-      if (serviceAccount.private_key) {
-        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
-      }
-
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      });
-      console.log("[FIREBASE] Aplikacja zainicjalizowana pomyślnie.");
-    } catch (error) {
-      console.error("Firebase admin initialization error:", error);
-      throw new Error("Failed to initialize Firebase Admin. Check FIREBASE_SERVICE_ACCOUNT_JSON.");
-    }
+    initializeApp({
+      credential,
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    });
+    console.log("[FIREBASE] Admin SDK Initialized Successfully.");
   }
-  return admin.app();
 }
 
 /**
- * Akceleratory (Safe Getters) dla usług Firebase
+ * Safe Getters - Calling getFirestore() etc. only after init
  */
 export const getAdminDb = () => {
-  const app = getFirebaseAdmin();
-  if (!app) throw new Error("Firebase Admin not initialized - missing FIREBASE_SERVICE_ACCOUNT_JSON");
-  return app.firestore();
+  initFirebaseAdmin();
+  return getFirestore();
 };
 
 export const getAdminAuth = () => {
-  const app = getFirebaseAdmin();
-  if (!app) throw new Error("Firebase Admin not initialized - missing FIREBASE_SERVICE_ACCOUNT_JSON");
-  return app.auth();
+  initFirebaseAdmin();
+  return getAuth();
 };
 
 export const getAdminStorage = () => {
-  const app = getFirebaseAdmin();
-  if (!app) throw new Error("Firebase Admin not initialized - missing FIREBASE_SERVICE_ACCOUNT_JSON");
-  return app.storage();
+  initFirebaseAdmin();
+  return getStorage();
 };

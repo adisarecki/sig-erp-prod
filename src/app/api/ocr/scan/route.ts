@@ -1,6 +1,10 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
+import { initFirebaseAdmin } from "@/lib/firebaseAdmin";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+
+// Inicjalizacja dla OCR
+initFirebaseAdmin();
 
 export const runtime = "nodejs";
 

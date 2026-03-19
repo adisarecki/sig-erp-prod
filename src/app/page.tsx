@@ -9,9 +9,12 @@ import { LeakageAlerts } from '@/components/finance/LeakageAlerts'
 import { Button } from "@/components/ui/button"
 import { ConfirmPaymentButton } from "@/components/finance/ConfirmPaymentButton"
 import { CashFlowChart } from "@/components/finance/CashFlowChart"
-import { getAdminDb } from "@/lib/firebaseAdmin"
+import { getAdminDb, initFirebaseAdmin } from "@/lib/firebaseAdmin"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { TimeFilterTabs } from "@/components/finance/TimeFilterTabs"
+
+// Inicjalizacja Firebase Admin dla Dashboardu
+initFirebaseAdmin();
 
 // Pomocnicza funkcja do formatowania PLN
 const formatPln = (value: number | string | Decimal) => {
