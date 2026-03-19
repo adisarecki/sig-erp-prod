@@ -6,7 +6,7 @@ import { getStorage } from "firebase-admin/storage";
 /**
  * Firebase Admin Singleton (Vercel-safe)
  */
-function initFirebaseAdmin() {
+export function initFirebaseAdmin() {
   if (getApps().length > 0) return;
 
   const projectId =
