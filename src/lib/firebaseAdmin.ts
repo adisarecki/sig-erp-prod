@@ -12,43 +12,37 @@ import { initializeApp, getApps, cert, App, ServiceAccount } from "firebase-admi
 export function initFirebaseAdmin(): boolean {
   if (getApps().length > 0) return true;
 
-  const projectId =
-    process.env.FIREBASE_PROJECT_ID ||
-    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  try {
+    const projectId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 
-  let credential;
+    let credential;
 
-  if (projectId && clientEmail && privateKey) {
-    credential = cert({
-      projectId,
-      clientEmail,
-      privateKey: privateKey.replace(/\\n/g, "\n"),
-    } as ServiceAccount);
-  } else if (serviceAccountJson) {
-    try {
+    if (projectId && clientEmail && privateKey) {
+      // 🔴 FIX: SDK Firebase bezwzględnie wymaga snake_case wewnątrz cert()
+      credential = cert({
+        project_id: projectId,
+        client_email: clientEmail,
+        private_key: privateKey.replace(/\\n/g, "\n"),
+      } as ServiceAccount);
+    } else if (serviceAccountJson) {
       const sa = JSON.parse(serviceAccountJson);
       if (sa.private_key) sa.private_key = sa.private_key.replace(/\\n/g, "\n");
       credential = cert(sa);
-    } catch (err) {
-      console.error("[FIREBASE] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:", err);
+    } else {
+      console.warn("[FIREBASE] Brak zmiennych, pomijam inicjalizację (faza build).");
       return false;
     }
-  } else {
-    // BUILD-TIME SAFETY: no credentials → return false, do not throw
-    console.warn("[FIREBASE] Credentials absent (build phase). Skipping init.");
+
+    initializeApp({ credential, storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET });
+    console.log("[FIREBASE] Admin initialized ✅");
+    return true;
+  } catch (err) {
+    console.warn("[FIREBASE] Inicjalizacja zatrzymana (błąd ignorowany dla builda):", err);
     return false;
   }
-
-  initializeApp({
-    credential,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  });
-
-  console.log("[FIREBASE] Admin initialized ✅");
-  return true;
 }
 
 const ERR = "[FIREBASE] Not initialized. Add FIREBASE_SERVICE_ACCOUNT_JSON (or PROJECT_ID/EMAIL/KEY) to Vercel env vars.";
