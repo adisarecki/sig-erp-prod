@@ -9,7 +9,7 @@
 - **Backend**: Next.js API Routes (Route Handlers)
 - **Baza Danych**: PostgreSQL (via Prisma ORM)
   - Kluczowe modele: `Transaction` (rejestr operacji), `Project` (budżet i burn rate), `Tenant` (wsparcie multi-tenant).
-  - Schema: Każda transakcja ma typ `INCOME`/`COST` i status `PENDING`/`COMPLETED`.
+  - Schema: Każda transakcja ma typ `INCOME`/`COST` i status `PENDING`/`COMPLETED`. Transakcje i Faktury posiadają pole `bankTransactionId` dla uniknięcia duplikatów przy imporcie.
 - **AI**: Google Gemini 2.0 Flash (OCR & Analiza)
 - **Standardy Finansowe**:
   - Kwoty przechowywane jako liczby całkowite (grosze) w bazie (INT/BigInt).
@@ -48,7 +48,7 @@ Najbardziej zaawansowany moduł systemu.
 - **Zasada ZERO Mutation**: Nie modyfikuj obiektów systemowych (np. File).
 - **Zasada AI-First**: Wszystkie nowe faktury powinny przechodzić przez `InvoiceScanner`.
 - **API Key**: Gemini API Key znajduje się w `.env` jako `GEMINI_API_KEY`.
-- **Prisma**: Po zmianach w schemacie zawsze uruchamiaj `npx prisma generate`.
+- **Prisma**: Po zmianach w schemacie zawsze uruchamiaj `npx prisma generate` oraz `npx prisma db push` dla synchronizacji z bazą danych.
 
 ## 6. Cele na Przyszłość
 - Pełna automatyzacja kategoryzacji kosztów na podstawie historii.
@@ -56,4 +56,4 @@ Najbardziej zaawansowany moduł systemu.
 - Moduł CRM zintegrowany z historią płatności kontrahentów.
 
 ---
-*Dokument stworzony przez Antigravity dla Adi. Stan na dzień: 14.03.2026.*
+*Dokument stworzony przez Antigravity dla Adi. Stan na dzień: 19.03.2026 (Aktualizacja: Prisma bankTransactionId & Firebase Error Handling).*

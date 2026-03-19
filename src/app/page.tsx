@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js'
+export const dynamic = "force-dynamic"
 import { AlertCircle, ArrowDownRight, ArrowUpRight, CalendarDays, Wallet, BadgeDollarSign, TrendingUp, TrendingDown, Lock, History } from 'lucide-react'
 import { TooltipHelp } from '@/components/ui/TooltipHelp'
 import { MoneyPieChart } from '@/components/dashboard/MoneyPieChart'
@@ -8,7 +9,7 @@ import { LeakageAlerts } from '@/components/finance/LeakageAlerts'
 import { Button } from "@/components/ui/button"
 import { ConfirmPaymentButton } from "@/components/finance/ConfirmPaymentButton"
 import { CashFlowChart } from "@/components/finance/CashFlowChart"
-import { adminDb } from "@/lib/firebase/admin"
+import { getAdminDb } from "@/lib/firebase/admin"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { TimeFilterTabs } from "@/components/finance/TimeFilterTabs"
 
@@ -57,6 +58,7 @@ export default async function DashboardPage({
   }
 
   // POBRANIE DANYCH Z FIRESTORE (NoSQL Approach)
+  const adminDb = getAdminDb()
   const [
     projectsSnap,
     transactionsSnap,

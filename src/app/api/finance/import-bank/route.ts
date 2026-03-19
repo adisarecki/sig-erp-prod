@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { adminDb } from "@/lib/firebase/admin"
+export const dynamic = "force-dynamic"
+import { getAdminDb } from "@/lib/firebase/admin"
 import Decimal from "decimal.js"
 import { getCurrentTenantId } from "@/lib/tenant"
 
@@ -7,6 +8,7 @@ import { getCurrentTenantId } from "@/lib/tenant"
  * Zmodernizowany Import Wyciągów Bankowych (Firestore NoSQL Edition) 🚀
  */
 export async function POST(request: NextRequest) {
+    const adminDb = getAdminDb()
     try {
         const tenantId = await getCurrentTenantId()
         const body = await request.json()

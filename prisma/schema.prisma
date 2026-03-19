@@ -237,6 +237,7 @@ model Transaction {
   status                String                @default("ACTIVE") // ACTIVE, REVERSED, DRAFT
   source                String                @default("MANUAL") // MANUAL, INVOICE, BANK_IMPORT
   externalId            String?               @unique
+  bankTransactionId     String?               @unique // Link do wyciągu bankowego
   reversalOf            String?               // ID transakcji korygowanej
   scanUrl               String?               // OCR: Link do paragonu/dokumentu kosztowego
   invoicePayments       InvoicePayment[]      // N:M relacja – jedna transakcja może spłacać wiele faktur

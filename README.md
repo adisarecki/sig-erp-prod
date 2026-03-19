@@ -12,8 +12,24 @@ Nowoczesny system operacyjny dla firm, zoptymalizowany pod Next.js 15, Vercel or
 ## 🛠 Konfiguracja Lokalna
 
 1. **Instalacja**: `npm install`
-2. **Środowisko (.env)**: Wypełnij klucze Firebase z prefixem `NEXT_PUBLIC_`.
-3. **Uruchomienie**: `npm run dev`
+2. **Środowisko (.env)**:
+   - `DATABASE_URL`: URL do bazy danych PostgreSQL.
+   - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`: Nazwa bucketa storage.
+   - `FIREBASE_SERVICE_ACCOUNT_JSON`: Cały obiekt JSON klucza service account (jedno-liniowy, z `\n` w `private_key`).
+3. **Baza Danych**: `npx prisma db push` (Synchronizacja schematu z DB).
+4. **Uruchomienie**: `npm run dev`
+
+> [!IMPORTANT]
+> **Vercel Deployment**: Upewnij się, że zmienna `FIREBASE_SERVICE_ACCOUNT_JSON` jest dodana w panelu Vercel. Bez niej faza runtime (ale nie build) zakończy się błędem.
+
+---
+
+## 🏗️ Firebase Admin SDK (Lazy Init)
+
+Aby uniknąć błędów podczas fazy `Collecting page data` na Vercelu (brak zmiennych w czasie buildu), system używa mechanizmu **Lazy Initialization**.
+- **Nie importuj `adminDb` bezpośrednio** na poziomie top-level pliku.
+- Zamiast tego używaj getterów: `const db = getAdminDb()`, `const auth = getAdminAuth()`.
+- Wszystkie wywołania Firebase muszą odbywać się wewnątrz funkcji serwerowych (Server Actions) lub handlerów API.
 
 ---
 

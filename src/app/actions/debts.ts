@@ -3,13 +3,14 @@
 import { revalidatePath } from "next/cache"
 import Decimal from "decimal.js"
 import { getCurrentTenantId } from "@/lib/tenant"
-import { adminDb } from "@/lib/firebase/admin"
+import { getAdminDb } from "@/lib/firebase/admin"
 import { FieldValue } from "firebase-admin/firestore"
 
 /**
  * addLegacyDebt
  */
 export async function addLegacyDebt(formData: FormData) {
+    const adminDb = getAdminDb()
     const tenantId = await getCurrentTenantId()
     const creditor = formData.get("creditor") as string
     const name = formData.get("name") as string
@@ -62,6 +63,7 @@ export async function addLegacyDebt(formData: FormData) {
  * markInstallmentAsPaid
  */
 export async function markInstallmentAsPaid(installmentId: string, paymentDateStr?: string) {
+    const adminDb = getAdminDb()
     const tenantId = await getCurrentTenantId()
     const paymentDate = paymentDateStr ? new Date(paymentDateStr) : new Date()
     

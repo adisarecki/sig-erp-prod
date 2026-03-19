@@ -1,13 +1,10 @@
 "use server"
 
-import { PrismaClient } from "@prisma/client"
+import prisma from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 import Decimal from "decimal.js"
 import { ReconciliationEngine } from "@/lib/reconciliation"
-
 import { getCurrentTenantId } from "@/lib/tenant"
-
-const prisma = new PrismaClient()
 
 
 /**

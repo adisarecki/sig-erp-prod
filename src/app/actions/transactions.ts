@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache"
 import { getCurrentTenantId } from "@/lib/tenant"
-import { adminDb } from "@/lib/firebase/admin"
+import { getAdminDb } from "@/lib/firebase/admin"
 
 export async function addTransaction(formData: FormData) {
+    const adminDb = getAdminDb()
     const amountStr = formData.get("amount") as string
     const dateStr = formData.get("date") as string
     const category = formData.get("category") as string

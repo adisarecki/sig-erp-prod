@@ -2,12 +2,13 @@
 
 import { revalidatePath } from "next/cache"
 import { getCurrentTenantId } from "@/lib/tenant"
-import { adminDb } from "@/lib/firebase/admin"
+import { getAdminDb } from "@/lib/firebase/admin"
 
 /**
  * 1. Dodawanie kontrahenta
  */
 export async function addContractor(formData: FormData) {
+    const adminDb = getAdminDb()
     const name = formData.get("name") as string
     const nip = formData.get("nip") as string
     const address = formData.get("address") as string
@@ -36,6 +37,7 @@ export async function addContractor(formData: FormData) {
  * 2. Edycja kontrahenta
  */
 export async function updateContractor(formData: FormData) {
+    const adminDb = getAdminDb()
     const id = formData.get("id") as string
     const name = formData.get("name") as string
     const nip = formData.get("nip") as string
@@ -63,6 +65,7 @@ export async function updateContractor(formData: FormData) {
  * 3. Szybkie dodawanie z OCR
  */
 export async function createContractor(data: { name: string; nip?: string; address?: string }) {
+    const adminDb = getAdminDb()
     const tenantId = await getCurrentTenantId()
 
     try {
@@ -90,6 +93,7 @@ export async function createContractor(data: { name: string; nip?: string; addre
  * 4. USUWANIE (Batch)
  */
 export async function deleteSelectedContractors(ids: string[]) {
+    const adminDb = getAdminDb()
     const tenantId = await getCurrentTenantId();
 
     try {
@@ -118,6 +122,7 @@ export async function deleteSelectedContractors(ids: string[]) {
  * 5. POBIERANIE
  */
 export async function getContractors() {
+    const adminDb = getAdminDb()
     const tenantId = await getCurrentTenantId()
     const snapshot = await adminDb.collection("contractors")
         .where("tenantId", "==", tenantId)

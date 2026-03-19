@@ -72,7 +72,26 @@ export function Gatekeeper({ children }: { children: React.ReactNode }) {
       await signInWithEmailAndPassword(auth, email, password)
     } catch (err: any) {
       console.error("Email Login failed", err)
-      setError("Niepoprawny e-mail lub hasło.")
+      
+      // Mapowanie błędów Firebase na polskie komunikaty
+      switch (err.code) {
+        case 'auth/invalid-credential':
+        case 'auth/wrong-password':
+        case 'auth/user-not-found':
+          setError("Błędny e-mail lub hasło.")
+          break
+        case 'auth/user-disabled':
+          setError("Konto zostało zablokowane.")
+          break
+        case 'auth/too-many-requests':
+          setError("Zbyt wiele prób logowania. Spróbuj później.")
+          break
+        case 'auth/network-request-failed':
+          setError("Błąd połączenia z siecią.")
+          break
+        default:
+          setError("Wystąpił nieoczekiwany błąd logowania.")
+      }
     }
   }
 

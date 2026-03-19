@@ -1,12 +1,10 @@
 "use server"
 
-import { PrismaClient } from "@prisma/client"
+import prisma from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 import { getCurrentTenantId } from "@/lib/tenant"
 import type { ParsedBankTransaction } from "@/lib/pko-parser"
 import Decimal from "decimal.js"
-
-const prisma = new PrismaClient()
 
 /**
  * Imports bank transactions and AUTO-CREATES missing contractors.

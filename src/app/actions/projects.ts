@@ -2,12 +2,13 @@
 
 import { revalidatePath } from "next/cache"
 import { getCurrentTenantId } from "@/lib/tenant"
-import { adminDb } from "@/lib/firebase/admin"
+import { getAdminDb } from "@/lib/firebase/admin"
 
 /**
  * POBIERANIE - Dashboard i Lista Projektów
  */
 export async function getProjects() {
+    const adminDb = getAdminDb()
     const tenantId = await getCurrentTenantId()
     const snapshot = await adminDb.collection("projects")
         .where("tenantId", "==", tenantId)
@@ -22,6 +23,7 @@ export async function getProjects() {
  * DODAWANIE PROJEKTU
  */
 export async function addProject(formData: FormData) {
+    const adminDb = getAdminDb()
     const name = formData.get("name") as string
     const contractorId = formData.get("contractorId") as string
     const objectId = formData.get("objectId") as string
@@ -77,6 +79,7 @@ export async function addProject(formData: FormData) {
  * AKTUALIZACJA
  */
 export async function updateProject(id: string, data: { name: string, budgetEstimated: string }) {
+    const adminDb = getAdminDb()
     if (!id) throw new Error("ID projektu jest wymagane.")
     const tenantId = await getCurrentTenantId()
 
@@ -96,6 +99,7 @@ export async function updateProject(id: string, data: { name: string, budgetEsti
  * ARCHIWIZACJA
  */
 export async function archiveProject(id: string) {
+    const adminDb = getAdminDb()
     if (!id) throw new Error("ID projektu jest wymagane.")
 
     await adminDb.collection("projects").doc(id).update({
@@ -113,6 +117,7 @@ export async function archiveProject(id: string) {
  * SZCZEGÓŁY PROJEKTU (Widok Cockpit)
  */
 export async function getProjectWithDetails(id: string) {
+    const adminDb = getAdminDb()
     if (!id) throw new Error("ID projektu jest wymagane.")
     const tenantId = await getCurrentTenantId()
 

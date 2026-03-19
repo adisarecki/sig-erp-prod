@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache"
 import Decimal from "decimal.js"
 import { validateNonZero } from "@/lib/ledger"
 import { getCurrentTenantId } from "@/lib/tenant"
-import { adminDb } from "@/lib/firebase/admin"
+import { getAdminDb } from "@/lib/firebase/admin"
 
 
 export async function addIncomeInvoice(formData: FormData) {
+    const adminDb = getAdminDb()
     const amountNetStr = formData.get("amountNet") as string
     const taxRateStr = formData.get("taxRate") as string
     const amountGrossStr = formData.get("amountGross") as string
@@ -109,6 +110,7 @@ export async function addIncomeInvoice(formData: FormData) {
 }
 
 export async function addCostInvoice(formData: FormData) {
+    const adminDb = getAdminDb()
     const amountNetStr = formData.get("amountNet") as string
     const taxRateStr = formData.get("taxRate") as string
     const amountGrossStr = formData.get("amountGross") as string
@@ -251,6 +253,7 @@ export async function addCostInvoice(formData: FormData) {
 }
 
 export async function markInvoiceAsPaid(invoiceId: string, paymentDateStr: string) {
+    const adminDb = getAdminDb()
     if (!invoiceId || !paymentDateStr) {
         throw new Error("Brak wymaganego ID faktury lub daty płatności.");
     }

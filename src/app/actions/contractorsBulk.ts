@@ -1,9 +1,7 @@
 "use server"
 
-import { PrismaClient } from "@prisma/client"
+import prisma from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
-
-const prisma = new PrismaClient()
 
 export async function deleteContractorsBulk(contractorIds: string[]) {
     if (!contractorIds || contractorIds.length === 0) return { success: false, error: "Brak zaznaczonych rekordów." };
