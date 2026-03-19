@@ -1,16 +1,13 @@
-export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic"; // 🔹 zapobiega build-time execution
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import Decimal from "decimal.js";
 import { getCurrentTenantId } from "@/lib/tenant";
 
-/**
- * Import Wyciągów Bankowych (Firestore NoSQL Edition)
- */
 export async function POST(request: NextRequest) {
     try {
-        // 🔴 INIT MUSI być przed użyciem DB (getter już to robi bezpiecznie)
+        // 🔹 inicjalizacja Firebase Admin tylko przed użyciem DB
         const adminDb = getAdminDb();
 
         const tenantId = await getCurrentTenantId();
@@ -79,9 +76,7 @@ export async function POST(request: NextRequest) {
                             type: inv.type === "SPRZEDAŻ" ? "PRZYCHÓD" : "KOSZT",
                             transactionDate: operationDate,
                             category:
-                                inv.type === "SPRZEDAŻ"
-                                    ? "SPRZEDAŻ_TOWARU"
-                                    : "KOSZT_FIRMOWY",
+                                inv.type === "SPRZEDAŻ" ? "SPRZEDAŻ_TOWARU" : "KOSZT_FIRMOWY",
                             description: `[Import Bank] ${description}`,
                             status: "ACTIVE",
                             source: "BANK_IMPORT",
