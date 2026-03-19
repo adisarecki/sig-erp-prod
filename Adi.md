@@ -4,7 +4,7 @@
 **SIG ERP** to nowoczesny, firmowy system finansowo-zarządczy zaprojektowany dla maksymalnej efektywności operacyjnej. System integruje zarządzanie kosztami, przychodami, projektami oraz automatyzację obiegu dokumentów przy użyciu AI.
 
 ## 2. Architektura Techniczna
-- **Framework**: Next.js 15.2 (App Router)
+- **Framework**: Next.js 15.2.6 (App Router, **patched — CVE-2025-66478**)
 - **Frontend**: React 19, Tailwind CSS 4, Radix UI (Shadcn)
 - **Backend**: Next.js API Routes (Route Handlers)
 - **Baza Danych**: PostgreSQL (via Prisma ORM)
@@ -49,6 +49,8 @@ Najbardziej zaawansowany moduł systemu.
 - **Zasada AI-First**: Wszystkie nowe faktury powinny przechodzić przez `InvoiceScanner`.
 - **API Key**: Gemini API Key znajduje się w `.env` jako `GEMINI_API_KEY`.
 - **Prisma**: Po zmianach w schemacie zawsze uruchamiaj `npx prisma generate` oraz `npx prisma db push` dla synchronizacji z bazą danych.
+- **Firebase Admin**: Inicjalizacja przez `@/lib/firebaseAdmin.ts` (singleton z `getApps()`). Używaj getterów `getAdminDb()`, `getAdminAuth()`, `getAdminStorage()`. Nie importuj `firebase-admin/firestore` itd. na poziomie top-level — spowoduje to crash buildu na Vercelu.
+- **Zmienne Firebase na Vercelu**: `FIREBASE_SERVICE_ACCOUNT_JSON` (cały JSON w jednej linii) LUB trio: `FIREBASE_PROJECT_ID` + `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY`.
 
 ## 6. Cele na Przyszłość
 - Pełna automatyzacja kategoryzacji kosztów na podstawie historii.
@@ -56,4 +58,4 @@ Najbardziej zaawansowany moduł systemu.
 - Moduł CRM zintegrowany z historią płatności kontrahentów.
 
 ---
-*Dokument stworzony przez Antigravity dla Adi. Stan na dzień: 19.03.2026 (Aktualizacja: Prisma bankTransactionId & Firebase Error Handling).*
+*Dokument stworzony przez Antigravity dla Adi. Stan na dzień: 19.03.2026 (Aktualizacja: Next.js 15.2.6 CVE fix + Firebase Admin build-safe singleton).*
