@@ -4,15 +4,19 @@ import { getAuth } from "firebase-admin/auth";
 import { getStorage } from "firebase-admin/storage";
 
 /**
- * Firebase Admin Singleton (Vercel-safe)
+ * Firebase Admin Singleton (Vercel Build-Safe)
+ *
+ * KEY DESIGN DECISION:
+ * - Does NOT throw if credentials are missing (allows Vercel build to pass)
+ * - Throws only when a getter (getAdminDb/Auth/Storage) is called at RUNTIME without credentials
+ * - This is necessary because `force-dynamic` does NOT prevent module import during build
  */
-export function initFirebaseAdmin() {
-  if (getApps().length > 0) return;
+export function initFirebaseAdmin(): boolean {
+  if (getApps().length > 0) return true;
 
   const projectId =
     process.env.FIREBASE_PROJECT_ID ||
     process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_PRIVATE_KEY;
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -26,15 +30,19 @@ export function initFirebaseAdmin() {
       privateKey: privateKey.replace(/\\n/g, "\n"),
     } as ServiceAccount);
   } else if (serviceAccountJson) {
-    const sa = JSON.parse(serviceAccountJson);
-    if (sa.private_key) {
-      sa.private_key = sa.private_key.replace(/\\n/g, "\n");
+    try {
+      const sa = JSON.parse(serviceAccountJson);
+      if (sa.private_key) sa.private_key = sa.private_key.replace(/\\n/g, "\n");
+      credential = cert(sa);
+    } catch (err) {
+      console.error("[FIREBASE] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:", err);
+      return false;
     }
-    credential = cert(sa);
   } else {
-    throw new Error(
-      "❌ Firebase Admin credentials missing. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY or FIREBASE_SERVICE_ACCOUNT_JSON"
-    );
+    // Build-time: credentials not available. Do NOT throw.
+    // The getter functions will throw at runtime if called without credentials.
+    console.warn("[FIREBASE] No credentials found - skipping initialization (build-time safe).");
+    return false;
   }
 
   initializeApp({
@@ -42,23 +50,33 @@ export function initFirebaseAdmin() {
     storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   });
 
-  console.log("[FIREBASE] Admin initialized");
+  console.log("[FIREBASE] Admin initialized ✅");
+  return true;
 }
 
 /**
- * SAFE GETTERS
+ * SAFE GETTERS - throw only at runtime if Firebase is genuinely not initialized
  */
 export const getAdminDb = () => {
-  initFirebaseAdmin();
+  const initialized = initFirebaseAdmin();
+  if (!initialized && getApps().length === 0) {
+    throw new Error("[FIREBASE] Not initialized. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_PROJECT_ID/EMAIL/KEY on Vercel.");
+  }
   return getFirestore();
 };
 
 export const getAdminAuth = () => {
-  initFirebaseAdmin();
+  const initialized = initFirebaseAdmin();
+  if (!initialized && getApps().length === 0) {
+    throw new Error("[FIREBASE] Not initialized. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_PROJECT_ID/EMAIL/KEY on Vercel.");
+  }
   return getAuth();
 };
 
 export const getAdminStorage = () => {
-  initFirebaseAdmin();
+  const initialized = initFirebaseAdmin();
+  if (!initialized && getApps().length === 0) {
+    throw new Error("[FIREBASE] Not initialized. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_PROJECT_ID/EMAIL/KEY on Vercel.");
+  }
   return getStorage();
 };
