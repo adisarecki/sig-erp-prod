@@ -1,15 +1,13 @@
-import { initializeApp, getApps, cert, ServiceAccount } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
-import { getAuth } from "firebase-admin/auth";
-import { getStorage } from "firebase-admin/storage";
+import { initializeApp, getApps, cert, App, ServiceAccount } from "firebase-admin/app";
 
 /**
- * Firebase Admin Singleton (Vercel Build-Safe)
+ * 🔴 ATOMIC BUILD FIX
  *
- * KEY DESIGN DECISION:
- * - Does NOT throw if credentials are missing (allows Vercel build to pass)
- * - Throws only when a getter (getAdminDb/Auth/Storage) is called at RUNTIME without credentials
- * - This is necessary because `force-dynamic` does NOT prevent module import during build
+ * The ONLY way to prevent 'The default Firebase app does not exist' during Vercel build:
+ * 1. Do NOT import firebase-admin service modules (firestore, auth, storage) at the top level.
+ *    Those imports trigger internal SDK checks that crash without an initialized app.
+ * 2. Use dynamic require() INSIDE each getter, called only at runtime.
+ * 3. initFirebaseAdmin NEVER throws - returns false gracefully if credentials are absent (build phase).
  */
 export function initFirebaseAdmin(): boolean {
   if (getApps().length > 0) return true;
@@ -39,9 +37,8 @@ export function initFirebaseAdmin(): boolean {
       return false;
     }
   } else {
-    // Build-time: credentials not available. Do NOT throw.
-    // The getter functions will throw at runtime if called without credentials.
-    console.warn("[FIREBASE] No credentials found - skipping initialization (build-time safe).");
+    // BUILD-TIME SAFETY: no credentials → return false, do not throw
+    console.warn("[FIREBASE] Credentials absent (build phase). Skipping init.");
     return false;
   }
 
@@ -54,29 +51,28 @@ export function initFirebaseAdmin(): boolean {
   return true;
 }
 
-/**
- * SAFE GETTERS - throw only at runtime if Firebase is genuinely not initialized
- */
+const ERR = "[FIREBASE] Not initialized. Add FIREBASE_SERVICE_ACCOUNT_JSON (or PROJECT_ID/EMAIL/KEY) to Vercel env vars.";
+
+/** Firestore getter — dynamic require to avoid build-time SDK crash */
 export const getAdminDb = () => {
-  const initialized = initFirebaseAdmin();
-  if (!initialized && getApps().length === 0) {
-    throw new Error("[FIREBASE] Not initialized. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_PROJECT_ID/EMAIL/KEY on Vercel.");
-  }
-  return getFirestore();
+  if (!initFirebaseAdmin() && getApps().length === 0) throw new Error(ERR);
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getFirestore } = require("firebase-admin/firestore");
+  return getFirestore() as ReturnType<typeof import("firebase-admin/firestore").getFirestore>;
 };
 
+/** Auth getter — dynamic require to avoid build-time SDK crash */
 export const getAdminAuth = () => {
-  const initialized = initFirebaseAdmin();
-  if (!initialized && getApps().length === 0) {
-    throw new Error("[FIREBASE] Not initialized. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_PROJECT_ID/EMAIL/KEY on Vercel.");
-  }
-  return getAuth();
+  if (!initFirebaseAdmin() && getApps().length === 0) throw new Error(ERR);
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getAuth } = require("firebase-admin/auth");
+  return getAuth() as ReturnType<typeof import("firebase-admin/auth").getAuth>;
 };
 
+/** Storage getter — dynamic require to avoid build-time SDK crash */
 export const getAdminStorage = () => {
-  const initialized = initFirebaseAdmin();
-  if (!initialized && getApps().length === 0) {
-    throw new Error("[FIREBASE] Not initialized. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_PROJECT_ID/EMAIL/KEY on Vercel.");
-  }
-  return getStorage();
+  if (!initFirebaseAdmin() && getApps().length === 0) throw new Error(ERR);
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getStorage } = require("firebase-admin/storage");
+  return getStorage() as ReturnType<typeof import("firebase-admin/storage").getStorage>;
 };
