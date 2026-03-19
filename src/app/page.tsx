@@ -1,5 +1,5 @@
-import Decimal from 'decimal.js'
 export const dynamic = "force-dynamic"
+import Decimal from 'decimal.js'
 import { AlertCircle, ArrowDownRight, ArrowUpRight, CalendarDays, Wallet, BadgeDollarSign, TrendingUp, TrendingDown, Lock, History } from 'lucide-react'
 import { TooltipHelp } from '@/components/ui/TooltipHelp'
 import { MoneyPieChart } from '@/components/dashboard/MoneyPieChart'
