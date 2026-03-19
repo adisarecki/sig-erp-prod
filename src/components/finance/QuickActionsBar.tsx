@@ -42,7 +42,7 @@ export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps)
     }
 
     return (
-        <div className="flex flex-col sm:flex-row gap-3 p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
+        <div className="flex flex-wrap items-center gap-3 p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
             {/* Etykieta */}
             <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-widest mr-auto">
                 <span>Szybkie Akcje</span>

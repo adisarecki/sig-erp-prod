@@ -9,6 +9,17 @@ Nowoczesny system operacyjny dla firm, zoptymalizowany pod Next.js 15, Vercel or
 - **Autoryzacja**: Firebase Auth (Google + Email/Hasło z wymuszoną zmianą PESEL)
 - **Magazyn**: Firebase Storage
 
+## 📈 Status Wdrożenia
+
+> ✅ **Aplikacja jest zdeployowana na Vercelu** (produkcja z brancha `main`)
+
+- **Next.js**: 15.2.8 (patched: CVE-2025-66478, CVE-2025-55183, CVE-2025-67779)
+- **Prisma**: 6.x (downgrade z 7.x ze względu na kompatybilność schemat P1012)
+- **Firebase Admin**: Singleton z lazy init (`@/lib/firebaseAdmin.ts`), dynamic `require()` dla service modules
+- **Import Bankowy**: Pełna migracja z Prisma do Firestore (NoSQL)
+
+---
+
 ## 🛠 Konfiguracja Lokalna
 
 1. **Instalacja**: `npm install`
