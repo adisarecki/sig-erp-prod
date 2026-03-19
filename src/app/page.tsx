@@ -9,7 +9,7 @@ import { LeakageAlerts } from '@/components/finance/LeakageAlerts'
 import { Button } from "@/components/ui/button"
 import { ConfirmPaymentButton } from "@/components/finance/ConfirmPaymentButton"
 import { CashFlowChart } from "@/components/finance/CashFlowChart"
-import { getAdminDb } from "@/lib/firebase/admin"
+import { getAdminDb } from "@/lib/firebaseAdmin"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { TimeFilterTabs } from "@/components/finance/TimeFilterTabs"
 

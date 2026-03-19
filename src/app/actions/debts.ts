@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import Decimal from "decimal.js"
 import { getCurrentTenantId } from "@/lib/tenant"
-import { getAdminDb } from "@/lib/firebase/admin"
+import { getAdminDb } from "@/lib/firebaseAdmin"
 import { FieldValue } from "firebase-admin/firestore"
 
 /**

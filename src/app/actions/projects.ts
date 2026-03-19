@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { getCurrentTenantId } from "@/lib/tenant"
-import { getAdminDb } from "@/lib/firebase/admin"
+import { getAdminDb } from "@/lib/firebaseAdmin"
 
 /**
  * POBIERANIE - Dashboard i Lista Projektów

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 export const dynamic = "force-dynamic"
-import { getAdminDb } from "@/lib/firebase/admin"
+import { getAdminDb } from "@/lib/firebaseAdmin"
 import Decimal from "decimal.js"
 import { getCurrentTenantId } from "@/lib/tenant"
 

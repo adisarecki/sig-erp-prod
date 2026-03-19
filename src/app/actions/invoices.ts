@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import Decimal from "decimal.js"
 import { validateNonZero } from "@/lib/ledger"
 import { getCurrentTenantId } from "@/lib/tenant"
-import { getAdminDb } from "@/lib/firebase/admin"
+import { getAdminDb } from "@/lib/firebaseAdmin"
 
 
 export async function addIncomeInvoice(formData: FormData) {
