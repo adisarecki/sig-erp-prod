@@ -22,76 +22,93 @@ export async function getProjects() {
 /**
  * DODAWANIE PROJEKTU
  */
-export async function addProject(formData: FormData) {
-    const adminDb = getAdminDb()
-    const name = formData.get("name") as string
-    const contractorId = formData.get("contractorId") as string
-    const objectId = formData.get("objectId") as string
-    const budgetEstimated = formData.get("budgetEstimated") as string
+export async function addProject(formData: FormData): Promise<{ success: boolean, error?: string }> {
+    try {
+        const adminDb = getAdminDb()
+        const name = formData.get("name") as string
+        const contractorId = formData.get("contractorId") as string
+        const objectId = formData.get("objectId") as string
+        const budgetEstimated = formData.get("budgetEstimated") as string
 
-    if (!name || !contractorId || !budgetEstimated) {
-        throw new Error("Wymagane pola to: Nazwa Projektu, Kontrahent oraz Budżet Szacowany.")
-    }
-
-    const tenantId = await getCurrentTenantId()
-    let targetObjectId = objectId
-
-    if (!targetObjectId) {
-        const objectsSnap = await adminDb.collection("objects")
-            .where("contractorId", "==", contractorId)
-            .limit(1)
-            .get()
-
-        if (!objectsSnap.empty) {
-            targetObjectId = objectsSnap.docs[0].id
-        } else {
-            const newObjRef = adminDb.collection("objects").doc()
-            await newObjRef.set({
-                contractorId: contractorId,
-                name: "Siedziba Główna",
-                createdAt: new Date().toISOString()
-            })
-            targetObjectId = newObjRef.id
+        if (!name || !contractorId || !budgetEstimated) {
+            return { success: false, error: "Wymagane pola to: Nazwa Projektu, Kontrahent oraz Budżet Szacowany." }
         }
+
+        const tenantId = await getCurrentTenantId()
+        let targetObjectId = objectId
+
+        if (!targetObjectId) {
+            const objectsSnap = await adminDb.collection("objects")
+                .where("contractorId", "==", contractorId)
+                .limit(1)
+                .get()
+
+            if (!objectsSnap.empty) {
+                targetObjectId = objectsSnap.docs[0].id
+            } else {
+                const newObjRef = adminDb.collection("objects").doc()
+                await newObjRef.set({
+                    contractorId: contractorId,
+                    name: "Siedziba Główna",
+                    createdAt: new Date().toISOString()
+                })
+                targetObjectId = newObjRef.id
+            }
+        }
+
+        await adminDb.collection("projects").add({
+            tenantId,
+            name,
+            contractorId,
+            objectId: targetObjectId,
+            budgetEstimated: Number(budgetEstimated),
+            status: "PLANNED",
+            lifecycleStatus: "ACTIVE",
+            type: "NOWY",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        })
+
+        try {
+            revalidatePath("/projects")
+            revalidatePath("/")
+        } catch (e) {
+            console.warn("[PROJECTS] Revalidation warning (ignored):", e)
+        }
+
+        return { success: true }
+    } catch (error: any) {
+        console.error("[PROJECT_ADD_ERROR]", error)
+        return { success: false, error: error.message || "Błąd podczas dodawania projektu." }
     }
-
-    await adminDb.collection("projects").add({
-        tenantId,
-        name,
-        contractorId,
-        objectId: targetObjectId,
-        budgetEstimated: Number(budgetEstimated),
-        status: "PLANNED",
-        lifecycleStatus: "ACTIVE",
-        type: "NOWY",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-    })
-
-    revalidatePath("/projects")
-    revalidatePath("/")
-
-    return { success: true }
 }
 
 /**
  * AKTUALIZACJA
  */
-export async function updateProject(id: string, data: { name: string, budgetEstimated: string }) {
-    const adminDb = getAdminDb()
-    if (!id) throw new Error("ID projektu jest wymagane.")
-    const tenantId = await getCurrentTenantId()
+export async function updateProject(id: string, data: { name: string, budgetEstimated: string }): Promise<{ success: boolean, error?: string }> {
+    try {
+        const adminDb = getAdminDb()
+        if (!id) throw new Error("ID projektu jest wymagane.")
+        
+        await adminDb.collection("projects").doc(id).update({
+            name: data.name,
+            budgetEstimated: Number(data.budgetEstimated),
+            updatedAt: new Date().toISOString()
+        })
 
-    await adminDb.collection("projects").doc(id).update({
-        name: data.name,
-        budgetEstimated: Number(data.budgetEstimated),
-        updatedAt: new Date().toISOString()
-    })
+        try {
+            revalidatePath("/projects")
+            revalidatePath("/")
+        } catch (e) {
+            console.warn("[PROJECTS] Revalidation warning (ignored):", e)
+        }
 
-    revalidatePath("/projects")
-    revalidatePath("/")
-
-    return { success: true }
+        return { success: true }
+    } catch (error: any) {
+        console.error("[PROJECT_UPDATE_ERROR]", error)
+        return { success: false, error: error.message || "Błąd podczas aktualizacji projektu." }
+    }
 }
 
 import prisma from "@/lib/prisma"
@@ -99,19 +116,28 @@ import prisma from "@/lib/prisma"
 /**
  * ARCHIWIZACJA
  */
-export async function archiveProject(id: string) {
-    const adminDb = getAdminDb()
-    if (!id) throw new Error("ID projektu jest wymagane.")
+export async function archiveProject(id: string): Promise<{ success: boolean, error?: string }> {
+    try {
+        const adminDb = getAdminDb()
+        if (!id) throw new Error("ID projektu jest wymagane.")
 
-    await adminDb.collection("projects").doc(id).update({
-        lifecycleStatus: "ARCHIVED",
-        updatedAt: new Date().toISOString()
-    })
+        await adminDb.collection("projects").doc(id).update({
+            lifecycleStatus: "ARCHIVED",
+            updatedAt: new Date().toISOString()
+        })
 
-    revalidatePath("/projects")
-    revalidatePath("/")
+        try {
+            revalidatePath("/projects")
+            revalidatePath("/")
+        } catch (e) {
+            console.warn("[PROJECTS] Revalidation warning (ignored):", e)
+        }
 
-    return { success: true }
+        return { success: true }
+    } catch (error: any) {
+        console.error("[PROJECT_ARCHIVE_ERROR]", error)
+        return { success: false, error: error.message || "Błąd podczas archiwizacji projektu." }
+    }
 }
 
 /**
@@ -120,10 +146,10 @@ export async function archiveProject(id: string) {
 /**
  * USUWANIE (Dual Sync + Cascade)
  */
-export async function deleteProject(id: string) {
-    const adminDb = getAdminDb()
-    const tenantId = await getCurrentTenantId()
+import { redirect } from "next/navigation"
 
+export async function deleteProject(id: string): Promise<{ success: boolean, error?: string }> {
+    const adminDb = getAdminDb()
     try {
         // 1. Usuwamy powiązane dane z Firestore (Stages, Invoices, Transactions)
         const collections = ["project_stages", "invoices", "transactions"]
@@ -137,7 +163,7 @@ export async function deleteProject(id: string) {
         // 2. Usuwamy projekt z Firestore
         await adminDb.collection("projects").doc(id).delete()
 
-        // 3. Usuwamy z Prisma (Kaskada dla Stages jest w schema, ale dla Transactions/Invoices musimy ręcznie)
+        // 3. Usuwamy z Prisma
         const projectInvoices = await prisma.invoice.findMany({ where: { projectId: id }, select: { id: true } })
         const invIds = projectInvoices.map(i => i.id)
         
@@ -146,14 +172,24 @@ export async function deleteProject(id: string) {
         await prisma.transaction.deleteMany({ where: { projectId: id } })
         await prisma.project.delete({ where: { id } })
 
-        revalidatePath("/projects")
-        revalidatePath("/finance")
-        revalidatePath("/")
-        return { success: true }
-    } catch (error) {
+        try {
+            revalidatePath("/projects")
+            revalidatePath("/finance")
+            revalidatePath("/")
+        } catch (e) {
+            console.warn("[PROJECTS] Revalidation warning during delete (ignored):", e)
+        }
+
+        // redirect() throws an internal Next.js error that is caught by the Next.js router.
+        // It must NOT be inside a try/catch that returns a value if we want it to work,
+        // but here we are in a Server Action. We'll handle it outside the try block.
+    } catch (error: any) {
         console.error("[PROJECT_DELETE_ERROR]", error)
-        throw error
+        return { success: false, error: error.message || "Błąd podczas usuwania projektu." }
     }
+
+    // Wywołujemy redirect POZA blokiem try/catch (bo redirect rzuca specjalny wyjątek)
+    redirect("/projects")
 }
 
 export async function deleteSelectedProjects(ids: string[]) {

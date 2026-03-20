@@ -60,6 +60,13 @@ Katalog `docs/` zawiera fundamenty logiki biznesowej:
 - **Cash Reality**: Symulacja "Realista" uwzględniająca 14-dniowe opóźnienia w płatnościach.
 - **Append-Only Ledger**: Historia transakcji jest niezmienna (korekty przez rewers).
 
+### 🔗 Relacje Danych (Data Flow)
+System wymusza spójność poprzez następującą hierarchię:
+1. **Kontrahent (Firma)**: Centralny punkt kontaktu (Inwestor/Dostawca).
+2. **Obiekt (Lokalizacja)**: Każda firma ma co najmniej jeden obiekt (np. Siedziba, Magazyn).
+3. **Projekt**: Przypisany do konkretnego *Obiektu* danej firmy.
+4. **Transakcja**: Rekord kosztu/przychodu powiązany z *Projektem*. Suma transakcji stanowi budżet wykorzystany projektu (SSoT).
+
 ---
 
 ## ⚡ Renderowanie Dynamiczne (SSR)

@@ -9,15 +9,14 @@ import { useRouter } from "next/navigation"
 interface TransactionDeleteButtonProps {
     transactionId: string
     description?: string
+    isTestMode?: boolean
 }
 
-export function TransactionDeleteButton({ transactionId, description }: TransactionDeleteButtonProps) {
+export function TransactionDeleteButton({ transactionId, description, isTestMode }: TransactionDeleteButtonProps) {
     const [isDeleting, setIsDeleting] = useState(false)
     const router = useRouter()
     
-    // Protokół Test Mode: Przycisk widoczny tylko gdy flaga jest aktywna
-    const isTestMode = process.env.NEXT_PUBLIC_ENABLE_TEST_DELETE === "true"
-
+    // isTestMode is now passed as a prop from the server-rendered page
     if (!isTestMode) return null
 
     const handleDelete = async () => {

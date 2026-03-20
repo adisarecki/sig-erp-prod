@@ -3,12 +3,14 @@
 import { revalidatePath } from "next/cache"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { getAdminDb } from "@/lib/firebaseAdmin"
+import prisma from "@/lib/prisma"
 
 /**
  * 1. Dodawanie kontrahenta
  */
-export async function addContractor(formData: FormData) {
-    const adminDb = getAdminDb()
+export async function addContractor(formData: FormData): Promise<{ success: boolean, error?: string }> {
+    try {
+        const adminDb = getAdminDb()
     const name = formData.get("name") as string
     const nip = formData.get("nip") as string
     const address = formData.get("address") as string
@@ -32,11 +34,10 @@ export async function addContractor(formData: FormData) {
     })
 
     // 2. Automatyczny Obiekt (Siedziba/Magazyn)
-    const objectName = type === "INWESTOR" 
-        ? "Siedziba Główna" 
-        : "Oddział / Magazyn (Główny)"
-    
-    await adminDb.collection("objects").add({
+    const objectName = type === "INWESTOR" ? "Siedziba Główna" : "Oddział / Magazyn"
+    const objectRef = adminDb.collection("objects").doc() // Rezerwujemy ID
+
+    await objectRef.set({
         contractorId: contractorRef.id,
         name: objectName,
         address: address || null,
@@ -44,7 +45,7 @@ export async function addContractor(formData: FormData) {
     })
 
     // 3. Prisma Sync
-    await prisma.contractor.create({
+    await (prisma.contractor.create as any)({
         data: {
             id: contractorRef.id,
             tenantId,
@@ -55,6 +56,7 @@ export async function addContractor(formData: FormData) {
             status: status || "ACTIVE",
             objects: {
                 create: {
+                    id: objectRef.id, // Używamy tego samego ID co w Firestore
                     name: objectName,
                     address: address || null
                 }
@@ -65,69 +67,156 @@ export async function addContractor(formData: FormData) {
     revalidatePath("/crm")
     revalidatePath("/")
     return { success: true }
+    } catch (error: any) {
+        console.error("[CRM_ACTION] Add Contractor error:", error)
+        return { success: false, error: error.message || "Błąd podczas dodawania kontrahenta." }
+    }
 }
 
 /**
  * 2. Edycja kontrahenta
  */
-export async function updateContractor(formData: FormData) {
-    const adminDb = getAdminDb()
-    const id = formData.get("id") as string
-    const name = formData.get("name") as string
-    const nip = formData.get("nip") as string
-    const address = formData.get("address") as string
-    const status = formData.get("status") as string
-    const type = formData.get("type") as string
+export async function updateContractor(formData: FormData): Promise<{ success: boolean, error?: string }> {
+    try {
+        const adminDb = getAdminDb()
+        const id = formData.get("id") as string
+        const name = formData.get("name") as string
+        const nip = formData.get("nip") as string
+        const address = formData.get("address") as string
+        const status = formData.get("status") as string
+        const type = formData.get("type") as string
 
-    if (!id || !name) throw new Error("ID oraz Nazwa firmy są wymagane.")
+        if (!id || !name) throw new Error("ID oraz Nazwa firmy są wymagane.")
 
-    const tenantId = await getCurrentTenantId()
+        const tenantId = await getCurrentTenantId()
 
-    await adminDb.collection("contractors").doc(id).update({
-        name,
-        nip: nip || null,
-        address: address || null,
-        type,
-        status: status || "ACTIVE",
-        updatedAt: new Date().toISOString()
-    })
+        // 1. Firestore Update
+        const contractorRef = adminDb.collection("contractors").doc(id)
+        const contractorDoc = await contractorRef.get()
+        
+        if (!contractorDoc.exists) {
+            throw new Error("Kontrahent nie istnieje w bazie Firestore.")
+        }
 
-    await prisma.contractor.update({
-        where: { id },
-        data: {
+        await contractorRef.update({
             name,
             nip: nip || null,
             address: address || null,
             type,
-            status: status || "ACTIVE"
-        }
-    })
+            status: status || "ACTIVE",
+            updatedAt: new Date().toISOString()
+        })
 
-    revalidatePath("/crm")
-    revalidatePath("/")
-    return { success: true }
+        // 2. Prisma Sync (z Auto-Healingiem)
+        try {
+            await (prisma.contractor.update as any)({
+                where: { id },
+                data: {
+                    name,
+                    nip: nip || null,
+                    address: address || null,
+                    type,
+                    status: status || "ACTIVE"
+                }
+            })
+        } catch (error) {
+            console.warn("[CRM_SYNC] Contractor not found in Prisma during update. Attempting auto-heal for ID:", id)
+            
+            try {
+                await (prisma.contractor.create as any)({
+                    data: {
+                        id: id,
+                        tenantId,
+                        name,
+                        nip: nip || null,
+                        address: address || null,
+                        type,
+                        status: status || "ACTIVE"
+                    }
+                })
+                console.info("[CRM_SYNC] Contractor successfully auto-healed in Prisma.")
+            } catch (createErr) {
+                console.error("[CRM_SYNC] Fatal error during contractor auto-heal:", createErr)
+                // Kontynuujemy, bo Firestore jest OK, ale zwracamy info o błędzie synchro
+                return { success: true, error: "Dane zapisane w Firestore, ale synchronizacja SQL nie powiodła się." }
+            }
+        }
+
+        try {
+            revalidatePath("/crm")
+            revalidatePath("/")
+        } catch (e) {
+            console.warn("[CRM] Revalidation warning (ignored):", e)
+        }
+
+        return { success: true }
+    } catch (error: any) {
+        console.error("[CRM_ACTION] Update Contractor error:", error)
+        return { success: false, error: error.message || "Błąd podczas aktualizacji kontrahenta." }
+    }
 }
 
-export async function updateObject(formData: FormData) {
-    const adminDb = getAdminDb()
-    const id = formData.get("id") as string
-    const name = formData.get("name") as string
+export async function updateObject(formData: FormData): Promise<{ success: boolean, error?: string }> {
+    try {
+        const adminDb = getAdminDb()
+        const id = formData.get("id") as string
+        const name = formData.get("name") as string
 
-    if (!id || !name) throw new Error("ID obiektu oraz Nazwa są wymagane.")
+        if (!id || !name) throw new Error("ID obiektu oraz Nazwa są wymagane.")
 
-    await adminDb.collection("objects").doc(id).update({
-        name,
-        updatedAt: new Date().toISOString()
-    })
+        // 1. Firestore Update
+        const objRef = adminDb.collection("objects").doc(id)
+        const objDoc = await objRef.get()
 
-    await prisma.object.update({
-        where: { id },
-        data: { name }
-    })
+        if (!objDoc.exists) {
+            throw new Error("Obiekt nie istnieje w bazie Firestore.")
+        }
 
-    revalidatePath("/crm")
-    revalidatePath("/projects")
-    return { success: true }
+        await objRef.update({
+            name,
+            updatedAt: new Date().toISOString()
+        })
+
+        // 2. Prisma Sync (z Auto-Healingiem)
+        try {
+            await prisma.object.update({
+                where: { id },
+                data: { name }
+            })
+        } catch (error) {
+            console.warn("[CRM_SYNC] Object not found in Prisma during update. Attempting auto-heal for ID:", id)
+
+            const data = objDoc.data()!
+            // Sprawdź czy kontrahent istnieje w Prisma (zabezpieczenie relacji)
+            const contractorExists = await prisma.contractor.findUnique({
+                where: { id: data.contractorId }
+            })
+
+            if (contractorExists) {
+                await (prisma.object.create as any)({
+                    data: {
+                        id: id,
+                        contractorId: data.contractorId,
+                        name: name,
+                        address: data.address || null
+                    }
+                })
+                console.info("[CRM_SYNC] Object successfully auto-healed in Prisma.")
+            }
+        }
+
+        try {
+            revalidatePath("/crm")
+            revalidatePath("/projects")
+        } catch (e) {
+            console.warn("[CRM] Revalidation warning (ignored):", e)
+        }
+
+        return { success: true }
+    } catch (error: any) {
+        console.error("[CRM_ACTION] Update Object error:", error)
+        return { success: false, error: error.message || "Błąd podczas aktualizacji obiektu." }
+    }
 }
 
 /**
@@ -150,15 +239,16 @@ export async function createContractor(data: { name: string; nip?: string; addre
             updatedAt: new Date().toISOString()
         })
 
-        const objectName = type === "INWESTOR" ? "Siedziba Główna" : "Oddział / Magazyn (Główny)"
-        await adminDb.collection("objects").add({
+        const objectName = type === "INWESTOR" ? "Siedziba Główna" : "Oddział / Magazyn"
+        const objectRef = adminDb.collection("objects").doc()
+        await objectRef.set({
             contractorId: contractorRef.id,
             name: objectName,
             address: data.address || null,
             createdAt: new Date().toISOString()
         })
 
-        await prisma.contractor.create({
+        await (prisma.contractor.create as any)({
             data: {
                 id: contractorRef.id,
                 tenantId,
@@ -169,6 +259,7 @@ export async function createContractor(data: { name: string; nip?: string; addre
                 status: "ACTIVE",
                 objects: {
                     create: {
+                        id: objectRef.id,
                         name: objectName,
                         address: data.address || null
                     }
@@ -189,7 +280,7 @@ export async function createContractor(data: { name: string; nip?: string; addre
 /**
  * 4. USUWANIE (Pojedyncze i Batch - Dual Sync)
  */
-import prisma from "@/lib/prisma"
+// ... reszta kodu ...
 
 export async function deleteContractor(id: string) {
     const adminDb = getAdminDb()
@@ -258,9 +349,15 @@ export async function getContractors() {
         .get()
 
     const contractors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
-    
-    // Pobierz obiekty dla wszystkich kontrahentów
-    const objectsSnap = await adminDb.collection("objects").get()
+
+    // Pobierz obiekty TYLKO dla kontrahentów tego tenanta
+    const contractorIds = contractors.map(c => c.id)
+    if (contractorIds.length === 0) return []
+
+    const objectsSnap = await adminDb.collection("objects")
+        .where("contractorId", "in", contractorIds)
+        .get()
+
     const allObjects = objectsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
 
     return contractors

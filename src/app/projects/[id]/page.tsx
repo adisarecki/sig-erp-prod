@@ -28,6 +28,9 @@ export default async function ProjectCockpit({ params }: PageProps) {
     const contractors = await getContractors()
     const allProjects = await getProjects()
 
+    // Test Mode logic (Server-side bypass for client visibility)
+    const isTestMode = process.env.ENABLE_TEST_DELETE === "true" || process.env.NEXT_PUBLIC_ENABLE_TEST_DELETE === "true"
+
     // Defensive data extraction
     const invoices = project.invoices || []
     const transactions = project.transactions || []
@@ -73,6 +76,7 @@ export default async function ProjectCockpit({ params }: PageProps) {
                         projectId={project.id}
                         allProjects={allProjects}
                         contractors={contractors}
+                        isTestMode={isTestMode}
                     />
                 </div>
             </div>
@@ -192,7 +196,8 @@ export default async function ProjectCockpit({ params }: PageProps) {
                                                 </span>
                                                 <TransactionDeleteButton 
                                                     transactionId={t.id} 
-                                                    description={`${t.category}: ${t.description || ''}`} 
+                                                    description={`${t.category}: ${t.description || ''}`}
+                                                    isTestMode={isTestMode}
                                                 />
                                             </div>
                                         </div>

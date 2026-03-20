@@ -19,11 +19,15 @@ export function AddContractorModal() {
     async function handleSubmit(formData: FormData) {
         setIsPending(true)
         try {
-            await addContractor(formData)
-            setOpen(false)
+            const res = await addContractor(formData)
+            if (res?.error) {
+                alert(res.error)
+            } else {
+                setOpen(false)
+            }
         } catch (error) {
             console.error(error)
-            alert("Wystąpił błąd przy dodawaniu kontrahenta.")
+            alert("Wystąpił nieoczekiwany błąd przy dodawaniu kontrahenta.")
         } finally {
             setIsPending(false)
         }

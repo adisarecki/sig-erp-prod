@@ -20,9 +20,10 @@ interface ProjectCockpitActionsProps {
     projectId: string
     allProjects: { id: string; name: string }[]
     contractors: { id: string; name: string; nip?: string | null }[]
+    isTestMode?: boolean
 }
 
-export function ProjectCockpitActions({ projectId, allProjects, contractors }: ProjectCockpitActionsProps) {
+export function ProjectCockpitActions({ projectId, allProjects, contractors, isTestMode }: ProjectCockpitActionsProps) {
     const [ocrData, setOcrData] = useState<SanitizedOcrDraft | null>(null)
     const router = useRouter()
 
@@ -34,16 +35,19 @@ export function ProjectCockpitActions({ projectId, allProjects, contractors }: P
         if (confirm("Czy na pewno chcesz TRWALE usunąć ten projekt? Usunięte zostaną także wszystkie powiązane etapy, faktury i transakcje. Tej operacji nie da się cofnąć.")) {
             try {
                 const res = await deleteProject(projectId);
-                if (res.success) {
-                    router.push("/projects");
+                if (res?.error) {
+                    alert(res.error)
                 }
+                // Jeśli res.success lub brak błędu, akcja sama zrobi redirect lub my to obsłużymy.
+                // Ponieważ deleteProject teraz robi redirect("/projects"), 
+                // to wywołanie rzuci wyjątek, który zostanie złapany przez Next.js.
             } catch (err: any) {
-                alert(err.message || "Błąd usuwania projektu.");
+                // Jeśli to błąd redirektu Next.js, ignorujemy (on sam obsłuży przejście)
+                if (err.message === 'NEXT_REDIRECT') return;
+                console.error("Delete project error:", err);
             }
         }
     }
-
-    const isTestMode = process.env.NEXT_PUBLIC_ENABLE_TEST_DELETE === "true"
 
     return (
         <div className="flex items-center gap-3">
