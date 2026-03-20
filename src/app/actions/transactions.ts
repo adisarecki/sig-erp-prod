@@ -47,7 +47,8 @@ export async function addTransaction(formData: FormData) {
     
     const projectId = (!rawProjectId || rawProjectId === "NONE") ? null : rawProjectId;
 
-    await adminDb.collection("transactions").add({
+    // 1. Firestore Save
+    const docRef = await adminDb.collection("transactions").add({
         tenantId,
         projectId,
         amount,
@@ -58,6 +59,22 @@ export async function addTransaction(formData: FormData) {
         source,
         description: description || null,
         createdAt: new Date().toISOString()
+    })
+
+    // 2. Prisma Sync
+    await prisma.transaction.create({
+        data: {
+            id: docRef.id,
+            tenantId,
+            projectId,
+            amount: amount,
+            type,
+            transactionDate,
+            category,
+            status: "ACTIVE",
+            source,
+            description: description || null
+        }
     })
 
     revalidatePath("/")

@@ -65,7 +65,10 @@ export default async function FinancePage() {
                     </h2>
                 </div>
                 
-                <TransactionHistory transactions={transactions} />
+                <TransactionHistory 
+                    transactions={transactions} 
+                    projectsMap={Object.fromEntries(projectsMap.map(p => [p.id, p.name]))}
+                />
             </div>
         </div>
     );

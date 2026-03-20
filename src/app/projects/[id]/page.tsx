@@ -33,20 +33,14 @@ export default async function ProjectCockpit({ params }: PageProps) {
     const stages = project.stages || []
     const budgetEstimated = Number(project.budgetEstimated) || 0
 
-    // Obliczenia finansowe (CASH FLOW - ONLY PAID INVOICES)
-    const totalInvoiced = invoices
-        .filter((inv: any) => inv.type === 'SPRZEDAŻ' && inv.status === 'PAID')
-        .reduce((sum: number, inv: any) => sum + (Number(inv.amountNet) || 0), 0)
-
-    const totalInvoicesCostNet = invoices
-        .filter((inv: any) => (inv.type === 'KOSZT' || inv.type === 'ZAKUP') && inv.status === 'PAID')
-        .reduce((sum: number, inv: any) => sum + (Number(inv.amountNet) || 0), 0)
-
-    const nonInvoiceCosts = transactions
-        .filter((t: any) => (t.type === 'KOSZT' || t.type === 'WYDATEK') && t.source !== 'INVOICE')
+    // Obliczenia finansowe (CASH FLOW - SOURCE: TRANSACTIONS)
+    const totalInvoiced = transactions
+        .filter((t: any) => t.type === 'PRZYCHÓD')
         .reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0)
 
-    const totalCosts = totalInvoicesCostNet + nonInvoiceCosts
+    const totalCosts = transactions
+        .filter((t: any) => t.type === 'KOSZT' || t.type === 'WYDATEK')
+        .reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0)
     
     const margin = totalInvoiced - totalCosts
     const percentUsed = budgetEstimated > 0 ? (totalCosts / budgetEstimated) * 100 : 0

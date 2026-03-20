@@ -15,9 +15,13 @@ interface Transaction {
 
 interface TransactionHistoryProps {
     transactions: Transaction[];
+    projectsMap?: Record<string, string>;
 }
 
-export function TransactionHistory({ transactions: initialTransactions }: TransactionHistoryProps) {
+export function TransactionHistory({ 
+    transactions: initialTransactions,
+    projectsMap = {}
+}: TransactionHistoryProps) {
     const formatPln = (value: number) => {
         return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(value)
     }
@@ -57,7 +61,7 @@ export function TransactionHistory({ transactions: initialTransactions }: Transa
                                     {new Date(t.transactionDate).toLocaleDateString('pl-PL')}
                                 </span>
                                 <span>•</span>
-                                <span>Projekt: {t.projectId || <span className="italic text-slate-400">Ogólne (Brak przypisania)</span>}</span>
+                                <span>Projekt: {t.projectId ? (projectsMap[t.projectId] || t.projectId) : <span className="italic text-slate-400">Ogólne (Brak przypisania)</span>}</span>
                             </div>
                         </div>
                     </div>

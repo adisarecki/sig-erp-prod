@@ -5,6 +5,7 @@ import Decimal from "decimal.js"
 import { validateNonZero } from "@/lib/ledger"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { getAdminDb } from "@/lib/firebaseAdmin"
+import prisma from "@/lib/prisma"
 
 
 export async function addIncomeInvoice(formData: FormData) {
@@ -61,7 +62,7 @@ export async function addIncomeInvoice(formData: FormData) {
     }
 
 
-    await adminDb.runTransaction(async (transaction) => {
+    const invoiceId = await adminDb.runTransaction(async (transaction) => {
         // 1. Zapisujemy Fakturę
         const invoiceRef = adminDb.collection("invoices").doc()
         transaction.set(invoiceRef, {
@@ -100,7 +101,59 @@ export async function addIncomeInvoice(formData: FormData) {
                 updatedAt: new Date().toISOString()
             })
         }
+        return invoiceRef.id
     })
+
+    // 3. Prisma Sync
+    await prisma.invoice.create({
+        data: {
+            id: invoiceId,
+            tenantId,
+            contractorId,
+            projectId,
+            type: "SPRZEDAŻ",
+            amountNet: amountNet.toNumber(),
+            amountGross: amountGross.toNumber(),
+            taxRate: taxRate.toNumber(),
+            issueDate,
+            dueDate,
+            status: isPaidImmediately ? "PAID" : "ACTIVE",
+            externalId: description,
+            retainedAmount: retainedAmount ? retainedAmount.toNumber() : null,
+            retentionReleaseDate
+        }
+    })
+
+    if (isPaidImmediately) {
+        const transSnap = await adminDb.collection("transactions").where("invoiceId", "==", invoiceId).limit(1).get()
+        if (!transSnap.empty) {
+            const tDoc = transSnap.docs[0]
+            // 3a. Tworzymy Transakcję w Prisma
+            const prismaTrans = await prisma.transaction.create({
+                data: {
+                    id: tDoc.id,
+                    tenantId,
+                    projectId,
+                    amount: amountGross.toNumber(),
+                    type: "PRZYCHÓD",
+                    transactionDate: issueDate,
+                    category: category || "SPRZEDAŻ_TOWARU",
+                    description: `Wpływ z Faktury: ${description || 'Brak wpisanego numeru'}`,
+                    status: "ACTIVE",
+                    source: "INVOICE"
+                }
+            })
+
+            // 3b. Tworzymy powiązanie InvoicePayment (Ledger logic)
+            await prisma.invoicePayment.create({
+                data: {
+                    invoiceId: invoiceId,
+                    transactionId: prismaTrans.id,
+                    amountApplied: amountGross.toNumber()
+                }
+            })
+        }
+    }
 
     revalidatePath("/")
     revalidatePath("/projects")
@@ -182,7 +235,7 @@ export async function addCostInvoice(formData: FormData) {
     const retainedAmount = retainedAmountStr ? new Decimal(retainedAmountStr) : null
     const retentionReleaseDate = retentionReleaseDateStr ? new Date(retentionReleaseDateStr) : null
 
-    await adminDb.runTransaction(async (transaction) => {
+    const invoiceId = await adminDb.runTransaction(async (transaction) => {
         let finalContractorId = contractorId
 
         // 1. Jeśli to nowy kontrahent, stwórz go najpierw
@@ -243,7 +296,81 @@ export async function addCostInvoice(formData: FormData) {
                 createdAt: new Date().toISOString()
             })
         }
+        return { invoiceId: invoiceRef.id, contractorId: finalContractorId }
     })
+
+    // 4. Prisma Sync
+    // Uwaga: Jeśli contractor jest nowy, Prisma może go jeszcze nie mieć jeśli sync nie jest atomowy.
+    // Ale tutaj używamy IDs z Firestore, więc powinno być OK jeśli Prisma dostanie dane.
+    // Wypadałoby zsynchronizować też Contractora jeśli jest nowy.
+    if (isNewContractor) {
+        await prisma.contractor.create({
+            data: {
+                id: invoiceId.contractorId,
+                tenantId,
+                name: newContractorName,
+                nip: newContractorNip || null,
+                address: newContractorAddress || null,
+                status: "ACTIVE"
+            }
+        })
+        // Obiekt
+        await prisma.object.create({
+            data: {
+                contractorId: invoiceId.contractorId,
+                name: "Siedziba Główna",
+                address: newContractorAddress || null
+            }
+        })
+    }
+
+    await prisma.invoice.create({
+        data: {
+            id: invoiceId.invoiceId,
+            tenantId,
+            contractorId: invoiceId.contractorId,
+            projectId: finalProjectId,
+            type: "KOSZT",
+            amountNet: amountNet.toNumber(),
+            amountGross: amountGross.toNumber(),
+            taxRate: taxRate.toNumber(),
+            issueDate,
+            dueDate,
+            status: isPaidImmediately ? "PAID" : "ACTIVE",
+            externalId: description,
+            retainedAmount: retainedAmount ? retainedAmount.toNumber() : null,
+            retentionReleaseDate
+        }
+    })
+
+    if (isPaidImmediately) {
+        const transSnap = await adminDb.collection("transactions").where("invoiceId", "==", invoiceId.invoiceId).limit(1).get()
+        if (!transSnap.empty) {
+            const tDoc = transSnap.docs[0]
+            const prismaTrans = await prisma.transaction.create({
+                data: {
+                    id: tDoc.id,
+                    tenantId,
+                    projectId: finalProjectId,
+                    amount: amountGross.toNumber(),
+                    type: "KOSZT",
+                    transactionDate: issueDate,
+                    category: category || "KOSZT_FIRMOWY",
+                    description: `Faktura: ${description || 'Brak wpisanego numeru'}`,
+                    status: "ACTIVE",
+                    source: "INVOICE"
+                }
+            })
+
+            await prisma.invoicePayment.create({
+                data: {
+                    invoiceId: invoiceId.invoiceId,
+                    transactionId: prismaTrans.id,
+                    amountApplied: amountGross.toNumber()
+                }
+            })
+        }
+    }
 
     revalidatePath("/")
     revalidatePath("/projects")
@@ -261,22 +388,22 @@ export async function markInvoiceAsPaid(invoiceId: string, paymentDateStr: strin
     const tenantId = await getCurrentTenantId()
     const paymentDate = new Date(paymentDateStr)
 
-    await adminDb.runTransaction(async (transaction) => {
+    const invData = await adminDb.runTransaction(async (transaction) => {
         const invoiceRef = adminDb.collection("invoices").doc(invoiceId)
         const invDoc = await transaction.get(invoiceRef)
 
         if (!invDoc.exists) throw new Error("Faktura nie istnieje.")
         const inv = invDoc.data()!
         if (inv.tenantId !== tenantId) throw new Error("Brak dostępu do tej faktury.")
-        if (inv.status === "PAID") return // Idempotentność
+        if (inv.status === "PAID") return null // Idempotentność
 
-        // 1. Aktualizuj status faktury
+        // 1. Aktualizuj status faktury w Firestore
         transaction.update(invoiceRef, {
             status: "PAID",
             updatedAt: new Date().toISOString()
         })
 
-        // 2. Stwórz transakcję (Zasilenie Dashboardu)
+        // 2. Stwórz transakcję w Firestore
         const transRef = adminDb.collection("transactions").doc()
         transaction.set(transRef, {
             tenantId,
@@ -291,7 +418,41 @@ export async function markInvoiceAsPaid(invoiceId: string, paymentDateStr: strin
             invoiceId: invoiceId,
             createdAt: new Date().toISOString()
         })
+        return { inv, transId: transRef.id }
     })
+
+    if (invData) {
+        const { inv, transId } = invData;
+        // 3. Prisma Sync (Status faktury)
+        await prisma.invoice.update({
+            where: { id: invoiceId },
+            data: { status: "PAID" }
+        })
+
+        // 4. Prisma Sync (Transakcja + Powiązanie)
+        const prismaTrans = await prisma.transaction.create({
+            data: {
+                id: transId,
+                tenantId,
+                projectId: inv.projectId,
+                amount: inv.amountGross,
+                type: inv.type === "SPRZEDAŻ" ? "PRZYCHÓD" : "KOSZT",
+                transactionDate: paymentDate,
+                category: inv.type === "SPRZEDAŻ" ? "SPRZEDAŻ_TOWARU" : "KOSZT_FIRMOWY",
+                description: `[Potwierdzenie Wpłaty] Faktura: ${inv.externalId || 'Brak numeru'}`,
+                status: "ACTIVE",
+                source: "INVOICE"
+            }
+        })
+
+        await prisma.invoicePayment.create({
+            data: {
+                invoiceId: invoiceId,
+                transactionId: prismaTrans.id,
+                amountApplied: inv.amountGross
+            }
+        })
+    }
 
     revalidatePath("/")
     revalidatePath("/projects")
