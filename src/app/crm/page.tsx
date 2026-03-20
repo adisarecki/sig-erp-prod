@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"
 import { TooltipHelp } from "@/components/ui/TooltipHelp"
 import { AddContractorModal } from "@/components/crm/AddContractorModal"
 import { InteractiveCRMList } from "@/components/crm/InteractiveCRMList"

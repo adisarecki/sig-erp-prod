@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"
 import { getProjects } from '@/app/actions/projects'
 import { getContractors } from '@/app/actions/crm'
 import { AddProjectModal } from '@/components/projects/AddProjectModal'
