@@ -4,8 +4,9 @@ import { useState } from "react"
 import { Trash, Layers } from "lucide-react"
 import { FloatingActionBar } from "@/components/ui/FloatingActionBar"
 import { EditContractorModal } from "@/components/crm/EditContractorModal"
-import { deleteContractorsBulk } from "@/app/actions/contractorsBulk"
+import { deleteContractor, deleteSelectedContractors } from "@/app/actions/crm"
 import { MergeContractorsDialog } from "@/components/crm/MergeContractorsDialog"
+import { Trash2 } from "lucide-react"
 
 interface Invoice {
     id: string;
@@ -47,11 +48,23 @@ export function InteractiveCRMList({ contractors }: InteractiveCRMListProps) {
 
     const handleDeleteBulk = async () => {
         if (confirm("Czy na pewno chcesz usunąć trwale te rekordy z bazy?")) {
-            const result = await deleteContractorsBulk(selectedIds)
-            if (result.success) {
-                setSelectedIds([])
-            } else {
-                alert(result.error)
+            try {
+                const result = await deleteSelectedContractors(selectedIds)
+                if (result.success) {
+                    setSelectedIds([])
+                }
+            } catch (err: any) {
+                alert(err.message || "Błąd podczas usuwania.")
+            }
+        }
+    }
+
+    const handleDeleteSingle = async (id: string, name: string) => {
+        if (confirm(`Czy na pewno chcesz trwale usunąć kontrahenta "${name}"? Tej operacji nie da się cofnąć.`)) {
+            try {
+                await deleteContractor(id)
+            } catch (err: any) {
+                alert(err.message || "Błąd podczas usuwania.")
             }
         }
     }
@@ -122,7 +135,7 @@ export function InteractiveCRMList({ contractors }: InteractiveCRMListProps) {
                                         }`}>
                                         {contractor.status}
                                     </span>
-                                    <div data-edit="true">
+                                    <div data-edit="true" className="flex items-center gap-2">
                                         <EditContractorModal contractor={{
                                             id: contractor.id,
                                             name: contractor.name,
@@ -130,6 +143,13 @@ export function InteractiveCRMList({ contractors }: InteractiveCRMListProps) {
                                             address: contractor.address,
                                             status: contractor.status
                                         }} />
+                                        <button
+                                            onClick={() => handleDeleteSingle(contractor.id, contractor.name)}
+                                            className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-all hover:scale-110"
+                                            title="Usuń kontrahenta"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
                                     </div>
                                 </div>
                             </div>

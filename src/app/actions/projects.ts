@@ -16,7 +16,6 @@ export async function getProjects() {
 
     return snapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() as any }))
-        .filter(p => p.lifecycleStatus === "ACTIVE")
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }
 
@@ -96,6 +95,8 @@ export async function updateProject(id: string, data: { name: string, budgetEsti
     return { success: true }
 }
 
+import prisma from "@/lib/prisma"
+
 /**
  * ARCHIWIZACJA
  */
@@ -112,6 +113,48 @@ export async function archiveProject(id: string) {
     revalidatePath("/")
 
     return { success: true }
+}
+
+/**
+ * USUWANIE (Dual Sync + Cascade)
+ */
+export async function deleteProject(id: string) {
+    const adminDb = getAdminDb()
+    const tenantId = await getCurrentTenantId()
+
+    try {
+        // 1. Usuwamy powiązane dane z Firestore (Stages, Invoices, Transactions)
+        const collections = ["project_stages", "invoices", "transactions"]
+        for (const col of collections) {
+            const snap = await adminDb.collection(col).where("projectId", "==", id).get()
+            const batch = adminDb.batch()
+            snap.docs.forEach(doc => batch.delete(doc.ref))
+            await batch.commit()
+        }
+
+        // 2. Usuwamy projekt z Firestore
+        await adminDb.collection("projects").doc(id).delete()
+
+        // 3. Usuwamy z Prisma (Kaskada dla Stages jest w schema, ale dla Transactions/Invoices musimy ręcznie)
+        // Najpierw InvoicePayments powiązane z fakturami tego projektu
+        const projectInvoices = await prisma.invoice.findMany({ where: { projectId: id }, select: { id: true } })
+        const invIds = projectInvoices.map(i => i.id)
+        
+        await prisma.invoicePayment.deleteMany({ where: { invoiceId: { in: invIds } } })
+        await prisma.invoice.deleteMany({ where: { projectId: id } })
+        await prisma.transaction.deleteMany({ where: { projectId: id } })
+        
+        // Na końcu projekt (Stages zostaną usunięte kaskadowo przez DB)
+        await prisma.project.delete({ where: { id } })
+
+        revalidatePath("/projects")
+        revalidatePath("/finance")
+        revalidatePath("/")
+        return { success: true }
+    } catch (error) {
+        console.error("[PROJECT_DELETE_ERROR]", error)
+        throw error
+    }
 }
 
 /**

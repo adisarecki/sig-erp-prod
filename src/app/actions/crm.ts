@@ -90,31 +90,63 @@ export async function createContractor(data: { name: string; nip?: string; addre
 }
 
 /**
- * 4. USUWANIE (Batch)
+ * 4. USUWANIE (Pojedyncze i Batch - Dual Sync)
  */
-export async function deleteSelectedContractors(ids: string[]) {
+import prisma from "@/lib/prisma"
+
+export async function deleteContractor(id: string) {
     const adminDb = getAdminDb()
-    const tenantId = await getCurrentTenantId();
+    const tenantId = await getCurrentTenantId()
 
     try {
-        const batch = adminDb.batch()
+        // 1. Sprawdzenie naruszeń w SQL (Faktury/Projekty)
+        const invoiceCount = await prisma.invoice.count({ where: { contractorId: id } })
+        const projectCount = await prisma.project.count({ where: { contractorId: id } })
 
-        for (const id of ids) {
-            // W NoSQL nie mamy kaskadowego usuwania wbudowanego tak jak w SQL, 
-            // więc musielibyśmy ręcznie szukać wszystkich faktur i projektów.
-            // Dla celów lokalnego testu usuwamy tylko kontrahentów (dokumentacja to zaznacza).
-            const ref = adminDb.collection("contractors").doc(id)
-            batch.delete(ref)
+        if (invoiceCount > 0 || projectCount > 0) {
+            throw new Error(`Nie można usunąć kontrahenta: Znaleziono ${invoiceCount} faktur i ${projectCount} projektów przypisanych do tej firmy.`)
         }
 
-        await batch.commit()
+        // 2. Usuwanie z Firestore
+        await adminDb.collection("contractors").doc(id).delete()
+
+        // 3. Usuwanie z Prisma (Kaskadowo usunie obiekty i kontakty)
+        await prisma.contractor.delete({ where: { id } })
 
         revalidatePath("/crm")
         revalidatePath("/")
         return { success: true }
     } catch (error) {
         console.error("[CRM_DELETE_ERROR]", error)
-        throw new Error("Błąd podczas usuwania kontrahentów.")
+        throw error
+    }
+}
+
+export async function deleteSelectedContractors(ids: string[]) {
+    const adminDb = getAdminDb()
+    const tenantId = await getCurrentTenantId();
+
+    try {
+        const batch = adminDb.batch()
+        for (const id of ids) {
+            batch.delete(adminDb.collection("contractors").doc(id))
+        }
+
+        // Sprawdzenie naruszeń dla grupy
+        const violations = await prisma.invoice.count({ where: { contractorId: { in: ids } } })
+        if (violations > 0) {
+            throw new Error(`Wykryto ${violations} dokumentów powiązanych z zaznaczonymi firmami. Usuwanie zablokowane.`)
+        }
+
+        await batch.commit()
+        await prisma.contractor.deleteMany({ where: { id: { in: ids } } })
+
+        revalidatePath("/crm")
+        revalidatePath("/")
+        return { success: true }
+    } catch (error) {
+        console.error("[CRM_BULK_DELETE_ERROR]", error)
+        throw error
     }
 }
 

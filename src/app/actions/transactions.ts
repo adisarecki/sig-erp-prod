@@ -3,6 +3,29 @@
 import { revalidatePath } from "next/cache"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { getAdminDb } from "@/lib/firebaseAdmin"
+import prisma from "@/lib/prisma"
+
+export async function deleteTransaction(id: string) {
+    const adminDb = getAdminDb()
+    const tenantId = await getCurrentTenantId()
+
+    try {
+        // 1. Usuwanie z Firestore
+        await adminDb.collection("transactions").doc(id).delete()
+
+        // 2. Usuwanie z Prisma
+        await prisma.transaction.delete({ where: { id } })
+
+        revalidatePath("/finance")
+        revalidatePath("/projects")
+        revalidatePath("/")
+        
+        return { success: true }
+    } catch (error) {
+        console.error("[TRANSACTION_DELETE_ERROR]", error)
+        throw error
+    }
+}
 
 export async function addTransaction(formData: FormData) {
     const adminDb = getAdminDb()

@@ -11,10 +11,9 @@ import { getCurrentTenantId } from "@/lib/tenant"
 import { getProjects } from "@/app/actions/projects"
 import { getContractors } from "@/app/actions/crm"
 
-// Pomocnicza funkcja do formatowania PLN
-const formatPln = (value: number) => {
-    return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(value)
-}
+import { TransactionHistory } from "@/components/finance/TransactionHistory"
+
+// ... (existing functions)
 
 export default async function FinancePage() {
     const tenantId = await getCurrentTenantId()
@@ -59,7 +58,6 @@ export default async function FinancePage() {
             {/* PANEL SZYBKICH AKCJI */}
             <QuickActionsBar projects={projectsMap} contractors={contractorsMap} />
 
-
             <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
                 <div className="border-b border-slate-100 px-6 py-4 bg-slate-50/50">
                     <h2 className="font-semibold text-slate-800 flex items-center gap-2">
@@ -67,38 +65,7 @@ export default async function FinancePage() {
                     </h2>
                 </div>
                 
-                {transactions.length === 0 ? (
-                    <div className="p-8 text-center text-slate-500">
-                        Historia transakcji jest pusta. Dodaj swój pierwszy koszt lub przychód firmowy.
-                    </div>
-                ) : (
-                    <div className="divide-y divide-slate-100">
-                        {transactions.map((t) => (
-                            <div key={t.id} className="p-4 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center hover:bg-slate-50 transition-colors">
-                                <div className="flex gap-4 items-center">
-                                    <div className={`p-3 rounded-xl flex items-center justify-center shrink-0 ${t.type === 'PRZYCHÓD' ? 'bg-green-100 text-green-600' : 'bg-rose-100 text-rose-600'}`}>
-                                        {t.type === 'PRZYCHÓD' ? <ArrowUpRight className="w-6 h-6" /> : <ArrowDownRight className="w-6 h-6" />}
-                                    </div>
-                                    <div>
-                                        <p className="font-semibold text-slate-900 text-lg">
-                                            {t.description || t.category}
-                                        </p>
-                                        <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
-                                            <span className="font-medium px-2 py-0.5 rounded-md bg-slate-100">
-                                                {new Date(t.transactionDate).toLocaleDateString('pl-PL')}
-                                            </span>
-                                            <span>•</span>
-                                            <span>Projekt: {t.projectId || <span className="italic text-slate-400">Ogólne (Brak przypisania)</span>}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className={`mt-4 sm:mt-0 text-xl font-bold whitespace-nowrap pl-0 sm:pl-4 ${t.type === 'PRZYCHÓD' ? 'text-green-600' : 'text-slate-900'}`}>
-                                    {t.type === 'PRZYCHÓD' ? '+' : '-'}{formatPln(Number(t.amount))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                <TransactionHistory transactions={transactions} />
             </div>
         </div>
     );

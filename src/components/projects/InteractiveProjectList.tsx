@@ -2,9 +2,10 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Archive, Pause, Play } from "lucide-react"
+import { Archive, Pause, Play, Trash2, Building2, MapPin, Clock, ChevronRight, Plus, Filter, Search, Download, Trash, Layers } from "lucide-react"
 import { FloatingActionBar } from "@/components/ui/FloatingActionBar"
 import { bulkUpdateProjectLifecycle } from "@/app/actions/projectsBulk"
+import { deleteProject } from "@/app/actions/projects"
 import { ProjectAnalysisDialog } from "@/components/projects/ProjectAnalysisDialog"
 import { EditProjectModal } from "@/components/projects/EditProjectModal"
 
@@ -47,16 +48,25 @@ export function InteractiveProjectList({ projects, isArchivedView = false }: Int
         }
     }
 
-    const handleBulkStatusChange = async (newStatus: 'ACTIVE' | 'ON_HOLD' | 'ARCHIVED') => {
-        let confirmMessage = `Czy na pewno chcesz zmienić status ${selectedIds.length} projektów?`;
-        if (newStatus === 'ARCHIVED') confirmMessage = `Czy na pewno chcesz przenieść ${selectedIds.length} projektów do Archiwum? (Zachowają one swój udział w finansach)`;
-        
-        if (confirm(confirmMessage)) {
-            const result = await bulkUpdateProjectLifecycle(selectedIds, newStatus)
-            if (result.success) {
-                setSelectedIds([])
-            } else {
-                alert(result.error)
+    const handleBulkStatusChange = async (status: 'ACTIVE' | 'ON_HOLD' | 'ARCHIVED') => {
+        const result = await bulkUpdateProjectLifecycle(selectedIds, status)
+        if (result.success) {
+            setSelectedIds([])
+        } else {
+            alert(result.error)
+        }
+    }
+
+    const handleDeleteSingle = async (e: React.MouseEvent, id: string, name: string) => {
+        e.stopPropagation();
+        if (confirm(`Czy na pewno chcesz TRWALE usunąć projekt "${name}"? Usunięte zostaną także wszystkie powiązane etapy, faktury i transakcje. Tej operacji nie da się cofnąć.`)) {
+            try {
+                const res = await deleteProject(id);
+                if (res.success) {
+                    setSelectedIds(prev => prev.filter(x => x !== id));
+                }
+            } catch (err: any) {
+                alert(err.message || "Wystąpił błąd podczas usuwania projektu.");
             }
         }
     }
@@ -161,13 +171,22 @@ export function InteractiveProjectList({ projects, isArchivedView = false }: Int
                                         >
                                             <h2 className="text-xl font-bold text-slate-900">{project.name}</h2>
                                         </Link>
-                                        <EditProjectModal 
-                                            project={{
-                                                id: project.id,
-                                                name: project.name,
-                                                budgetEstimated: Number(project.budgetEstimated)
-                                            }} 
-                                        />
+                                        <div className="flex items-center gap-1">
+                                            <EditProjectModal 
+                                                project={{
+                                                    id: project.id,
+                                                    name: project.name,
+                                                    budgetEstimated: Number(project.budgetEstimated)
+                                                }} 
+                                            />
+                                            <button
+                                                onClick={(e) => handleDeleteSingle(e, project.id, project.name)}
+                                                className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-all hover:scale-110"
+                                                title="Usuń projekt"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </div>
                                     <p className="text-slate-500 mt-1 text-sm">
                                         Inwestor: <strong className="text-slate-700">{project.contractor.name}</strong> •
