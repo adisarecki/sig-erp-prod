@@ -22,6 +22,7 @@ import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
 interface Project {
     id: string
     name: string
+    contractorId?: string
 }
 
 interface Contractor {
@@ -107,6 +108,17 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
             setDueDate(d.toISOString().split('T')[0])
         }
     }, [issueDate])
+
+    // Auto-fill contractor when project is locked
+    useEffect(() => {
+        if (lockedProjectId && projects.length > 0) {
+            setSelectedProjectId(lockedProjectId)
+            const project = projects.find(p => p.id === lockedProjectId)
+            if (project?.contractorId) {
+                setSelectedContractorId(project.contractorId)
+            }
+        }
+    }, [lockedProjectId, projects])
 
     async function handleSubmit(formData: FormData) {
         setIsLoading(true)

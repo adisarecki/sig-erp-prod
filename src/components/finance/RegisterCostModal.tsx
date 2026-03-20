@@ -13,7 +13,7 @@ import { PlusCircle } from "lucide-react"
 import { addCostInvoice } from "@/app/actions/invoices"
 import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
 
-interface Project { id: string; name: string }
+interface Project { id: string; name: string; contractorId?: string }
 interface Contractor { id: string; name: string; nip?: string | null }
 
 interface RegisterCostModalProps {
@@ -49,10 +49,14 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const lastOcrRef = useRef<SanitizedOcrDraft | undefined>(undefined)
 
     useEffect(() => {
-        if (lockedProjectId) {
+        if (lockedProjectId && projects.length > 0) {
             setSelectedProjectId(lockedProjectId)
+            const project = projects.find(p => p.id === lockedProjectId)
+            if (project?.contractorId) {
+                setSelectedContractorId(project.contractorId)
+            }
         }
-    }, [lockedProjectId])
+    }, [lockedProjectId, projects])
 
     // --- LOGIKA OCR AUTO-FILL ---
     useEffect(() => {

@@ -25,6 +25,7 @@ interface ProjectData {
     status: string;
     lifecycleStatus: string;
     budgetEstimated: number | string | { toNumber: () => number };
+    contractorId: string;
     contractor: { name: string };
     object: { name: string; address: string | null };
     invoices: { amountNet: number | string | { toNumber: () => number } }[];
@@ -267,7 +268,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                             {!isArchivedView && (
                                 <div className="flex items-center gap-2 mt-4 md:mt-0" onClick={(e) => e.stopPropagation()}>
                                     <RegisterIncomeModal 
-                                        projects={projects.map(p => ({ id: p.id, name: p.name }))}
+                                        projects={projects.map(p => ({ id: p.id, name: p.name, contractorId: p.contractorId }))}
                                         contractors={contractors}
                                         lockedProjectId={project.id}
                                         trigger={
@@ -278,7 +279,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                         }
                                     />
                                     <RegisterCostModal 
-                                        projects={projects.map(p => ({ id: p.id, name: p.name }))}
+                                        projects={projects.map(p => ({ id: p.id, name: p.name, contractorId: p.contractorId }))}
                                         contractors={contractors}
                                         lockedProjectId={project.id}
                                         trigger={
