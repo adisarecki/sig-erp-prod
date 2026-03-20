@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"
 import { getProjectWithDetails, getProjects } from "@/app/actions/projects"
 import { getContractors } from "@/app/actions/crm"
 import { notFound } from "next/navigation"

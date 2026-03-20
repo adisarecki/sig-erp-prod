@@ -1,48 +1,41 @@
+export const dynamic = "force-dynamic"
 import { TooltipHelp } from "@/components/ui/TooltipHelp"
 import { QuickActionsBar } from "@/components/finance/QuickActionsBar"
-import { PrismaClient } from "@prisma/client"
 import { ArrowDownRight, ArrowUpRight, FileText } from "lucide-react"
 import Link from "next/link"
 
 import { scanForLeaks } from "@/lib/finance/leakage-detection"
 import { LeakageAlerts } from "@/components/finance/LeakageAlerts"
-
-const prisma = new PrismaClient()
+import { getAdminDb } from "@/lib/firebaseAdmin"
+import { getCurrentTenantId } from "@/lib/tenant"
+import { getProjects } from "@/app/actions/projects"
+import { getContractors } from "@/app/actions/crm"
 
 // Pomocnicza funkcja do formatowania PLN
 const formatPln = (value: number) => {
     return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(value)
 }
 
-async function getCurrentTenantId() {
-    const tenant = await prisma.tenant.findFirst()
-    if (!tenant) throw new Error("Brak ustawionego środowiska (Dzierżawy).")
-    return tenant.id
-}
-
 export default async function FinancePage() {
     const tenantId = await getCurrentTenantId()
     const leakageAlerts = await scanForLeaks(tenantId)
 
-    // Pobieramy projekty dla Modali (dropdown)
-    const projects = await prisma.project.findMany({
-        where: {
-            lifecycleStatus: 'ACTIVE'
-        }
-    })
-    const projectsMap = projects.map(p => ({ id: p.id, name: p.name }))
+    // Pobieramy projekty i kontrahentów z Firestore
+    const rawProjects = (await getProjects()) as any[]
+    const projectsMap = rawProjects.map(p => ({ id: p.id, name: p.name }))
 
-    // Pobieramy kontrahentów do Faktur
-    const contractors = await prisma.contractor.findMany({
-        where: { status: 'ACTIVE' }
-    })
-    const contractorsMap = contractors.map(c => ({ id: c.id, name: c.name }))
+    const rawContractors = (await getContractors()) as any[]
+    const contractorsMap = rawContractors.map(c => ({ id: c.id, name: c.name }))
 
-    // Pobieramy wpisane transakcje gotówkowe do Listy
-    const transactions = await prisma.transaction.findMany({
-        orderBy: { transactionDate: 'desc' },
-        include: { project: true }
-    })
+    // Pobieramy transakcje z Firestore
+    const adminDb = getAdminDb()
+    const transactionsSnap = await adminDb.collection("transactions")
+        .where("tenantId", "==", tenantId)
+        .where("status", "==", "ACTIVE")
+        .orderBy("transactionDate", "desc")
+        .get()
+
+    const transactions = transactionsSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
 
     return (
         <div className="space-y-6">
@@ -91,10 +84,10 @@ export default async function FinancePage() {
                                         </p>
                                         <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
                                             <span className="font-medium px-2 py-0.5 rounded-md bg-slate-100">
-                                                {t.transactionDate.toLocaleDateString('pl-PL')}
+                                                {new Date(t.transactionDate).toLocaleDateString('pl-PL')}
                                             </span>
                                             <span>•</span>
-                                            <span>Projekt: {t.project?.name || <span className="italic text-slate-400">Ogólne (Brak przypisania)</span>}</span>
+                                            <span>Projekt: {t.projectId || <span className="italic text-slate-400">Ogólne (Brak przypisania)</span>}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -109,3 +102,4 @@ export default async function FinancePage() {
         </div>
     );
 }
+

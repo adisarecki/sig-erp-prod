@@ -62,6 +62,21 @@ Katalog `docs/` zawiera fundamenty logiki biznesowej:
 
 ---
 
+## ⚡ Renderowanie Dynamiczne (SSR)
+
+Ze względu na hybrydę Firebase/Firestore, **wszystkie strony serwerowe** muszą mieć `export const dynamic = "force-dynamic"`.
+Bez tego Next.js próbuje statycznie generować stronę w czasie buildu (SSG), co powoduje crashe Firestore.
+
+Strony z wymuszonym SSR:
+- `/` (Dashboard)
+- `/crm`
+- `/projects`
+- `/projects/[id]`
+- `/finance`
+- `/finance/reconciliation`
+
+---
+
 ## 📈 Deployment (Vercel)
 
 System jest skonfigurowany pod automatyczny deployment z GitHuba.
