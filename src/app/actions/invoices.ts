@@ -89,6 +89,7 @@ export async function addIncomeInvoice(formData: FormData) {
             transaction.set(transRef, {
                 tenantId,
                 projectId,
+                classification: "PROJECT_COST",
                 amount: amountGross.toNumber(),
                 type: "PRZYCHÓD",
                 transactionDate: issueDate.toISOString(),
@@ -134,6 +135,7 @@ export async function addIncomeInvoice(formData: FormData) {
                     id: tDoc.id,
                     tenantId,
                     projectId,
+                    classification: "PROJECT_COST",
                     amount: amountGross.toNumber(),
                     type: "PRZYCHÓD",
                     transactionDate: issueDate,
@@ -285,6 +287,7 @@ export async function addCostInvoice(formData: FormData) {
             transaction.set(transRef, {
                 tenantId,
                 projectId: finalProjectId,
+                classification: "PROJECT_COST",
                 amount: amountGross.toNumber(),
                 type: "KOSZT",
                 transactionDate: issueDate.toISOString(),
@@ -352,6 +355,7 @@ export async function addCostInvoice(formData: FormData) {
                     id: tDoc.id,
                     tenantId,
                     projectId: finalProjectId,
+                    classification: "PROJECT_COST",
                     amount: amountGross.toNumber(),
                     type: "KOSZT",
                     transactionDate: issueDate,
@@ -408,6 +412,7 @@ export async function markInvoiceAsPaid(invoiceId: string, paymentDateStr: strin
         transaction.set(transRef, {
             tenantId,
             projectId: inv.projectId,
+            classification: "PROJECT_COST",
             amount: inv.amountGross,
             type: inv.type === "SPRZEDAŻ" ? "PRZYCHÓD" : "KOSZT",
             transactionDate: paymentDate.toISOString(),
@@ -435,6 +440,7 @@ export async function markInvoiceAsPaid(invoiceId: string, paymentDateStr: strin
                 id: transId,
                 tenantId,
                 projectId: inv.projectId,
+                classification: "PROJECT_COST",
                 amount: inv.amountGross,
                 type: inv.type === "SPRZEDAŻ" ? "PRZYCHÓD" : "KOSZT",
                 transactionDate: paymentDate,

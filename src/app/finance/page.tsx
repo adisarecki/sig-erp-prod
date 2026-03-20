@@ -15,7 +15,13 @@ import { TransactionHistory } from "@/components/finance/TransactionHistory"
 
 // ... (existing functions)
 
-export default async function FinancePage() {
+export default async function FinancePage({ 
+    searchParams 
+}: { 
+    searchParams: Promise<{ filter?: string }> 
+}) {
+    const params = await searchParams
+    const activeFilter = params.filter || 'ALL'
     const tenantId = await getCurrentTenantId()
     const leakageAlerts = await scanForLeaks(tenantId)
 
@@ -28,9 +34,15 @@ export default async function FinancePage() {
 
     // Pobieramy transakcje z Firestore
     const adminDb = getAdminDb()
-    const transactionsSnap = await adminDb.collection("transactions")
-        .where("tenantId", "==", tenantId)
-        .get()
+    let query = adminDb.collection("transactions").where("tenantId", "==", tenantId)
+
+    if (activeFilter === 'PROJECT') {
+        query = query.where("classification", "==", "PROJECT_COST")
+    } else if (activeFilter === 'GENERAL') {
+        query = query.where("classification", "==", "GENERAL_COST")
+    }
+
+    const transactionsSnap = await query.get()
 
     const transactions = transactionsSnap.docs
         .map(d => ({ id: d.id, ...d.data() as any }))
@@ -59,15 +71,37 @@ export default async function FinancePage() {
             <QuickActionsBar projects={projectsMap} contractors={contractorsMap} />
 
             <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-                <div className="border-b border-slate-100 px-6 py-4 bg-slate-50/50">
+                <div className="border-b border-slate-100 px-6 py-4 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <h2 className="font-semibold text-slate-800 flex items-center gap-2">
                         <FileText className="w-5 h-5 text-slate-500" /> Rejestr Transakcji
                     </h2>
+                    
+                    <div className="flex bg-slate-100 p-1 rounded-lg self-stretch sm:self-auto">
+                        <Link 
+                            href="/finance?filter=ALL"
+                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === 'ALL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            WSZYSTKIE
+                        </Link>
+                        <Link 
+                            href="/finance?filter=PROJECT"
+                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === 'PROJECT' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            PROJEKTOWE
+                        </Link>
+                        <Link 
+                            href="/finance?filter=GENERAL"
+                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === 'GENERAL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            OGÓLNE (ZARZĄD)
+                        </Link>
+                    </div>
                 </div>
                 
                 <TransactionHistory 
                     transactions={transactions} 
                     projectsMap={Object.fromEntries(projectsMap.map(p => [p.id, p.name]))}
+                    allProjects={projectsMap}
                 />
             </div>
         </div>

@@ -45,6 +45,7 @@ export async function reconcileBankTransaction(
                 data: {
                     tenantId,
                     amount: amount,
+                    classification: "PROJECT_COST",
                     type: amount.gt(0) ? "PRZYCHÓD" : "KOSZT",
                     transactionDate: bankTrans.bookingDate,
                     category: "ROZLICZENIE_BANKOWE",

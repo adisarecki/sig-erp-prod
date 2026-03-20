@@ -50,11 +50,13 @@ export async function addTransaction(formData: FormData): Promise<{ success: boo
         const transactionDate = new Date(dateStr)
         
         const projectId = (!rawProjectId || rawProjectId === "NONE") ? null : rawProjectId;
+        const classification = projectId ? "PROJECT_COST" : "GENERAL_COST";
 
         // 1. Firestore Save
         const docRef = await adminDb.collection("transactions").add({
             tenantId,
             projectId,
+            classification,
             amount,
             type,
             transactionDate: transactionDate.toISOString(),
@@ -62,7 +64,8 @@ export async function addTransaction(formData: FormData): Promise<{ success: boo
             status: "ACTIVE",
             source,
             description: description || null,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
         })
 
         // 2. Prisma Sync
@@ -71,6 +74,7 @@ export async function addTransaction(formData: FormData): Promise<{ success: boo
                 id: docRef.id,
                 tenantId,
                 projectId,
+                classification,
                 amount: amount,
                 type,
                 transactionDate,
@@ -93,5 +97,40 @@ export async function addTransaction(formData: FormData): Promise<{ success: boo
     } catch (error: any) {
         console.error("[TRANSACTION_ADD_ERROR]", error)
         return { success: false, error: error.message || "Błąd podczas dodawania transakcji." }
+    }
+}
+export async function assignTransactionToProject(transactionId: string, projectId: string) {
+    if (!transactionId || !projectId || projectId === "NONE") {
+        throw new Error("ID transakcji oraz ID projektu są wymagane.")
+    }
+
+    try {
+        const adminDb = getAdminDb()
+        const tenantId = await getCurrentTenantId()
+
+        // 1. Firestore Update
+        await adminDb.collection("transactions").doc(transactionId).update({
+            projectId,
+            classification: "PROJECT_COST",
+            updatedAt: new Date().toISOString()
+        })
+
+        // 2. Prisma Sync
+        await prisma.transaction.update({
+            where: { id: transactionId },
+            data: {
+                projectId,
+                classification: "PROJECT_COST"
+            }
+        })
+
+        revalidatePath("/finance")
+        revalidatePath("/projects")
+        revalidatePath("/")
+
+        return { success: true }
+    } catch (error: any) {
+        console.error("[ASSIGN_TRANSACTION_ERROR]", error)
+        return { success: false, error: error.message || "Nie udało się przypisać transakcji do projektu." }
     }
 }

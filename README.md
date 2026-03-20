@@ -103,6 +103,13 @@ Funkcja "Wyczyść wszystkie dane" (Master Reset) realizuje protokół **Atomic 
 
 Proces kończy się statusem `Persistence Confirmed` dopiero po otrzymaniu potwierdzenia z obu silników baz danych.
 
+### 📂 Kategoryzacja Transakcji (General Expenses)
+System automatycznie rozróżnia dwa typy kosztów:
+- **PROJECT_COST**: Koszty bezpośrednio przypisane do projektu (np. materiały, podwykonawcy).
+- **GENERAL_COST**: Koszty ogólne zarządu (np. paliwo, telefon, biuro).
+
+**Logika Fallback**: Jeśli transakcja z importu bankowego nie zostanie przypisana do projektu, system flaguje ją jako `GENERAL_COST`. Na Dashboardzie koszty te są odejmowane od rzeczywistych marż projektowych, dając zintegrowany obraz wyniku netto firmy.
+
 ---
 
 ## 📈 Deployment (Vercel)

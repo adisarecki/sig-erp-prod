@@ -97,12 +97,26 @@ export default async function DashboardPage({
   // AGREGACJA TRANSAKCJI (BILANS KASOWY)
   let realCashIncomes = new Decimal(0)
   let realCashCosts = new Decimal(0)
+  let totalGeneralCosts = new Decimal(0)
+
   transactions.forEach(tx => {
     const txDate = new Date(tx.transactionDate)
     if (startDate && txDate < startDate) return
-    if (tx.type === 'PRZYCHÓD') realCashIncomes = realCashIncomes.plus(new Decimal(tx.amount))
-    else if (tx.type === 'KOSZT') realCashCosts = realCashCosts.plus(new Decimal(tx.amount))
+    
+    if (tx.type === 'PRZYCHÓD') {
+      realCashIncomes = realCashIncomes.plus(new Decimal(tx.amount))
+    } else if (tx.type === 'KOSZT') {
+      const amount = new Decimal(tx.amount)
+      realCashCosts = realCashCosts.plus(amount)
+      
+      if (tx.classification === 'GENERAL_COST' || !tx.projectId) {
+        totalGeneralCosts = totalGeneralCosts.plus(amount)
+      }
+    }
   })
+
+  const projectCosts = realCashCosts.minus(totalGeneralCosts)
+  const projectMarginSum = realCashIncomes.minus(projectCosts)
 
   // AGREGACJA VAT (Z FAKTUR OPŁACONYCH)
   let vatIncome = new Decimal(0)
@@ -267,10 +281,15 @@ export default async function DashboardPage({
   ]
 
   // Formatted Strings for UI
-  const formattedNetCash = formatPln(currentNetCash); const formattedCfExpenses30d = formatPln(cfExpenses30d)
-  const formattedTaxReserve = formatPln(totalReserve); const formattedNetProfit = formatPln(netProfit)
-  const formattedCfIncomes30d = formatPln(cfIncomes30d); const formattedCleanCash = formatPln(cleanCash)
-  const formattedNetVat = formatPln(netVat)
+  const formattedNetCash = formatPln(currentNetCash); 
+  const formattedCfExpenses30d = formatPln(cfExpenses30d);
+  const formattedTaxReserve = formatPln(totalReserve); 
+  const formattedNetProfit = formatPln(netProfit);
+  const formattedCfIncomes30d = formatPln(cfIncomes30d); 
+  const formattedCleanCash = formatPln(cleanCash);
+  const formattedNetVat = formatPln(netVat);
+  const formattedGeneralCosts = formatPln(totalGeneralCosts);
+  const formattedProjectMargin = formatPln(projectMarginSum);
 
   return (
     <div className="space-y-8">
@@ -306,8 +325,6 @@ export default async function DashboardPage({
       {/* LEAKAGE DETECTION SECTION */}
       <LeakageAlerts alerts={leakageAlerts} />
 
-      {/* PANEL SZYBKICH AKCJI - moved inline above */}
-
       {/* WSKAŹNIK BEZPIECZNEJ WYPŁATY - HERO SECTION */}
       <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-white p-8 rounded-3xl shadow-xl relative overflow-hidden border border-slate-800">
         <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none">
@@ -339,38 +356,49 @@ export default async function DashboardPage({
       </div>
 
       {/* STRATEGIC CEO INSIGHTS */}
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm border-l-4 border-l-cyan-600">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-cyan-100 text-cyan-600 rounded-lg">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Portfel Projektów</h3>
-          </div>
-          <p className="text-3xl font-black mt-4 text-slate-900">{formatPln(totalProjectBudgets)}</p>
-          <p className="text-xs mt-1 text-slate-500 font-medium">Suma budżetów aktywnych realizacji.</p>
-        </div>
-
+      <div className="grid gap-6 md:grid-cols-4">
         <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm border-l-4 border-l-indigo-600">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
-              <BadgeDollarSign className="w-5 h-5" />
+              <TrendingUp className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Planowana Marża</h3>
+            <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Marża Projektowa</h3>
           </div>
-          <p className="text-3xl font-black mt-4 text-indigo-700">{formatPln(plannedMargin)}</p>
-          <p className="text-xs mt-1 text-slate-500 font-medium">Cel zarobkowy (Budżet - Planowane Koszty).</p>
+          <p className="text-3xl font-black mt-4 text-indigo-700">{formattedProjectMargin}</p>
+          <p className="text-xs mt-1 text-slate-500 font-medium">Zysk zrealizowany na projektach.</p>
+        </div>
+
+        <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm border-l-4 border-l-orange-500">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-orange-100 text-orange-600 rounded-lg">
+              <TrendingDown className="w-5 h-5" />
+            </div>
+            <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Koszty Ogólne</h3>
+          </div>
+          <p className="text-3xl font-black mt-4 text-orange-700">-{formattedGeneralCosts}</p>
+          <p className="text-xs mt-1 text-slate-500 font-medium">Koszty zarządu i biurowe.</p>
         </div>
 
         <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm border-l-4 border-l-emerald-600">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
-              <Wallet className="w-5 h-5" />
+              <BadgeDollarSign className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Globalny Bilans</h3>
+            <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Zysk Realny</h3>
           </div>
-          <p className="text-3xl font-black mt-4 text-emerald-700">{formatPln(globalBilans)}</p>
-          <p className="text-xs mt-1 text-slate-500 font-medium">Realny wynik finansowy (Przychody - Koszty).</p>
+          <p className="text-3xl font-black mt-4 text-emerald-700">{formattedNetProfit}</p>
+          <p className="text-xs mt-1 text-slate-500 font-medium">Wynik końcowy firmy (Marża - Ogólne).</p>
+        </div>
+
+        <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm border-l-4 border-l-cyan-600">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-cyan-100 text-cyan-600 rounded-lg">
+              <Lock className="w-5 h-5" />
+            </div>
+            <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Wartość Portfela</h3>
+          </div>
+          <p className="text-3xl font-black mt-4 text-slate-900">{formatPln(totalProjectBudgets)}</p>
+          <p className="text-xs mt-1 text-slate-500 font-medium">Suma budżetów aktywnych.</p>
         </div>
       </div>
 
