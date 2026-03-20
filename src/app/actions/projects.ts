@@ -118,6 +118,9 @@ export async function archiveProject(id: string) {
 /**
  * USUWANIE (Dual Sync + Cascade)
  */
+/**
+ * USUWANIE (Dual Sync + Cascade)
+ */
 export async function deleteProject(id: string) {
     const adminDb = getAdminDb()
     const tenantId = await getCurrentTenantId()
@@ -136,15 +139,12 @@ export async function deleteProject(id: string) {
         await adminDb.collection("projects").doc(id).delete()
 
         // 3. Usuwamy z Prisma (Kaskada dla Stages jest w schema, ale dla Transactions/Invoices musimy ręcznie)
-        // Najpierw InvoicePayments powiązane z fakturami tego projektu
         const projectInvoices = await prisma.invoice.findMany({ where: { projectId: id }, select: { id: true } })
         const invIds = projectInvoices.map(i => i.id)
         
         await prisma.invoicePayment.deleteMany({ where: { invoiceId: { in: invIds } } })
         await prisma.invoice.deleteMany({ where: { projectId: id } })
         await prisma.transaction.deleteMany({ where: { projectId: id } })
-        
-        // Na końcu projekt (Stages zostaną usunięte kaskadowo przez DB)
         await prisma.project.delete({ where: { id } })
 
         revalidatePath("/projects")
@@ -153,6 +153,42 @@ export async function deleteProject(id: string) {
         return { success: true }
     } catch (error) {
         console.error("[PROJECT_DELETE_ERROR]", error)
+        throw error
+    }
+}
+
+export async function deleteSelectedProjects(ids: string[]) {
+    const adminDb = getAdminDb()
+    const tenantId = await getCurrentTenantId()
+
+    try {
+        // 1. Firestore Bulk Delete (Cascade)
+        const collections = ["project_stages", "invoices", "transactions"]
+        for (const id of ids) {
+            for (const col of collections) {
+                const snap = await adminDb.collection(col).where("projectId", "==", id).get()
+                const batch = adminDb.batch()
+                snap.docs.forEach(doc => batch.delete(doc.ref))
+                await batch.commit()
+            }
+            await adminDb.collection("projects").doc(id).delete()
+        }
+
+        // 2. Prisma Bulk Delete (Cascade manual)
+        const projectInvoices = await prisma.invoice.findMany({ where: { projectId: { in: ids } }, select: { id: true } })
+        const invIds = projectInvoices.map(i => i.id)
+
+        await prisma.invoicePayment.deleteMany({ where: { invoiceId: { in: invIds } } })
+        await prisma.invoice.deleteMany({ where: { projectId: { in: ids } } })
+        await prisma.transaction.deleteMany({ where: { projectId: { in: ids } } })
+        await prisma.project.deleteMany({ where: { id: { in: ids } } })
+
+        revalidatePath("/projects")
+        revalidatePath("/finance")
+        revalidatePath("/")
+        return { success: true }
+    } catch (error) {
+        console.error("[PROJECTS_BULK_DELETE_ERROR]", error)
         throw error
     }
 }

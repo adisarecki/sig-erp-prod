@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Archive, Pause, Play, Trash2, Building2, MapPin, Clock, ChevronRight, Plus, Filter, Search, Download, Trash, Layers } from "lucide-react"
 import { FloatingActionBar } from "@/components/ui/FloatingActionBar"
 import { bulkUpdateProjectLifecycle } from "@/app/actions/projectsBulk"
-import { deleteProject } from "@/app/actions/projects"
+import { deleteProject, deleteSelectedProjects } from "@/app/actions/projects"
 import { ProjectAnalysisDialog } from "@/components/projects/ProjectAnalysisDialog"
 import { EditProjectModal } from "@/components/projects/EditProjectModal"
 
@@ -57,6 +57,19 @@ export function InteractiveProjectList({ projects, isArchivedView = false }: Int
         }
     }
 
+    const handleDeleteBulk = async () => {
+        if (confirm(`Czy na pewno chcesz TRWALE usunąć ${selectedIds.length} zaznaczonych projektów? Usunięte zostaną także wszystkie powiązane etapy, faktury i transakcje. Tej operacji nie da się cofnąć.`)) {
+            try {
+                const res = await deleteSelectedProjects(selectedIds);
+                if (res.success) {
+                    setSelectedIds([]);
+                }
+            } catch (err: any) {
+                alert(err.message || "Wystąpił błąd podczas usuwania projektów.");
+            }
+        }
+    }
+
     const handleDeleteSingle = async (e: React.MouseEvent, id: string, name: string) => {
         e.stopPropagation();
         if (confirm(`Czy na pewno chcesz TRWALE usunąć projekt "${name}"? Usunięte zostaną także wszystkie powiązane etapy, faktury i transakcje. Tej operacji nie da się cofnąć.`)) {
@@ -94,6 +107,12 @@ export function InteractiveProjectList({ projects, isArchivedView = false }: Int
             label: 'Wstrzymaj',
             icon: <Pause className="w-4 h-4" />,
             onClick: () => handleBulkStatusChange('ON_HOLD')
+        },
+        {
+            label: 'Usuń',
+            icon: <Trash2 className="w-4 h-4" />,
+            onClick: handleDeleteBulk,
+            variant: 'danger' as const
         }
     ]
 
@@ -103,6 +122,12 @@ export function InteractiveProjectList({ projects, isArchivedView = false }: Int
             icon: <Play className="w-4 h-4" />,
             onClick: () => handleBulkStatusChange('ACTIVE'),
             variant: 'primary' as const
+        },
+        {
+            label: 'Usuń Trwale',
+            icon: <Trash2 className="w-4 h-4" />,
+            onClick: handleDeleteBulk,
+            variant: 'danger' as const
         }
     ]
 
