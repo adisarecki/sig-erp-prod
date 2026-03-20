@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { PlusCircle } from "lucide-react"
+import { PlusCircle, Building2 } from "lucide-react"
 import { addCostInvoice } from "@/app/actions/invoices"
 import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
 
@@ -187,107 +187,130 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                     </div>
 
                     <div className="space-y-4">
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <Label className="font-semibold">Sprzedawca / Dostawca *</Label>
-                                <Button 
-                                    type="button" 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="text-xs text-blue-600 h-7"
-                                    onClick={() => setIsNewContractor(!isNewContractor)}
-                                >
-                                    {isNewContractor ? "Wybierz z listy" : "+ Dodaj nowego"}
-                                </Button>
-                            </div>
-
-                            {!isNewContractor ? (
-                                <Select name="contractorId" value={selectedContractorId} onValueChange={(v) => setSelectedContractorId(v || "")} required={!isNewContractor}>
-                                    <SelectTrigger className="h-12 border-slate-200">
-                                        <SelectValue placeholder="Wybierz firmę ze słownika" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {contractors.map((c) => (
-                                            <SelectItem key={c.id} value={c.id}>{c.name} {c.nip ? `(NIP: ${c.nip})` : ""}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            ) : (
-                                <div className="space-y-3 p-4 bg-blue-50/50 border border-blue-100 rounded-xl animate-in fade-in slide-in-from-top-2">
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] uppercase font-bold text-slate-500">Nazwa firmy *</Label>
-                                            <Input 
-                                                placeholder="np. Demetrix Sp. z o.o." 
-                                                value={newContractorName} 
-                                                onChange={(e) => setNewContractorName(e.target.value)}
-                                                className="bg-white"
-                                                required={isNewContractor}
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] uppercase font-bold text-slate-500">NIP</Label>
-                                            <Input 
-                                                id="cost-new-contractor-nip"
-                                                name="newContractorNip"
-                                                autoComplete="off"
-                                                placeholder="10 cyfr" 
-                                                value={newContractorNip} 
-                                                onChange={(e) => setNewContractorNip(e.target.value)}
-                                                className="bg-white font-mono"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px] uppercase font-bold text-slate-500">Adres (Ulica, Kod, Miasto)</Label>
-                                        <Input
-                                            id="cost-new-contractor-address"
-                                            name="newContractorAddress"
-                                            autoComplete="off"
-                                            placeholder="ul. Słoneczna 1, 00-001 Warszawa" 
-                                            value={newContractorAddress} 
-                                            onChange={(e) => setNewContractorAddress(e.target.value)}
-                                            className="bg-white"
-                                        />
-                                    </div>
+                        {lockedProjectId ? (
+                            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-4 animate-in fade-in slide-in-from-top-2">
+                                <div className="bg-white p-2.5 rounded-lg border border-slate-100 shadow-sm">
+                                    <Building2 className="w-6 h-6 text-rose-600" />
                                 </div>
-                            )}
-                        </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                        <span className="text-[10px] font-bold text-rose-600 uppercase tracking-widest bg-rose-50 px-1.5 py-0.5 rounded">Projekt i Kontrahent</span>
+                                    </div>
+                                    <p className="text-base font-bold text-slate-900 truncate">
+                                        {projects.find(p => p.id === lockedProjectId)?.name || "Projekt"}
+                                    </p>
+                                    <p className="text-sm text-slate-500 truncate font-medium">
+                                        Firma: {contractors.find(c => c.id === (projects.find(p => p.id === lockedProjectId)?.contractorId || selectedContractorId))?.name || "Nieznany"}
+                                    </p>
+                                </div>
+                                <input type="hidden" name="projectId" value={lockedProjectId} />
+                                <input type="hidden" name="contractorId" value={projects.find(p => p.id === lockedProjectId)?.contractorId || selectedContractorId} />
+                            </div>
+                        ) : (
+                            <>
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="font-semibold">Sprzedawca / Dostawca *</Label>
+                                        <Button 
+                                            type="button" 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="text-xs text-blue-600 h-7"
+                                            onClick={() => setIsNewContractor(!isNewContractor)}
+                                        >
+                                            {isNewContractor ? "Wybierz z listy" : "+ Dodaj nowego"}
+                                        </Button>
+                                    </div>
+
+                                    {!isNewContractor ? (
+                                        <Select name="contractorId" value={selectedContractorId} onValueChange={(v) => setSelectedContractorId(v || "")} required={!isNewContractor}>
+                                            <SelectTrigger className="h-12 border-slate-200">
+                                                <SelectValue placeholder="Wybierz firmę ze słownika" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {contractors.map((c) => (
+                                                    <SelectItem key={c.id} value={c.id}>{c.name} {c.nip ? `(NIP: ${c.nip})` : ""}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    ) : (
+                                        <div className="space-y-3 p-4 bg-blue-50/50 border border-blue-100 rounded-xl animate-in fade-in slide-in-from-top-2">
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-bold text-slate-500">Nazwa firmy *</Label>
+                                                    <Input 
+                                                        placeholder="np. Demetrix Sp. z o.o." 
+                                                        value={newContractorName} 
+                                                        onChange={(e) => setNewContractorName(e.target.value)}
+                                                        className="bg-white"
+                                                        required={isNewContractor}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-bold text-slate-500">NIP</Label>
+                                                    <Input 
+                                                        id="cost-new-contractor-nip"
+                                                        name="newContractorNip"
+                                                        autoComplete="off"
+                                                        placeholder="10 cyfr" 
+                                                        value={newContractorNip} 
+                                                        onChange={(e) => setNewContractorNip(e.target.value)}
+                                                        className="bg-white font-mono"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase font-bold text-slate-500">Adres (Ulica, Kod, Miasto)</Label>
+                                                <Input
+                                                    id="cost-new-contractor-address"
+                                                    name="newContractorAddress"
+                                                    autoComplete="off"
+                                                    placeholder="ul. Słoneczna 1, 00-001 Warszawa" 
+                                                    value={newContractorAddress} 
+                                                    onChange={(e) => setNewContractorAddress(e.target.value)}
+                                                    className="bg-white"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>Projekt</Label>
+                                    <Select 
+                                        name="projectId" 
+                                        value={selectedProjectId} 
+                                        onValueChange={(v) => setSelectedProjectId(v || "NONE")}
+                                    >
+                                        <SelectTrigger className="h-12 border-slate-200">
+                                            <SelectValue placeholder="Wybierz projekt" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="NONE">Brak</SelectItem>
+                                            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </>
+                        )}
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2"><Label>Data Faktury</Label><Input type="date" name="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} required /></div>
                             <div className="space-y-2"><Label>Termin Płatności</Label><Input type="date" name="dueDate" value={dueDate} onChange={(e) => setDueDate(e.target.value)} required /></div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Projekt</Label>
-                                <Select 
-                                    name="projectId" 
-                                    value={selectedProjectId} 
-                                    onValueChange={(v) => setSelectedProjectId(v || "NONE")}
-                                    disabled={!!lockedProjectId}
-                                >
-                                    <SelectTrigger className={`h-12 ${lockedProjectId ? 'bg-slate-50 border-slate-200 text-slate-500' : ''}`}>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="NONE">Brak</SelectItem>
-                                        {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Kategoria</Label>
-                                <Select name="category" defaultValue="MATERIAŁY">
-                                    <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="MATERIAŁY">Materiały</SelectItem>
-                                        <SelectItem value="ROBOCIZNA">Usługi obce</SelectItem>
-                                        <SelectItem value="PALIWO">Paliwo</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        <div className="space-y-2">
+                            <Label>Kategoria</Label>
+                            <Select name="category" defaultValue="MATERIAŁY">
+                                <SelectTrigger className="h-12 border-slate-200">
+                                    <SelectValue placeholder="Wybierz kategorię" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="MATERIAŁY">Materiały</SelectItem>
+                                    <SelectItem value="ROBOCIZNA">Usługi obce</SelectItem>
+                                    <SelectItem value="PALIWO">Paliwo</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <div className="space-y-2">

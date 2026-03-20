@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { TrendingUp } from "lucide-react"
+import { TrendingUp, Building2 } from "lucide-react"
 import { addIncomeInvoice } from "@/app/actions/invoices"
 import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
 
@@ -248,54 +248,75 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
                     </div>
 
                     <div className="grid gap-4">
+                        {lockedProjectId ? (
+                            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-4 animate-in fade-in slide-in-from-top-2">
+                                <div className="bg-white p-2.5 rounded-lg border border-slate-100 shadow-sm">
+                                    <Building2 className="w-6 h-6 text-emerald-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded">Powiązany Projekt</span>
+                                    </div>
+                                    <p className="text-base font-bold text-slate-900 truncate">
+                                        {projects.find(p => p.id === lockedProjectId)?.name || "Projekt"}
+                                    </p>
+                                    <p className="text-sm text-slate-500 truncate font-medium">
+                                        Klient: {contractors.find(c => c.id === (projects.find(p => p.id === lockedProjectId)?.contractorId || selectedContractorId))?.name || "Nieznany"}
+                                    </p>
+                                </div>
+                                <input type="hidden" name="projectId" value={lockedProjectId} />
+                                <input type="hidden" name="contractorId" value={projects.find(p => p.id === lockedProjectId)?.contractorId || selectedContractorId} />
+                            </div>
+                        ) : (
+                            <>
+                                <div className="space-y-2">
+                                    <Label htmlFor="contractorId" className="text-slate-700 font-semibold">Nabywca (Wymagane) *</Label>
+                                    <Select name="contractorId" value={selectedContractorId} onValueChange={(v) => setSelectedContractorId(v || "")} required>
+                                        <SelectTrigger className="min-h-[50px] h-auto text-base border-slate-200">
+                                            <SelectValue placeholder="Wybierz firmę ze słownika" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {contractors.map((c) => (
+                                                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="projectId" className="text-slate-700 font-semibold">Projekt (Wymagane) *</Label>
+                                    <Select 
+                                        name="projectId" 
+                                        value={selectedProjectId} 
+                                        onValueChange={(v) => setSelectedProjectId(v || "NONE")} 
+                                        required
+                                    >
+                                        <SelectTrigger className="min-h-[50px] h-auto text-base border-slate-200">
+                                            <SelectValue placeholder="Wybierz projekt" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="NONE">Koszty/Przychody Ogólne (Brak)</SelectItem>
+                                            {projects.map((p) => (
+                                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </>
+                        )}
+                        
                         <div className="space-y-2">
-                            <Label htmlFor="contractorId" className="text-slate-700 font-semibold">Nabywca (Wymagane) *</Label>
-                            <Select name="contractorId" value={selectedContractorId} onValueChange={(v) => setSelectedContractorId(v || "")} required>
+                            <Label htmlFor="category" className="text-slate-700 font-semibold">Kategoria *</Label>
+                            <Select name="category" defaultValue="USŁUGA">
                                 <SelectTrigger className="min-h-[50px] h-auto text-base border-slate-200">
-                                    <SelectValue placeholder="Wybierz firmę ze słownika" />
+                                    <SelectValue placeholder="Wybierz kategorię" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {contractors.map((c) => (
-                                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                    ))}
+                                    <SelectItem value="USŁUGA">Usługa Inżynieryjna</SelectItem>
+                                    <SelectItem value="SPRZEDAŻ_TOWARU">Sprzedaż Towaru</SelectItem>
+                                    <SelectItem value="ZALICZKA">Zaliczka</SelectItem>
+                                    <SelectItem value="INNE">Inne zyski</SelectItem>
                                 </SelectContent>
                             </Select>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="projectId" className="text-slate-700 font-semibold">Projekt (Wymagane) *</Label>
-                                <Select 
-                                    name="projectId" 
-                                    value={selectedProjectId} 
-                                    onValueChange={(v) => setSelectedProjectId(v || "NONE")} 
-                                    required
-                                    disabled={!!lockedProjectId}
-                                >
-                                    <SelectTrigger className={`min-h-[50px] h-auto text-base border-slate-200 ${lockedProjectId ? 'bg-slate-50 text-slate-500' : ''}`}>
-                                        <SelectValue placeholder="Wybierz projekt" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="NONE">Koszty/Przychody Ogólne (Brak)</SelectItem>
-                                        {projects.map((p) => (
-                                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="category" className="text-slate-700 font-semibold">Kategoria *</Label>
-                                <Select name="category" defaultValue="USŁUGA">
-                                    <SelectTrigger className="min-h-[50px] h-auto text-base border-slate-200">
-                                        <SelectValue placeholder="Wybierz kategorię" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="USŁUGA">Usługa Inżynieryjna</SelectItem>
-                                        <SelectItem value="SPRZEDAŻ_TOWARU">Sprzedaż Towaru</SelectItem>
-                                        <SelectItem value="ZALICZKA">Zaliczka</SelectItem>
-                                        <SelectItem value="INNE">Inne zyski</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
                         </div>
 
                         <div className="space-y-2">
