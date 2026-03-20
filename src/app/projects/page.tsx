@@ -1,51 +1,16 @@
-import { PrismaClient } from '@prisma/client'
+import { getProjects } from '@/app/actions/projects'
+import { getContractors } from '@/app/actions/crm'
 import { AddProjectModal } from '@/components/projects/AddProjectModal'
 import { InteractiveProjectList } from '@/components/projects/InteractiveProjectList'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-const prisma = new PrismaClient()
-
 export default async function ProjectsPage() {
-    // 1. Pobieramy surowe dane z bazy
-    const rawProjects = await prisma.project.findMany({
-        include: {
-            contractor: true,
-            object: true,
-            transactions: true,
-            invoices: true,
-            stages: true,
-        },
-        orderBy: { createdAt: 'desc' }
-    })
+    // Firestore – dane jako plain objects (bez Decimal)
+    const allProjects = (await getProjects()) as any[]
 
-    // 2. KLUCZOWY FIX: Przepuszczamy przez sito i zmieniamy Decimal na Number (GŁĘBOKA SERIALIZACJA)
-    const allProjects = rawProjects.map(p => ({
-        ...p,
-        budgetEstimated: p.budgetEstimated ? Number(p.budgetEstimated) : 0,
-        budgetUsed: p.budgetUsed ? Number(p.budgetUsed) : 0,
-        invoices: (p.invoices || []).map(inv => ({
-            ...inv,
-            amountNet: Number(inv.amountNet),
-            amountGross: Number(inv.amountGross),
-            taxRate: Number(inv.taxRate),
-        })),
-        transactions: (p.transactions || []).map(t => ({
-            ...t,
-            amount: Number(t.amount),
-        })),
-        stages: (p.stages || []).map(s => ({
-            ...s,
-            budgetEstimated: Number(s.budgetEstimated),
-        }))
-    }))
+    const rawContractors = (await getContractors()) as any[]
+    const contractors = rawContractors.map(c => ({ id: c.id, name: c.name }))
 
-    const contractors = await prisma.contractor.findMany({
-        select: { id: true, name: true },
-        where: { status: 'ACTIVE' },
-        orderBy: { name: 'asc' }
-    })
-
-    // Ujawniamy uśpione na zakładce aktywnych, by po wybraniu z Checkboxa dało się je odbudzić lub usunąć. Archiwum dostaje swoje okno.
     const activeProjects = allProjects.filter((p) => p.lifecycleStatus === 'ACTIVE' || p.lifecycleStatus === 'ON_HOLD')
     const archivedProjects = allProjects.filter((p) => p.lifecycleStatus === 'ARCHIVED')
 
@@ -75,4 +40,4 @@ export default async function ProjectsPage() {
             </Tabs>
         </div>
     )
-}
+}

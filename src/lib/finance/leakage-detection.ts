@@ -1,7 +1,4 @@
-import { PrismaClient } from "@prisma/client"
-import Decimal from "decimal.js"
-
-const prisma = new PrismaClient()
+import { getAdminDb } from "@/lib/firebaseAdmin"
 
 export type LeakSeverity = "CRITICAL" | "WARNING" | "INFO"
 
@@ -15,7 +12,7 @@ export interface LeakageAlert {
 }
 
 /**
- * Leakage Detection Engine
+ * Leakage Detection Engine (Firestore)
  * 
  * Scans the database for financial leaks:
  * 1. Double Payments (Duplicate transactions)
@@ -25,20 +22,31 @@ export interface LeakageAlert {
 export async function scanForLeaks(tenantId: string): Promise<LeakageAlert[]> {
     const alerts: LeakageAlert[] = []
 
-    // 1. Detect Double Payments (Same amount, date, and contractor/category within short window)
-    const transactions = await prisma.transaction.findMany({
-        where: { tenantId, status: "ACTIVE" },
-        orderBy: { transactionDate: "desc" },
-        take: 100
-    })
+    let adminDb: ReturnType<typeof getAdminDb>
+    try {
+        adminDb = getAdminDb()
+    } catch {
+        // Firebase Admin not initialized (build phase or missing env vars)
+        return alerts
+    }
+
+    // 1. Detect Double Payments (Same amount, date, and category within short window)
+    const transactionsSnap = await adminDb.collection("transactions")
+        .where("tenantId", "==", tenantId)
+        .where("status", "==", "ACTIVE")
+        .orderBy("transactionDate", "desc")
+        .limit(100)
+        .get()
+
+    const transactions = transactionsSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
 
     for (let i = 0; i < transactions.length; i++) {
         for (let j = i + 1; j < transactions.length; j++) {
             const t1 = transactions[i]
             const t2 = transactions[j]
 
-            const sameAmount = t1.amount.equals(t2.amount)
-            const sameDate = t1.transactionDate.getTime() === t2.transactionDate.getTime()
+            const sameAmount = Number(t1.amount) === Number(t2.amount)
+            const sameDate = t1.transactionDate === t2.transactionDate
             const sameCategory = t1.category === t2.category
 
             if (sameAmount && sameDate && sameCategory) {
@@ -46,7 +54,7 @@ export async function scanForLeaks(tenantId: string): Promise<LeakageAlert[]> {
                     id: `double-${t1.id}-${t2.id}`,
                     type: "DOUBLE_PAYMENT",
                     title: "Potencjalna podwójna płatność",
-                    description: `Prawdopodobny duplikat transakcji na kwotę ${t1.amount.toFixed(2)} PLN (Kategoria: ${t1.category})`,
+                    description: `Prawdopodobny duplikat transakcji na kwotę ${Number(t1.amount).toFixed(2)} PLN (Kategoria: ${t1.category})`,
                     severity: "CRITICAL",
                     entityId: t1.id
                 })
@@ -54,41 +62,49 @@ export async function scanForLeaks(tenantId: string): Promise<LeakageAlert[]> {
         }
     }
 
-    // 2. Detect Missing Invoices (Large Bank Transactions without paired Transaction or Invoice link)
-    const unmatchedBankTrans = await prisma.bankTransactionRaw.findMany({
-        where: {
-            tenantId,
-            status: "UNPAIRED",
-            rawAmount: { lt: 0 } // Only outgoing leaks
-        },
-        take: 20
-    })
+    // 2. Detect Missing Invoices (Large Bank Transactions without paired Transaction)
+    const unmatchedSnap = await adminDb.collection("bank_transactions_raw")
+        .where("tenantId", "==", tenantId)
+        .where("status", "==", "UNPAIRED")
+        .limit(20)
+        .get()
+
+    const unmatchedBankTrans = unmatchedSnap.docs
+        .map(d => ({ id: d.id, ...d.data() as any }))
+        .filter(bt => Number(bt.rawAmount) < 0)
 
     for (const bt of unmatchedBankTrans) {
         alerts.push({
             id: `missing-inv-${bt.id}`,
             type: "MISSING_INVOICE",
             title: "Zgubiony koszt (Brak faktury)",
-            description: `Wydatek z konta bankowego (${Math.abs(bt.rawAmount.toNumber()).toFixed(2)} PLN) nie posiada przypisanej faktury ani transakcji w systemie.`,
+            description: `Wydatek z konta bankowego (${Math.abs(Number(bt.rawAmount)).toFixed(2)} PLN) nie posiada przypisanej faktury ani transakcji w systemie.`,
             severity: "WARNING",
             entityId: bt.id
         })
     }
 
     // 3. VAT Inconsistency Check
-    const recentInvoices = await prisma.invoice.findMany({
-        where: { tenantId, status: "ACTIVE" },
-        take: 20
-    })
+    const invoicesSnap = await adminDb.collection("invoices")
+        .where("tenantId", "==", tenantId)
+        .where("status", "==", "ACTIVE")
+        .limit(20)
+        .get()
+
+    const recentInvoices = invoicesSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
 
     for (const inv of recentInvoices) {
-        const expectedGross = inv.amountNet.mul(inv.taxRate.add(1)).toDecimalPlaces(2)
-        if (!inv.amountGross.equals(expectedGross)) {
+        const amountNet = Number(inv.amountNet)
+        const taxRate = Number(inv.taxRate)
+        const amountGross = Number(inv.amountGross)
+        const expectedGross = Math.round(amountNet * (1 + taxRate) * 100) / 100
+
+        if (Math.abs(amountGross - expectedGross) > 0.01) {
             alerts.push({
                 id: `vat-err-${inv.id}`,
                 type: "VAT_MISMATCH",
                 title: "Błąd obliczeń VAT",
-                description: `Faktura ${inv.externalId || inv.id} ma niespójną kwotę Brutto względem Netto+VAT. Różnica: ${inv.amountGross.minus(expectedGross).toFixed(2)} PLN`,
+                description: `Faktura ${inv.externalId || inv.id} ma niespójną kwotę Brutto względem Netto+VAT. Różnica: ${(amountGross - expectedGross).toFixed(2)} PLN`,
                 severity: "INFO",
                 entityId: inv.id
             })
@@ -97,3 +113,4 @@ export async function scanForLeaks(tenantId: string): Promise<LeakageAlert[]> {
 
     return alerts
 }
+

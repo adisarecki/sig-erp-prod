@@ -1,29 +1,13 @@
 import { TooltipHelp } from "@/components/ui/TooltipHelp"
 import { AddContractorModal } from "@/components/crm/AddContractorModal"
 import { InteractiveCRMList } from "@/components/crm/InteractiveCRMList"
-import { PrismaClient } from "@prisma/client"
-import { Building2, Upload } from "lucide-react"
+import { Upload } from "lucide-react"
 import Link from "next/link"
-
-const prisma = new PrismaClient()
+import { getContractors } from "@/app/actions/crm"
 
 export default async function CRMPage() {
-    const rawContractors = await prisma.contractor.findMany({
-        orderBy: { createdAt: "desc" },
-        include: {
-            invoices: {
-                where: { status: { not: "PAID" } }
-            }
-        }
-    })
-
-    const contractors = rawContractors.map(c => ({
-        ...c,
-        invoices: c.invoices.map(inv => ({
-            ...inv,
-            amountGross: Number(inv.amountGross)
-        }))
-    }))
+    // Firestore – dane już jako plain objects (bez Decimal)
+    const contractors = (await getContractors()) as any[]
 
     return (
         <div className="space-y-6">
