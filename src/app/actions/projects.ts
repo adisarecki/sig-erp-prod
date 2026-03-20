@@ -131,7 +131,7 @@ export async function getProjectWithDetails(id: string) {
     const [contractorSnap, objectSnap, stagesSnap, invoicesSnap, transactionsSnap] = await Promise.all([
         adminDb.collection("contractors").doc(project.contractorId).get(),
         adminDb.collection("objects").doc(project.objectId).get(),
-        adminDb.collection("project_stages").where("projectId", "==", id).orderBy("createdAt", "asc").get(),
+        adminDb.collection("project_stages").where("projectId", "==", id).get(),
         adminDb.collection("invoices").where("projectId", "==", id).get(),
         adminDb.collection("transactions").where("projectId", "==", id).get()
     ])
@@ -145,11 +145,15 @@ export async function getProjectWithDetails(id: string) {
         .filter(t => t.status !== "REVERSED")
         .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
 
+    const stages = stagesSnap.docs
+        .map(doc => ({ id: doc.id, ...doc.data() as any }))
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
     return {
         ...project,
-        contractor: contractorSnap.exists ? { id: contractorSnap.id, ...contractorSnap.data() as any } : null,
-        object: objectSnap.exists ? { id: objectSnap.id, ...objectSnap.data() as any } : null,
-        stages: stagesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+        contractor: contractorSnap.exists ? { id: contractorSnap.id, ...contractorSnap.data() as any } : { name: "Nieznany Kontrahent" },
+        object: objectSnap.exists ? { id: objectSnap.id, ...objectSnap.data() as any } : { name: "Nieznany Obiekt", address: "Brak adresu" },
+        stages,
         invoices,
         transactions
     }

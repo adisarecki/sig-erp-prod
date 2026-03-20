@@ -27,26 +27,32 @@ export default async function ProjectCockpit({ params }: PageProps) {
     const contractors = await getContractors()
     const allProjects = await getProjects()
 
+    // Defensive data extraction
+    const invoices = project.invoices || []
+    const transactions = project.transactions || []
+    const stages = project.stages || []
+    const budgetEstimated = Number(project.budgetEstimated) || 0
+
     // Obliczenia finansowe (CASH FLOW - ONLY PAID INVOICES)
-    const totalInvoiced = project.invoices
+    const totalInvoiced = invoices
         .filter((inv: any) => inv.type === 'SPRZEDAŻ' && inv.status === 'PAID')
-        .reduce((sum: number, inv: any) => sum + inv.amountNet, 0)
+        .reduce((sum: number, inv: any) => sum + (Number(inv.amountNet) || 0), 0)
 
-    const totalInvoicesCostNet = project.invoices
+    const totalInvoicesCostNet = invoices
         .filter((inv: any) => (inv.type === 'KOSZT' || inv.type === 'ZAKUP') && inv.status === 'PAID')
-        .reduce((sum: number, inv: any) => sum + inv.amountNet, 0)
+        .reduce((sum: number, inv: any) => sum + (Number(inv.amountNet) || 0), 0)
 
-    const nonInvoiceCosts = project.transactions
+    const nonInvoiceCosts = transactions
         .filter((t: any) => (t.type === 'KOSZT' || t.type === 'WYDATEK') && t.source !== 'INVOICE')
-        .reduce((sum: number, t: any) => sum + t.amount, 0)
+        .reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0)
 
     const totalCosts = totalInvoicesCostNet + nonInvoiceCosts
     
     const margin = totalInvoiced - totalCosts
-    const percentUsed = project.budgetEstimated > 0 ? (totalCosts / project.budgetEstimated) * 100 : 0
+    const percentUsed = budgetEstimated > 0 ? (totalCosts / budgetEstimated) * 100 : 0
 
-    const totalStageBudgets = project.stages.reduce((sum: number, s: any) => sum + s.budgetEstimated, 0)
-    const plannedMargin = project.budgetEstimated - totalStageBudgets
+    const totalStageBudgets = stages.reduce((sum: number, s: any) => sum + (Number(s.budgetEstimated) || 0), 0)
+    const plannedMargin = budgetEstimated - totalStageBudgets
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -84,7 +90,7 @@ export default async function ProjectCockpit({ params }: PageProps) {
                     </div>
                     <CardHeader className="pb-2">
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Budżet Szacowany</p>
-                        <CardTitle className="text-2xl font-black">{formatPln(project.budgetEstimated)}</CardTitle>
+                        <CardTitle className="text-2xl font-black">{formatPln(budgetEstimated)}</CardTitle>
                     </CardHeader>
                 </Card>
 
@@ -153,14 +159,14 @@ export default async function ProjectCockpit({ params }: PageProps) {
                         </CardHeader>
                         <CardContent className="pt-6">
                             <ProjectFinancialChart 
-                                budgetEstimated={project.budgetEstimated}
+                                budgetEstimated={budgetEstimated}
                                 totalInvoiced={totalInvoiced}
                                 totalCosts={totalCosts}
                             />
                         </CardContent>
                     </Card>
 
-                    <ProjectStageList projectId={project.id} stages={project.stages} />
+                    <ProjectStageList projectId={project.id} stages={stages} />
                 </div>
 
                 {/* Costs History */}
@@ -172,13 +178,13 @@ export default async function ProjectCockpit({ params }: PageProps) {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
-                        {project.transactions.length === 0 ? (
+                        {transactions.length === 0 ? (
                             <div className="p-12 text-center">
                                 <p className="text-slate-400 italic text-sm">Brak zarejestrowanych kosztów dla tego projektu.</p>
                             </div>
                         ) : (
                             <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
-                                {project.transactions.map((t: any) => (
+                                {transactions.map((t: any) => (
                                     <div key={t.id} className="p-4 hover:bg-slate-50 transition-colors group">
                                         <div className="flex justify-between items-start mb-1">
                                             <span className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
