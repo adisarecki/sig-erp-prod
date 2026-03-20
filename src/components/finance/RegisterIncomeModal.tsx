@@ -35,9 +35,10 @@ interface RegisterIncomeModalProps {
     contractors: Contractor[]
     ocrData?: SanitizedOcrDraft
     lockedProjectId?: string
+    trigger?: React.ReactNode
 }
 
-export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProjectId }: RegisterIncomeModalProps) {
+export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProjectId, trigger }: RegisterIncomeModalProps) {
     const [open, setOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
 
@@ -134,10 +135,12 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 transition-all active:scale-95">
-                    <TrendingUp className="h-4 w-4" />
-                    Dodaj Przychód
-                </Button>
+                {trigger || (
+                    <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 transition-all active:scale-95">
+                        <TrendingUp className="h-4 w-4" />
+                        Dodaj Przychód
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent
                 className="sm:max-w-[600px] rounded-2xl border-slate-200"

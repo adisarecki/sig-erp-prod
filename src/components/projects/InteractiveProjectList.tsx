@@ -4,10 +4,14 @@ import { useState } from "react"
 import Link from "next/link"
 import { Archive, Pause, Play, Trash2, Building2, MapPin, Clock, ChevronRight, Plus, Filter, Search, Download, Trash, Layers } from "lucide-react"
 import { FloatingActionBar } from "@/components/ui/FloatingActionBar"
+import { Button } from "@/components/ui/button"
 import { bulkUpdateProjectLifecycle } from "@/app/actions/projectsBulk"
 import { deleteProject, deleteSelectedProjects } from "@/app/actions/projects"
 import { ProjectAnalysisDialog } from "@/components/projects/ProjectAnalysisDialog"
 import { EditProjectModal } from "@/components/projects/EditProjectModal"
+import { RegisterIncomeModal } from "@/components/finance/RegisterIncomeModal"
+import { RegisterCostModal } from "@/components/finance/RegisterCostModal"
+import { TrendingUp, PlusCircle, MinusCircle } from "lucide-react"
 
 // Typ pomocniczy dla formattera PLN
 const formatPln = (value: number) => {
@@ -29,10 +33,11 @@ interface ProjectData {
 
 interface InteractiveProjectListProps {
     projects: ProjectData[];
+    contractors: { id: string; name: string; nip?: string | null }[];
     isArchivedView?: boolean;
 }
 
-export function InteractiveProjectList({ projects, isArchivedView = false }: InteractiveProjectListProps) {
+export function InteractiveProjectList({ projects, contractors, isArchivedView = false }: InteractiveProjectListProps) {
     const [selectedIds, setSelectedIds] = useState<string[]>([])
     const toggleSelection = (id: string) => {
         setSelectedIds(prev =>
@@ -240,22 +245,51 @@ export function InteractiveProjectList({ projects, isArchivedView = false }: Int
                             </div>
                         </div>
 
-                        <div className={`p-6 grid grid-cols-1 md:grid-cols-3 gap-6 ${selectedIds.includes(project.id) ? 'bg-slate-50/50' : 'bg-slate-50'}`}>
-                            {/* ... statystyki finansowe ... */}
-                            <div>
-                                <p className="text-sm font-medium text-slate-500 mb-1">Zaksięgowane Przychody</p>
-                                <p className="text-xl font-bold text-slate-800">{formatPln(totalInvoiced)}</p>
+                        <div className={`p-6 border-t flex flex-wrap gap-3 ${selectedIds.includes(project.id) ? 'bg-slate-50/50' : 'bg-slate-50'}`}>
+                            <div className="flex-1 flex flex-col md:flex-row gap-6">
+                                <div>
+                                    <p className="text-sm font-medium text-slate-500 mb-1">Zaksięgowane Przychody</p>
+                                    <p className="text-xl font-bold text-slate-800">{formatPln(totalInvoiced)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium text-slate-500 mb-1">Poniesione Koszty</p>
+                                    <p className="text-xl font-bold text-red-600">{formatPln(totalCosts)}</p>
+                                </div>
+                                <div className="md:pl-6 md:border-l md:border-slate-200">
+                                    <p className="text-sm font-medium text-slate-500 mb-1">Obecna Marża Zysku</p>
+                                    <p className={`text-2xl font-bold ${isLoss ? 'text-red-600' : 'text-green-600'}`}>
+                                        {formatPln(currentMargin)}
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-sm font-medium text-slate-500 mb-1">Poniesione Koszty</p>
-                                <p className="text-xl font-bold text-red-600">{formatPln(totalCosts)}</p>
-                            </div>
-                            <div className="md:pl-6 md:border-l md:border-slate-200">
-                                <p className="text-sm font-medium text-slate-500 mb-1">Obecna Marża Zysku</p>
-                                <p className={`text-2xl font-bold ${isLoss ? 'text-red-600' : 'text-green-600'}`}>
-                                    {formatPln(currentMargin)}
-                                </p>
-                            </div>
+
+                            {/* Akcje finansowe */}
+                            {!isArchivedView && (
+                                <div className="flex items-center gap-2 mt-4 md:mt-0" onClick={(e) => e.stopPropagation()}>
+                                    <RegisterIncomeModal 
+                                        projects={projects.map(p => ({ id: p.id, name: p.name }))}
+                                        contractors={contractors}
+                                        lockedProjectId={project.id}
+                                        trigger={
+                                            <Button variant="outline" className="border-emerald-500 text-emerald-700 hover:bg-emerald-50 gap-2 h-9">
+                                                <PlusCircle className="w-4 h-4" />
+                                                Dodaj Przychód
+                                            </Button>
+                                        }
+                                    />
+                                    <RegisterCostModal 
+                                        projects={projects.map(p => ({ id: p.id, name: p.name }))}
+                                        contractors={contractors}
+                                        lockedProjectId={project.id}
+                                        trigger={
+                                            <Button variant="outline" className="border-rose-500 text-rose-700 hover:bg-rose-50 gap-2 h-9">
+                                                <MinusCircle className="w-4 h-4" />
+                                                Dodaj Koszt
+                                            </Button>
+                                        }
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
                 )

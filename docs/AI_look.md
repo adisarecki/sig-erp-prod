@@ -58,6 +58,7 @@ graph TD
 |:---|:---|:---|:---|:---|
 | 001 | Finanse | FIXED | Błąd serializacji Decimal przy przesyłaniu do RSC. | Konwersja na String/Number przed wysyłką. |
 | 002 | CRM | FIXED | Contractor Data Mapping | NIP mapowany do adresu przy typie HURTOWNIA. Wdrożono heurystykę serwerową i hardening UI. |
+| 003 | Projekty | FIXED | Brak punktu wejścia transakcji | Dodano przyciski "Dodaj Przychód/Koszt" bezpośrednio na kartach projektów. |
 | 003 | Projekty | FIXED | 500 error przy revalidatePath po usunięciu. | Zastosowanie Safe Redirect Pattern (redirect przed renderem). |
 | B3 | Firebase | FIXED | Init Build Error | Wdrożono `getAdminDb()` (Lazy Initialization) w `@/lib/firebaseAdmin.ts`. |
 | B4 | Persistence | FIXED | Dual-Sync Drift | Wszystkie akcje (CRUD) wykonują operację w Firestore, a następnie `await prisma...` dla spójności. |

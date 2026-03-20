@@ -56,11 +56,11 @@ export default async function ProjectsPage() {
                 </TabsList>
 
                 <TabsContent value="active">
-                    <InteractiveProjectList projects={activeProjects} />
+                    <InteractiveProjectList projects={activeProjects} contractors={contractors} />
                 </TabsContent>
 
                 <TabsContent value="archive">
-                    <InteractiveProjectList projects={archivedProjects} isArchivedView={true} />
+                    <InteractiveProjectList projects={archivedProjects} contractors={contractors} isArchivedView={true} />
                 </TabsContent>
             </Tabs>
         </div>

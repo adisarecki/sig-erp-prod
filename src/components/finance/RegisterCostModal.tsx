@@ -21,9 +21,10 @@ interface RegisterCostModalProps {
     contractors: Contractor[]
     ocrData?: SanitizedOcrDraft
     lockedProjectId?: string
+    trigger?: React.ReactNode
 }
 
-export function RegisterCostModal({ projects, contractors, ocrData, lockedProjectId }: RegisterCostModalProps) {
+export function RegisterCostModal({ projects, contractors, ocrData, lockedProjectId, trigger }: RegisterCostModalProps) {
     const [open, setOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
 
@@ -138,9 +139,11 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-lg active:scale-95">
-                    <PlusCircle className="h-4 w-4" /> Dodaj Koszt
-                </Button>
+                {trigger || (
+                    <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-lg active:scale-95">
+                        <PlusCircle className="h-4 w-4" /> Dodaj Koszt
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[650px] rounded-2xl max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
                 <DialogHeader>
