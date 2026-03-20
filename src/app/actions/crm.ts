@@ -126,8 +126,9 @@ export async function getContractors() {
     const tenantId = await getCurrentTenantId()
     const snapshot = await adminDb.collection("contractors")
         .where("tenantId", "==", tenantId)
-        .orderBy("name", "asc")
         .get()
 
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    return snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() as any }))
+        .sort((a, b) => a.name.localeCompare(b.name))
 }

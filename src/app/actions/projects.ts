@@ -12,11 +12,12 @@ export async function getProjects() {
     const tenantId = await getCurrentTenantId()
     const snapshot = await adminDb.collection("projects")
         .where("tenantId", "==", tenantId)
-        .where("lifecycleStatus", "==", "ACTIVE")
-        .orderBy("createdAt", "desc")
         .get()
 
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    return snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() as any }))
+        .filter(p => p.lifecycleStatus === "ACTIVE")
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }
 
 /**

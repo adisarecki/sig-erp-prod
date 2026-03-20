@@ -33,12 +33,13 @@ export async function scanForLeaks(tenantId: string): Promise<LeakageAlert[]> {
     // 1. Detect Double Payments (Same amount, date, and category within short window)
     const transactionsSnap = await adminDb.collection("transactions")
         .where("tenantId", "==", tenantId)
-        .where("status", "==", "ACTIVE")
-        .orderBy("transactionDate", "desc")
-        .limit(100)
         .get()
 
-    const transactions = transactionsSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
+    const transactions = transactionsSnap.docs
+        .map(d => ({ id: d.id, ...d.data() as any }))
+        .filter(t => t.status === "ACTIVE")
+        .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
+        .slice(0, 100)
 
     for (let i = 0; i < transactions.length; i++) {
         for (let j = i + 1; j < transactions.length; j++) {

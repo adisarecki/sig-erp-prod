@@ -31,11 +31,12 @@ export default async function FinancePage() {
     const adminDb = getAdminDb()
     const transactionsSnap = await adminDb.collection("transactions")
         .where("tenantId", "==", tenantId)
-        .where("status", "==", "ACTIVE")
-        .orderBy("transactionDate", "desc")
         .get()
 
-    const transactions = transactionsSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
+    const transactions = transactionsSnap.docs
+        .map(d => ({ id: d.id, ...d.data() as any }))
+        .filter(t => t.status === "ACTIVE")
+        .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
 
     return (
         <div className="space-y-6">
