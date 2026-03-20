@@ -13,19 +13,53 @@ export async function addContractor(formData: FormData) {
     const nip = formData.get("nip") as string
     const address = formData.get("address") as string
     const status = formData.get("status") as string
+    const type = formData.get("type") as string || "INWESTOR"
 
     if (!name) throw new Error("Nazwa firmy jest wymagana.")
 
     const tenantId = await getCurrentTenantId()
 
-    await adminDb.collection("contractors").add({
+    // 1. Zapis kontrahenta w Firestore
+    const contractorRef = await adminDb.collection("contractors").add({
         tenantId,
         name,
         nip: nip || null,
         address: address || null,
+        type,
         status: status || "ACTIVE",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
+    })
+
+    // 2. Automatyczny Obiekt (Siedziba/Magazyn)
+    const objectName = type === "INWESTOR" 
+        ? "Siedziba Główna" 
+        : "Oddział / Magazyn (Główny)"
+    
+    await adminDb.collection("objects").add({
+        contractorId: contractorRef.id,
+        name: objectName,
+        address: address || null,
+        createdAt: new Date().toISOString()
+    })
+
+    // 3. Prisma Sync
+    await prisma.contractor.create({
+        data: {
+            id: contractorRef.id,
+            tenantId,
+            name,
+            nip: nip || null,
+            address: address || null,
+            type,
+            status: status || "ACTIVE",
+            objects: {
+                create: {
+                    name: objectName,
+                    address: address || null
+                }
+            }
+        }
     })
 
     revalidatePath("/crm")
@@ -43,6 +77,7 @@ export async function updateContractor(formData: FormData) {
     const nip = formData.get("nip") as string
     const address = formData.get("address") as string
     const status = formData.get("status") as string
+    const type = formData.get("type") as string
 
     if (!id || !name) throw new Error("ID oraz Nazwa firmy są wymagane.")
 
@@ -52,8 +87,20 @@ export async function updateContractor(formData: FormData) {
         name,
         nip: nip || null,
         address: address || null,
+        type,
         status: status || "ACTIVE",
         updatedAt: new Date().toISOString()
+    })
+
+    await prisma.contractor.update({
+        where: { id },
+        data: {
+            name,
+            nip: nip || null,
+            address: address || null,
+            type,
+            status: status || "ACTIVE"
+        }
     })
 
     revalidatePath("/crm")
@@ -61,31 +108,81 @@ export async function updateContractor(formData: FormData) {
     return { success: true }
 }
 
+export async function updateObject(formData: FormData) {
+    const adminDb = getAdminDb()
+    const id = formData.get("id") as string
+    const name = formData.get("name") as string
+
+    if (!id || !name) throw new Error("ID obiektu oraz Nazwa są wymagane.")
+
+    await adminDb.collection("objects").doc(id).update({
+        name,
+        updatedAt: new Date().toISOString()
+    })
+
+    await prisma.object.update({
+        where: { id },
+        data: { name }
+    })
+
+    revalidatePath("/crm")
+    revalidatePath("/projects")
+    return { success: true }
+}
+
 /**
  * 3. Szybkie dodawanie z OCR
  */
-export async function createContractor(data: { name: string; nip?: string; address?: string }) {
+export async function createContractor(data: { name: string; nip?: string; address?: string; type?: string }) {
     const adminDb = getAdminDb()
     const tenantId = await getCurrentTenantId()
+    const type = data.type || "DOSTAWCA"
 
     try {
-        const docRef = await adminDb.collection("contractors").add({
+        const contractorRef = await adminDb.collection("contractors").add({
             tenantId,
             name: data.name,
             nip: data.nip || null,
             address: data.address || null,
+            type,
             status: "ACTIVE",
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         })
 
+        const objectName = type === "INWESTOR" ? "Siedziba Główna" : "Oddział / Magazyn (Główny)"
+        await adminDb.collection("objects").add({
+            contractorId: contractorRef.id,
+            name: objectName,
+            address: data.address || null,
+            createdAt: new Date().toISOString()
+        })
+
+        await prisma.contractor.create({
+            data: {
+                id: contractorRef.id,
+                tenantId,
+                name: data.name,
+                nip: data.nip || null,
+                address: data.address || null,
+                type,
+                status: "ACTIVE",
+                objects: {
+                    create: {
+                        name: objectName,
+                        address: data.address || null
+                    }
+                }
+            }
+        })
+
         revalidatePath("/finance")
         revalidatePath("/crm")
 
-        return { success: true, id: docRef.id }
+        return { success: true, id: contractorRef.id }
     } catch (error) {
         console.error("[CRM_ACTION] Quick Create error:", error)
-        throw new Error("Nie udało się dodać kontrahenta z OCR.")
+        throw new Error("Nie udało się dodać kontrahenta.")
     }
 }
 
@@ -160,7 +257,16 @@ export async function getContractors() {
         .where("tenantId", "==", tenantId)
         .get()
 
-    return snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() as any }))
+    const contractors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
+    
+    // Pobierz obiekty dla wszystkich kontrahentów
+    const objectsSnap = await adminDb.collection("objects").get()
+    const allObjects = objectsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
+
+    return contractors
+        .map(c => ({
+            ...c,
+            objects: allObjects.filter(o => o.contractorId === c.id)
+        }))
         .sort((a, b) => a.name.localeCompare(b.name))
 }

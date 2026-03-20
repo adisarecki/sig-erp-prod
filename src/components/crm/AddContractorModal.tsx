@@ -81,8 +81,20 @@ export function AddContractorModal() {
                             <option value="IN_REVIEW">Weryfikacja / Oferta w toku</option>
                             <option value="INACTIVE">Zablokowany / Archiwalny</option>
                         </select>
-                        <p className="text-[11px] text-slate-500 mt-1">
-                            Status "Zablokowany" ukryje firmę przy wystawianiu faktur.
+                    </div>
+                    <div>
+                        <label className="text-sm font-semibold text-slate-700 block mb-1">Typ Firmy (Klasyfikacja) *</label>
+                        <select
+                            name="type"
+                            required
+                            className="w-full border border-blue-200 bg-blue-50/30 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                        >
+                            <option value="INWESTOR">Inwestor (Siedziba Główna)</option>
+                            <option value="DOSTAWCA">Dostawca / Podwykonawca (Magazyn)</option>
+                            <option value="HURTOWNIA">Hurtownia / Sklep (Magazyn)</option>
+                        </select>
+                        <p className="text-[10px] text-blue-600 mt-1 italic font-medium">
+                            * Wybór typu automatycznie nazwie pierwszy obiekt firmy.
                         </p>
                     </div>
 

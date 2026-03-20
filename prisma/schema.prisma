@@ -63,6 +63,7 @@ model Contractor {
   nip          String?   @unique
   name         String
   address      String?
+  type         String    @default("INWESTOR") // INWESTOR, DOSTAWCA, HURTOWNIA
   status       String    @default("ACTIVE")
   creditRating Int?
   objects      Object[]

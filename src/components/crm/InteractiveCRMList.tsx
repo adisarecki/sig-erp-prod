@@ -20,8 +20,10 @@ interface Contractor {
     name: string;
     nip: string | null;
     address: string | null;
+    type: string;
     status: string;
     invoices: Invoice[];
+    objects: { id: string, name: string }[];
 }
 
 interface InteractiveCRMListProps {
@@ -141,7 +143,9 @@ export function InteractiveCRMList({ contractors }: InteractiveCRMListProps) {
                                             name: contractor.name,
                                             nip: contractor.nip,
                                             address: contractor.address,
-                                            status: contractor.status
+                                            type: contractor.type || "INWESTOR",
+                                            status: contractor.status,
+                                            objects: contractor.objects || []
                                         }} />
                                         <button
                                             onClick={() => handleDeleteSingle(contractor.id, contractor.name)}
