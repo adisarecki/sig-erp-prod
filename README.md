@@ -89,6 +89,20 @@ System umożliwia tworzenie pełnych kopii zapasowych (JSON) zawierających dane
 - **Import (Odtwarzanie)**: Wymaga podania hasła autoryzacyjnego (domyślnie: `cześć` lub zmienna `BACKUP_RESTORE_PASSWORD`).
 - **Krytyczne**: Odtwarzanie całkowicie czyści aktualną bazę danych przed wgraniem kopii.
 
+### 🧨 Master Reset (Atomic Purge)
+
+Funkcja "Wyczyść wszystkie dane" (Master Reset) realizuje protokół **Atomic Purge**, który gwarantuje całkowite usunięcie danych operacyjnych dla danego `tenantId` w obu warstwach persystencji:
+
+**Firestore Purge (NoSQL):**
+- `contractors`, `objects` (via cross-ref), `projects`, `project_stages`
+- `invoices`, `transactions`, `audit_logs`, `liabilities`, `bank_transactions`
+- `users` (wszystkie profile powiązane z firmą)
+
+**Prisma Purge (SQL/PostgreSQL):**
+- Wszystkie tabele powiązane relacją `Tenant` (Kaskadowe czyszczenie długu, projektów, faktur i logów audytowych).
+
+Proces kończy się statusem `Persistence Confirmed` dopiero po otrzymaniu potwierdzenia z obu silników baz danych.
+
 ---
 
 ## 📈 Deployment (Vercel)
