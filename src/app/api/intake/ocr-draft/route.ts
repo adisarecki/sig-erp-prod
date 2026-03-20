@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
     const sanitized: SanitizedOcrDraft = {
         nip: data.nip,
         parsedName: data.parsedName,
+        address: (data as any).address ?? null,
         issueDate: data.issueDate,
         dueDate: data.dueDate || data.issueDate,
         netAmountCents,

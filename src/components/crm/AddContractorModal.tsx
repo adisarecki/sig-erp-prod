@@ -61,8 +61,10 @@ export function AddContractorModal() {
                     <div>
                         <label className="text-sm font-semibold text-slate-700 block mb-1">NIP (10 cyfr)</label>
                         <input
+                            id="contractor-nip-add"
                             name="nip"
                             maxLength={10}
+                            autoComplete="off"
                             className="w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="5260001222"
                         />
@@ -70,7 +72,9 @@ export function AddContractorModal() {
                     <div>
                         <label className="text-sm font-semibold text-slate-700 block mb-1">Adres siedziby</label>
                         <input
+                            id="contractor-address-add"
                             name="address"
+                            autoComplete="off"
                             className="w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="ul. Słoneczna 1, Siemianowice"
                         />

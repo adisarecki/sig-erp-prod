@@ -131,8 +131,10 @@ export function EditContractorModal({ contractor }: { contractor: Contractor }) 
                             <div>
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">NIP</label>
                                 <input
+                                    id={`edit-nip-${contractor.id}`}
                                     name="nip"
                                     defaultValue={contractor.nip || ""}
+                                    autoComplete="off"
                                     className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono transition-all bg-slate-50/50"
                                 />
                             </div>
@@ -153,8 +155,10 @@ export function EditContractorModal({ contractor }: { contractor: Contractor }) 
                         <div>
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Adres siedziby</label>
                             <input
+                                id={`edit-address-${contractor.id}`}
                                 name="address"
                                 defaultValue={contractor.address || ""}
+                                autoComplete="off"
                                 className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium transition-all bg-slate-50/50"
                             />
                         </div>

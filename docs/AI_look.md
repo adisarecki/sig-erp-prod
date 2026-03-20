@@ -54,12 +54,15 @@ graph TD
 
 ## 🐛 5. Rejestr "Wektorów Błędów" (Bug Log)
 
-| ID | Problem | Rozwiązanie (Status: FIXED) |
-|---|---|---|
-| B1 | RSC Crash przy usuwaniu projektu | Dodano `redirect` po stronie serwera zamiast odświeżania po stronie klienta. |
-| B2 | Ghost Transactions | Zaimplementowano kaskadowy purge w `deleteProject`. |
-| B3 | Firebase Init Build Error | Wdrożono `getAdminDb()` (Lazy Initialization) w `@/lib/firebaseAdmin.ts`. |
-| B4 | Dual-Sync Drift | Wszystkie akcje (CRUD) wykonują operację w Firestore, a następnie `await prisma...` dla spójności. |
+| ID | Moduł | Status | Opis | Naprawa |
+|:---|:---|:---|:---|:---|
+| 001 | Finanse | FIXED | Błąd serializacji Decimal przy przesyłaniu do RSC. | Konwersja na String/Number przed wysyłką. |
+| 002 | CRM | FIXED | Contractor Data Mapping | NIP mapowany do adresu przy typie HURTOWNIA. Wdrożono heurystykę serwerową i hardening UI. |
+| 003 | Projekty | FIXED | 500 error przy revalidatePath po usunięciu. | Zastosowanie Safe Redirect Pattern (redirect przed renderem). |
+| B3 | Firebase | FIXED | Init Build Error | Wdrożono `getAdminDb()` (Lazy Initialization) w `@/lib/firebaseAdmin.ts`. |
+| B4 | Persistence | FIXED | Dual-Sync Drift | Wszystkie akcje (CRUD) wykonują operację w Firestore, a następnie `await prisma...` dla spójności. |
+| B5 | CRM | FIXED | Contractor Data Mapping | Nieprawidłowe mapowanie danych kontrahenta z formularza do bazy danych. |
+| B6 | Projekty | FIXED | Statyczne kwoty finansowe | Usunięto wymóg ręcznego wpisywania kwot przy tworzeniu projektu. System przechodzi na model w 100% transakcyjny (SSoT). |
 
 ---
 

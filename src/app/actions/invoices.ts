@@ -130,7 +130,7 @@ export async function addIncomeInvoice(formData: FormData) {
         if (!transSnap.empty) {
             const tDoc = transSnap.docs[0]
             // 3a. Tworzymy Transakcję w Prisma
-            const prismaTrans = await prisma.transaction.create({
+            const prismaTrans = await (prisma.transaction.create as any)({
                 data: {
                     id: tDoc.id,
                     tenantId,
@@ -180,8 +180,14 @@ export async function addCostInvoice(formData: FormData) {
     // New Contractor Fields
     const isNewContractor = formData.get("isNewContractor") === "true"
     const newContractorName = formData.get("newContractorName") as string
-    const newContractorNip = formData.get("newContractorNip") as string
-    const newContractorAddress = formData.get("newContractorAddress") as string
+    let newContractorNip = (formData.get("newContractorNip") as string || "").replace(/\s/g, "")
+    let newContractorAddress = formData.get("newContractorAddress") as string || ""
+
+    // Heuristic: If address looks like a NIP and nip is empty, swap them
+    if (!newContractorNip && /^\d{10}$/.test(newContractorAddress.trim())) {
+        newContractorNip = newContractorAddress.trim()
+        newContractorAddress = ""
+    }
 
     if (!amountNetStr || !dateStr || !dueDateStr) {
         throw new Error("Pola Kwota i Daty są bezwzględnie wymagane.")
@@ -248,6 +254,7 @@ export async function addCostInvoice(formData: FormData) {
                 name: newContractorName,
                 nip: newContractorNip || null,
                 address: newContractorAddress || null,
+                type: (newContractorName.toLowerCase().includes("hurtownia") || newContractorName.toLowerCase().includes("sklep")) ? "HURTOWNIA" : "DOSTAWCA",
                 status: "ACTIVE",
                 createdAt: new Date().toISOString()
             })
@@ -307,13 +314,14 @@ export async function addCostInvoice(formData: FormData) {
     // Ale tutaj używamy IDs z Firestore, więc powinno być OK jeśli Prisma dostanie dane.
     // Wypadałoby zsynchronizować też Contractora jeśli jest nowy.
     if (isNewContractor) {
-        await prisma.contractor.create({
+        await (prisma.contractor.create as any)({
             data: {
                 id: invoiceId.contractorId,
                 tenantId,
                 name: newContractorName,
                 nip: newContractorNip || null,
                 address: newContractorAddress || null,
+                type: (newContractorName.toLowerCase().includes("hurtownia") || newContractorName.toLowerCase().includes("sklep")) ? "HURTOWNIA" : "DOSTAWCA",
                 status: "ACTIVE"
             }
         })
@@ -350,7 +358,7 @@ export async function addCostInvoice(formData: FormData) {
         const transSnap = await adminDb.collection("transactions").where("invoiceId", "==", invoiceId.invoiceId).limit(1).get()
         if (!transSnap.empty) {
             const tDoc = transSnap.docs[0]
-            const prismaTrans = await prisma.transaction.create({
+            const prismaTrans = await (prisma.transaction.create as any)({
                 data: {
                     id: tDoc.id,
                     tenantId,
@@ -435,7 +443,7 @@ export async function markInvoiceAsPaid(invoiceId: string, paymentDateStr: strin
         })
 
         // 4. Prisma Sync (Transakcja + Powiązanie)
-        const prismaTrans = await prisma.transaction.create({
+        const prismaTrans = await (prisma.transaction.create as any)({
             data: {
                 id: transId,
                 tenantId,

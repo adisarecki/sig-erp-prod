@@ -72,18 +72,6 @@ export function AddProjectModal({ contractors }: AddProjectModalProps) {
                         </select>
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-slate-700 block mb-1">Szacowany Budżet Startowy (Przychód PLN) *</label>
-                        <input
-                            name="budgetEstimated"
-                            required
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            className="w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="np. 150000.00"
-                        />
-                    </div>
-                    <div>
                         <label className="text-sm font-medium text-slate-700 block mb-1">Krótki opis / Lokalizacja Obiektu</label>
                         <input
                             name="description"

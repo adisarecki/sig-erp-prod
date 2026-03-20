@@ -28,10 +28,10 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
         const name = formData.get("name") as string
         const contractorId = formData.get("contractorId") as string
         const objectId = formData.get("objectId") as string
-        const budgetEstimated = formData.get("budgetEstimated") as string
+        const budgetEstimated = formData.get("budgetEstimated") as string || "0"
 
-        if (!name || !contractorId || !budgetEstimated) {
-            return { success: false, error: "Wymagane pola to: Nazwa Projektu, Kontrahent oraz Budżet Szacowany." }
+        if (!name || !contractorId) {
+            return { success: false, error: "Wymagane pola to: Nazwa Projektu oraz Kontrahent." }
         }
 
         const tenantId = await getCurrentTenantId()

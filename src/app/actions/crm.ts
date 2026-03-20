@@ -12,10 +12,16 @@ export async function addContractor(formData: FormData): Promise<{ success: bool
     try {
         const adminDb = getAdminDb()
     const name = formData.get("name") as string
-    const nip = formData.get("nip") as string
-    const address = formData.get("address") as string
+    let nip = (formData.get("nip") as string || "").replace(/\s/g, "")
+    let address = formData.get("address") as string || ""
     const status = formData.get("status") as string
     const type = formData.get("type") as string || "INWESTOR"
+
+    // Heuristic: If address looks like a NIP and nip is empty, swap them
+    if (!nip && /^\d{10}$/.test(address.trim())) {
+        nip = address.trim()
+        address = ""
+    }
 
     if (!name) throw new Error("Nazwa firmy jest wymagana.")
 
@@ -81,10 +87,16 @@ export async function updateContractor(formData: FormData): Promise<{ success: b
         const adminDb = getAdminDb()
         const id = formData.get("id") as string
         const name = formData.get("name") as string
-        const nip = formData.get("nip") as string
-        const address = formData.get("address") as string
+        let nip = (formData.get("nip") as string || "").replace(/\s/g, "")
+        let address = formData.get("address") as string || ""
         const status = formData.get("status") as string
         const type = formData.get("type") as string
+
+        // Heuristic: If address looks like a NIP and nip is empty, swap them
+        if (!nip && /^\d{10}$/.test(address.trim())) {
+            nip = address.trim()
+            address = ""
+        }
 
         if (!id || !name) throw new Error("ID oraz Nazwa firmy są wymagane.")
 

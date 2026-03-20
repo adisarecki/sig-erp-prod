@@ -48,6 +48,11 @@ export const ocrDraftSchema = z.object({
         .max(200, "Nazwa kontrahenta nie może przekraczać 200 znaków"),
 
     /**
+     * Address of the contractor (optional).
+     */
+    address: z.string().max(300).optional(),
+
+    /**
      * Invoice issue date in ISO format.
      */
     issueDate: dateString,
@@ -105,6 +110,7 @@ export type OcrDraftPayload = z.infer<typeof ocrDraftSchema>
 export interface SanitizedOcrDraft {
     nip: string
     parsedName: string
+    address: string | null
     issueDate: string
     dueDate: string
     netAmountCents: number    // Integer cents (e.g., 1250.50 → 125050)

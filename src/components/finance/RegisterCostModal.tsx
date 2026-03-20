@@ -221,6 +221,9 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                         <div className="space-y-1">
                                             <Label className="text-[10px] uppercase font-bold text-slate-500">NIP</Label>
                                             <Input 
+                                                id="cost-new-contractor-nip"
+                                                name="newContractorNip"
+                                                autoComplete="off"
                                                 placeholder="10 cyfr" 
                                                 value={newContractorNip} 
                                                 onChange={(e) => setNewContractorNip(e.target.value)}
@@ -230,7 +233,10 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                     </div>
                                     <div className="space-y-1">
                                         <Label className="text-[10px] uppercase font-bold text-slate-500">Adres (Ulica, Kod, Miasto)</Label>
-                                        <Input 
+                                        <Input
+                                            id="cost-new-contractor-address"
+                                            name="newContractorAddress"
+                                            autoComplete="off"
                                             placeholder="ul. Słoneczna 1, 00-001 Warszawa" 
                                             value={newContractorAddress} 
                                             onChange={(e) => setNewContractorAddress(e.target.value)}
