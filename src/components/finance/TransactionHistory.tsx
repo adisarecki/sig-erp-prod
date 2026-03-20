@@ -82,7 +82,7 @@ export function TransactionHistory({
                                     {t.description || t.category}
                                     {isGeneral && (
                                         <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0">
-                                            KOSZT OGÓLNY
+                                            ADMIN / OGÓLNY
                                         </span>
                                     )}
                                 </p>

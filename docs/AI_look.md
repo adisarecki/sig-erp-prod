@@ -1,95 +1,67 @@
-# Sig ERP – Strategic Overview & Technical Context (AI_look.md)
+# Sig ERP – AI Master Context (AI_look.md)
 
-This document is the **Strategic Brain** and **Technical Anchor** of the project. It is intended for both the **USER** and for **Conversational AI** (Gemini, ChatGPT) to ensure 100% context synchronization.
-
----
-
-## 🚀 1. AI Drogowskazy (Signposts for Assistants)
-
-To maintain the "Money Constitution," follow these strict rules:
-
-### 🛠 Coding Standards
-- **Zero Trust Architecture**: Never assume data is valid until it passes through a Gatekeeper API (Zod + decimal.js).
-- **Backend First**: Complex logic (OCR parsing, financial math) belongs on the backend, not the client.
-- **Prisma Precision**: Use Prisma Agregates for KPIs. Avoid fetching raw records for JS-side summation.
-- **Mobile First**: All UI components must support touch targets (min 44px) and numeric input modes.
-
-### 💰 The Money Constitution
-1. **Integer Cents**: All internal math uses integer cents (`amountCents`).
-2. **Decimal.js**: Use `decimal.js` for all string/float to integer conversions. Rejects the draft if `net + vat != gross`.
-3. **Immutability**: Financial records are Append-Only. Errors = Reversal entries, never `UPDATE` or `DELETE`.
-4. **NET-Based**: Dashboard KPIs are calculated using **NET** amounts unless stated otherwise.
+Ten plik jest przeznaczony wyłącznie dla modeli LLM. Zawiera "DNA" techniczne systemu, mapy relacji i rejestr błędów, aby zapewnić 100% synchronizacji kontekstu.
 
 ---
 
-## 🏗 2. Architecture & Tech Stack
+## 🏗️ 1. Architektura Techniczna (Next.js 15)
 
-- **Framework**: Next.js 15 (App Router) + TypeScript.
-- **Database**: PostgreSQL (Neon) + Prisma ORM.
-- **Security**: RBAC (OWNER, MANAGER, EMPLOYEE) + Multi-tenancy (`tenantId` isolation).
-- **Idempotency**: `ProcessedEvent` table prevents duplicate processing of bank/external imports.
-- **Stability**: Stable Hydration Pattern (Charts) using `isMounted` hooks.
-
----
-
-## 📄 3. API Contracts & Data Flow
-
-### OCR Pipeline (Zero Trust)
-1. **Frontend (`InvoiceScanner.tsx`)**: Raw file upload to `/api/ocr/scan`.
-2. **Engine (`/api/ocr/scan/route.ts`)**: Gemini 1.5 Flash (Multimodal) extracts raw `OcrInvoiceData`.
-3. **Gatekeeper (`/api/intake/ocr-draft/route.ts`)**: 
-   - **Validation**: Zod schema.
-   - **Amounts**: String → Integer Cents conversion.
-   - **Logic**: If `dueDate` is empty/text ("Zapłacono"), set `dueDate` = `issueDate`.
-
-### Payload Specification (POST `/api/intake/ocr-draft`)
-| Field | Type | Validation |
-|---|---|---|
-| `nip` | `string` | Exactly 10 digits |
-| `netAmount` | `string` | Decimal string (e.g. "125.50") |
-| `type` | `enum` | `"COST"` or `"INCOME"` |
-| `tenantId` | `N/A` | **FORBIDDEN** (Server-injected) |
+System zbudowany w architekturze **Server Components (RSC)** z wykorzystaniem:
+- **Frontend**: Next.js 15 (App Router), Tailwind CSS (Vanilla Logic).
+- **Backend**: Server Actions (logic layer), Route Handlers (OCR/API).
+- **Persistence (Dual-Sync)**:
+  - **Cloud Firestore**: Primary SSoT dla danych operacyjnych (NoSQL, szybki odczyt, dynamiczne schematy).
+  - **PostgreSQL (Neon) + Prisma**: Secondary Storage (Relacyjne raportowanie, analityka, backup).
+- **Auth**: Firebase Auth (Admin SDK na backendzie, Client SDK na frontendzie).
 
 ---
 
-## 🔍 4. Finance & Reconciliation Engine
+## 💎 2. SSoT (Single Source of Truth) dla Transakcji
 
-### Logic Rules
-- **Safe Withdrawal**: `Liquid Cash (Net) - Upcoming Liabilities (30d Gross) - Tax Reserve (19% of Net Profit)`.
-- **Reconciliation Algorithm**:
-  - **Match**: `Amount (+0.4)`, `Invoice Number (+0.5)`, `Fuzzy Name (up to +0.3)`.
-  - **Tiers**: `AUTO` (≥0.95), `REVIEW` (0.60–0.94), `REJECT` (<0.60).
-
-### Bank Importing (Regex Maszynka)
-- **NIP**: `(?<!\d)\d{10}(?!\d)` after stripping separators.
-- **Prefixes**: Strip `Przelew z rachunku`, `Płatność kartą`, etc.
-- **Formats**: Supports PKO BP (Native XML/CSV) and ISO 20022 (camt.053).
+Transakcja jest atomowym rekordem pieniądza. Spójność wymuszana jest przez:
+1. **Atrybut `tenantId`**: Całkowita izolacja danych między firmami.
+2. **Atrybut `classification`**:
+   - `PROJECT_COST`: Koszt powiązany z konkretnym ID projektu.
+   - `GENERAL_COST`: Koszt administracyjny/ogólny (bez przypisanego projektu).
+3. **Logika Fallback**: Każdy brak `projectId` przy koszcie -> auto-klasyfikacja jako `GENERAL_COST`.
+4. **Relacja kaskadowa**: Usunięcie projektu -> kaskadowe usunięcie wszystkich jego transakcji (Firestore & Prisma).
 
 ---
 
-## 🗄 5. Database Schema: Contractor (CRM)
+## 🗺️ 3. Mapa Relacji (Data Lineage)
 
-```prisma
-model Contractor {
-  id           String    @id @default(uuid())
-  tenantId     String
-  nip          String?   @unique // 10-digit tax ID
-  name         String
-  address      String?
-  status       String    @default("ACTIVE") // ACTIVE, IN_REVIEW
-}
+```mermaid
+graph TD
+    Contractor["Contractor (Firma)"] -->|1:N| Object["Object (Lokalizacja/Budowa)"]
+    Object -->|1:N| Project["Project (Zlecenie/Inwestycja)"]
+    Project -->|1:N| Transaction["Transaction (Przychód/Koszt - PROJECT_COST)"]
+    Transaction -.->|Fallback| General["GENERAL_COST (Orphan Transaction)"]
 ```
 
-**Business Rule**: On OCR import, lookup by normalized NIP + `tenantId`. If found → Auto-link; if not found → Propose creation.
+- **Contractor**: Centralny podmiot (Inwestor/Dostawca).
+- **Object**: Fizyczna lokalizacja (miejsce powstawania kosztów).
+- **Project**: Kontener logiczny (budżet, etapy).
+- **Transaction**: Ruch gotówkowy.
 
 ---
 
-## 🗺 6. Roadmap & State (Beta Phase)
+## 🚩 4. Aktywne Flagi i Tryby (Feature Flags)
 
-- **In Progress**: Contractor Scoring, Idempotency Keys, Advanced BI Trends.
-- **Future**: KSeF Integration, OCR Background Workers, Global Accounting (Multi-currency).
+- `ENABLE_TEST_DELETE`: Jeśli `true`, UI wyświetla przyciski usuwania. Weryfikowane po stronie serwera przez `NEXT_PUBLIC_ENABLE_TEST_DELETE`.
+- `FORCE_DYNAMIC`: System wymusza `force-dynamic` na wszystkich stronach odczytu danych, aby zapobiec starzeniu się cache'u Firestore.
 
 ---
 
-> [!TIP]
-> Use this file as the **System Prompt** for any AI agent helping with Sig ERP. It contains the complete logic and structural DNA of the project.
+## 🐛 5. Rejestr "Wektorów Błędów" (Bug Log)
+
+| ID | Problem | Rozwiązanie (Status: FIXED) |
+|---|---|---|
+| B1 | RSC Crash przy usuwaniu projektu | Dodano `redirect` po stronie serwera zamiast odświeżania po stronie klienta. |
+| B2 | Ghost Transactions | Zaimplementowano kaskadowy purge w `deleteProject`. |
+| B3 | Firebase Init Build Error | Wdrożono `getAdminDb()` (Lazy Initialization) w `@/lib/firebaseAdmin.ts`. |
+| B4 | Dual-Sync Drift | Wszystkie akcje (CRUD) wykonują operację w Firestore, a następnie `await prisma...` dla spójności. |
+
+---
+
+> [!IMPORTANT]
+> Przy każdej modyfikacji kodu, Assistent musi zweryfikować, czy zmiana nie narusza Mapy Relacji (Punkt 3) oraz czy typowanie `classification` transakcji jest zachowane.

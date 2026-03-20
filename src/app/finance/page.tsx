@@ -93,7 +93,7 @@ export default async function FinancePage({
                             href="/finance?filter=GENERAL"
                             className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === 'GENERAL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
-                            OGÓLNE (ZARZĄD)
+                            KOSZTY ADMINISTRACYJNE/OGÓLNE
                         </Link>
                     </div>
                 </div>

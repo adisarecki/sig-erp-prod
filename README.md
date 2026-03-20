@@ -1,121 +1,56 @@
-# Sig ERP – Modern Financial Management (Firestore Edition)
+# Sig ERP – Instrukcja Obsługi (User Manual)
 
-Nowoczesny system operacyjny dla firm, zoptymalizowany pod Next.js 15, Vercel oraz Google Cloud Firestore.
-
-## 🚀 Architektura (Stack Technologiczny)
-
-- **Hosting**: Vercel (Serverless Next.js 15)
-- **Baza Danych**: Cloud Firestore (NoSQL)
-- **Autoryzacja**: Firebase Auth (Google + Email/Hasło z wymuszoną zmianą PESEL)
-- **Magazyn**: Firebase Storage
-
-## 📈 Status Wdrożenia
-
-> ✅ **Aplikacja jest zdeployowana na Vercelu** (produkcja z brancha `main`)
-
-- **Next.js**: 15.2.8 (patched: CVE-2025-66478, CVE-2025-55183, CVE-2025-67779)
-- **Prisma**: 6.x (downgrade z 7.x ze względu na kompatybilność schemat P1012)
-- **Firebase Admin**: Singleton z lazy init (`@/lib/firebaseAdmin.ts`), dynamic `require()` dla service modules
-- **Import Bankowy**: Pełna migracja z Prisma do Firestore (NoSQL)
+Witaj w centrum dowodzenia Twoją firmą. System Sig ERP został zaprojektowany, aby dać Ci pełną kontrolę nad finansami, projektami i relacjami z kontrahentami w czasie rzeczywistym.
 
 ---
 
-## 🛠 Konfiguracja Lokalna
+## 🛠️ Podręcznik Modułów
 
-1. **Instalacja**: `npm install`
-2. **Środowisko (.env)**:
-   - `DATABASE_URL`: URL do bazy danych PostgreSQL.
-   - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`: Nazwa bucketa storage.
-   - `FIREBASE_SERVICE_ACCOUNT_JSON`: Cały obiekt JSON klucza service account (jedno-liniowy, z `\n` w `private_key`).
-3. **Baza Danych**: `npx prisma db push` (Synchronizacja schematu z DB).
-4. **Uruchomienie**: `npm run dev`
+### 🤝 Kontrahenci (CRM)
+- **Dodawanie Firm**: Wyszukiwanie po NIP automatycznie pobiera dane (jeśli zintegrowane) lub pozwala na ręczny wpis.
+- **Automatyczne Obiekty**: Przy dodaniu Inwestora system sam stworzy lokalizację „Siedziba Główna”, abyś mógł od razu przypisać do niego Projekt.
+- **Typy Firm**: Oznaczaj czy to *Inwestor*, *Dostawca* czy *Hurtownia* dla lepszej filtracji.
 
-> [!IMPORTANT]
-> **Vercel Deployment**: Upewnij się, że zmienna `FIREBASE_SERVICE_ACCOUNT_JSON` jest dodana w panelu Vercel. Bez niej faza runtime (ale nie build) zakończy się błędem.
+### 🏗️ Projekty
+- **Katalog Inwestycji**: Każdy projekt jest przypisany do konkretnego obiektu Twojego klienta.
+- **Etapy Budowy**: Dziel projekt na mniejsze części, aby śledzić budżet i postęp prac.
+- **Zyskowność**: System na bieżąco sumuje faktury kosztowe i przychodowe przypisane do projektu.
 
----
-
-## 🏗️ Firebase Admin SDK (Lazy Init)
-
-Aby uniknąć błędów podczas fazy `Collecting page data` na Vercelu (brak zmiennych w czasie buildu), system używa mechanizmu **Lazy Initialization**.
-- **Nie importuj `adminDb` bezpośrednio** na poziomie top-level pliku.
-- Zamiast tego używaj getterów: `const db = getAdminDb()`, `const auth = getAdminAuth()`.
-- Wszystkie wywołania Firebase muszą odbywać się wewnątrz funkcji serwerowych (Server Actions) lub handlerów API.
+### 💰 Finanse i Cash Flow
+- **Rejestr Transakcji**: Wszystkie wydatki i wpływy w jednym miejscu.
+- **Koszty Ogólne (Zarząd)**: Wydatki nieprzypisane do konkretnej budowy (biuro, paliwo, telefony). Znajdziesz je w zakładce „Ogólne / Administracyjne”.
+- **Wzbogacanie Danych**: Jeśli transakcja z banku nie ma projektu, możesz ją później „Przypisać do projektu” jednym klikiem.
 
 ---
 
-## 🔐 System Bezpieczeństwa (Gatekeeper)
+## 📈 Dashboard CEO (Widok Strategiczny)
 
-Dostęp do systemu jest całkowicie zablokowany dla osób spoza Whitelist.
-- **Logowanie Google**: Dla CEO i Wspólnika.
-- **Logowanie Email**: Dostęp z wymuszoną zmianą hasła przy pierwszym zalogowaniu (protokół PESEL -> Private Password).
-
-## 🧠 Zasady SYSTEM_DNA
-
-Katalog `docs/` zawiera fundamenty logiki biznesowej:
-👉 **[docs/SYSTEM_DNA.md](./docs/SYSTEM_DNA.md)**
-
-**Logika Finansowa (Ekstraklasa):**
-- **Tax Guard**: Rezerwacja 19% CIT + VAT Netto na Dashboardzie.
-- **Cash Reality**: Symulacja "Realista" uwzględniająca 14-dniowe opóźnienia w płatnościach.
-- **Append-Only Ledger**: Historia transakcji jest niezmienna (korekty przez rewers).
-
-### 🔗 Relacje Danych (Data Flow)
-System wymusza spójność poprzez następującą hierarchię:
-1. **Kontrahent (Firma)**: Centralny punkt kontaktu (Inwestor/Dostawca).
-2. **Obiekt (Lokalizacja)**: Każda firma ma co najmniej jeden obiekt (np. Siedziba, Magazyn).
-3. **Projekt**: Przypisany do konkretnego *Obiektu* danej firmy.
-4. **Transakcja**: Rekord kosztu/przychodu powiązany z *Projektem*. Suma transakcji stanowi budżet wykorzystany projektu (SSoT).
+- **Czysta Gotówka (Safe to Spend)**: Ile pieniędzy możesz realnie wypłacić z firmy po odliczeniu VAT i rezerwy na podatek dochodowy (19%).
+- **Realny Zysk**: Obliczany jako `Suma Marż z Projektów - Koszty Ogólne Zarządu`.
+- **Alarm Płynności**: Jeśli status zmieni się na „Realista”, oznacza to, że uwzględniamy możliwe 14-dniowe opóźnienia wpłat od klientów.
 
 ---
 
-## ⚡ Renderowanie Dynamiczne (SSR)
+## 🔐 Procedury Awaryjne i Bezpieczeństwo
 
-Ze względu na hybrydę Firebase/Firestore, **wszystkie strony serwerowe** muszą mieć `export const dynamic = "force-dynamic"`.
-Bez tego Next.js próbuje statycznie generować stronę w czasie buildu (SSG), co powoduje crashe Firestore.
-
-Strony z wymuszonym SSR:
-- `/` (Dashboard)
-- `/crm`
-- `/projects`
-- `/projects/[id]`
-- `/finance`
-- `/finance/reconciliation`
-
-## 📦 Backup & Restore (Snapshots)
-
-System umożliwia tworzenie pełnych kopii zapasowych (JSON) zawierających dane z Firestore oraz SQL (Neon).
-- **Eksport**: Panel `Ustawienia` > `Pobierz kopię`. Generuje plik `sig_erp_backup_YYYY-MM-DD.json`.
-- **Import (Odtwarzanie)**: Wymaga podania hasła autoryzacyjnego (domyślnie: `cześć` lub zmienna `BACKUP_RESTORE_PASSWORD`).
-- **Krytyczne**: Odtwarzanie całkowicie czyści aktualną bazę danych przed wgraniem kopii.
+### 📦 Backup & Restore (Skarbiec)
+1. **Kopia**: W zakładce `Ustawienia` pobierz plik JSON. Rób to przed każdą większą zmianą danych.
+2. **Odtwarzanie**: Wymaga hasła autoryzacyjnego. Pamiętaj, że wgranie kopii **usuwa** obecne dane przed przywróceniem starych.
 
 ### 🧨 Master Reset (Atomic Purge)
-
-Funkcja "Wyczyść wszystkie dane" (Master Reset) realizuje protokół **Atomic Purge**, który gwarantuje całkowite usunięcie danych operacyjnych dla danego `tenantId` w obu warstwach persystencji:
-
-**Firestore Purge (NoSQL):**
-- `contractors`, `objects` (via cross-ref), `projects`, `project_stages`
-- `invoices`, `transactions`, `audit_logs`, `liabilities`, `bank_transactions`
-- `users` (wszystkie profile powiązane z firmą)
-
-**Prisma Purge (SQL/PostgreSQL):**
-- Wszystkie tabele powiązane relacją `Tenant` (Kaskadowe czyszczenie długu, projektów, faktur i logów audytowych).
-
-Proces kończy się statusem `Persistence Confirmed` dopiero po otrzymaniu potwierdzenia z obu silników baz danych.
-
-### 📂 Kategoryzacja Transakcji (General Expenses)
-System automatycznie rozróżnia dwa typy kosztów:
-- **PROJECT_COST**: Koszty bezpośrednio przypisane do projektu (np. materiały, podwykonawcy).
-- **GENERAL_COST**: Koszty ogólne zarządu (np. paliwo, telefon, biuro).
-
-**Logika Fallback**: Jeśli transakcja z importu bankowego nie zostanie przypisana do projektu, system flaguje ją jako `GENERAL_COST`. Na Dashboardzie koszty te są odejmowane od rzeczywistych marż projektowych, dając zintegrowany obraz wyniku netto firmy.
+Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją firmą (Firestore + SQL). Używaj tylko w sytuacjach krytycznych.
 
 ---
 
-## 📈 Deployment (Vercel)
+## 📝 Changelog & Status Testów
 
-System jest skonfigurowany pod automatyczny deployment z GitHuba.
-- **Build Bypass**: ESLint oraz TypeScript są ignorowane podczas buildu produkcyjnego (flaga `ignoreDuringBuilds`), aby umożliwić szybkie iteracje UI przy zachowaniu stabilności logicznej.
+- [x] **Import PKO BP**: Stabilny.
+- [x] **OCR Faktur**: System rozpoznaje NIP, kwoty i daty.
+- [x] **General Costs**: Pełna separacja kosztów zarządu od projektowych.
+- [x] **Dual-Sync**: Dane są bezpieczne w dwóch niezależnych chmurach (Google + Neon).
+
+---
+*Dla programistów: Techniczna dokumentacja DNA znajduje się w [docs/AI_look.md](./docs/AI_look.md)*
 
 ---
 *Vercel & Firestore Ready 🚀*
