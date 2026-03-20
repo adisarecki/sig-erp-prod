@@ -5,10 +5,26 @@ import { InteractiveCRMList } from "@/components/crm/InteractiveCRMList"
 import { Upload } from "lucide-react"
 import Link from "next/link"
 import { getContractors } from "@/app/actions/crm"
+import { getAdminDb } from "@/lib/firebaseAdmin"
+import { getCurrentTenantId } from "@/lib/tenant"
 
 export default async function CRMPage() {
-    // Firestore – dane już jako plain objects (bez Decimal)
-    const contractors = (await getContractors()) as any[]
+    const tenantId = await getCurrentTenantId()
+    const rawContractors = (await getContractors()) as any[]
+    
+    // Fetch related invoices to avoid client-side crash
+    const adminDb = getAdminDb()
+    const invoicesSnap = await adminDb.collection("invoices")
+        .where("tenantId", "==", tenantId)
+        .get()
+    
+    const allInvoices = invoicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
+
+    // Merge invoices into contractors
+    const contractors = rawContractors.map(c => ({
+        ...c,
+        invoices: allInvoices.filter(inv => inv.contractorId === c.id)
+    }))
 
     return (
         <div className="space-y-6">

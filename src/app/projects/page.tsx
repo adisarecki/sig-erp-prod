@@ -4,13 +4,37 @@ import { getContractors } from '@/app/actions/crm'
 import { AddProjectModal } from '@/components/projects/AddProjectModal'
 import { InteractiveProjectList } from '@/components/projects/InteractiveProjectList'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { getAdminDb } from "@/lib/firebaseAdmin"
+import { getCurrentTenantId } from "@/lib/tenant"
 
 export default async function ProjectsPage() {
-    // Firestore – dane jako plain objects (bez Decimal)
-    const allProjects = (await getProjects()) as any[]
+    const tenantId = await getCurrentTenantId()
+    const rawProjects = (await getProjects()) as any[]
 
-    const rawContractors = (await getContractors()) as any[]
-    const contractors = rawContractors.map(c => ({ id: c.id, name: c.name }))
+    // Fetch all related data in bulk to avoid N+1
+    const adminDb = getAdminDb()
+    const [contractorsSnap, objectsSnap, invoicesSnap, transactionsSnap] = await Promise.all([
+        adminDb.collection("contractors").where("tenantId", "==", tenantId).get(),
+        adminDb.collection("objects").where("contractorId", "!=", "").get(), // Objects are currently linked to contractors, not tenants directly in schema
+        adminDb.collection("invoices").where("tenantId", "==", tenantId).get(),
+        adminDb.collection("transactions").where("tenantId", "==", tenantId).get()
+    ])
+
+    const allContractors = contractorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
+    const allObjects = objectsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
+    const allInvoices = invoicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
+    const allTransactions = transactionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
+
+    // Merge everything into "fat" project objects
+    const allProjects = rawProjects.map(p => ({
+        ...p,
+        contractor: allContractors.find(c => c.id === p.contractorId) || { name: "Brak danych" },
+        object: allObjects.find(o => o.id === p.objectId) || { name: "Brak danych", address: "Brak adresu" },
+        invoices: allInvoices.filter(inv => inv.projectId === p.id),
+        transactions: allTransactions.filter(t => t.projectId === p.id)
+    }))
+
+    const contractors = allContractors.map(c => ({ id: c.id, name: c.name }))
 
     const activeProjects = allProjects.filter((p) => p.lifecycleStatus === 'ACTIVE' || p.lifecycleStatus === 'ON_HOLD')
     const archivedProjects = allProjects.filter((p) => p.lifecycleStatus === 'ARCHIVED')

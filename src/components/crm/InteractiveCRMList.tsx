@@ -80,7 +80,8 @@ export function InteractiveCRMList({ contractors }: InteractiveCRMListProps) {
 
             <div className="divide-y divide-slate-100">
                 {contractors.map((contractor) => {
-                    const overdueInvoices = contractor.invoices.filter(inv => inv.type === 'SPRZEDAŻ' && new Date(inv.dueDate) < now)
+                    const invoices = contractor.invoices || []
+                    const overdueInvoices = invoices.filter(inv => inv.type === 'SPRZEDAŻ' && new Date(inv.dueDate) < now)
                     const totalOverdue = overdueInvoices.reduce((sum, inv) => sum + inv.amountGross, 0)
 
                     return (

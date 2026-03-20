@@ -111,8 +111,10 @@ export function InteractiveProjectList({ projects, isArchivedView = false }: Int
             </div>
 
             {projects.map((project) => {
-                const totalInvoiced = project.invoices.reduce((sum: number, inv) => sum + Number(inv.amountNet), 0)
-                const totalCosts = project.transactions
+                const invoices = project.invoices || []
+                const transactions = project.transactions || []
+                const totalInvoiced = invoices.reduce((sum: number, inv) => sum + Number(inv.amountNet), 0)
+                const totalCosts = transactions
                     .filter((t) => t.type === 'KOSZT')
                     .reduce((sum: number, t) => sum + Number(t.amount), 0)
                 const currentMargin = totalInvoiced - totalCosts
