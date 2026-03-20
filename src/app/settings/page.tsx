@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Trash2, AlertTriangle, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { fullResetTenantData } from "@/app/actions/admin"
+import { BackupRestoreSection } from "@/components/settings/BackupRestoreSection"
 
 export default function SettingsPage() {
     const [isPending, setIsPending] = useState(false)
@@ -69,6 +70,8 @@ export default function SettingsPage() {
                     </div>
                 </div>
             </div>
+
+            <BackupRestoreSection />
 
             <div className="bg-white border rounded-xl p-6 shadow-sm opacity-60">
                 <h3 className="text-lg font-bold text-slate-900">Informacje o Systemie</h3>

@@ -75,6 +75,13 @@ Strony z wymuszonym SSR:
 - `/finance`
 - `/finance/reconciliation`
 
+## 📦 Backup & Restore (Snapshots)
+
+System umożliwia tworzenie pełnych kopii zapasowych (JSON) zawierających dane z Firestore oraz SQL (Neon).
+- **Eksport**: Panel `Ustawienia` > `Pobierz kopię`. Generuje plik `sig_erp_backup_YYYY-MM-DD.json`.
+- **Import (Odtwarzanie)**: Wymaga podania hasła autoryzacyjnego (domyślnie: `cześć` lub zmienna `BACKUP_RESTORE_PASSWORD`).
+- **Krytyczne**: Odtwarzanie całkowicie czyści aktualną bazę danych przed wgraniem kopii.
+
 ---
 
 ## 📈 Deployment (Vercel)
