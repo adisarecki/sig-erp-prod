@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { ProjectStageList } from "@/components/projects/ProjectStageList"
 import { ProjectFinancialChart } from "@/components/projects/ProjectFinancialChart"
 import { ProjectCockpitActions } from "@/components/projects/ProjectCockpitActions"
+import { TransactionDeleteButton } from "@/components/projects/TransactionDeleteButton"
 import { ArrowLeft, Building2, MapPin, Wallet, TrendingUp, ReceiptText, Calendar, BadgeDollarSign } from "lucide-react"
 import Link from "next/link"
 
@@ -163,31 +164,44 @@ export default async function ProjectCockpit({ params }: PageProps) {
                     <ProjectStageList projectId={project.id} stages={stages} />
                 </div>
 
-                {/* Costs History */}
+                {/* Zaksięgowane Kwoty */}
                 <Card className="h-fit border-slate-200 sticky top-6">
                     <CardHeader className="pb-4 border-b bg-slate-50/50">
                         <CardTitle className="text-base font-bold flex items-center gap-2">
-                            <ReceiptText className="w-4 h-4 text-slate-400" />
-                            Ostatnie Koszty
+                            <BadgeDollarSign className="w-4 h-4 text-slate-400" />
+                            Zaksięgowane Kwoty
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
                         {transactions.length === 0 ? (
                             <div className="p-12 text-center">
-                                <p className="text-slate-400 italic text-sm">Brak zarejestrowanych kosztów dla tego projektu.</p>
+                                <p className="text-slate-400 italic text-sm">Brak zarejestrowanych kwot dla tego projektu.</p>
                             </div>
                         ) : (
                             <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
                                 {transactions.map((t: any) => (
-                                    <div key={t.id} className="p-4 hover:bg-slate-50 transition-colors group">
+                                    <div key={t.id} className="p-4 hover:bg-slate-50 transition-colors group relative">
                                         <div className="flex justify-between items-start mb-1">
                                             <span className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1">
                                                 <Calendar className="w-3 h-3" />
                                                 {new Date(t.transactionDate).toLocaleDateString('pl-PL')}
                                             </span>
-                                            <span className="font-black text-rose-600 text-sm group-hover:scale-105 transition-transform">{formatPln(t.amount)}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`font-black text-sm group-hover:scale-105 transition-transform ${t.type === 'PRZYCHÓD' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                    {t.type === 'PRZYCHÓD' ? '+' : '-'}{formatPln(t.amount)}
+                                                </span>
+                                                <TransactionDeleteButton 
+                                                    transactionId={t.id} 
+                                                    description={`${t.category}: ${t.description || ''}`} 
+                                                />
+                                            </div>
                                         </div>
-                                        <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{t.category}</p>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className="text-xs font-black text-slate-800 uppercase tracking-tight truncate flex-1">{t.category}</p>
+                                            <Badge variant="outline" className="text-[9px] font-black py-0 px-1.5 h-4 border-slate-200 text-slate-400">
+                                                {t.source}
+                                            </Badge>
+                                        </div>
                                         <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">{t.description || "Brak opisu transakcji"}</p>
                                     </div>
                                 ))}

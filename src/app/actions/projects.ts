@@ -61,7 +61,6 @@ export async function addProject(formData: FormData) {
         contractorId,
         objectId: targetObjectId,
         budgetEstimated: Number(budgetEstimated),
-        budgetUsed: 0,
         status: "PLANNED",
         lifecycleStatus: "ACTIVE",
         type: "NOWY",
