@@ -11,6 +11,7 @@ const InvoiceScanner = dynamic(() => import("@/components/finance/InvoiceScanner
     loading: () => <div className="animate-pulse bg-slate-100 h-10 w-32 rounded-lg" />
 })
 
+import { RegisterIncomeModal } from "@/components/finance/RegisterIncomeModal"
 import { useRouter } from "next/navigation"
 import { Trash2 } from "lucide-react"
 import { deleteProject } from "@/app/actions/projects"
@@ -42,16 +43,26 @@ export function ProjectCockpitActions({ projectId, allProjects, contractors }: P
         }
     }
 
+    const isTestMode = process.env.NEXT_PUBLIC_ENABLE_TEST_DELETE === "true"
+
     return (
         <div className="flex items-center gap-3">
-            <button
-                onClick={handleDelete}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-200 transition-all uppercase tracking-tight"
-            >
-                <Trash2 className="w-4 h-4" />
-                Usuń Projekt
-            </button>
+            {isTestMode && (
+                <button
+                    onClick={handleDelete}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-200 transition-all uppercase tracking-tight"
+                >
+                    <Trash2 className="w-4 h-4" />
+                    Usuń Projekt
+                </button>
+            )}
             <InvoiceScanner onDataExtracted={handleOcrExtracted} />
+            <RegisterIncomeModal 
+                projects={allProjects} 
+                contractors={contractors} 
+                lockedProjectId={projectId}
+                ocrData={ocrData?.type === "INCOME" ? ocrData : undefined}
+            />
             <RegisterCostModal 
                 projects={allProjects} 
                 contractors={contractors} 

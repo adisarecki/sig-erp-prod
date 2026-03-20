@@ -34,9 +34,10 @@ interface RegisterIncomeModalProps {
     projects: Project[]
     contractors: Contractor[]
     ocrData?: SanitizedOcrDraft
+    lockedProjectId?: string
 }
 
-export function RegisterIncomeModal({ projects, contractors, ocrData }: RegisterIncomeModalProps) {
+export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProjectId }: RegisterIncomeModalProps) {
     const [open, setOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
 
@@ -45,6 +46,8 @@ export function RegisterIncomeModal({ projects, contractors, ocrData }: Register
     const [amountVat, setAmountVat] = useState("")
     const [retainedAmount, setRetainedAmount] = useState("")
     const [retentionReleaseDate, setRetentionReleaseDate] = useState("")
+    const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || "NONE")
+    const [selectedContractorId, setSelectedContractorId] = useState<string>("")
 
     // Track last OCR data to detect new scans
     const lastOcrRef = useRef<SanitizedOcrDraft | undefined>(undefined)
@@ -62,6 +65,12 @@ export function RegisterIncomeModal({ projects, contractors, ocrData }: Register
             setOpen(true)
         }
     }, [ocrData])
+
+    useEffect(() => {
+        if (lockedProjectId) {
+            setSelectedProjectId(lockedProjectId)
+        }
+    }, [lockedProjectId])
 
     useEffect(() => {
         if (amountNet) {
@@ -102,6 +111,8 @@ export function RegisterIncomeModal({ projects, contractors, ocrData }: Register
         setIsLoading(true)
         // Ensure computed fields are appended
         formData.set("amountGross", amountGross)
+        formData.set("projectId", selectedProjectId)
+        formData.set("contractorId", selectedContractorId)
 
         try {
             const result = await addIncomeInvoice(formData)
@@ -224,7 +235,7 @@ export function RegisterIncomeModal({ projects, contractors, ocrData }: Register
                     <div className="grid gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="contractorId" className="text-slate-700 font-semibold">Nabywca (Wymagane) *</Label>
-                            <Select name="contractorId" required>
+                            <Select name="contractorId" value={selectedContractorId} onValueChange={(v) => setSelectedContractorId(v || "")} required>
                                 <SelectTrigger className="min-h-[50px] h-auto text-base border-slate-200">
                                     <SelectValue placeholder="Wybierz firmę ze słownika" />
                                 </SelectTrigger>
@@ -238,8 +249,14 @@ export function RegisterIncomeModal({ projects, contractors, ocrData }: Register
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="projectId" className="text-slate-700 font-semibold">Projekt (Wymagane) *</Label>
-                                <Select name="projectId" required>
-                                    <SelectTrigger className="min-h-[50px] h-auto text-base border-slate-200">
+                                <Select 
+                                    name="projectId" 
+                                    value={selectedProjectId} 
+                                    onValueChange={(v) => setSelectedProjectId(v || "NONE")} 
+                                    required
+                                    disabled={!!lockedProjectId}
+                                >
+                                    <SelectTrigger className={`min-h-[50px] h-auto text-base border-slate-200 ${lockedProjectId ? 'bg-slate-50 text-slate-500' : ''}`}>
                                         <SelectValue placeholder="Wybierz projekt" />
                                     </SelectTrigger>
                                     <SelectContent>

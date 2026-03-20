@@ -209,9 +209,9 @@ export async function getProjectWithDetails(id: string) {
     const [contractorSnap, objectSnap, stagesSnap, invoicesSnap, transactionsSnap] = await Promise.all([
         adminDb.collection("contractors").doc(project.contractorId).get(),
         adminDb.collection("objects").doc(project.objectId).get(),
-        adminDb.collection("project_stages").where("projectId", "==", id).get(),
-        adminDb.collection("invoices").where("projectId", "==", id).get(),
-        adminDb.collection("transactions").where("projectId", "==", id).get()
+        adminDb.collection("project_stages").where("tenantId", "==", tenantId).where("projectId", "==", id).get(),
+        adminDb.collection("invoices").where("tenantId", "==", tenantId).where("projectId", "==", id).get(),
+        adminDb.collection("transactions").where("tenantId", "==", tenantId).where("projectId", "==", id).get()
     ])
 
     const invoices = invoicesSnap.docs
