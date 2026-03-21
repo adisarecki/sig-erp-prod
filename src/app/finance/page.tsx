@@ -52,28 +52,47 @@ export default async function FinancePage({
 
         const now = new Date()
 
+        // Grupowanie transakcji po invoiceId dla łatwego lookupu
+        const txByInvoiceId = new Map<string, any>()
+        rawTransactions.forEach(tx => {
+            if (tx.invoiceId) {
+                txByInvoiceId.set(tx.invoiceId, tx)
+            }
+        })
+
         const historyItems = [
-            ...rawTransactions.map(t => ({
-                id: t.id,
-                isInvoice: false,
-                type: t.type, // 'PRZYCHÓD' | 'KOSZT'
-                title: t.description || t.category,
-                date: t.transactionDate,
-                amount: Number(t.amount),
-                projectId: t.projectId || null,
-                classification: t.classification || (t.projectId ? 'PROJECT_COST' : 'GENERAL_COST'),
-                statusBadge: 'OPŁACONA',
-                statusColor: 'bg-emerald-100 text-emerald-700'
-            })),
+            // 1. Transakcje wolne (bez powiązania z fakturą)
+            ...rawTransactions
+                .filter(tx => !tx.invoiceId)
+                .map(t => ({
+                    id: t.id,
+                    isInvoice: false,
+                    type: t.type,
+                    title: t.description || t.category,
+                    date: t.transactionDate,
+                    amount: Number(t.amount),
+                    projectId: t.projectId || null,
+                    classification: t.classification || (t.projectId ? 'PROJECT_COST' : 'GENERAL_COST'),
+                    statusBadge: 'OPŁACONA',
+                    statusColor: 'bg-emerald-100 text-emerald-700'
+                })),
+            // 2. Faktury (z ewentualnie wstrzykniętym statusem płatności)
             ...rawInvoices.map(inv => {
                 const isIncome = inv.type === 'SPRZEDAŻ'
                 const dueDate = new Date(inv.dueDate)
+                const linkedTx = txByInvoiceId.get(inv.id)
+                
                 let badge = 'DO ZAPŁATY'
                 let color = 'bg-amber-100 text-amber-700'
+                let displayDate = inv.issueDate || inv.createdAt
 
-                if (inv.status === 'PAID') {
+                if (inv.status === 'PAID' || linkedTx) {
                     badge = 'OPŁACONA'
                     color = 'bg-emerald-100 text-emerald-700'
+                    // Jeśli mamy transakcję, data płatności jest istotniejsza dla osi czasu
+                    if (linkedTx) {
+                        displayDate = linkedTx.transactionDate
+                    }
                 } else if (dueDate < now) {
                     badge = 'OPÓŹNIONA'
                     color = 'bg-rose-100 text-rose-700'
@@ -84,7 +103,7 @@ export default async function FinancePage({
                     isInvoice: true,
                     type: isIncome ? 'PRZYCHÓD' : 'KOSZT',
                     title: inv.externalId || inv.description || 'Dokument Finansowy',
-                    date: inv.issueDate || inv.createdAt,
+                    date: displayDate,
                     dueDate: inv.dueDate,
                     amount: Number(inv.amountGross),
                     projectId: inv.projectId || null,

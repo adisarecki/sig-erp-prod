@@ -103,9 +103,9 @@ export default async function DashboardPage({
     const txDate = new Date(tx.transactionDate)
     if (startDate && txDate < startDate) return
     
-    if (tx.type === 'PRZYCHÓD') {
+    if (tx.type === 'PRZYCHÓD' || tx.type === 'INCOME') {
       realCashIncomes = realCashIncomes.plus(new Decimal(tx.amount))
-    } else if (tx.type === 'KOSZT') {
+    } else if (tx.type === 'KOSZT' || tx.type === 'EXPENSE' || tx.type === 'ZAKUP') {
       const amount = new Decimal(tx.amount)
       realCashCosts = realCashCosts.plus(amount)
       
@@ -126,18 +126,28 @@ export default async function DashboardPage({
   let uncollectedRevenue = new Decimal(0)
   let totalFrozenRetention = new Decimal(0)
   let releasedRetention = new Decimal(0)
+  
+  let cumulativeIncomeNet = new Decimal(0)
+  let cumulativeCostNet = new Decimal(0)
 
   allInvoices.forEach(inv => {
     const amountGross = new Decimal(inv.amountGross)
     const amountNet = new Decimal(inv.amountNet)
     const issueDate = new Date(inv.issueDate)
     
+    // Logika Memoriałowa (Skumulowany Zysk)
+    if (inv.type === 'SPRZEDAŻ') {
+      cumulativeIncomeNet = cumulativeIncomeNet.plus(amountNet)
+    } else {
+      cumulativeCostNet = cumulativeCostNet.plus(amountNet)
+    }
+
     if (inv.status === 'PAID') {
        if (!startDate || issueDate >= startDate) {
           const vat = amountGross.minus(amountNet)
           if (inv.type === 'SPRZEDAŻ') {
             vatIncome = vatIncome.plus(vat)
-          } else if (['KOSZT', 'ZAKUP'].includes(inv.type)) {
+          } else if (['KOSZT', 'ZAKUP', 'EXPENSE'].includes(inv.type)) {
             vatCost = vatCost.plus(vat)
             if (inv.projectId) {
               projectVatCost = projectVatCost.plus(vat)
@@ -156,6 +166,8 @@ export default async function DashboardPage({
        if (inv.type === 'SPRZEDAŻ') uncollectedRevenue = uncollectedRevenue.plus(amountNet)
     }
   })
+
+  const cumulativeAccrualProfit = cumulativeIncomeNet.minus(cumulativeCostNet)
 
   // Wyniki Główne (Logika DNA Vector 011)
   // Przychody i Koszty Netto (Cash-Based derived from Transactions - VAT component from Invoices)
@@ -357,7 +369,7 @@ export default async function DashboardPage({
         <div className="relative z-10">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-medium text-slate-300 tracking-wide uppercase">Czysta Gotówka (Safe to Spend)</h2>
-            <TooltipHelp content="To jest kwota, którą możesz wypłacić z firmy bez obaw o podatki. Obliczona jako: Bilans (Brutto) - (Rezerwa Podatkowa Netto + VAT do zapłacenia)." />
+            <TooltipHelp content="Pieniądze na koncie, które możesz bezpiecznie wydać po odliczeniu przyszłych podatków i VAT." />
           </div>
           <p className="text-6xl font-black tracking-tighter mt-4 text-emerald-400 drop-shadow-sm">
             {formattedCleanCash}
@@ -413,7 +425,7 @@ export default async function DashboardPage({
             </div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Zysk Realny (Netto)</h3>
-              <TooltipHelp content="Suma marż ze wszystkich projektów pomniejszona o koszty ogólne firmy. Twój faktyczny zarobek netto." />
+              <TooltipHelp content="Twój ostateczny wynik firmy. Marża z projektów pomniejszona o koszty ogólne (biuro, auta)." />
             </div>
           </div>
           <p className="text-3xl font-black mt-4 text-emerald-700">{formattedNetProfit}</p>
@@ -442,9 +454,10 @@ export default async function DashboardPage({
                 <Wallet className="w-5 h-5" />
               </div>
               <h3 className="text-sm font-semibold text-slate-600">Skumulowany Zysk (Netto)</h3>
+              <TooltipHelp content="Wynik księgowy (Memoriałowo) – uwzględnia też faktury wystawione, ale jeszcze nieopłacone." />
             </div>
           </div>
-          <p className="text-3xl font-bold mt-4 text-slate-900">{formattedNetProfit}</p>
+          <p className="text-3xl font-bold mt-4 text-slate-900">{formatPln(cumulativeAccrualProfit)}</p>
           <p className="text-xs mt-1 text-slate-500">Wynik dochodowy (Memoriałowo).</p>
         </div>
 
