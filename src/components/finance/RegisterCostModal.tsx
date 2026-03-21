@@ -36,7 +36,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const [issueDate, setIssueDate] = useState("")
     const [dueDate, setDueDate] = useState("")
     const [selectedContractorId, setSelectedContractorId] = useState<string>("")
-    const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || "NONE")
+    const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || "")
     const [description, setDescription] = useState("")
     const [retainedAmount, setRetainedAmount] = useState("")
     const [retentionReleaseDate, setRetentionReleaseDate] = useState("")
@@ -58,7 +58,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
 
     // --- LOGIKA DYNAMICZNYCH KATEGORII ---
     useEffect(() => {
-        if (selectedProjectId === "NONE" || !selectedProjectId) {
+        if (!selectedProjectId) {
             setCategory(COST_CATEGORIES.INDIRECT[0].value) // np. BIURO
         } else {
             setCategory(COST_CATEGORIES.DIRECT[0].value) // np. MATERIAŁY
@@ -145,7 +145,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const resetForm = () => {
         setAmountNet(""); setAmountVat(""); setSelectedContractorId(""); setDescription("")
         setIsNewContractor(false); setNewContractorName(""); setNewContractorNip(""); setNewContractorAddress("")
-        setCategory(selectedProjectId === "NONE" ? COST_CATEGORIES.INDIRECT[0].value : COST_CATEGORIES.DIRECT[0].value)
+        setCategory(!selectedProjectId ? COST_CATEGORIES.INDIRECT[0].value : COST_CATEGORIES.DIRECT[0].value)
     }
 
     return (
@@ -270,13 +270,13 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                         <Select
                                             name="projectId"
                                             value={selectedProjectId}
-                                            onValueChange={(v) => setSelectedProjectId(v || "NONE")}
+                                            onValueChange={(v) => setSelectedProjectId(v || "")}
                                         >
                                             <SelectTrigger className="h-12 border-slate-200">
                                                 <SelectValue placeholder="Wybierz projekt" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="NONE">Brak</SelectItem>
+                                                <SelectItem value="">Brak</SelectItem>
                                                 {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
@@ -295,7 +295,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                     <SelectValue placeholder="Wybierz kategorię" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {(selectedProjectId === "NONE" || !selectedProjectId)
+                                    {!selectedProjectId
                                         ? COST_CATEGORIES.INDIRECT.map(cat => (
                                             <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
                                         ))

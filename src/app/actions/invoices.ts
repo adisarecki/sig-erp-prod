@@ -18,12 +18,12 @@ export async function addIncomeInvoice(formData: FormData) {
         const dueDateStr = formData.get("dueDate") as string
 
         const category = formData.get("category") as string
-        const projectId = formData.get("projectId") as string
+        const projectId = (formData.get("projectId") as string || "").replace("NONE", "")
         const contractorId = formData.get("contractorId") as string
         const description = formData.get("description") as string
 
-        if (!amountNetStr || !dateStr || !dueDateStr || !projectId || projectId === "NONE" || !contractorId) {
-            throw new Error("Pola Kwota, Daty, Projekt i Kontrahent są bezwzględnie wymagane.")
+        if (!amountNetStr || !dateStr || !dueDateStr || !contractorId) {
+            throw new Error("Pola Kwota, Daty i Kontrahent są bezwzględnie wymagane.")
         }
 
         if (!validateNonZero(amountNetStr)) {
@@ -90,7 +90,7 @@ export async function addIncomeInvoice(formData: FormData) {
                 transaction.set(transRef, {
                     tenantId,
                     projectId,
-                    classification: "PROJECT_COST",
+                    classification: projectId ? "PROJECT_COST" : "GENERAL_COST",
                     amount: amountGross.toNumber(),
                     type: "PRZYCHÓD",
                     transactionDate: issueDate.toISOString(),
@@ -229,11 +229,7 @@ export async function addCostInvoice(formData: FormData) {
         const issueDate = new Date(dateStr)
         const dueDate = new Date(dueDateStr)
 
-        const finalProjectId = (!projectId || projectId === "NONE") ? "" : projectId;
-
-        if (!finalProjectId) {
-            throw new Error("Wymagane przypisanie Projektu.");
-        }
+        const finalProjectId = (projectId || "").replace("NONE", "")
 
         const isPaidImmediately = formData.get("isPaidImmediately") === "true"
 
@@ -310,7 +306,7 @@ export async function addCostInvoice(formData: FormData) {
                 transaction.set(transRef, {
                     tenantId,
                     projectId: finalProjectId,
-                    classification: "PROJECT_COST",
+                    classification: finalProjectId ? "PROJECT_COST" : "GENERAL_COST",
                     amount: amountGross.toNumber(),
                     type: "EXPENSE",
                     transactionDate: issueDate.toISOString(),
@@ -381,7 +377,7 @@ export async function addCostInvoice(formData: FormData) {
                             id: tDoc.id,
                             tenantId,
                             projectId: finalProjectId,
-                            classification: "PROJECT_COST",
+                            classification: finalProjectId ? "PROJECT_COST" : "GENERAL_COST",
                             amount: amountGross.toNumber(),
                             type: "EXPENSE",
                             transactionDate: issueDate,
@@ -458,8 +454,8 @@ export async function markInvoiceAsPaid(invoiceId: string, paymentDateStr: strin
             const transRef = adminDb.collection("transactions").doc()
             transaction.set(transRef, {
                 tenantId,
-                projectId: inv.projectId,
-                classification: "PROJECT_COST",
+                projectId: inv.projectId || "",
+                classification: inv.projectId ? "PROJECT_COST" : "GENERAL_COST",
                 amount: inv.amountGross,
                 type: inv.type === "SPRZEDAŻ" ? "PRZYCHÓD" : "EXPENSE",
                 transactionDate: paymentDate.toISOString(),
@@ -486,8 +482,8 @@ export async function markInvoiceAsPaid(invoiceId: string, paymentDateStr: strin
                     data: {
                         id: transId,
                         tenantId,
-                        projectId: inv.projectId,
-                        classification: "PROJECT_COST",
+                        projectId: inv.projectId || "",
+                        classification: inv.projectId ? "PROJECT_COST" : "GENERAL_COST",
                         amount: inv.amountGross,
                         type: inv.type === "SPRZEDAŻ" ? "PRZYCHÓD" : "EXPENSE",
                         transactionDate: paymentDate,

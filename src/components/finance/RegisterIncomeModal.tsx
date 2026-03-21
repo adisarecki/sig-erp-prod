@@ -48,7 +48,7 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
     const [amountVat, setAmountVat] = useState("")
     const [retainedAmount, setRetainedAmount] = useState("")
     const [retentionReleaseDate, setRetentionReleaseDate] = useState("")
-    const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || "NONE")
+    const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || "")
     const [selectedContractorId, setSelectedContractorId] = useState<string>("")
 
     // Track last OCR data to detect new scans
@@ -287,14 +287,14 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
                                     <Select 
                                         name="projectId" 
                                         value={selectedProjectId} 
-                                        onValueChange={(v) => setSelectedProjectId(v || "NONE")} 
+                                        onValueChange={(v) => setSelectedProjectId(v || "")} 
                                         required
                                     >
                                         <SelectTrigger className="min-h-[50px] h-auto text-base border-slate-200">
                                             <SelectValue placeholder="Wybierz projekt" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="NONE">Koszty/Przychody Ogólne (Brak)</SelectItem>
+                                            <SelectItem value="">Koszty/Przychody Ogólne (Brak)</SelectItem>
                                             {projects.map((p) => (
                                                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                                             ))}

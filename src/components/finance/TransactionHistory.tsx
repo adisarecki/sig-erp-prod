@@ -46,7 +46,7 @@ export function TransactionHistory({
     }
 
     const handleAssign = async (transactionId: string, projectId: string) => {
-        if (!projectId || projectId === "NONE") return
+        if (!projectId) return
         
         setAssigningId(transactionId)
         try {
