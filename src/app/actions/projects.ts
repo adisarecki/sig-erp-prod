@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { getAdminDb } from "@/lib/firebaseAdmin"
+import prisma from "@/lib/prisma"
 
 /**
  * POBIERANIE - Dashboard i Lista Projektów
@@ -45,18 +46,36 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
 
             if (!objectsSnap.empty) {
                 targetObjectId = objectsSnap.docs[0].id
-            } else {
                 const newObjRef = adminDb.collection("objects").doc()
+                targetObjectId = newObjRef.id
+
                 await newObjRef.set({
                     contractorId: contractorId,
                     name: "Siedziba Główna",
                     createdAt: new Date().toISOString()
                 })
-                targetObjectId = newObjRef.id
+
+                try {
+                    await prisma.object.create({
+                        data: {
+                            id: targetObjectId,
+                            contractorId: contractorId,
+                            name: "Siedziba Główna",
+                            description: "Wygenerowany obiekt",
+                        }
+                    })
+                } catch (objError) {
+                    console.error("[OBJECT_PRISMA_SYNC_ERROR] Rollback Firestore...", objError)
+                    await newObjRef.delete()
+                    throw new Error("Błąd podczas synchronizacji nowego obiektu w bazie (Prisma).")
+                }
             }
         }
 
-        await adminDb.collection("projects").add({
+        const newProjectRef = adminDb.collection("projects").doc()
+        const projectId = newProjectRef.id
+
+        await newProjectRef.set({
             tenantId,
             name,
             contractorId,
@@ -68,6 +87,27 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         })
+
+        try {
+            await prisma.project.create({
+                data: {
+                    id: projectId,
+                    tenantId,
+                    name,
+                    contractorId,
+                    objectId: targetObjectId,
+                    type: "NOWY",
+                    status: "PLANNED",
+                    lifecycleStatus: "ACTIVE",
+                    budgetEstimated: Number(budgetEstimated),
+                    budgetUsed: 0
+                }
+            })
+        } catch (prismaError) {
+            console.error("[PROJECT_PRISMA_SYNC_ERROR] Rollback Firestore...", prismaError)
+            await newProjectRef.delete()
+            throw new Error("Błąd zapisu w relacyjnej bazie (Prisma). Projekt został wycofany z Firestore (Dual-Sync Drift Protection).")
+        }
 
         try {
             revalidatePath("/projects")
@@ -111,7 +151,6 @@ export async function updateProject(id: string, data: { name: string, budgetEsti
     }
 }
 
-import prisma from "@/lib/prisma"
 
 /**
  * ARCHIWIZACJA
