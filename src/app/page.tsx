@@ -12,6 +12,7 @@ import { CashFlowChart } from "@/components/finance/CashFlowChart"
 import { getAdminDb, initFirebaseAdmin } from "@/lib/firebaseAdmin"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { TimeFilterTabs } from "@/components/finance/TimeFilterTabs"
+import { CIT_RATE } from "@/lib/config/tax"
 
 // Inicjalizacja Firebase Admin dla Dashboardu
 initFirebaseAdmin();
@@ -186,8 +187,8 @@ export default async function DashboardPage({
   const globalBilans = realCashIncomes.minus(realCashCosts)
   const netVat = vatIncome.minus(vatCost)
   
-  const TAX_RESERVE_PERCENT = new Decimal("0.19")
-  // Rezerwa dochodowa (19%) liczona od Net Profit (DNA Vector 011)
+  const TAX_RESERVE_PERCENT = new Decimal(CIT_RATE)
+  // Rezerwa dochodowa CIT liczona od Net Profit (DNA Vector 011/013)
   const incomeTaxReserve = netProfit.gt(0) ? netProfit.times(TAX_RESERVE_PERCENT) : new Decimal(0)
   
   const totalReserve = incomeTaxReserve.plus(netVat)
@@ -385,8 +386,8 @@ export default async function DashboardPage({
             </div>
             <div>
               <div className="flex items-center gap-1 mb-1">
-                <p className="text-sm text-slate-400 font-medium uppercase tracking-tighter text-orange-300">Rezerwa Podatkowa (19%)</p>
-                <TooltipHelp content="Szacunkowa kwota 19% podatku dochodowego od Twojego zysku netto. Nie wydawaj tych pieniędzy." />
+                <p className="text-sm text-slate-400 font-medium uppercase tracking-tighter text-orange-300">Rezerwa Podatkowa CIT (9%)</p>
+                <TooltipHelp content="Szacunkowa kwota 9% podatku dochodowego od Twojego zysku netto. Nie wydawaj tych pieniędzy." />
               </div>
               <p className="font-bold text-xl text-orange-300">-{formatPln(incomeTaxReserve)}</p>
             </div>
@@ -401,7 +402,10 @@ export default async function DashboardPage({
             <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
               <TrendingUp className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Marża Projektowa (Netto)</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Marża Projektowa (Netto)</h3>
+              <TooltipHelp content="Całkowity zysk wygenerowany na projektach (Przychody minus Koszty Projektów). Nie uwzględnia jeszcze kosztów stałych firmy." />
+            </div>
           </div>
           <p className="text-3xl font-black mt-4 text-indigo-700">{formattedProjectMargin}</p>
           <p className="text-xs mt-1 text-slate-500 font-medium">Zysk zrealizowany na projektach (bez VAT).</p>
@@ -412,7 +416,10 @@ export default async function DashboardPage({
             <div className="p-2 bg-orange-100 text-orange-600 rounded-lg">
               <TrendingDown className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Koszty Ogólne (Netto)</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Koszty Ogólne (Netto)</h3>
+              <TooltipHelp content="Wydatki na funkcjonowanie firmy (np. paliwo, biuro, usługi księgowe), które nie są bezpośrednio powiązane z konkretnym zleceniem." />
+            </div>
           </div>
           <p className="text-3xl font-black mt-4 text-orange-700">-{formattedGeneralCosts}</p>
           <p className="text-xs mt-1 text-slate-500 font-medium">Koszty zarządu i biurowe (bez VAT).</p>
@@ -437,7 +444,10 @@ export default async function DashboardPage({
             <div className="p-2 bg-cyan-100 text-cyan-600 rounded-lg">
               <Lock className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Wartość Portfela</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Wartość Portfela</h3>
+              <TooltipHelp content="Suma szacowanych budżetów dla wszystkich obecnie aktywnych projektów. Pokazuje potencjał finansowy trwających prac." />
+            </div>
           </div>
           <p className="text-3xl font-black mt-4 text-slate-900">{formatPln(totalProjectBudgets)}</p>
           <p className="text-xs mt-1 text-slate-500 font-medium">Suma budżetów aktywnych.</p>
@@ -468,7 +478,10 @@ export default async function DashboardPage({
               <div className="p-2 bg-green-100 text-green-600 rounded-lg">
                 <ArrowUpRight className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-semibold text-slate-600">Prognoza Wpływów</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-slate-600">Prognoza Wpływów</h3>
+                <TooltipHelp content="Pieniądze, na które czekasz – suma wystawionych przez Ciebie, ale jeszcze nieopłaconych przez klientów faktur." />
+              </div>
             </div>
           </div>
           <p className="text-3xl font-bold mt-4 text-green-600">+{formatPln(cfIncomes30d)}</p>
@@ -506,7 +519,10 @@ export default async function DashboardPage({
               <div className="p-2 bg-slate-800 text-rose-400 rounded-lg border border-slate-700">
                 <History className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-bold uppercase tracking-tight text-slate-400">Długi (Debt)</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold uppercase tracking-tight text-slate-400">Długi (Debt)</h3>
+                <TooltipHelp content="Twoje zobowiązania – faktury kosztowe w systemie, za które jeszcze nie przelałeś dostawcom pieniędzy." />
+              </div>
             </div>
           </div>
           <p className="text-3xl font-black mt-4 font-mono text-rose-100">{formatPln(totalDebtRemaining)}</p>
