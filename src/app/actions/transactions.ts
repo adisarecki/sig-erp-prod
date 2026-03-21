@@ -8,7 +8,7 @@ import prisma from "@/lib/prisma"
 export async function deleteTransaction(id: string): Promise<{ success: boolean, error?: string }> {
     try {
         const adminDb = getAdminDb()
-        
+
         // 1. Usuwanie z Firestore
         await adminDb.collection("transactions").doc(id).delete()
 
@@ -22,7 +22,7 @@ export async function deleteTransaction(id: string): Promise<{ success: boolean,
         } catch (e) {
             console.warn("[TRANSACTIONS] Revalidation warning (ignored):", e)
         }
-        
+
         return { success: true }
     } catch (error: any) {
         console.error("[TRANSACTION_DELETE_ERROR]", error)
@@ -48,8 +48,8 @@ export async function addTransaction(formData: FormData): Promise<{ success: boo
         const tenantId = await getCurrentTenantId()
         const amount = Number(amountStr)
         const transactionDate = new Date(dateStr)
-        
-        const projectId = (!rawProjectId || rawProjectId === "none" || rawProjectId === "NONE") ? null : rawProjectId;
+
+        const projectId = (!rawProjectId || rawProjectId === "none" || rawProjectId === "NONE" || rawProjectId === "GENERAL" || rawProjectId === "INTERNAL") ? null : rawProjectId;
         const classification = projectId ? "PROJECT_COST" : "GENERAL_COST";
 
         // 1. Firestore Save
@@ -100,7 +100,7 @@ export async function addTransaction(formData: FormData): Promise<{ success: boo
     }
 }
 export async function assignTransactionToProject(transactionId: string, projectId: string) {
-    if (!transactionId || !projectId || projectId === "none" || projectId === "NONE") {
+    if (!transactionId || !projectId || projectId === "none" || projectId === "NONE" || projectId === "GENERAL" || projectId === "INTERNAL") {
         throw new Error("ID transakcji oraz ID projektu są wymagane.")
     }
 

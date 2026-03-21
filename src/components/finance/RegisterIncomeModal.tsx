@@ -50,7 +50,7 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
     const [amountVat, setAmountVat] = useState("")
     const [retainedAmount, setRetainedAmount] = useState("")
     const [retentionReleaseDate, setRetentionReleaseDate] = useState("")
-    const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || "none")
+    const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || "GENERAL")
     const [selectedContractorId, setSelectedContractorId] = useState<string>("")
 
     // Track last OCR data to detect new scans
@@ -126,7 +126,7 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
         setAmountNet("")
         setAmountVat("")
         setSelectedContractorId("")
-        setSelectedProjectId(lockedProjectId || "none")
+        setSelectedProjectId(lockedProjectId || "GENERAL")
     }
 
     async function handleSubmit(formData: FormData) {
@@ -144,12 +144,25 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
                 resetForm()
             } else {
                 toast.error(result.error || "Błąd podczas zapisywania przychodu.")
+                console.error("[INCOME_SUBMIT_ERROR]", result.error)
             }
         } catch (error: any) {
             toast.error(error.message || "Błąd połączenia.")
+            console.error("[CRITICAL_INCOME_ERROR]", error)
         } finally {
             setIsLoading(false)
         }
+    }
+
+    const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+        
+        if (!amountNet) { toast.error("Zanim zapiszesz, podaj kwotę netto."); return; }
+        if (!issueDate || !dueDate) { toast.error("Daty są wymagane."); return; }
+        if (!selectedContractorId) { toast.error("Wybierz kontrahenta z listy."); return; }
+
+        const formData = new FormData(e.currentTarget)
+        handleSubmit(formData)
     }
 
     return (
@@ -173,7 +186,7 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
                     </DialogDescription>
                 </DialogHeader>
 
-                <form action={handleSubmit} className="space-y-5 mt-2">
+                <form onSubmit={handleFormSubmit} className="space-y-5 mt-2">
                     <input type="hidden" name="type" value="PRZYCHÓD" />
                     
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
@@ -295,14 +308,19 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
                                     <Select 
                                         name="projectId" 
                                         value={selectedProjectId} 
-                                        onValueChange={(v) => setSelectedProjectId(v || "none")} 
-                                        required
+                                        onValueChange={(v) => setSelectedProjectId(v || "GENERAL")} 
+                                        required={false}
                                     >
                                         <SelectTrigger className="min-h-[50px] h-auto text-base border-slate-200">
                                             <SelectValue placeholder="Wybierz projekt" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="none">Koszty/Przychody Ogólne (Brak)</SelectItem>
+                                            <SelectItem value="GENERAL" className="font-semibold text-blue-700 bg-blue-50 focus:bg-blue-100 mb-1">
+                                                🏢 Koszty Ogólne Firmy
+                                            </SelectItem>
+                                            <SelectItem value="INTERNAL" className="font-semibold text-slate-700 bg-slate-100 focus:bg-slate-200 border-b border-slate-200 mb-2">
+                                                🔒 Koszty Własne / Pozaprojektowe
+                                            </SelectItem>
                                             {projects.map((p) => (
                                                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                                             ))}

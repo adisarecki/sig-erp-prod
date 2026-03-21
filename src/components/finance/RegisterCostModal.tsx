@@ -38,7 +38,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const [issueDate, setIssueDate] = useState("")
     const [dueDate, setDueDate] = useState("")
     const [selectedContractorId, setSelectedContractorId] = useState<string>("")
-    const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || "none")
+    const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || "GENERAL")
     const [description, setDescription] = useState("")
     const [retainedAmount, setRetainedAmount] = useState("")
     const [retentionReleaseDate, setRetentionReleaseDate] = useState("")
@@ -58,9 +58,8 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
         }
     }, [lockedProjectId, projects])
 
-    // --- LOGIKA DYNAMICZNYCH KATEGORII ---
     useEffect(() => {
-        if (!selectedProjectId || selectedProjectId === "none") {
+        if (!selectedProjectId || selectedProjectId === "GENERAL" || selectedProjectId === "INTERNAL") {
             setCategory(COST_CATEGORIES.INDIRECT[0].value) // np. BIURO
         } else {
             setCategory(COST_CATEGORIES.DIRECT[0].value) // np. MATERIAŁY
@@ -139,18 +138,37 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                 resetForm()
             } else {
                 toast.error(result.error || "Wystąpił błąd podczas księgowania faktury.")
+                console.error("[FORM_SUBMIT_ERROR]", result.error)
             }
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Błąd krytyczny połączenia.")
+            console.error("[CRITICAL_SUBMIT_ERROR]", error)
         } finally {
             setIsLoading(false)
         }
     }
 
+    const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+        
+        // --- MANUALNA WALIDACJA UX ---
+        if (!amountNet) { toast.error("Zanim zapiszesz, podaj kwotę netto."); return; }
+        if (!issueDate || !dueDate) { toast.error("Daty faktury i płatności są wymagane."); return; }
+        if (!selectedContractorId && !isNewContractor) { toast.error("Wybierz kontrahenta z listy lub dodaj nowego."); return; }
+        if (isNewContractor && !newContractorName) { toast.error("Podaj nazwę nowego kontrahenta."); return; }
+        if (isNewContractor && newContractorNip && newContractorNip.replace(/\D/g, '').length !== 10) { 
+            toast.error("NIP musi składać się z dokładnie 10 cyfr."); 
+            return; 
+        }
+
+        const formData = new FormData(e.currentTarget)
+        handleSubmit(formData)
+    }
+
     const resetForm = () => {
         setAmountNet(""); setAmountVat(""); setSelectedContractorId(""); setDescription("")
         setIsNewContractor(false); setNewContractorName(""); setNewContractorNip(""); setNewContractorAddress("")
-        setCategory((!selectedProjectId || selectedProjectId === "none") ? COST_CATEGORIES.INDIRECT[0].value : COST_CATEGORIES.DIRECT[0].value)
+        setCategory((!selectedProjectId || selectedProjectId === "GENERAL" || selectedProjectId === "INTERNAL") ? COST_CATEGORIES.INDIRECT[0].value : COST_CATEGORIES.DIRECT[0].value)
     }
 
     return (
@@ -168,14 +186,14 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                     <DialogDescription>Wpisz dane netto – VAT i brutto wyliczymy za Ciebie.</DialogDescription>
                 </DialogHeader>
 
-                <form action={handleSubmit} className="space-y-5">
+                <form onSubmit={handleFormSubmit} className="space-y-5">
                     <input type="hidden" name="type" value="KOSZT" />
 
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
                         <div className="grid grid-cols-3 gap-4">
                             <div className="space-y-2">
                                 <Label className="text-slate-700 font-semibold text-xs uppercase">Netto</Label>
-                                <Input type="number" step="0.01" name="amountNet" value={amountNet} onChange={(e) => setAmountNet(e.target.value)} required className="h-11 font-mono" />
+                                <Input type="number" step="0.01" name="amountNet" value={amountNet} onChange={(e) => setAmountNet(e.target.value)} className="h-11 font-mono" />
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-slate-700 font-semibold text-xs uppercase">VAT %</Label>
@@ -215,7 +233,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                     </div>
 
                                     {!isNewContractor ? (
-                                        <Select name="contractorId" value={selectedContractorId} onValueChange={(v) => setSelectedContractorId(v || "")} required={!isNewContractor}>
+                                        <Select name="contractorId" value={selectedContractorId} onValueChange={(v) => setSelectedContractorId(v || "")}>
                                             <SelectTrigger className="h-12 border-slate-200">
                                                 <SelectValue placeholder="Wybierz firmę ze słownika" />
                                             </SelectTrigger>
@@ -235,7 +253,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                                         value={newContractorName}
                                                         onChange={(e) => setNewContractorName(e.target.value)}
                                                         className="bg-white"
-                                                        required={isNewContractor}
+                                                        required={false}
                                                     />
                                                 </div>
                                                 <div className="space-y-1">
@@ -279,13 +297,18 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                         <Select
                                             name="projectId"
                                             value={selectedProjectId}
-                                            onValueChange={(v) => setSelectedProjectId(v || "none")}
+                                            onValueChange={(v) => setSelectedProjectId(v || "GENERAL")}
                                         >
                                             <SelectTrigger className="h-12 border-slate-200">
                                                 <SelectValue placeholder="Wybierz projekt" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="none">Brak (Koszty Ogólne)</SelectItem>
+                                                <SelectItem value="GENERAL" className="font-semibold text-blue-700 bg-blue-50 focus:bg-blue-100">
+                                                    🏢 Koszty Ogólne Firmy
+                                                </SelectItem>
+                                                <SelectItem value="INTERNAL" className="font-semibold text-slate-700 bg-slate-100 focus:bg-slate-200 border-b border-slate-200 mb-1">
+                                                    🔒 Koszty Własne / Pozaprojektowe
+                                                </SelectItem>
                                                 {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
@@ -293,8 +316,8 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                 )}
 
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2"><Label>Data Faktury</Label><Input type="date" name="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} required /></div>
-                            <div className="space-y-2"><Label>Termin Płatności</Label><Input type="date" name="dueDate" value={dueDate} onChange={(e) => setDueDate(e.target.value)} required /></div>
+                            <div className="space-y-2"><Label>Data Faktury</Label><Input type="date" name="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} /></div>
+                            <div className="space-y-2"><Label>Termin Płatności</Label><Input type="date" name="dueDate" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>
                         </div>
 
                         <div className="space-y-2">
@@ -304,7 +327,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                     <SelectValue placeholder="Wybierz kategorię" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {(!selectedProjectId || selectedProjectId === "none")
+                                    {(!selectedProjectId || selectedProjectId === "GENERAL" || selectedProjectId === "INTERNAL")
                                         ? COST_CATEGORIES.INDIRECT.map(cat => (
                                             <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
                                         ))
