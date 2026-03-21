@@ -48,6 +48,7 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - [x] **OCR Faktur**: System rozpoznaje NIP, kwoty i daty.
 - [x] **General Costs**: Pełna separacja kosztów zarządu od projektowych.
 - [x] **Dual-Sync**: Dane są bezpieczne w dwóch niezależnych chmurach (Google + Neon).
+- [x] **API Proxy Architecture**: Wewnętrzne Route Handlery (Next.js) odpytują zewnętrzne mikroserwisy (np. Net-Pocket) pomijając limitacje CORS i chroniąc płynność UI przed awariami obcych integracji.
 
 ---
 *Dla programistów: Techniczna dokumentacja DNA znajduje się w [docs/AI_look.md](./docs/AI_look.md)*
