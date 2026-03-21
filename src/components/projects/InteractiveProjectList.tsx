@@ -12,6 +12,7 @@ import { EditProjectModal } from "@/components/projects/EditProjectModal"
 import { RegisterIncomeModal } from "@/components/finance/RegisterIncomeModal"
 import { RegisterCostModal } from "@/components/finance/RegisterCostModal"
 import { TrendingUp, PlusCircle, MinusCircle } from "lucide-react"
+import { TooltipHelp } from "@/components/ui/TooltipHelp"
 
 // Typ pomocniczy dla formattera PLN
 const formatPln = (value: number) => {
@@ -231,7 +232,10 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
 
                             <div className="flex items-center justify-between lg:justify-end w-full lg:w-auto gap-3 pl-9 lg:pl-0">
                                 <div className="flex flex-col items-start lg:items-end lg:mr-4">
-                                    <p className="text-sm font-medium text-slate-500">Szacowany Budżet</p>
+                                    <div className="flex items-center gap-1">
+                                        <p className="text-sm font-medium text-slate-500">Szacowany Budżet</p>
+                                        <TooltipHelp content="Wartość netto całego kontraktu lub Twojej oferty. Pozwala śledzić, jaki procent zlecenia został już zafakturowany." />
+                                    </div>
                                     <p className="text-lg font-bold text-slate-800">{formatPln(Number(project.budgetEstimated))}</p>
                                 </div>
                                 <div className="flex items-center gap-2 lg:border-l lg:border-slate-100 lg:pl-4 h-full" data-dialog="true">
