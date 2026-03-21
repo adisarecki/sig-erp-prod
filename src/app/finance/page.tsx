@@ -40,21 +40,69 @@ export default async function FinancePage({
         const rawContractors = (await getContractors()) as any[]
         contractorsMap = rawContractors.map(c => ({ id: c.id, name: c.name }))
 
-        // Pobieramy transakcje z Firestore
+        // Pobieramy transakcje i faktury z Firestore
         const adminDb = getAdminDb()
-        let query = adminDb.collection("transactions").where("tenantId", "==", tenantId)
+        const [transactionsSnap, invoicesSnap] = await Promise.all([
+            adminDb.collection("transactions").where("tenantId", "==", tenantId).get(),
+            adminDb.collection("invoices").where("tenantId", "==", tenantId).get()
+        ])
 
-        const transactionsSnap = await query.get()
+        const rawTransactions = transactionsSnap.docs.map(d => ({ id: d.id, ...d.data() as any })).filter(t => t.status === "ACTIVE")
+        const rawInvoices = invoicesSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
 
-        transactions = transactionsSnap.docs
-            .map(d => ({ id: d.id, ...d.data() as any }))
-            .filter(t => t.status === "ACTIVE")
+        const now = new Date()
+
+        const historyItems = [
+            ...rawTransactions.map(t => ({
+                id: t.id,
+                isInvoice: false,
+                type: t.type, // 'PRZYCHÓD' | 'KOSZT'
+                title: t.description || t.category,
+                date: t.transactionDate,
+                amount: Number(t.amount),
+                projectId: t.projectId || null,
+                classification: t.classification || (t.projectId ? 'PROJECT_COST' : 'GENERAL_COST'),
+                statusBadge: 'OPŁACONA',
+                statusColor: 'bg-emerald-100 text-emerald-700'
+            })),
+            ...rawInvoices.map(inv => {
+                const isIncome = inv.type === 'SPRZEDAŻ'
+                const dueDate = new Date(inv.dueDate)
+                let badge = 'DO ZAPŁATY'
+                let color = 'bg-amber-100 text-amber-700'
+
+                if (inv.status === 'PAID') {
+                    badge = 'OPŁACONA'
+                    color = 'bg-emerald-100 text-emerald-700'
+                } else if (dueDate < now) {
+                    badge = 'OPÓŹNIONA'
+                    color = 'bg-rose-100 text-rose-700'
+                }
+
+                return {
+                    id: inv.id,
+                    isInvoice: true,
+                    type: isIncome ? 'PRZYCHÓD' : 'KOSZT',
+                    title: inv.externalId || inv.description || 'Dokument Finansowy',
+                    date: inv.issueDate || inv.createdAt,
+                    dueDate: inv.dueDate,
+                    amount: Number(inv.amountGross),
+                    projectId: inv.projectId || null,
+                    classification: inv.projectId ? 'PROJECT_COST' : 'GENERAL_COST',
+                    statusBadge: badge,
+                    statusColor: color,
+                    contractorId: inv.contractorId
+                }
+            })
+        ]
+
+        transactions = historyItems
             .filter(t => {
                 if (activeFilter === 'PROJECT') return t.classification === 'PROJECT_COST'
                 if (activeFilter === 'GENERAL') return t.classification === 'GENERAL_COST'
                 return true
             })
-            .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
     } catch (err: any) {
         console.error("Finance Page fetch error:", err)

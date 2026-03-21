@@ -121,6 +121,8 @@ export default async function DashboardPage({
   // AGREGACJA VAT (Z FAKTUR OPŁACONYCH)
   let vatIncome = new Decimal(0)
   let vatCost = new Decimal(0)
+  let projectVatCost = new Decimal(0)
+  let generalVatCost = new Decimal(0)
   let uncollectedRevenue = new Decimal(0)
   let totalFrozenRetention = new Decimal(0)
   let releasedRetention = new Decimal(0)
@@ -133,8 +135,16 @@ export default async function DashboardPage({
     if (inv.status === 'PAID') {
        if (!startDate || issueDate >= startDate) {
           const vat = amountGross.minus(amountNet)
-          if (inv.type === 'SPRZEDAŻ') vatIncome = vatIncome.plus(vat)
-          else if (['KOSZT', 'ZAKUP'].includes(inv.type)) vatCost = vatCost.plus(vat)
+          if (inv.type === 'SPRZEDAŻ') {
+            vatIncome = vatIncome.plus(vat)
+          } else if (['KOSZT', 'ZAKUP'].includes(inv.type)) {
+            vatCost = vatCost.plus(vat)
+            if (inv.projectId) {
+              projectVatCost = projectVatCost.plus(vat)
+            } else {
+              generalVatCost = generalVatCost.plus(vat)
+            }
+          }
        }
        // Kaucje
        if (inv.retainedAmount) {
@@ -147,16 +157,30 @@ export default async function DashboardPage({
     }
   })
 
-  // Wyniki Główne
-  const currentNetCash = realCashIncomes.minus(realCashCosts)
-  const globalBilans = currentNetCash
+  // Wyniki Główne (Logika DNA Vector 011)
+  // Przychody i Koszty Netto (Cash-Based derived from Transactions - VAT component from Invoices)
+  const realCashIncomesNet = realCashIncomes.minus(vatIncome)
+  const realCashCostsNet = realCashCosts.minus(vatCost)
+  
+  // Rozbicie Kosztów Netto
+  const totalGeneralCostsNet = totalGeneralCosts.minus(generalVatCost)
+  const projectCostsNet = realCashCostsNet.minus(totalGeneralCostsNet)
+  
+  // Marża i Zysk (Netto)
+  const projectMarginSumNet = realCashIncomesNet.minus(projectCostsNet)
+  const netProfit = projectMarginSumNet.minus(totalGeneralCostsNet)
+
+  // Metryki Globalne
+  const globalBilans = realCashIncomes.minus(realCashCosts)
   const netVat = vatIncome.minus(vatCost)
+  
   const TAX_RESERVE_PERCENT = new Decimal("0.19")
-  const incomeTaxReserve = currentNetCash.gt(0) ? currentNetCash.times(TAX_RESERVE_PERCENT) : new Decimal(0)
+  // Rezerwa dochodowa (19%) liczona od Net Profit (DNA Vector 011)
+  const incomeTaxReserve = netProfit.gt(0) ? netProfit.times(TAX_RESERVE_PERCENT) : new Decimal(0)
+  
   const totalReserve = incomeTaxReserve.plus(netVat)
   const cleanCash = globalBilans.minus(totalReserve)
-  const netProfit = currentNetCash
-  const taxReserve = totalReserve
+  
   const totalDebtRemaining = legacyDebts.reduce((sum, d) => sum.plus(new Decimal(d.remainingAmount || 0)), new Decimal(0))
   const totalProjectBudgets = projects.reduce((sum, p) => sum.plus(new Decimal(p.budgetEstimated || 0)), new Decimal(0))
   const totalStageBudgets = allStages.filter(s => projects.some(p => p.id === s.projectId)).reduce((sum, s) => sum.plus(new Decimal(s.budgetEstimated || 0)), new Decimal(0))
@@ -275,21 +299,21 @@ export default async function DashboardPage({
 
   // Dane do Wykresu Kołowego
   const pieChartData = [
-    { name: 'Poniesione Koszty (Netto)', value: realCashCosts.toNumber(), color: '#ef4444' },
+    { name: 'Poniesione Koszty (Netto)', value: realCashCostsNet.toNumber(), color: '#ef4444' },
     { name: 'Należności z Faktur (Netto)', value: uncollectedRevenue.toNumber(), color: '#f59e0b' },
-    { name: 'Płynna Gotówka (Netto)', value: Decimal.max(0, currentNetCash).toNumber(), color: '#10b981' }
+    { name: 'Płynna Gotówka (Netto)', value: Decimal.max(0, netProfit).toNumber(), color: '#10b981' }
   ]
 
   // Formatted Strings for UI
-  const formattedNetCash = formatPln(currentNetCash); 
+  const formattedNetCash = formatPln(globalBilans); // Płynna Gotówka to stan konta (Gross)
   const formattedCfExpenses30d = formatPln(cfExpenses30d);
   const formattedTaxReserve = formatPln(totalReserve); 
   const formattedNetProfit = formatPln(netProfit);
   const formattedCfIncomes30d = formatPln(cfIncomes30d); 
   const formattedCleanCash = formatPln(cleanCash);
   const formattedNetVat = formatPln(netVat);
-  const formattedGeneralCosts = formatPln(totalGeneralCosts);
-  const formattedProjectMargin = formatPln(projectMarginSum);
+  const formattedGeneralCosts = formatPln(totalGeneralCostsNet);
+  const formattedProjectMargin = formatPln(projectMarginSumNet);
 
   return (
     <div className="space-y-8">
@@ -333,14 +357,14 @@ export default async function DashboardPage({
         <div className="relative z-10">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-medium text-slate-300 tracking-wide uppercase">Czysta Gotówka (Safe to Spend)</h2>
-            <TooltipHelp content="To jest kwota, którą możesz wypłacić z firmy bez obaw o podatki. Obliczona jako: Płynna Gotówka - (Rezerwa Podatkowa + VAT do zapłacenia)." />
+            <TooltipHelp content="To jest kwota, którą możesz wypłacić z firmy bez obaw o podatki. Obliczona jako: Bilans (Brutto) - (Rezerwa Podatkowa Netto + VAT do zapłacenia)." />
           </div>
           <p className="text-6xl font-black tracking-tighter mt-4 text-emerald-400 drop-shadow-sm">
             {formattedCleanCash}
           </p>
           <div className="flex gap-6 mt-6 border-t border-slate-700/50 pt-6">
             <div>
-              <p className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-tighter">Płynna Gotówka</p>
+              <p className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-tighter">Bilans (Brutto)</p>
               <p className="font-bold text-xl">{formattedNetCash}</p>
             </div>
             <div>
@@ -348,7 +372,10 @@ export default async function DashboardPage({
               <p className="font-bold text-xl text-rose-400">-{formattedNetVat}</p>
             </div>
             <div>
-              <p className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-tighter text-orange-300">Rezerwa Podatkowa (19%)</p>
+              <div className="flex items-center gap-1 mb-1">
+                <p className="text-sm text-slate-400 font-medium uppercase tracking-tighter text-orange-300">Rezerwa Podatkowa (19%)</p>
+                <TooltipHelp content="Szacunkowa kwota 19% podatku dochodowego od Twojego zysku netto. Nie wydawaj tych pieniędzy." />
+              </div>
               <p className="font-bold text-xl text-orange-300">-{formatPln(incomeTaxReserve)}</p>
             </div>
           </div>
@@ -362,10 +389,10 @@ export default async function DashboardPage({
             <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
               <TrendingUp className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Marża Projektowa</h3>
+            <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Marża Projektowa (Netto)</h3>
           </div>
           <p className="text-3xl font-black mt-4 text-indigo-700">{formattedProjectMargin}</p>
-          <p className="text-xs mt-1 text-slate-500 font-medium">Zysk zrealizowany na projektach.</p>
+          <p className="text-xs mt-1 text-slate-500 font-medium">Zysk zrealizowany na projektach (bez VAT).</p>
         </div>
 
         <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm border-l-4 border-l-orange-500">
@@ -373,10 +400,10 @@ export default async function DashboardPage({
             <div className="p-2 bg-orange-100 text-orange-600 rounded-lg">
               <TrendingDown className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Koszty Ogólne</h3>
+            <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Koszty Ogólne (Netto)</h3>
           </div>
           <p className="text-3xl font-black mt-4 text-orange-700">-{formattedGeneralCosts}</p>
-          <p className="text-xs mt-1 text-slate-500 font-medium">Koszty zarządu i biurowe.</p>
+          <p className="text-xs mt-1 text-slate-500 font-medium">Koszty zarządu i biurowe (bez VAT).</p>
         </div>
 
         <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm border-l-4 border-l-emerald-600">
@@ -384,10 +411,13 @@ export default async function DashboardPage({
             <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
               <BadgeDollarSign className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Zysk Realny</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Zysk Realny (Netto)</h3>
+              <TooltipHelp content="Suma marż ze wszystkich projektów pomniejszona o koszty ogólne firmy. Twój faktyczny zarobek netto." />
+            </div>
           </div>
           <p className="text-3xl font-black mt-4 text-emerald-700">{formattedNetProfit}</p>
-          <p className="text-xs mt-1 text-slate-500 font-medium">Wynik końcowy firmy (Marża - Ogólne).</p>
+          <p className="text-xs mt-1 text-slate-500 font-medium">Wynik końcowy (Marża - Ogólne) Netto.</p>
         </div>
 
         <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm border-l-4 border-l-cyan-600">
@@ -411,7 +441,7 @@ export default async function DashboardPage({
               <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
                 <Wallet className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-semibold text-slate-600">Skumulowany Zysk</h3>
+              <h3 className="text-sm font-semibold text-slate-600">Skumulowany Zysk (Netto)</h3>
             </div>
           </div>
           <p className="text-3xl font-bold mt-4 text-slate-900">{formattedNetProfit}</p>
@@ -446,7 +476,10 @@ export default async function DashboardPage({
               <div className="p-2 bg-indigo-800 text-indigo-300 rounded-lg">
                 <Lock className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-bold uppercase tracking-tight text-indigo-200">Skarbiec Kaucji</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold uppercase tracking-tight text-indigo-200">Skarbiec Kaucji</h3>
+                <TooltipHelp content="Pieniądze zatrzymane na poczet usterek. Najczęściej zwalniane po zakończeniu okresu gwarancyjnego." />
+              </div>
             </div>
           </div>
           <p className="text-3xl font-black mt-4 font-mono">{formatPln(totalFrozenRetention)}</p>
@@ -562,7 +595,7 @@ export default async function DashboardPage({
                     </div>
                     <div>
                       <p className="font-bold text-slate-900">{inv.contractor?.name}</p>
-                      <p className="text-xs text-slate-500 font-medium">{inv.id.split('-')[0]} • {inv.project?.name || 'Ogólny'}</p>
+                      <p className="text-xs text-slate-500 font-medium">{inv.externalId || inv.description || 'Dokument Finansowy'} • {inv.project?.name || 'Ogólny'}</p>
                     </div>
                   </div>
                   
@@ -577,7 +610,7 @@ export default async function DashboardPage({
                     {inv.status !== 'PAID' && (
                        <ConfirmPaymentButton 
                           invoiceId={inv.id}
-                          invoiceNumber={inv.id.split('-')[0]} // In real app, use inv.externalId
+                          invoiceNumber={inv.externalId || 'Dokument'}
                           amountGross={Number(inv.amountGross)}
                           isIncome={inv.type === 'SPRZEDAŻ'}
                        />
