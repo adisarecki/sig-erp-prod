@@ -366,11 +366,21 @@ export async function getContractors() {
     const contractorIds = contractors.map(c => c.id)
     if (contractorIds.length === 0) return []
 
-    const objectsSnap = await adminDb.collection("objects")
-        .where("contractorId", "in", contractorIds)
-        .get()
+    // Firestore 'in' has a limit of 30 items
+    const chunkSize = 30
+    const chunks = []
+    for (let i = 0; i < contractorIds.length; i += chunkSize) {
+        chunks.push(contractorIds.slice(i, i + chunkSize))
+    }
 
-    const allObjects = objectsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
+    const objectPromises = chunks.map(chunk => 
+        adminDb.collection("objects")
+            .where("contractorId", "in", chunk)
+            .get()
+    )
+    
+    const snaps = await Promise.all(objectPromises)
+    const allObjects = snaps.flatMap(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() as any })))
 
     return contractors
         .map(c => ({

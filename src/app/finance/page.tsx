@@ -23,30 +23,43 @@ export default async function FinancePage({
     const params = await searchParams
     const activeFilter = params.filter || 'ALL'
     const tenantId = await getCurrentTenantId()
-    const leakageAlerts = await scanForLeaks(tenantId)
+    let transactions: any[] = []
+    let projectsMap: { id: string, name: string }[] = []
+    let contractorsMap: { id: string, name: string }[] = []
+    let leakageAlerts: any[] = []
+    let fetchError: string | null = null
 
-    // Pobieramy projekty i kontrahentów z Firestore
-    const rawProjects = (await getProjects()) as any[]
-    const projectsMap = rawProjects.map(p => ({ id: p.id, name: p.name }))
+    try {
+        leakageAlerts = await scanForLeaks(tenantId)
 
-    const rawContractors = (await getContractors()) as any[]
-    const contractorsMap = rawContractors.map(c => ({ id: c.id, name: c.name }))
+        // Pobieramy projekty z Firestore
+        const rawProjects = (await getProjects()) as any[]
+        projectsMap = rawProjects.map(p => ({ id: p.id, name: p.name }))
 
-    // Pobieramy transakcje z Firestore
-    const adminDb = getAdminDb()
-    let query = adminDb.collection("transactions").where("tenantId", "==", tenantId)
+        // Pobieramy kontrahentów
+        const rawContractors = (await getContractors()) as any[]
+        contractorsMap = rawContractors.map(c => ({ id: c.id, name: c.name }))
 
-    const transactionsSnap = await query.get()
+        // Pobieramy transakcje z Firestore
+        const adminDb = getAdminDb()
+        let query = adminDb.collection("transactions").where("tenantId", "==", tenantId)
 
-    const transactions = transactionsSnap.docs
-        .map(d => ({ id: d.id, ...d.data() as any }))
-        .filter(t => t.status === "ACTIVE")
-        .filter(t => {
-            if (activeFilter === 'PROJECT') return t.classification === 'PROJECT_COST'
-            if (activeFilter === 'GENERAL') return t.classification === 'GENERAL_COST'
-            return true
-        })
-        .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
+        const transactionsSnap = await query.get()
+
+        transactions = transactionsSnap.docs
+            .map(d => ({ id: d.id, ...d.data() as any }))
+            .filter(t => t.status === "ACTIVE")
+            .filter(t => {
+                if (activeFilter === 'PROJECT') return t.classification === 'PROJECT_COST'
+                if (activeFilter === 'GENERAL') return t.classification === 'GENERAL_COST'
+                return true
+            })
+            .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
+
+    } catch (err: any) {
+        console.error("Finance Page fetch error:", err)
+        fetchError = err.message || "Wystąpił nieoczekiwany błąd podczas pobierania danych z bazy."
+    }
 
     return (
         <div className="space-y-6">
@@ -62,6 +75,13 @@ export default async function FinancePage({
                     </Link>
                 </div>
             </div>
+
+            {fetchError && (
+                <div className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-200">
+                    <p className="font-bold">Błąd wczytywania danych finances</p>
+                    <p className="text-sm">{fetchError}</p>
+                </div>
+            )}
 
             {/* LEAKAGE DETECTION ALERTS */}
             <LeakageAlerts alerts={leakageAlerts} />
