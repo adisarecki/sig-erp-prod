@@ -52,7 +52,15 @@ graph TD
 
 ---
 
-## 🐛 5. Rejestr "Wektorów Błędów" (Bug Log)
+### Monitorowanie Spójności (Health Check)
+Wdrożono system "Licznika Spójności" (Dual-Sync Health Indicator) w głównym pasku nawigacyjnym. System weryfikuje w czasie rzeczywistym (co 5 minut lub przy przeładowaniu) liczbę rekordów w kluczowych kolekcjach: `Projects`, `Transactions`, `Invoices`.
+- **Status 🟢**: Pełna synchronizacja 1:1 między Firestore (Operational) a Prisma (Analytical).
+- **Status 🔴**: Rozbieżność danych. Wymaga interwencji i sprawdzenia logów pod kątem "Dual-Sync Drift".
+- **Metoda**: Akcja serwerowa `getSyncStatus` wykonuje zapytania `.count()` na obu warstwach bazodanowych dla aktywnego `tenantId`.
+
+---
+
+## Log Błędów i Rozwiązań (Bug Log)
 
 | ID | Moduł | Status | Opis | Naprawa |
 |:---|:---|:---|:---|:---|
