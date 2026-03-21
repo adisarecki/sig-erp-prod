@@ -28,7 +28,7 @@ interface ProjectData {
     contractorId: string;
     contractor: { name: string };
     object: { name: string; address: string | null };
-    invoices: { amountNet: number | string | { toNumber: () => number } }[];
+    invoices: { type: string; amountNet: number | string | { toNumber: () => number } }[];
     transactions: { type: string; amount: number | string | { toNumber: () => number }; transactionDate: string | Date }[];
 }
 
@@ -154,10 +154,12 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
             {projects.map((project) => {
                 const invoices = project.invoices || []
                 const transactions = project.transactions || []
-                const totalInvoiced = invoices.reduce((sum: number, inv) => sum + Number(inv.amountNet), 0)
-                const totalCosts = transactions
-                    .filter((t) => t.type === 'KOSZT')
-                    .reduce((sum: number, t) => sum + Number(t.amount), 0)
+                const totalInvoiced = invoices
+                    .filter((inv) => inv.type === 'SPRZEDAŻ')
+                    .reduce((sum: number, inv) => sum + Number(inv.amountNet), 0)
+                const totalCosts = invoices
+                    .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE')
+                    .reduce((sum: number, inv) => sum + Number(inv.amountNet), 0)
                 const currentMargin = totalInvoiced - totalCosts
                 const isLoss = currentMargin < 0
 

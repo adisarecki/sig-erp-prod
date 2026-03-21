@@ -43,7 +43,7 @@ export default async function ProjectCockpit({ params }: PageProps) {
         .reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0)
 
     const totalCosts = transactions
-        .filter((t: any) => t.type === 'KOSZT' || t.type === 'WYDATEK')
+        .filter((t: any) => t.type === 'KOSZT' || t.type === 'EXPENSE' || t.type === 'WYDATEK')
         .reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0)
     
     const margin = totalInvoiced - totalCosts

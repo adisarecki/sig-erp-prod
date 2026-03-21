@@ -244,7 +244,7 @@ export async function addCostInvoice(formData: FormData) {
             const duplicateQuery = await adminDb.collection("invoices")
                 .where("tenantId", "==", tenantId)
                 .where("externalId", "==", description)
-                .where("type", "==", "KOSZT")
+                .where("type", "==", "EXPENSE")
                 .limit(1)
                 .get()
 
@@ -291,7 +291,7 @@ export async function addCostInvoice(formData: FormData) {
                 tenantId,
                 contractorId: finalContractorId,
                 projectId: finalProjectId,
-                type: "KOSZT",
+                type: "EXPENSE",
                 amountNet: amountNet.toNumber(),
                 amountGross: amountGross.toNumber(),
                 taxRate: taxRate.toNumber(),
@@ -312,7 +312,7 @@ export async function addCostInvoice(formData: FormData) {
                     projectId: finalProjectId,
                     classification: "PROJECT_COST",
                     amount: amountGross.toNumber(),
-                    type: "KOSZT",
+                    type: "EXPENSE",
                     transactionDate: issueDate.toISOString(),
                     category: category || "KOSZT_FIRMOWY",
                     description: `Wydatek Netto: ${amountNet.toString()} | Faktura: ${description || 'Brak wpisanego numeru'}`,
@@ -359,7 +359,7 @@ export async function addCostInvoice(formData: FormData) {
                     tenantId,
                     contractorId: invoiceId.contractorId,
                     projectId: finalProjectId,
-                    type: "KOSZT",
+                    type: "EXPENSE",
                     amountNet: amountNet.toNumber(),
                     amountGross: amountGross.toNumber(),
                     taxRate: taxRate.toNumber(),
@@ -383,7 +383,7 @@ export async function addCostInvoice(formData: FormData) {
                             projectId: finalProjectId,
                             classification: "PROJECT_COST",
                             amount: amountGross.toNumber(),
-                            type: "KOSZT",
+                            type: "EXPENSE",
                             transactionDate: issueDate,
                             category: category || "KOSZT_FIRMOWY",
                             description: `Faktura: ${description || 'Brak wpisanego numeru'}`,
@@ -461,7 +461,7 @@ export async function markInvoiceAsPaid(invoiceId: string, paymentDateStr: strin
                 projectId: inv.projectId,
                 classification: "PROJECT_COST",
                 amount: inv.amountGross,
-                type: inv.type === "SPRZEDAŻ" ? "PRZYCHÓD" : "KOSZT",
+                type: inv.type === "SPRZEDAŻ" ? "PRZYCHÓD" : "EXPENSE",
                 transactionDate: paymentDate.toISOString(),
                 category: inv.type === "SPRZEDAŻ" ? "SPRZEDAŻ_TOWARU" : "KOSZT_FIRMOWY",
                 description: `[Potwierdzenie Wpłaty] Rozliczenie faktury: ${inv.externalId || 'Brak numeru'}`,
@@ -489,7 +489,7 @@ export async function markInvoiceAsPaid(invoiceId: string, paymentDateStr: strin
                         projectId: inv.projectId,
                         classification: "PROJECT_COST",
                         amount: inv.amountGross,
-                        type: inv.type === "SPRZEDAŻ" ? "PRZYCHÓD" : "KOSZT",
+                        type: inv.type === "SPRZEDAŻ" ? "PRZYCHÓD" : "EXPENSE",
                         transactionDate: paymentDate,
                         category: inv.type === "SPRZEDAŻ" ? "SPRZEDAŻ_TOWARU" : "KOSZT_FIRMOWY",
                         description: `[Potwierdzenie Wpłaty] Faktura: ${inv.externalId || 'Brak numeru'}`,

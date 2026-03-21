@@ -365,7 +365,7 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
                     </div>
 
                     <div className="flex items-center gap-2 pt-2">
-                        <input type="checkbox" id="isPaidImmediately" name="isPaidImmediately" value="true" className="w-5 h-5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer" />
+                        <input type="checkbox" id="isPaidImmediately" name="isPaidImmediately" value="true" defaultChecked={true} className="w-5 h-5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer" />
                         <Label htmlFor="isPaidImmediately" className="text-sm font-bold text-slate-800 cursor-pointer">
                             Opłacono natychmiast (Dodaje Cash Flow)
                         </Label>

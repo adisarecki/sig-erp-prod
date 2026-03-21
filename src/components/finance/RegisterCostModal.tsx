@@ -53,10 +53,6 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     useEffect(() => {
         if (lockedProjectId && projects.length > 0) {
             setSelectedProjectId(lockedProjectId)
-            const project = projects.find(p => p.id === lockedProjectId)
-            if (project?.contractorId) {
-                setSelectedContractorId(project.contractorId)
-            }
         }
     }, [lockedProjectId, projects])
 
@@ -199,27 +195,6 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                     </div>
 
                     <div className="space-y-4">
-                        {lockedProjectId ? (
-                            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-4 animate-in fade-in slide-in-from-top-2">
-                                <div className="bg-white p-2.5 rounded-lg border border-slate-100 shadow-sm">
-                                    <Building2 className="w-6 h-6 text-rose-600" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-0.5">
-                                        <span className="text-[10px] font-bold text-rose-600 uppercase tracking-widest bg-rose-50 px-1.5 py-0.5 rounded">Projekt i Kontrahent</span>
-                                    </div>
-                                    <p className="text-base font-bold text-slate-900 truncate">
-                                        {projects.find(p => p.id === lockedProjectId)?.name || "Projekt"}
-                                    </p>
-                                    <p className="text-sm text-slate-500 truncate font-medium">
-                                        Firma: {contractors.find(c => c.id === (projects.find(p => p.id === lockedProjectId)?.contractorId || selectedContractorId))?.name || "Nieznany"}
-                                    </p>
-                                </div>
-                                <input type="hidden" name="projectId" value={lockedProjectId} />
-                                <input type="hidden" name="contractorId" value={projects.find(p => p.id === lockedProjectId)?.contractorId || selectedContractorId} />
-                            </div>
-                        ) : (
-                            <>
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between">
                                         <Label className="font-semibold">Sprzedawca / Dostawca *</Label>
@@ -287,24 +262,26 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                     )}
                                 </div>
 
-                                <div className="space-y-2">
-                                    <Label>Projekt</Label>
-                                    <Select
-                                        name="projectId"
-                                        value={selectedProjectId}
-                                        onValueChange={(v) => setSelectedProjectId(v || "NONE")}
-                                    >
-                                        <SelectTrigger className="h-12 border-slate-200">
-                                            <SelectValue placeholder="Wybierz projekt" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="NONE">Brak</SelectItem>
-                                            {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </>
-                        )}
+                                {lockedProjectId ? (
+                                    <input type="hidden" name="projectId" value={lockedProjectId} />
+                                ) : (
+                                    <div className="space-y-2">
+                                        <Label>Projekt</Label>
+                                        <Select
+                                            name="projectId"
+                                            value={selectedProjectId}
+                                            onValueChange={(v) => setSelectedProjectId(v || "NONE")}
+                                        >
+                                            <SelectTrigger className="h-12 border-slate-200">
+                                                <SelectValue placeholder="Wybierz projekt" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="NONE">Brak</SelectItem>
+                                                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2"><Label>Data Faktury</Label><Input type="date" name="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} required /></div>
@@ -370,7 +347,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                         </div>
 
                         <div className="flex items-center gap-2 pt-2">
-                            <input type="checkbox" id="isPaidImmediately" name="isPaidImmediately" value="true" className="w-5 h-5 text-orange-500 rounded border-slate-300 focus:ring-orange-500 cursor-pointer" />
+                            <input type="checkbox" id="isPaidImmediately" name="isPaidImmediately" value="true" defaultChecked={true} className="w-5 h-5 text-orange-500 rounded border-slate-300 focus:ring-orange-500 cursor-pointer" />
                             <Label htmlFor="isPaidImmediately" className="text-sm font-bold text-slate-800 cursor-pointer">
                                 Opłacono natychmiast (Dodaje Cash Flow)
                             </Label>

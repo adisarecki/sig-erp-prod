@@ -36,17 +36,16 @@ export default async function FinancePage({
     const adminDb = getAdminDb()
     let query = adminDb.collection("transactions").where("tenantId", "==", tenantId)
 
-    if (activeFilter === 'PROJECT') {
-        query = query.where("classification", "==", "PROJECT_COST")
-    } else if (activeFilter === 'GENERAL') {
-        query = query.where("classification", "==", "GENERAL_COST")
-    }
-
     const transactionsSnap = await query.get()
 
     const transactions = transactionsSnap.docs
         .map(d => ({ id: d.id, ...d.data() as any }))
         .filter(t => t.status === "ACTIVE")
+        .filter(t => {
+            if (activeFilter === 'PROJECT') return t.classification === 'PROJECT_COST'
+            if (activeFilter === 'GENERAL') return t.classification === 'GENERAL_COST'
+            return true
+        })
         .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
 
     return (
