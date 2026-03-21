@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PlusCircle, Building2 } from "lucide-react"
 import { addCostInvoice } from "@/app/actions/invoices"
 import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
+import { COST_CATEGORIES } from "@/lib/categories"
 
 interface Project { id: string; name: string; contractorId?: string }
 interface Contractor { id: string; name: string; nip?: string | null }
@@ -39,6 +40,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const [description, setDescription] = useState("")
     const [retainedAmount, setRetainedAmount] = useState("")
     const [retentionReleaseDate, setRetentionReleaseDate] = useState("")
+    const [category, setCategory] = useState("MATERIAŁY")
 
     // New Contractor State
     const [isNewContractor, setIsNewContractor] = useState(false)
@@ -57,6 +59,15 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
             }
         }
     }, [lockedProjectId, projects])
+
+    // --- LOGIKA DYNAMICZNYCH KATEGORII ---
+    useEffect(() => {
+        if (selectedProjectId === "NONE" || !selectedProjectId) {
+            setCategory(COST_CATEGORIES.INDIRECT[0].value) // np. BIURO
+        } else {
+            setCategory(COST_CATEGORIES.DIRECT[0].value) // np. MATERIAŁY
+        }
+    }, [selectedProjectId])
 
     // --- LOGIKA OCR AUTO-FILL ---
     useEffect(() => {
@@ -138,6 +149,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const resetForm = () => {
         setAmountNet(""); setAmountVat(""); setSelectedContractorId(""); setDescription("")
         setIsNewContractor(false); setNewContractorName(""); setNewContractorNip(""); setNewContractorAddress("")
+        setCategory(selectedProjectId === "NONE" ? COST_CATEGORIES.INDIRECT[0].value : COST_CATEGORIES.DIRECT[0].value)
     }
 
     return (
@@ -301,14 +313,19 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
 
                         <div className="space-y-2">
                             <Label>Kategoria</Label>
-                            <Select name="category" defaultValue="MATERIAŁY">
+                            <Select name="category" value={category} onValueChange={(v) => setCategory(v || COST_CATEGORIES.INDIRECT[0].value)}>
                                 <SelectTrigger className="h-12 border-slate-200">
                                     <SelectValue placeholder="Wybierz kategorię" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="MATERIAŁY">Materiały</SelectItem>
-                                    <SelectItem value="ROBOCIZNA">Usługi obce</SelectItem>
-                                    <SelectItem value="PALIWO">Paliwo</SelectItem>
+                                    {(selectedProjectId === "NONE" || !selectedProjectId)
+                                        ? COST_CATEGORIES.INDIRECT.map(cat => (
+                                            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                                        ))
+                                        : COST_CATEGORIES.DIRECT.map(cat => (
+                                            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                                        ))
+                                    }
                                 </SelectContent>
                             </Select>
                         </div>

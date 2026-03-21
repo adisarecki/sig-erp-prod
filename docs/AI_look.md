@@ -58,6 +58,12 @@ Wdrożono system "Licznika Spójności" (Dual-Sync Health Indicator) w głównym
 - **Status 🔴**: Rozbieżność danych. Wymaga interwencji i sprawdzenia logów pod kątem "Dual-Sync Drift".
 - **Metoda**: Akcja serwerowa `getSyncStatus` wykonuje zapytania `.count()` na obu warstwach bazodanowych dla aktywnego `tenantId`.
 
+### Słownik Kategorii Finansowych
+Wdrożono dynamiczny system podziału kategorii kosztów oparty na relacji z projektami:
+- **DIRECT (Koszty Bezpośrednie):** Dotyczą konkretnego projektu budowlanego/wykonawczego (np. Materiały, Usługi obce, Wynajem sprzętu, Paliwo Projektu).
+- **INDIRECT (Koszty Pośrednie):** Koszty ogólne funkcjonowania firmy (Brak Projektu) (np. Biuro, Flota, Marketing, Księgowość/Prawne, Podatki).
+Logika zawarta jest w pliku `categories.ts` i bezpośrednio kontroluje dostępne opcje w oknie dodawania kosztu.
+
 ---
 
 ## Log Błędów i Rozwiązań (Bug Log)
