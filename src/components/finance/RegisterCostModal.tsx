@@ -81,7 +81,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                     setIsNewContractor(true)
                     setNewContractorName(ocrData.parsedName || "")
                     setNewContractorNip(ocrData.nip)
-                    // @ts-ignore - address might not be in the type but could be in ocrData
+                    // @ts-ignore
                     setNewContractorAddress(ocrData.address || "")
                 }
             }
@@ -106,7 +106,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     async function handleSubmit(formData: FormData) {
         setIsLoading(true)
         formData.set("amountGross", amountGross)
-        
+
         if (isNewContractor) {
             formData.set("isNewContractor", "true")
             formData.set("newContractorName", newContractorName)
@@ -211,10 +211,10 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between">
                                         <Label className="font-semibold">Sprzedawca / Dostawca *</Label>
-                                        <Button 
-                                            type="button" 
-                                            variant="ghost" 
-                                            size="sm" 
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
                                             className="text-xs text-blue-600 h-7"
                                             onClick={() => setIsNewContractor(!isNewContractor)}
                                         >
@@ -238,9 +238,9 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div className="space-y-1">
                                                     <Label className="text-[10px] uppercase font-bold text-slate-500">Nazwa firmy *</Label>
-                                                    <Input 
-                                                        placeholder="np. Demetrix Sp. z o.o." 
-                                                        value={newContractorName} 
+                                                    <Input
+                                                        placeholder="np. Demetrix Sp. z o.o."
+                                                        value={newContractorName}
                                                         onChange={(e) => setNewContractorName(e.target.value)}
                                                         className="bg-white"
                                                         required={isNewContractor}
@@ -248,12 +248,12 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                                 </div>
                                                 <div className="space-y-1">
                                                     <Label className="text-[10px] uppercase font-bold text-slate-500">NIP</Label>
-                                                    <Input 
+                                                    <Input
                                                         id="cost-new-contractor-nip"
                                                         name="newContractorNip"
                                                         autoComplete="off"
-                                                        placeholder="10 cyfr" 
-                                                        value={newContractorNip} 
+                                                        placeholder="10 cyfr"
+                                                        value={newContractorNip}
                                                         onChange={(e) => setNewContractorNip(e.target.value)}
                                                         className="bg-white font-mono"
                                                     />
@@ -265,8 +265,8 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                                     id="cost-new-contractor-address"
                                                     name="newContractorAddress"
                                                     autoComplete="off"
-                                                    placeholder="ul. Słoneczna 1, 00-001 Warszawa" 
-                                                    value={newContractorAddress} 
+                                                    placeholder="ul. Słoneczna 1, 00-001 Warszawa"
+                                                    value={newContractorAddress}
                                                     onChange={(e) => setNewContractorAddress(e.target.value)}
                                                     className="bg-white"
                                                 />
@@ -277,9 +277,9 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
 
                                 <div className="space-y-2">
                                     <Label>Projekt</Label>
-                                    <Select 
-                                        name="projectId" 
-                                        value={selectedProjectId} 
+                                    <Select
+                                        name="projectId"
+                                        value={selectedProjectId}
                                         onValueChange={(v) => setSelectedProjectId(v || "NONE")}
                                     >
                                         <SelectTrigger className="h-12 border-slate-200">

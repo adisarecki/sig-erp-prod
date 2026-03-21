@@ -65,6 +65,7 @@ graph TD
 | B4 | Persistence | FIXED | Dual-Sync Drift | Wszystkie akcje (CRUD) wykonują operację w Firestore, a następnie `await prisma...` dla spójności. |
 | B5 | CRM | FIXED | Contractor Data Mapping | Nieprawidłowe mapowanie danych kontrahenta z formularza do bazy danych. |
 | B6 | Projekty | FIXED | Statyczne kwoty finansowe | Usunięto wymóg ręcznego wpisywania kwot przy tworzeniu projektu. System przechodzi na model w 100% transakcyjny (SSoT). |
+| 005 | Finanse | FIXED | Błąd 500 (Server Action) przy addTransaction / render charts. | Wdrożono safe error handling w Server Actions `{error: string}`. Wymuszono `minWidth={0} minHeight={0}` oraz wstrzymano render po stronie serwera (`isMounted`) w Recharts. |
 
 ---
 

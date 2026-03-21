@@ -9,6 +9,7 @@ import prisma from "@/lib/prisma"
 
 
 export async function addIncomeInvoice(formData: FormData) {
+    try {
     const adminDb = getAdminDb()
     const amountNetStr = formData.get("amountNet") as string
     const taxRateStr = formData.get("taxRate") as string
@@ -162,9 +163,14 @@ export async function addIncomeInvoice(formData: FormData) {
     revalidatePath("/finance")
 
     return { success: true }
+    } catch (error: any) {
+        console.error("[ADD_INCOME_INVOICE_ERROR]", error)
+        return { success: false, error: error.message || "Wystąpił błąd przy dodawaniu przychodu." }
+    }
 }
 
 export async function addCostInvoice(formData: FormData) {
+    try {
     const adminDb = getAdminDb()
     const amountNetStr = formData.get("amountNet") as string
     const taxRateStr = formData.get("taxRate") as string
@@ -389,9 +395,14 @@ export async function addCostInvoice(formData: FormData) {
     revalidatePath("/finance")
 
     return { success: true }
+    } catch (error: any) {
+        console.error("[ADD_COST_INVOICE_ERROR]", error)
+        return { success: false, error: error.message || "Wystąpił błąd przy dodawaniu kosztu." }
+    }
 }
 
 export async function markInvoiceAsPaid(invoiceId: string, paymentDateStr: string) {
+    try {
     const adminDb = getAdminDb()
     if (!invoiceId || !paymentDateStr) {
         throw new Error("Brak wymaganego ID faktury lub daty płatności.");
@@ -473,4 +484,8 @@ export async function markInvoiceAsPaid(invoiceId: string, paymentDateStr: strin
     revalidatePath("/finance")
 
     return { success: true }
+    } catch (error: any) {
+        console.error("[MARK_PAID_ERROR]", error)
+        return { success: false, error: error.message || "Wystąpił błąd przy oznaczaniu jako opłacone." }
+    }
 }

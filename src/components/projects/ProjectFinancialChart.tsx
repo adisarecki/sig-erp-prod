@@ -33,7 +33,7 @@ export function ProjectFinancialChart({ budgetEstimated, totalInvoiced, totalCos
     return (
         <div className="w-full h-[300px] mt-4 min-h-0 min-w-0">
             <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                         <XAxis 
