@@ -13,6 +13,8 @@ import { PlusCircle, Building2 } from "lucide-react"
 import { addCostInvoice } from "@/app/actions/invoices"
 import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
 import { COST_CATEGORIES } from "@/lib/categories"
+import { toast } from "sonner"
+import { Loader2 } from "lucide-react"
 
 interface Project { id: string; name: string; contractorId?: string }
 interface Contractor { id: string; name: string; nip?: string | null }
@@ -36,7 +38,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const [issueDate, setIssueDate] = useState("")
     const [dueDate, setDueDate] = useState("")
     const [selectedContractorId, setSelectedContractorId] = useState<string>("")
-    const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || "")
+    const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || "none")
     const [description, setDescription] = useState("")
     const [retainedAmount, setRetainedAmount] = useState("")
     const [retentionReleaseDate, setRetentionReleaseDate] = useState("")
@@ -58,7 +60,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
 
     // --- LOGIKA DYNAMICZNYCH KATEGORII ---
     useEffect(() => {
-        if (!selectedProjectId) {
+        if (!selectedProjectId || selectedProjectId === "none") {
             setCategory(COST_CATEGORIES.INDIRECT[0].value) // np. BIURO
         } else {
             setCategory(COST_CATEGORIES.DIRECT[0].value) // np. MATERIAŁY
@@ -132,11 +134,14 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
         try {
             const result = await addCostInvoice(formData)
             if (result.success) {
+                toast.success("Faktura została pomyślnie zaksięgowana.")
                 setOpen(false)
                 resetForm()
+            } else {
+                toast.error(result.error || "Wystąpił błąd podczas księgowania faktury.")
             }
         } catch (error) {
-            alert(error instanceof Error ? error.message : "Błąd zapisu.")
+            toast.error(error instanceof Error ? error.message : "Błąd krytyczny połączenia.")
         } finally {
             setIsLoading(false)
         }
@@ -145,7 +150,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const resetForm = () => {
         setAmountNet(""); setAmountVat(""); setSelectedContractorId(""); setDescription("")
         setIsNewContractor(false); setNewContractorName(""); setNewContractorNip(""); setNewContractorAddress("")
-        setCategory(!selectedProjectId ? COST_CATEGORIES.INDIRECT[0].value : COST_CATEGORIES.DIRECT[0].value)
+        setCategory((!selectedProjectId || selectedProjectId === "none") ? COST_CATEGORIES.INDIRECT[0].value : COST_CATEGORIES.DIRECT[0].value)
     }
 
     return (
@@ -241,9 +246,13 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                                         autoComplete="off"
                                                         placeholder="10 cyfr"
                                                         value={newContractorNip}
-                                                        onChange={(e) => setNewContractorNip(e.target.value)}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value.replace(/\D/g, '').slice(0, 10)
+                                                            setNewContractorNip(val)
+                                                        }}
                                                         className="bg-white font-mono"
                                                     />
+                                                    <p className="text-[9px] text-slate-400 mt-1 italic">Tylko cyfry (10 znaków dla NIP).</p>
                                                 </div>
                                             </div>
                                             <div className="space-y-1">
@@ -270,13 +279,13 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                         <Select
                                             name="projectId"
                                             value={selectedProjectId}
-                                            onValueChange={(v) => setSelectedProjectId(v || "")}
+                                            onValueChange={(v) => setSelectedProjectId(v || "none")}
                                         >
                                             <SelectTrigger className="h-12 border-slate-200">
                                                 <SelectValue placeholder="Wybierz projekt" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="">Brak</SelectItem>
+                                                <SelectItem value="none">Brak (Koszty Ogólne)</SelectItem>
                                                 {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
@@ -295,7 +304,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                     <SelectValue placeholder="Wybierz kategorię" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {!selectedProjectId
+                                    {(!selectedProjectId || selectedProjectId === "none")
                                         ? COST_CATEGORIES.INDIRECT.map(cat => (
                                             <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
                                         ))
@@ -356,8 +365,15 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
 
                     <DialogFooter className="gap-2 pt-2">
                         <Button type="button" variant="ghost" onClick={() => setOpen(false)} className="flex-1">Anuluj</Button>
-                        <Button type="submit" disabled={isLoading || (!selectedContractorId && !isNewContractor)} className="flex-1 bg-slate-900 text-white">
-                            {isLoading ? "Przetwarzanie..." : "Księguj Fakturę"}
+                        <Button type="submit" disabled={isLoading || (!selectedContractorId && !isNewContractor)} className="flex-1 bg-slate-900 text-white font-bold h-11">
+                            {isLoading ? (
+                                <span className="flex items-center gap-2">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Przetwarzanie...
+                                </span>
+                            ) : (
+                                "Księguj Fakturę"
+                            )}
                         </Button>
                     </DialogFooter>
                 </form>

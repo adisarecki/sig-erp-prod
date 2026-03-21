@@ -18,6 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TrendingUp, Building2 } from "lucide-react"
 import { addIncomeInvoice } from "@/app/actions/invoices"
 import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
+import { toast } from "sonner"
+import { Loader2 } from "lucide-react"
 
 interface Project {
     id: string
@@ -48,7 +50,7 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
     const [amountVat, setAmountVat] = useState("")
     const [retainedAmount, setRetainedAmount] = useState("")
     const [retentionReleaseDate, setRetentionReleaseDate] = useState("")
-    const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || "")
+    const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || "none")
     const [selectedContractorId, setSelectedContractorId] = useState<string>("")
 
     // Track last OCR data to detect new scans
@@ -120,6 +122,13 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
         }
     }, [lockedProjectId, projects])
 
+    const resetForm = () => {
+        setAmountNet("")
+        setAmountVat("")
+        setSelectedContractorId("")
+        setSelectedProjectId(lockedProjectId || "none")
+    }
+
     async function handleSubmit(formData: FormData) {
         setIsLoading(true)
         // Ensure computed fields are appended
@@ -130,15 +139,14 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
         try {
             const result = await addIncomeInvoice(formData)
             if (result.success) {
+                toast.success("Przychód został pomyślnie dodany.")
                 setOpen(false)
-                // Reset form
-                setAmountNet("")
-                setTaxRate("0.23")
-                setIssueDate(new Date().toISOString().split('T')[0])
+                resetForm()
+            } else {
+                toast.error(result.error || "Błąd podczas zapisywania przychodu.")
             }
-        } catch (error) {
-            const message = error instanceof Error ? error.message : "Błąd podczas zapisywania przychodu."
-            alert(message)
+        } catch (error: any) {
+            toast.error(error.message || "Błąd połączenia.")
         } finally {
             setIsLoading(false)
         }
@@ -287,14 +295,14 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
                                     <Select 
                                         name="projectId" 
                                         value={selectedProjectId} 
-                                        onValueChange={(v) => setSelectedProjectId(v || "")} 
+                                        onValueChange={(v) => setSelectedProjectId(v || "none")} 
                                         required
                                     >
                                         <SelectTrigger className="min-h-[50px] h-auto text-base border-slate-200">
                                             <SelectValue placeholder="Wybierz projekt" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">Koszty/Przychody Ogólne (Brak)</SelectItem>
+                                            <SelectItem value="none">Koszty/Przychody Ogólne (Brak)</SelectItem>
                                             {projects.map((p) => (
                                                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                                             ))}
@@ -382,10 +390,17 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
                         </Button>
                         <Button
                             type="submit"
-                            disabled={isLoading || !amountNet}
-                            className="flex-1 min-h-[50px] text-base bg-green-600 hover:bg-green-700 text-white"
+                            disabled={isLoading || !selectedContractorId}
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11"
                         >
-                            {isLoading ? "Przetwarzanie..." : "Księguj Fakturę"}
+                            {isLoading ? (
+                                <div className="flex items-center gap-2">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Zapisywanie...
+                                </div>
+                            ) : (
+                                "Dodaj Przychód"
+                            )}
                         </Button>
                     </DialogFooter>
                 </form>

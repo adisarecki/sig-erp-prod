@@ -18,7 +18,8 @@ export async function addIncomeInvoice(formData: FormData) {
         const dueDateStr = formData.get("dueDate") as string
 
         const category = formData.get("category") as string
-        const projectId = (formData.get("projectId") as string || "").replace("NONE", "")
+        const projectIdRaw = formData.get("projectId") as string || ""
+        const projectId = (projectIdRaw === "none" || projectIdRaw === "NONE") ? "" : projectIdRaw
         const contractorId = formData.get("contractorId") as string
         const description = formData.get("description") as string
 
@@ -229,7 +230,8 @@ export async function addCostInvoice(formData: FormData) {
         const issueDate = new Date(dateStr)
         const dueDate = new Date(dueDateStr)
 
-        const finalProjectId = (projectId || "").replace("NONE", "")
+        const projectIdRaw = projectId || ""
+        const finalProjectId = (projectIdRaw === "none" || projectIdRaw === "NONE") ? "" : projectIdRaw
 
         const isPaidImmediately = formData.get("isPaidImmediately") === "true"
 

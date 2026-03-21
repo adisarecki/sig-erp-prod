@@ -165,8 +165,8 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                 const isLoss = currentMargin < 0
 
                 return (
-                    <div 
-                        key={project.id} 
+                    <div
+                        key={project.id}
                         className={`bg-white rounded-xl border transition cursor-pointer overflow-hidden
                             ${project.lifecycleStatus === 'ARCHIVED' ? 'opacity-75 grayscale-[0.5]' : ''}
                             ${selectedIds.includes(project.id) ? 'border-blue-500 ring-1 ring-blue-500 shadow-md' : 'border-slate-200 hover:shadow-md'}`}
@@ -192,13 +192,13 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                         </span>
                                         <span className={`px-2 py-1 text-xs font-semibold rounded-md border ${project.lifecycleStatus === 'ARCHIVED' ? 'bg-slate-100 text-slate-500 border-slate-200' :
                                             project.lifecycleStatus === 'ON_HOLD' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                                            'bg-green-100 text-green-700 border-green-200'}`}>
-                                            {project.lifecycleStatus === 'ARCHIVED' ? 'ZARCHIWIZOWANY' : 
-                                             project.lifecycleStatus === 'ON_HOLD' ? 'WSTRZYMANY' : project.status}
+                                                'bg-green-100 text-green-700 border-green-200'}`}>
+                                            {project.lifecycleStatus === 'ARCHIVED' ? 'ZARCHIWIZOWANY' :
+                                                project.lifecycleStatus === 'ON_HOLD' ? 'WSTRZYMANY' : project.status}
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <Link 
+                                        <Link
                                             href={`/projects/${project.id}`}
                                             className="hover:underline decoration-blue-500 underline-offset-4 decoration-2"
                                             onClick={(e) => e.stopPropagation()}
@@ -206,12 +206,12 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                             <h2 className="text-xl font-bold text-slate-900">{project.name}</h2>
                                         </Link>
                                         <div className="flex items-center gap-1">
-                                            <EditProjectModal 
+                                            <EditProjectModal
                                                 project={{
                                                     id: project.id,
                                                     name: project.name,
                                                     budgetEstimated: Number(project.budgetEstimated)
-                                                }} 
+                                                }}
                                             />
                                             <button
                                                 onClick={(e) => handleDeleteSingle(e, project.id, project.name)}
@@ -273,7 +273,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                             {/* Akcje finansowe */}
                             {!isArchivedView && (
                                 <div className="flex items-center gap-2 mt-4 md:mt-0" onClick={(e) => e.stopPropagation()}>
-                                    <RegisterIncomeModal 
+                                    <RegisterIncomeModal
                                         projects={projects.map(p => ({ id: p.id, name: p.name, contractorId: p.contractorId }))}
                                         contractors={contractors}
                                         lockedProjectId={project.id}
@@ -284,7 +284,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                             </Button>
                                         }
                                     />
-                                    <RegisterCostModal 
+                                    <RegisterCostModal
                                         projects={projects.map(p => ({ id: p.id, name: p.name, contractorId: p.contractorId }))}
                                         contractors={contractors}
                                         lockedProjectId={project.id}

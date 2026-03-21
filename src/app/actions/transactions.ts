@@ -49,7 +49,7 @@ export async function addTransaction(formData: FormData): Promise<{ success: boo
         const amount = Number(amountStr)
         const transactionDate = new Date(dateStr)
         
-        const projectId = (!rawProjectId || rawProjectId === "NONE") ? null : rawProjectId;
+        const projectId = (!rawProjectId || rawProjectId === "none" || rawProjectId === "NONE") ? null : rawProjectId;
         const classification = projectId ? "PROJECT_COST" : "GENERAL_COST";
 
         // 1. Firestore Save
@@ -100,7 +100,7 @@ export async function addTransaction(formData: FormData): Promise<{ success: boo
     }
 }
 export async function assignTransactionToProject(transactionId: string, projectId: string) {
-    if (!transactionId || !projectId || projectId === "NONE") {
+    if (!transactionId || !projectId || projectId === "none" || projectId === "NONE") {
         throw new Error("ID transakcji oraz ID projektu są wymagane.")
     }
 

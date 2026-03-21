@@ -15,6 +15,7 @@ export const metadata: Metadata = {
 };
 
 import { Gatekeeper } from "@/components/auth/Gatekeeper";
+import { ToasterProvider } from "@/components/providers/ToasterProvider";
 
 export default function RootLayout({
   children,
@@ -25,6 +26,7 @@ export default function RootLayout({
     <html lang="pl" className={cn("font-sans", geist.variable)}>
       <body className={`${inter.className} overflow-x-hidden`}>
         <Gatekeeper>
+          <ToasterProvider />
           <div className="flex min-h-screen bg-slate-50 w-full max-w-full overflow-x-hidden">
             <Sidebar />
             <div className="flex-1 flex flex-col min-w-0">
