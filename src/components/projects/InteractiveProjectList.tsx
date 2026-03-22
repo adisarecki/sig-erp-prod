@@ -13,6 +13,7 @@ import { RegisterIncomeModal } from "@/components/finance/RegisterIncomeModal"
 import { RegisterCostModal } from "@/components/finance/RegisterCostModal"
 import { TrendingUp, PlusCircle, MinusCircle } from "lucide-react"
 import { TooltipHelp } from "@/components/ui/TooltipHelp"
+import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 
 // Typ pomocniczy dla formattera PLN
 const formatPln = (value: number) => {
@@ -29,8 +30,8 @@ interface ProjectData {
     contractorId: string;
     contractor: { name: string };
     object: { name: string; address: string | null };
-    invoices: { type: string; amountNet: number | string | { toNumber: () => number } }[];
-    transactions: { type: string; amount: number | string | { toNumber: () => number }; transactionDate: string | Date }[];
+    invoices: { type: string; amountNet: number | string; amountGross?: number | string }[];
+    transactions: { type: string; amount: number | string; transactionDate: string | Date }[];
 }
 
 interface InteractiveProjectListProps {
@@ -155,14 +156,23 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
             {projects.map((project) => {
                 const invoices = project.invoices || []
                 const transactions = project.transactions || []
-                const totalInvoiced = invoices
+                const totalInvoicedNet = invoices
                     .filter((inv) => inv.type === 'SPRZEDAŻ')
                     .reduce((sum: number, inv) => sum + Number(inv.amountNet), 0)
-                const totalCosts = invoices
+                const totalInvoicedGross = invoices
+                    .filter((inv) => inv.type === 'SPRZEDAŻ')
+                    .reduce((sum: number, inv) => sum + Number(inv.amountGross || inv.amountNet), 0)
+
+                const totalCostsNet = invoices
                     .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE')
                     .reduce((sum: number, inv) => sum + Number(inv.amountNet), 0)
-                const currentMargin = totalInvoiced - totalCosts
-                const isLoss = currentMargin < 0
+                const totalCostsGross = invoices
+                    .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE')
+                    .reduce((sum: number, inv) => sum + Number(inv.amountGross || inv.amountNet), 0)
+
+                const currentMarginNet = totalInvoicedNet - totalCostsNet
+                const currentMarginGross = totalInvoicedGross - totalCostsGross
+                const isLoss = currentMarginNet < 0
 
                 return (
                     <div
@@ -233,7 +243,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                             <div className="flex items-center justify-between lg:justify-end w-full lg:w-auto gap-3 pl-9 lg:pl-0">
                                 <div className="flex flex-col items-start lg:items-end lg:mr-4">
                                     <div className="flex items-center gap-1">
-                                        <p className="text-sm font-medium text-slate-500">Szacowany Budżet</p>
+                                        <p className="text-sm font-medium text-slate-500">Szacowany Budżet (Netto)</p>
                                         <TooltipHelp content="Wartość netto całego kontraktu lub Twojej oferty. Pozwala śledzić, jaki procent zlecenia został już zafakturowany." />
                                     </div>
                                     <p className="text-lg font-bold text-slate-800">{formatPln(Number(project.budgetEstimated))}</p>
@@ -256,17 +266,15 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                             <div className="flex-1 flex flex-col md:flex-row gap-6">
                                 <div>
                                     <p className="text-sm font-medium text-slate-500 mb-1">Zaksięgowane Przychody</p>
-                                    <p className="text-xl font-bold text-slate-800">{formatPln(totalInvoiced)}</p>
+                                    <CurrencyDisplay gross={totalInvoicedGross} net={totalInvoicedNet} isIncome={true} className="text-xl font-bold text-slate-800" />
                                 </div>
                                 <div>
                                     <p className="text-sm font-medium text-slate-500 mb-1">Poniesione Koszty</p>
-                                    <p className="text-xl font-bold text-red-600">{formatPln(totalCosts)}</p>
+                                    <CurrencyDisplay gross={totalCostsGross} net={totalCostsNet} isIncome={false} className="text-xl font-bold text-red-600" />
                                 </div>
                                 <div className="md:pl-6 md:border-l md:border-slate-200">
-                                    <p className="text-sm font-medium text-slate-500 mb-1">Obecna Marża Zysku</p>
-                                    <p className={`text-2xl font-bold ${isLoss ? 'text-red-600' : 'text-green-600'}`}>
-                                        {formatPln(currentMargin)}
-                                    </p>
+                                    <p className="text-sm font-medium text-slate-500 mb-1">Obecna Marża Zysku (Netto)</p>
+                                    <CurrencyDisplay gross={currentMarginGross} net={currentMarginNet} isIncome={true} className={`text-2xl font-bold ${isLoss ? 'text-red-600' : 'text-green-600'}`} />
                                 </div>
                             </div>
 
