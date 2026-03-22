@@ -3,6 +3,7 @@
 import { Trash2, ArrowUpRight, ArrowDownRight, Link as LinkIcon, Loader2 } from "lucide-react"
 import { assignTransactionToProject, deleteTransaction } from "@/app/actions/transactions"
 import { useState } from "react"
+import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 
 interface HistoryItem {
     id: string;
@@ -12,6 +13,7 @@ interface HistoryItem {
     date: string;
     dueDate?: string | null;
     amount: number;
+    amountNet?: number;
     projectId?: string | null;
     classification?: string;
     statusBadge: string;
@@ -127,9 +129,12 @@ export function TransactionHistory({
                             </div>
                         </div>
                         <div className="flex items-center gap-6 mt-4 lg:mt-0 ml-14 lg:ml-0">
-                            <div className={`text-xl font-bold whitespace-nowrap ${t.type === 'PRZYCHÓD' ? 'text-green-600' : 'text-slate-900'}`}>
-                                {t.type === 'PRZYCHÓD' ? '+' : '-'}{formatPln(Number(t.amount))}
-                            </div>
+                            <CurrencyDisplay 
+                                gross={t.amount}
+                                net={t.amountNet}
+                                isIncome={t.type === 'PRZYCHÓD'}
+                                className={`text-xl font-bold whitespace-nowrap ${t.type === 'PRZYCHÓD' ? 'text-green-600' : 'text-slate-900'}`}
+                            />
                             {!t.isInvoice && (
                                 <button
                                     onClick={() => handleDelete(t.id, t.title)}

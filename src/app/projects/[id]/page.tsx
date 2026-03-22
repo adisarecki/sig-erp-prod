@@ -10,6 +10,7 @@ import { ProjectCockpitActions } from "@/components/projects/ProjectCockpitActio
 import { TransactionDeleteButton } from "@/components/projects/TransactionDeleteButton"
 import { ArrowLeft, Building2, MapPin, Wallet, TrendingUp, ReceiptText, Calendar, BadgeDollarSign } from "lucide-react"
 import Link from "next/link"
+import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 
 const formatPln = (value: number) => {
     return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(value)
@@ -191,9 +192,12 @@ export default async function ProjectCockpit({ params }: PageProps) {
                                                 {new Date(t.transactionDate).toLocaleDateString('pl-PL')}
                                             </span>
                                             <div className="flex items-center gap-2">
-                                                <span className={`font-black text-sm group-hover:scale-105 transition-transform ${t.type === 'PRZYCHÓD' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                                    {t.type === 'PRZYCHÓD' ? '+' : '-'}{formatPln(t.amount)}
-                                                </span>
+                                                <CurrencyDisplay 
+                                                    gross={t.amount}
+                                                    net={t.amount}
+                                                    isIncome={t.type === 'PRZYCHÓD'}
+                                                    className={`font-black text-sm group-hover:scale-105 transition-transform ${t.type === 'PRZYCHÓD' ? 'text-emerald-600' : 'text-rose-600'}`}
+                                                />
                                                 <TransactionDeleteButton 
                                                     transactionId={t.id} 
                                                     description={`${t.category}: ${t.description || ''}`}

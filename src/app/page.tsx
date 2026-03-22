@@ -13,6 +13,7 @@ import { getAdminDb, initFirebaseAdmin } from "@/lib/firebaseAdmin"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { TimeFilterTabs } from "@/components/finance/TimeFilterTabs"
 import { CIT_RATE } from "@/lib/config/tax"
+import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 
 // Inicjalizacja Firebase Admin dla Dashboardu
 initFirebaseAdmin();
@@ -630,8 +631,13 @@ export default async function DashboardPage({
                   
                   <div className="flex items-center gap-6">
                     <div className="text-right">
-                      <p className={`font-black ${inv.type === 'SPRZEDAŻ' ? 'text-green-600' : 'text-slate-900'}`}>{inv.type === 'SPRZEDAŻ' ? '+' : '-'}{formatPln(inv.amountGross)}</p>
-                      <p className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full inline-block mt-1 ${inv.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
+                      <CurrencyDisplay 
+                        gross={inv.amountGross} 
+                        net={inv.amountNet} 
+                        isIncome={inv.type === 'SPRZEDAŻ'} 
+                        className={`font-black text-lg ${inv.type === 'SPRZEDAŻ' ? 'text-green-600' : 'text-slate-900'}`} 
+                      />
+                      <p className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full mt-1 inline-block ${inv.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
                         {inv.status === 'PAID' ? 'Opłacona' : 'Nieopłacona'}
                       </p>
                     </div>
