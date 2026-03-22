@@ -27,6 +27,21 @@ export async function addContractor(formData: FormData): Promise<{ success: bool
 
     const tenantId = await getCurrentTenantId()
 
+    // 0. Sprawdzenie czy NIP już istnieje (Intelligent Upsert)
+    if (nip) {
+        const existingQuery = await adminDb.collection("contractors")
+            .where("tenantId", "==", tenantId)
+            .where("nip", "==", nip)
+            .limit(1)
+            .get()
+        
+        if (!existingQuery.empty) {
+            // Kontrahent już istnieje, nie rzucamy błędu, tylko go zwracamy lub aktualizujemy
+            // W tym przypadku po prostu zwracamy sukces (użytkownik zobaczy istniejącą masę danych)
+            return { success: true } 
+        }
+    }
+
     // 1. Zapis kontrahenta w Firestore
     const contractorRef = await adminDb.collection("contractors").add({
         tenantId,
@@ -51,8 +66,14 @@ export async function addContractor(formData: FormData): Promise<{ success: bool
     })
 
     // 3. Prisma Sync
-    await (prisma.contractor.create as any)({
-        data: {
+    await (prisma.contractor.upsert as any)({
+        where: { id: contractorRef.id },
+        update: {
+            name,
+            address: address || null,
+            status: status || "ACTIVE"
+        },
+        create: {
             id: contractorRef.id,
             tenantId,
             name,
@@ -62,7 +83,7 @@ export async function addContractor(formData: FormData): Promise<{ success: bool
             status: status || "ACTIVE",
             objects: {
                 create: {
-                    id: objectRef.id, // Używamy tego samego ID co w Firestore
+                    id: objectRef.id,
                     name: objectName,
                     address: address || null
                 }
@@ -239,6 +260,19 @@ export async function createContractor(data: { name: string; nip?: string; addre
     const tenantId = await getCurrentTenantId()
     const type = data.type || "DOSTAWCA"
 
+    // 0. Intelligent Upsert check
+    if (data.nip) {
+        const existingQuery = await adminDb.collection("contractors")
+            .where("tenantId", "==", tenantId)
+            .where("nip", "==", data.nip)
+            .limit(1)
+            .get()
+        
+        if (!existingQuery.empty) {
+            return { success: true, id: existingQuery.docs[0].id }
+        }
+    }
+
     try {
         const contractorRef = await adminDb.collection("contractors").add({
             tenantId,
@@ -260,8 +294,13 @@ export async function createContractor(data: { name: string; nip?: string; addre
             createdAt: new Date().toISOString()
         })
 
-        await (prisma.contractor.create as any)({
-            data: {
+        await (prisma.contractor.upsert as any)({
+            where: { id: contractorRef.id },
+            update: {
+                name: data.name,
+                address: data.address || null
+            },
+            create: {
                 id: contractorRef.id,
                 tenantId,
                 name: data.name,

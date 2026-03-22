@@ -11,10 +11,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PlusCircle, Building2 } from "lucide-react"
 import { addCostInvoice } from "@/app/actions/invoices"
+import { getGusDataByNip } from "@/app/actions/gus"
 import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
 import { COST_CATEGORIES } from "@/lib/categories"
 import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+import { Loader2, Search } from "lucide-react"
 
 interface Project { id: string; name: string; contractorId?: string }
 interface Contractor { id: string; name: string; nip?: string | null }
@@ -49,6 +50,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const [newContractorName, setNewContractorName] = useState("")
     const [newContractorNip, setNewContractorNip] = useState("")
     const [newContractorAddress, setNewContractorAddress] = useState("")
+    const [isGusLoading, setIsGusLoading] = useState(false)
 
     const lastOcrRef = useRef<SanitizedOcrDraft | undefined>(undefined)
 
@@ -148,6 +150,28 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
         }
     }
 
+    const handleGusFetch = async () => {
+        if (newContractorNip.length !== 10) {
+            toast.error("NIP musi mieć 10 cyfr.");
+            return;
+        }
+        setIsGusLoading(true);
+        try {
+            const result = await getGusDataByNip(newContractorNip);
+            if (result.success && result.data) {
+                setNewContractorName(result.data.name);
+                setNewContractorAddress(result.data.fullAddress);
+                toast.success("Dane pobrane pomyślnie z bazy GUS.");
+            } else {
+                toast.error(result.error || "Nie udało się pobrać danych z GUS.");
+            }
+        } catch (error) {
+            toast.error("Błąd połączenia z API GUS.");
+        } finally {
+            setIsGusLoading(false);
+        }
+    }
+
     const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         
@@ -198,7 +222,9 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                             <div className="space-y-2">
                                 <Label className="text-slate-700 font-semibold text-xs uppercase">VAT %</Label>
                                 <Select name="taxRate" value={taxRate} onValueChange={(v) => setTaxRate(v || "0.23")}>
-                                    <SelectTrigger className="h-11 bg-white"><SelectValue /></SelectTrigger>
+                                    <SelectTrigger className="h-11 bg-white" onPointerDown={(e) => e.stopPropagation()}>
+                                        <SelectValue />
+                                    </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="0.23">23%</SelectItem>
                                         <SelectItem value="0.08">8%</SelectItem>
@@ -234,7 +260,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
 
                                     {!isNewContractor ? (
                                         <Select name="contractorId" value={selectedContractorId} onValueChange={(v) => setSelectedContractorId(v || "")}>
-                                            <SelectTrigger className="h-12 border-slate-200">
+                                            <SelectTrigger className="h-12 border-slate-200" onPointerDown={(e) => e.stopPropagation()}>
                                                 <SelectValue placeholder="Wybierz firmę ze słownika" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -245,32 +271,43 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                         </Select>
                                     ) : (
                                         <div className="space-y-3 p-4 bg-blue-50/50 border border-blue-100 rounded-xl animate-in fade-in slide-in-from-top-2">
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-bold text-slate-500">NIP</Label>
+                                                    <div className="flex gap-2">
+                                                        <Input
+                                                            id="cost-new-contractor-nip"
+                                                            name="newContractorNip"
+                                                            autoComplete="off"
+                                                            placeholder="10 cyfr"
+                                                            value={newContractorNip}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value.replace(/\D/g, '').slice(0, 10)
+                                                                setNewContractorNip(val)
+                                                            }}
+                                                            className="bg-white font-mono h-10"
+                                                        />
+                                                        <Button 
+                                                            type="button" 
+                                                            variant="secondary" 
+                                                            onClick={handleGusFetch}
+                                                            disabled={isGusLoading || newContractorNip.length !== 10}
+                                                            className="h-10 bg-blue-100 hover:bg-blue-200 text-blue-700 gap-2 shrink-0 border border-blue-200"
+                                                        >
+                                                            {isGusLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+                                                            GUS
+                                                        </Button>
+                                                    </div>
+                                                </div>
                                                 <div className="space-y-1">
                                                     <Label className="text-[10px] uppercase font-bold text-slate-500">Nazwa firmy *</Label>
                                                     <Input
                                                         placeholder="np. Demetrix Sp. z o.o."
                                                         value={newContractorName}
                                                         onChange={(e) => setNewContractorName(e.target.value)}
-                                                        className="bg-white"
+                                                        className="bg-white h-10"
                                                         required={false}
                                                     />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label className="text-[10px] uppercase font-bold text-slate-500">NIP</Label>
-                                                    <Input
-                                                        id="cost-new-contractor-nip"
-                                                        name="newContractorNip"
-                                                        autoComplete="off"
-                                                        placeholder="10 cyfr"
-                                                        value={newContractorNip}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value.replace(/\D/g, '').slice(0, 10)
-                                                            setNewContractorNip(val)
-                                                        }}
-                                                        className="bg-white font-mono"
-                                                    />
-                                                    <p className="text-[9px] text-slate-400 mt-1 italic">Tylko cyfry (10 znaków dla NIP).</p>
                                                 </div>
                                             </div>
                                             <div className="space-y-1">
@@ -282,7 +319,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                                     placeholder="ul. Słoneczna 1, 00-001 Warszawa"
                                                     value={newContractorAddress}
                                                     onChange={(e) => setNewContractorAddress(e.target.value)}
-                                                    className="bg-white"
+                                                    className="bg-white h-10"
                                                 />
                                             </div>
                                         </div>
@@ -299,15 +336,15 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                             value={selectedProjectId}
                                             onValueChange={(v) => setSelectedProjectId(v || "GENERAL")}
                                         >
-                                            <SelectTrigger className="h-12 border-slate-200">
+                                            <SelectTrigger className="h-12 border-slate-200" onPointerDown={(e) => e.stopPropagation()}>
                                                 <SelectValue placeholder="Wybierz projekt" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="GENERAL" className="font-semibold text-blue-700 bg-blue-50 focus:bg-blue-100">
-                                                    🏢 Koszty Ogólne Firmy
+                                                    🏢 [Koszty Ogólne Firmy]
                                                 </SelectItem>
                                                 <SelectItem value="INTERNAL" className="font-semibold text-slate-700 bg-slate-100 focus:bg-slate-200 border-b border-slate-200 mb-1">
-                                                    🔒 Koszty Własne / Pozaprojektowe
+                                                    🔒 [Koszty Własne]
                                                 </SelectItem>
                                                 {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                                             </SelectContent>
@@ -323,7 +360,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                         <div className="space-y-2">
                             <Label>Kategoria</Label>
                             <Select name="category" value={category} onValueChange={(v) => setCategory(v || COST_CATEGORIES.INDIRECT[0].value)}>
-                                <SelectTrigger className="h-12 border-slate-200">
+                                <SelectTrigger className="h-12 border-slate-200" onPointerDown={(e) => e.stopPropagation()}>
                                     <SelectValue placeholder="Wybierz kategorię" />
                                 </SelectTrigger>
                                 <SelectContent>

@@ -23,8 +23,28 @@ export async function addIncomeInvoice(formData: FormData) {
         const contractorId = formData.get("contractorId") as string
         const description = formData.get("description") as string
 
-        if (!amountNetStr || !dateStr || !dueDateStr || !contractorId) {
-            throw new Error("Pola Kwota, Daty i Kontrahent są bezwzględnie wymagane.")
+        // New Contractor Fields
+        const isNewContractor = formData.get("isNewContractor") === "true"
+        const newContractorName = formData.get("newContractorName") as string
+        let newContractorNip = (formData.get("newContractorNip") as string || "").replace(/\s/g, "")
+        let newContractorAddress = formData.get("newContractorAddress") as string || ""
+
+        // Heuristic: If address looks like a NIP and nip is empty, swap them
+        if (!newContractorNip && /^\d{10}$/.test(newContractorAddress.trim())) {
+            newContractorNip = newContractorAddress.trim()
+            newContractorAddress = ""
+        }
+
+        if (!amountNetStr || !dateStr || !dueDateStr) {
+            throw new Error("Pola Kwota i Daty są bezwzględnie wymagane.")
+        }
+
+        if (!contractorId && !isNewContractor) {
+            throw new Error("Musisz wybrać istniejącego kontrahenta lub dodać nowego.")
+        }
+
+        if (isNewContractor && !newContractorName) {
+            throw new Error("Nazwa nowego kontrahenta jest wymagana.")
         }
 
         if (!validateNonZero(amountNetStr)) {
@@ -64,12 +84,52 @@ export async function addIncomeInvoice(formData: FormData) {
         }
 
 
-        const invoiceId = await adminDb.runTransaction(async (transaction) => {
-            // 1. Zapisujemy Fakturę
+        const txResult = await adminDb.runTransaction(async (transaction) => {
+            let finalContractorId = contractorId
+
+            // 1. Jeśli to nowy kontrahent, sprawdź czy NIP już istnieje (Intelligent Upsert)
+            if (isNewContractor) {
+                if (newContractorNip) {
+                    const existingContractorQuery = await adminDb.collection("contractors")
+                        .where("tenantId", "==", tenantId)
+                        .where("nip", "==", newContractorNip)
+                        .limit(1)
+                        .get()
+                    
+                    if (!existingContractorQuery.empty) {
+                        finalContractorId = existingContractorQuery.docs[0].id
+                    }
+                }
+
+                // Jeśli nadal nie mamy ID, stwórz nowego
+                if (!finalContractorId) {
+                    const contractorRef = adminDb.collection("contractors").doc()
+                    transaction.set(contractorRef, {
+                        tenantId,
+                        name: newContractorName,
+                        nip: newContractorNip || null,
+                        address: newContractorAddress || null,
+                        type: "KLIENT",
+                        status: "ACTIVE",
+                        createdAt: new Date().toISOString()
+                    })
+                    finalContractorId = contractorRef.id
+
+                    // Opcjonalnie stwórz domyślny obiekt
+                    const objectRef = adminDb.collection("objects").doc()
+                    transaction.set(objectRef, {
+                        contractorId: finalContractorId,
+                        name: "Siedziba Główna",
+                        address: newContractorAddress || null
+                    })
+                }
+            }
+
+            // 2. Zapisujemy Fakturę
             const invoiceRef = adminDb.collection("invoices").doc()
             transaction.set(invoiceRef, {
                 tenantId,
-                contractorId,
+                contractorId: finalContractorId,
                 projectId,
                 type: "SPRZEDAŻ",
                 amountNet: amountNet.toNumber(),
@@ -85,13 +145,14 @@ export async function addIncomeInvoice(formData: FormData) {
                 updatedAt: new Date().toISOString()
             })
 
-            // 2. Transakcja powiązana (Tylko jeśli opłacono od razu)
+            // 3. Transakcja powiązana (Tylko jeśli opłacono od razu)
             if (isPaidImmediately) {
                 const transRef = adminDb.collection("transactions").doc()
+                const classificationValue = (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (projectId ? "PROJECT_COST" : "GENERAL_COST")
                 transaction.set(transRef, {
                     tenantId,
                     projectId,
-                    classification: projectId ? "PROJECT_COST" : "GENERAL_COST",
+                    classification: classificationValue,
                     amount: amountGross.toNumber(),
                     type: "PRZYCHÓD",
                     transactionDate: issueDate.toISOString(),
@@ -104,16 +165,47 @@ export async function addIncomeInvoice(formData: FormData) {
                     updatedAt: new Date().toISOString()
                 })
             }
-            return invoiceRef.id
+            return { invoiceId: invoiceRef.id, contractorId: finalContractorId }
         })
 
-        // 3. Prisma Sync
+        // 4. Prisma Sync
         try {
+            if (isNewContractor) {
+                // Używamy upsert zamiast create, aby uniknąć błędu unikalności NIP
+                await (prisma.contractor.upsert as any)({
+                    where: { id: txResult.contractorId },
+                    update: {}, 
+                    create: {
+                        id: txResult.contractorId,
+                        tenantId,
+                        name: newContractorName,
+                        nip: newContractorNip || null,
+                        address: newContractorAddress || null,
+                        type: "KLIENT",
+                        status: "ACTIVE"
+                    }
+                })
+                // Obiekt
+                const existingObject = await prisma.object.findFirst({
+                    where: { contractorId: txResult.contractorId }
+                })
+                if (!existingObject) {
+                    await prisma.object.create({
+                        data: {
+                            id: crypto.randomUUID(), // Generujemy ID dla nowego obiektu
+                            contractorId: txResult.contractorId,
+                            name: "Siedziba Główna",
+                            address: newContractorAddress || null
+                        }
+                    })
+                }
+            }
+
             await prisma.invoice.create({
                 data: {
-                    id: invoiceId,
+                    id: txResult.invoiceId,
                     tenantId,
-                    contractorId,
+                    contractorId: txResult.contractorId,
                     projectId,
                     type: "SPRZEDAŻ",
                     amountNet: amountNet.toNumber(),
@@ -129,7 +221,7 @@ export async function addIncomeInvoice(formData: FormData) {
             })
 
             if (isPaidImmediately) {
-                const transSnap = await adminDb.collection("transactions").where("invoiceId", "==", invoiceId).limit(1).get()
+                const transSnap = await adminDb.collection("transactions").where("invoiceId", "==", txResult.invoiceId).limit(1).get()
                 if (!transSnap.empty) {
                     const tDoc = transSnap.docs[0]
                     // 3a. Tworzymy Transakcję w Prisma
@@ -138,7 +230,7 @@ export async function addIncomeInvoice(formData: FormData) {
                             id: tDoc.id,
                             tenantId,
                             projectId,
-                            classification: "PROJECT_COST",
+                            classification: (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (projectId ? "PROJECT_COST" : "GENERAL_COST"),
                             amount: amountGross.toNumber(),
                             type: "PRZYCHÓD",
                             transactionDate: issueDate,
@@ -152,7 +244,7 @@ export async function addIncomeInvoice(formData: FormData) {
                     // 3b. Tworzymy powiązanie InvoicePayment (Ledger logic)
                     await prisma.invoicePayment.create({
                         data: {
-                            invoiceId: invoiceId,
+                            invoiceId: txResult.invoiceId,
                             transactionId: prismaTrans.id,
                             amountApplied: amountGross.toNumber()
                         }
@@ -161,8 +253,15 @@ export async function addIncomeInvoice(formData: FormData) {
             }
         } catch (prismaError: any) {
             // Rollback Firebase
-            await adminDb.collection("invoices").doc(invoiceId).delete()
-            const orphans = await adminDb.collection("transactions").where("invoiceId", "==", invoiceId).get()
+            await adminDb.collection("invoices").doc(txResult.invoiceId).delete()
+            if (isNewContractor) {
+                await adminDb.collection("contractors").doc(txResult.contractorId).delete()
+                const objQuery = await adminDb.collection("objects").where("contractorId", "==", txResult.contractorId).get()
+                for (const doc of objQuery.docs) {
+                    await doc.ref.delete()
+                }
+            }
+            const orphans = await adminDb.collection("transactions").where("invoiceId", "==", txResult.invoiceId).get()
             for (const doc of orphans.docs) {
                 await doc.ref.delete()
             }
@@ -257,30 +356,45 @@ export async function addCostInvoice(formData: FormData) {
         const retainedAmount = retainedAmountStr ? new Decimal(retainedAmountStr) : null
         const retentionReleaseDate = retentionReleaseDateStr ? new Date(retentionReleaseDateStr) : null
 
-        const invoiceId = await adminDb.runTransaction(async (transaction) => {
+        const txResult = await adminDb.runTransaction(async (transaction) => {
             let finalContractorId = contractorId
 
-            // 1. Jeśli to nowy kontrahent, stwórz go najpierw
+            // 1. Jeśli to nowy kontrahent, sprawdź czy NIP już istnieje
             if (isNewContractor) {
-                const contractorRef = adminDb.collection("contractors").doc()
-                transaction.set(contractorRef, {
-                    tenantId,
-                    name: newContractorName,
-                    nip: newContractorNip || null,
-                    address: newContractorAddress || null,
-                    type: (newContractorName.toLowerCase().includes("hurtownia") || newContractorName.toLowerCase().includes("sklep")) ? "HURTOWNIA" : "DOSTAWCA",
-                    status: "ACTIVE",
-                    createdAt: new Date().toISOString()
-                })
-                finalContractorId = contractorRef.id
+                if (newContractorNip) {
+                    const existingContractorQuery = await adminDb.collection("contractors")
+                        .where("tenantId", "==", tenantId)
+                        .where("nip", "==", newContractorNip)
+                        .limit(1)
+                        .get()
+                    
+                    if (!existingContractorQuery.empty) {
+                        finalContractorId = existingContractorQuery.docs[0].id
+                    }
+                }
 
-                // Opcjonalnie stwórz domyślny obiekt
-                const objectRef = adminDb.collection("objects").doc()
-                transaction.set(objectRef, {
-                    contractorId: finalContractorId,
-                    name: "Siedziba Główna",
-                    address: newContractorAddress || null
-                })
+                // Jeśli nadal nie mamy ID, stwórz nowego
+                if (!finalContractorId) {
+                    const contractorRef = adminDb.collection("contractors").doc()
+                    transaction.set(contractorRef, {
+                        tenantId,
+                        name: newContractorName,
+                        nip: newContractorNip || null,
+                        address: newContractorAddress || null,
+                        type: (newContractorName.toLowerCase().includes("hurtownia") || newContractorName.toLowerCase().includes("sklep")) ? "HURTOWNIA" : "DOSTAWCA",
+                        status: "ACTIVE",
+                        createdAt: new Date().toISOString()
+                    })
+                    finalContractorId = contractorRef.id
+
+                    // Opcjonalnie stwórz domyślny obiekt
+                    const objectRef = adminDb.collection("objects").doc()
+                    transaction.set(objectRef, {
+                        contractorId: finalContractorId,
+                        name: "Siedziba Główna",
+                        address: newContractorAddress || null
+                    })
+                }
             }
 
             // 2. Zapisujemy Fakturę
@@ -302,13 +416,14 @@ export async function addCostInvoice(formData: FormData) {
                 createdAt: new Date().toISOString()
             })
 
+            const classificationValue = (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (finalProjectId ? "PROJECT_COST" : "GENERAL_COST")
             // 3. Transakcja powiązana
             if (isPaidImmediately) {
                 const transRef = adminDb.collection("transactions").doc()
                 transaction.set(transRef, {
                     tenantId,
                     projectId: finalProjectId,
-                    classification: finalProjectId ? "PROJECT_COST" : "GENERAL_COST",
+                    classification: classificationValue,
                     amount: amountGross.toNumber(),
                     type: "EXPENSE",
                     transactionDate: issueDate.toISOString(),
@@ -330,9 +445,12 @@ export async function addCostInvoice(formData: FormData) {
         // 4. Prisma Sync Rollback Wrapper
         try {
             if (isNewContractor) {
-                await (prisma.contractor.create as any)({
-                    data: {
-                        id: invoiceId.contractorId,
+                // Używamy upsert zamiast create, aby uniknąć błędu unikalności NIP
+                await (prisma.contractor.upsert as any)({
+                    where: { id: txResult.contractorId },
+                    update: {}, // Jeśli istnieje, nic nie zmieniaj
+                    create: {
+                        id: txResult.contractorId,
                         tenantId,
                         name: newContractorName,
                         nip: newContractorNip || null,
@@ -341,21 +459,26 @@ export async function addCostInvoice(formData: FormData) {
                         status: "ACTIVE"
                     }
                 })
-                // Obiekt
-                await prisma.object.create({
-                    data: {
-                        contractorId: invoiceId.contractorId,
-                        name: "Siedziba Główna",
-                        address: newContractorAddress || null
-                    }
+                // Obiekt - również bezpiecznie
+                const existingObject = await prisma.object.findFirst({
+                    where: { contractorId: txResult.contractorId }
                 })
+                if (!existingObject) {
+                    await prisma.object.create({
+                        data: {
+                            contractorId: txResult.contractorId,
+                            name: "Siedziba Główna",
+                            address: newContractorAddress || null
+                        }
+                    })
+                }
             }
 
             await prisma.invoice.create({
                 data: {
-                    id: invoiceId.invoiceId,
+                    id: txResult.invoiceId,
                     tenantId,
-                    contractorId: invoiceId.contractorId,
+                    contractorId: txResult.contractorId,
                     projectId: finalProjectId,
                     type: "EXPENSE",
                     amountNet: amountNet.toNumber(),
@@ -371,7 +494,7 @@ export async function addCostInvoice(formData: FormData) {
             })
 
             if (isPaidImmediately) {
-                const transSnap = await adminDb.collection("transactions").where("invoiceId", "==", invoiceId.invoiceId).limit(1).get()
+                const transSnap = await adminDb.collection("transactions").where("invoiceId", "==", txResult.invoiceId).limit(1).get()
                 if (!transSnap.empty) {
                     const tDoc = transSnap.docs[0]
                     const prismaTrans = await (prisma.transaction.create as any)({
@@ -379,7 +502,7 @@ export async function addCostInvoice(formData: FormData) {
                             id: tDoc.id,
                             tenantId,
                             projectId: finalProjectId,
-                            classification: finalProjectId ? "PROJECT_COST" : "GENERAL_COST",
+                            classification: (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (finalProjectId ? "PROJECT_COST" : "GENERAL_COST"),
                             amount: amountGross.toNumber(),
                             type: "EXPENSE",
                             transactionDate: issueDate,
@@ -392,7 +515,7 @@ export async function addCostInvoice(formData: FormData) {
 
                     await prisma.invoicePayment.create({
                         data: {
-                            invoiceId: invoiceId.invoiceId,
+                            invoiceId: txResult.invoiceId,
                             transactionId: prismaTrans.id,
                             amountApplied: amountGross.toNumber()
                         }
@@ -401,15 +524,15 @@ export async function addCostInvoice(formData: FormData) {
             }
         } catch (prismaError: any) {
             // Rollback w Firebase
-            await adminDb.collection("invoices").doc(invoiceId.invoiceId).delete()
+            await adminDb.collection("invoices").doc(txResult.invoiceId).delete()
             if (isNewContractor) {
-                await adminDb.collection("contractors").doc(invoiceId.contractorId).delete()
-                const objQuery = await adminDb.collection("objects").where("contractorId", "==", invoiceId.contractorId).get()
+                await adminDb.collection("contractors").doc(txResult.contractorId).delete()
+                const objQuery = await adminDb.collection("objects").where("contractorId", "==", txResult.contractorId).get()
                 for (const doc of objQuery.docs) {
                     await doc.ref.delete()
                 }
             }
-            const orphans = await adminDb.collection("transactions").where("invoiceId", "==", invoiceId.invoiceId).get()
+            const orphans = await adminDb.collection("transactions").where("invoiceId", "==", txResult.invoiceId).get()
             for (const doc of orphans.docs) {
                 await doc.ref.delete()
             }

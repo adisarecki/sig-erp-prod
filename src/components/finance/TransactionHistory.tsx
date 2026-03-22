@@ -74,7 +74,6 @@ export function TransactionHistory({
     return (
         <div className="divide-y divide-slate-100">
             {initialTransactions.map((t) => {
-                const isGeneral = t.classification === 'GENERAL_COST' || !t.projectId;
                 
                 return (
                     <div key={t.id} className="p-4 sm:p-6 flex flex-col lg:flex-row justify-between items-start lg:items-center hover:bg-slate-50 transition-colors group">
@@ -88,9 +87,13 @@ export function TransactionHistory({
                                     <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 ${t.statusColor}`}>
                                         {t.statusBadge}
                                     </span>
-                                    {isGeneral && (
-                                        <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0">
-                                            ADMIN / OGÓLNY
+                                    {t.classification === 'INTERNAL_COST' ? (
+                                        <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 border border-slate-200">
+                                            🔒 [Koszty Własne]
+                                        </span>
+                                    ) : (t.classification === 'GENERAL_COST' || !t.projectId) && (
+                                        <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 border border-amber-200">
+                                            🏢 [Koszty Ogólne Firmy]
                                         </span>
                                     )}
                                 </p>
