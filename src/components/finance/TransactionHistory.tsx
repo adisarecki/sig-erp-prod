@@ -10,6 +10,7 @@ interface HistoryItem {
     isInvoice: boolean;
     type: string;
     title: string;
+    documentNumber?: string | null;
     date: string;
     dueDate?: string | null;
     amount: number;
@@ -82,8 +83,10 @@ export function TransactionHistory({
                                 {t.type === 'PRZYCHÓD' ? <ArrowUpRight className="w-6 h-6" /> : <ArrowDownRight className="w-6 h-6" />}
                             </div>
                             <div className="min-w-0 flex-1">
-                                <p className="font-semibold text-slate-900 text-lg truncate flex items-center gap-2">
-                                    {t.title}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="font-bold text-slate-900 text-lg truncate uppercase tracking-tight">
+                                        {t.title}
+                                    </p>
                                     <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 ${t.statusColor}`}>
                                         {t.statusBadge}
                                     </span>
@@ -96,8 +99,13 @@ export function TransactionHistory({
                                             🏢 [Koszty Ogólne Firmy]
                                         </span>
                                     )}
-                                </p>
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 mt-1">
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 mt-0.5">
+                                    {t.documentNumber && (
+                                        <span className="font-mono text-[11px] text-slate-400 font-medium">
+                                            Dok: {t.documentNumber}
+                                        </span>
+                                    )}
                                     <span className="font-medium px-2 py-0.5 rounded-md bg-slate-100 whitespace-nowrap">
                                         {new Date(t.date).toLocaleDateString('pl-PL')}
                                     </span>

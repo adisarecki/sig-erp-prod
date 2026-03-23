@@ -292,8 +292,8 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Opis / Nr Faktury</Label>
-                            <Textarea name="description" value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-[60px]" />
+                            <Label className="text-slate-700 font-bold">Opis / Tytuł wydatku</Label>
+                            <Textarea name="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Np. Paliwo do busa, Zakup materiałów..." className="min-h-[60px] border-slate-300 shadow-sm" />
                         </div>
 
                         {/* Kaucja Gwarancyjna (Conditional) */}

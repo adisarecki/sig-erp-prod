@@ -442,3 +442,35 @@ export async function getContractors() {
         }))
         .sort((a, b) => a.name.localeCompare(b.name))
 }
+
+/**
+ * 6. WYSZUKIWANIE (Server Side)
+ */
+export async function searchContractors(query: string) {
+    const tenantId = await getCurrentTenantId()
+    if (!query || query.length < 2) return []
+
+    try {
+        const results = await prisma.contractor.findMany({
+            where: {
+                tenantId,
+                OR: [
+                    { name: { contains: query, mode: 'insensitive' } },
+                    { nip: { contains: query, mode: 'insensitive' } }
+                ]
+            },
+            take: 10,
+            orderBy: { name: 'asc' }
+        })
+
+        return results.map(c => ({
+            id: c.id,
+            name: c.name,
+            nip: c.nip,
+            address: c.address
+        }))
+    } catch (error) {
+        console.error("[CRM_SEARCH_ERROR]", error)
+        return []
+    }
+}

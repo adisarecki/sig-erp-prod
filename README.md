@@ -58,6 +58,12 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - **Finanse**: Potwierdzono poprawność wzoru: **Safe to Spend = Bilans - VAT - CIT (9%)**.
 
 ---
+### 📅 Status Wdrożenia (2026-03-23 v2)
+- **Search Optimization**: Usprawniono wyszukiwanie kontrahentów w bazie lokalnej (Server-Side Case-Insensitive Search). System teraz bezbłędnie znajduje firmy po Nazwie i NIP (np. "ORLEN").
+- **Transaction UX**: Poprawiono czytelność rejestru transakcji. Opisy (np. "Paliwo") są teraz głównym tytułem, a numery faktur trafiły do subtextu.
+- **Form Clarity**: Dodano wyraźne pola "Tytuł wydatku / przychodu" w formularzach, aby ułatwić nazywanie transakcji.
+
+---
 *Dla programistów: Techniczna dokumentacja DNA znajduje się v [docs/AI_look.md](./docs/AI_look.md)*
 
 ---

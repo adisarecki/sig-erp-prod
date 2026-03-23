@@ -387,12 +387,12 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="description" className="text-slate-700 font-semibold">Opis / Nr Faktury (Opcjonalnie)</Label>
+                        <Label htmlFor="description" className="text-slate-700 font-bold">Opis / Tytuł przychodu (Opcjonalnie)</Label>
                         <Textarea
                             id="description"
                             name="description"
-                            placeholder="Np. FV 12/2026 za realizację etapu..."
-                            className="min-h-[80px] border-slate-200"
+                            placeholder="Np. Zaliczka na materiały, Montaż okien etap 1..."
+                            className="min-h-[80px] border-slate-300 shadow-sm"
                         />
                     </div>
 

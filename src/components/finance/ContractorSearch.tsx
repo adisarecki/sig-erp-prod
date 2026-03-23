@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Search, UserPlus, Building2, Check } from "lucide-react"
+import { Search, UserPlus, Building2, Check, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { searchContractors } from "@/app/actions/crm"
 
 interface Contractor {
     id: string
@@ -14,7 +15,7 @@ interface Contractor {
 }
 
 interface ContractorSearchProps {
-    contractors: Contractor[]
+    contractors: Contractor[] // Keep for initial fallback if needed
     onSelect: (contractor: Contractor | null) => void
     onManualEntry: (name: string, nip: string, address: string) => void
     initialValue?: string
@@ -23,7 +24,7 @@ interface ContractorSearchProps {
 }
 
 export function ContractorSearch({ 
-    contractors, 
+    contractors: initialContractors, 
     onSelect, 
     onManualEntry,
     initialValue = "",
@@ -31,19 +32,37 @@ export function ContractorSearch({
     initialAddress = ""
 }: ContractorSearchProps) {
     const [query, setQuery] = useState(initialValue)
+    const [results, setResults] = useState<Contractor[]>([])
+    const [isLoading, setIsLoading] = useState(false)
     const [isOpen, setIsOpen] = useState(false)
     const [isManual, setIsManual] = useState(false)
     const [manualNip, setManualNip] = useState(initialNip)
     const [manualAddress, setManualAddress] = useState(initialAddress)
     const containerRef = useRef<HTMLDivElement>(null)
 
-    // Filter contractors based on query
-    const filteredContractors = query.length >= 2 
-        ? contractors.filter(c => 
-            c.name.toLowerCase().includes(query.toLowerCase()) || 
-            (c.nip && c.nip.includes(query))
-          ).slice(0, 5)
-        : []
+    // Debounced search
+    useEffect(() => {
+        if (!query || query.length < 2 || isManual) {
+            setResults([])
+            setIsOpen(false)
+            return
+        }
+
+        const handler = setTimeout(async () => {
+            setIsLoading(true)
+            try {
+                const searchResults = await searchContractors(query)
+                setResults(searchResults)
+                setIsOpen(true)
+            } catch (error) {
+                console.error("Search error:", error)
+            } finally {
+                setIsLoading(false)
+            }
+        }, 400) // 400ms debounce
+
+        return () => clearTimeout(handler)
+    }, [query, isManual])
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -95,9 +114,7 @@ export function ContractorSearch({
                     ) : (
                         <span className="text-[10px] text-slate-400 uppercase font-medium">Wyszukaj w bazie danych</span>
                     )}
-                </div>
-
-                <div className="relative">
+                </div>                <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                     <Input
                         placeholder={isManual ? "Wpisz pełną nazwę firmy..." : "Zacznij wpisywać nazwę lub NIP..."}
@@ -110,14 +127,19 @@ export function ContractorSearch({
                         )}
                         autoComplete="off"
                     />
+                    {isLoading && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                        </div>
+                    )}
                 </div>
 
                 {/* Dropdown results */}
                 {isOpen && !isManual && (
                     <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2">
-                        {filteredContractors.length > 0 ? (
+                        {results.length > 0 ? (
                             <div className="p-1">
-                                {filteredContractors.map((c) => (
+                                {results.map((c) => (
                                     <button
                                         key={c.id}
                                         type="button"
@@ -138,9 +160,14 @@ export function ContractorSearch({
                                 ))}
                                 <div className="h-px bg-slate-100 my-1" />
                             </div>
-                        ) : query.length >= 2 ? (
+                        ) : query.length >= 2 && !isLoading ? (
                             <div className="p-3 text-center text-sm text-slate-500 italic">
                                 Nie znaleziono firmy o tej nazwie.
+                            </div>
+                        ) : isLoading ? (
+                            <div className="p-4 text-center text-sm text-slate-400 flex items-center justify-center gap-2">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Szukanie w bazie danych...
                             </div>
                         ) : null}
                         
