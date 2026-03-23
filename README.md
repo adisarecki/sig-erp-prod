@@ -76,6 +76,7 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - **Skaner OCR Gemini 3 Flash Preview**: Wdrożono inteligentne skanowanie faktur z automatycznym mapowaniem kontrahentów (Smart Match) i blokadą duplikatów (Anti-Duplicate Shield).
 - **Naprawa Typów OCR & Prisma Config**: Rozwiązano problem walidacji `vatRate` (number/string) i zmigrowano konfigurację Prisma do `prisma.config.ts`.
 - **Selektor Lat w Analityce**: Wdrożono dynamiczny wybór roku na Dashboardzie, umożliwiający precyzyjne przeglądanie statystyk (Miesiąc/Kwartał/Rok) dla lat ubiegłych.
+- **Aktywacja Ratownika Płynności**: Ożywiono przycisk "Zarządzaj Kosztami" w module Alarmu Płynności – teraz przekierowuje on do listy nieopłaconych faktur (UNPAID) z automatycznym sortowaniem po terminie płatności.
 
 ---
 *Dla programistów: Techniczna dokumentacja DNA znajduje się v [docs/AI_look.md](./docs/AI_look.md)*

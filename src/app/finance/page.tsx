@@ -18,10 +18,19 @@ import { TransactionHistory } from "@/components/finance/TransactionHistory"
 export default async function FinancePage({ 
     searchParams 
 }: { 
-    searchParams: Promise<{ filter?: string }> 
+    searchParams: Promise<{ 
+        filter?: string; 
+        status?: string; 
+        sort?: string; 
+        year?: string;
+    }> 
 }) {
     const params = await searchParams
     const activeFilter = params.filter || 'ALL'
+    const activeStatus = params.status || null
+    const activeSort = params.sort || null
+    const activeYear = params.year ? parseInt(params.year) : null
+
     const tenantId = await getCurrentTenantId()
     let transactions: any[] = []
     let projectsMap: { id: string, name: string }[] = []
@@ -121,11 +130,36 @@ export default async function FinancePage({
 
         transactions = historyItems
             .filter(t => {
-                if (activeFilter === 'PROJECT') return t.classification === 'PROJECT_COST'
-                if (activeFilter === 'GENERAL') return t.classification === 'GENERAL_COST'
+                // Filter typu (Project/General)
+                if (activeFilter === 'PROJECT' && t.classification !== 'PROJECT_COST') return false
+                if (activeFilter === 'GENERAL' && t.classification !== 'GENERAL_COST') return false
+                
+                // Filter statusu (Vector 024)
+                if (activeStatus === 'UNPAID') {
+                    if (t.statusBadge === 'OPŁACONA') return false
+                } else if (activeStatus === 'PAID') {
+                    if (t.statusBadge !== 'OPŁACONA') return false
+                }
+
+                // Filter roku (Vector 024)
+                if (activeYear) {
+                    const itemYear = new Date(t.date).getFullYear()
+                    if (itemYear !== activeYear) return false
+                }
+
                 return true
             })
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            
+        // Logika sortowania (Vector 024)
+        if (activeSort === 'dueDate_ASC') {
+            transactions.sort((a, b) => {
+                const dateA = a.dueDate ? new Date(a.dueDate).getTime() : new Date(a.date).getTime()
+                const dateB = b.dueDate ? new Date(b.dueDate).getTime() : new Date(b.date).getTime()
+                return dateA - dateB
+            })
+        } else {
+            transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        }
 
     } catch (err: any) {
         console.error("Finance Page fetch error:", err)
