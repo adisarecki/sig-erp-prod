@@ -73,6 +73,7 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - **Ujednolicone UI CRM**: Wprowadzono manualne zakładki [WSZYSTKIE], [INWESTORZY], [DOSTAWCY] w stylu Rejestru Transakcji oraz badge typów przy nazwach.
 - **Formuła Real Debt**: Saldo kontrahenta bazuje na `SUM(amountGross) WHERE status NOT IN ('PAID', 'REVERSED')`. Badge "ZALEGA" znika z DOM przy bilansie 0.
 - **Poprawa Modali**: Zaimplementowano `max-h-[70vh]` dla list rozwijanych (Select/Dropdown).
+- **Skaner OCR Gemini 3 Flash**: Wdrożono inteligentne skanowanie faktur z automatycznym mapowaniem kontrahentów (Smart Match) i blokadą duplikatów (Anti-Duplicate Shield).
 
 ---
 *Dla programistów: Techniczna dokumentacja DNA znajduje się v [docs/AI_look.md](./docs/AI_look.md)*

@@ -14,7 +14,8 @@ import { ContractorSearch } from "./ContractorSearch"
 import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
 import { COST_CATEGORIES } from "@/lib/categories"
 import { toast } from "sonner"
-import { Loader2, PlusCircle } from "lucide-react"
+import { Loader2, PlusCircle, ScanText, AlertTriangle, FileCheck } from "lucide-react"
+import { scanInvoiceAction } from "@/app/actions/ocr"
 
 interface Project { id: string; name: string; contractorId?: string }
 interface Contractor { id: string; name: string; nip?: string | null }
@@ -48,6 +49,13 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const [newContractorName, setNewContractorName] = useState("")
     const [newContractorNip, setNewContractorNip] = useState("")
     const [newContractorAddress, setNewContractorAddress] = useState("")
+
+    // OCR & Duplicate States (DNA Vector 020)
+    const [isScanning, setIsScanning] = useState(false)
+    const [isDuplicate, setIsDuplicate] = useState(false)
+    const [duplicateId, setDuplicateId] = useState<string | undefined>(undefined)
+    const [invoiceNumber, setInvoiceNumber] = useState("")
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
     const lastOcrRef = useRef<SanitizedOcrDraft | undefined>(undefined)
 
@@ -109,9 +117,68 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const amountGross = (parseFloat(amountNet || "0") + parseFloat(amountVat || "0")).toFixed(2)
 
     // --- HANDLERS ---
+    // --- OCR SCANNER ACTION (GEMINI 3 FLASH) ---
+    const handleOcrClick = () => fileInputRef.current?.click()
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        setIsScanning(true)
+        setIsDuplicate(false)
+        setDuplicateId(undefined)
+
+        try {
+            const reader = new FileReader()
+            reader.readAsDataURL(file)
+            reader.onload = async () => {
+                const base64 = (reader.result as string).split(",")[1]
+                const mimeType = file.type
+
+                const result = await scanInvoiceAction(base64, mimeType)
+                if (result.success && result.data) {
+                    const d = result.data
+                    setAmountNet(d.netAmount)
+                    setAmountVat(d.vatAmount)
+                    setTaxRate(d.vatRate || "0.23")
+                    setIssueDate(d.issueDate)
+                    setDueDate(d.dueDate)
+                    setInvoiceNumber(d.invoiceNumber)
+                    setDescription(`Faktura nr ${d.invoiceNumber}`)
+
+                    if (d.contractorId) {
+                        setSelectedContractorId(d.contractorId)
+                        setIsNewContractor(false)
+                    } else if (d.nip) {
+                        setIsNewContractor(true)
+                        setNewContractorName(d.parsedName)
+                        setNewContractorNip(d.nip)
+                        setSelectedContractorId("")
+                    }
+
+                    if (d.isDuplicate) {
+                        setIsDuplicate(true)
+                        setDuplicateId(d.duplicateId)
+                        toast.warning("Wykryto duplikat faktury!")
+                    } else {
+                        toast.success("Dokument przeanalizowany pomyślnie.")
+                    }
+                } else {
+                    toast.error(result.error || "Nie udało się rozpoznać dokumentu.")
+                }
+                setIsScanning(false)
+            }
+        } catch (err) {
+            console.error(err)
+            toast.error("Błąd przesyłania pliku.")
+            setIsScanning(false)
+        }
+    }
+
     async function handleSubmit(formData: FormData) {
         setIsLoading(true)
         formData.set("amountGross", amountGross)
+        formData.set("externalId", invoiceNumber) // Sync with externalId
 
         if (isNewContractor) {
             formData.set("isNewContractor", "true")
@@ -181,9 +248,48 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
             </DialogTrigger>
             <DialogContent className="sm:max-w-[650px] rounded-2xl max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
                 <DialogHeader>
-                    <DialogTitle className="text-2xl font-bold">Dodaj Koszt</DialogTitle>
-                    <DialogDescription>Wpisz dane netto – VAT i brutto wyliczymy za Ciebie.</DialogDescription>
+                    <div className="flex items-center justify-between pr-8">
+                        <div>
+                            <DialogTitle className="text-2xl font-bold">Dodaj Koszt</DialogTitle>
+                            <DialogDescription>Wpisz dane netto – VAT i brutto wyliczymy za Ciebie.</DialogDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <input 
+                                type="file" 
+                                ref={fileInputRef} 
+                                onChange={handleFileChange} 
+                                className="hidden" 
+                                accept="image/*,application/pdf"
+                            />
+                            <Button 
+                                type="button" 
+                                variant="outline" 
+                                onClick={handleOcrClick}
+                                disabled={isScanning}
+                                className="bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 font-bold gap-2 animate-in fade-in"
+                            >
+                                {isScanning ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <ScanText className="h-4 w-4" />
+                                )}
+                                {isScanning ? "Skanowanie..." : "Skanuj Fakturę"}
+                            </Button>
+                        </div>
+                    </div>
                 </DialogHeader>
+
+                {isDuplicate && (
+                    <div className="bg-rose-50 border-2 border-rose-200 p-4 rounded-xl flex items-center gap-4 animate-in slide-in-from-top-4">
+                        <div className="bg-rose-100 p-2 rounded-full text-rose-600">
+                            <AlertTriangle className="h-6 w-6" />
+                        </div>
+                        <div className="flex-1">
+                            <h4 className="font-black text-rose-900 uppercase text-xs tracking-widest">KRYTYCZNY: Tarcza Anty-Duplikatowa</h4>
+                            <p className="text-sm text-rose-700 font-medium">Faktura o numerze <b>{invoiceNumber}</b> od tego kontrahenta istnieje już w systemie (ID: {duplicateId}). Zapis zablokowany.</p>
+                        </div>
+                    </div>
+                )}
 
                 <form onSubmit={handleFormSubmit} className="space-y-5">
                     <input type="hidden" name="type" value="KOSZT" />
@@ -268,8 +374,27 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                 )}
 
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2"><Label>Data Faktury</Label><Input type="date" name="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} /></div>
-                            <div className="space-y-2"><Label>Termin Płatności</Label><Input type="date" name="dueDate" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>
+                            <div className="space-y-2">
+                                <Label>Numer Faktury</Label>
+                                <Input 
+                                    name="invoiceNumber" 
+                                    value={invoiceNumber} 
+                                    onChange={(e) => {
+                                        setInvoiceNumber(e.target.value)
+                                        setDescription(`Faktura nr ${e.target.value}`)
+                                    }} 
+                                    placeholder="Np. 123/2026"
+                                    className={isDuplicate ? "border-rose-500 bg-rose-50" : ""}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Data Faktury</Label>
+                                <Input type="date" name="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Termin Płatności</Label>
+                            <Input type="date" name="dueDate" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
                         </div>
 
                         <div className="space-y-2">
@@ -342,11 +467,20 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
 
                     <DialogFooter className="gap-2 pt-2">
                         <Button type="button" variant="ghost" onClick={() => setOpen(false)} className="flex-1">Anuluj</Button>
-                        <Button type="submit" disabled={isLoading || (!selectedContractorId && !isNewContractor)} className="flex-1 bg-slate-900 text-white font-bold h-11">
+                        <Button 
+                            type="submit" 
+                            disabled={isLoading || isScanning || isDuplicate || (!selectedContractorId && !isNewContractor)} 
+                            className={`flex-1 font-bold h-11 ${isDuplicate ? 'bg-slate-300' : 'bg-slate-900 text-white'}`}
+                        >
                             {isLoading ? (
                                 <span className="flex items-center gap-2">
                                     <Loader2 className="h-4 w-4 animate-spin" />
                                     Przetwarzanie...
+                                </span>
+                            ) : isDuplicate ? (
+                                <span className="flex items-center gap-2">
+                                    <FileCheck className="h-4 w-4" />
+                                    Duplikat Zablokowany
                                 </span>
                             ) : (
                                 "Księguj Fakturę"
