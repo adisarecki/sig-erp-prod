@@ -58,9 +58,8 @@ graph TD
 
 ### Modele Obliczeń (Profit First):
 System implementuje strategię bezpiecznych wypłat:
-1. `Real Revenue = Revenue Gross - VAT`
-2. `Operating Profit = Real Revenue - Costs Net`
-3. `Safe Withdrawal = Operating Profit - Tax Reserve (19%)`
+1. `Safe to Spend = Bilans - VAT - CIT (9%)` (Standardowa rezerwa podatkowa).
+2. `Operating Profit = Revenue Net - Costs Net`
 
 ### Standard Ledger (Append-Only):
 - Wszystkie transakcje są **niezmienne (Immutable)** po wyjściu ze statusu `DRAFT`.
@@ -68,6 +67,13 @@ System implementuje strategię bezpiecznych wypłat:
 
 ### Contractor Search & NIP Upsert:
 System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Implementuje **Intelligent Upsert** – przed zapisem kosztu/przychodu system sprawdza czy NIP istnieje w Firestore oraz Prisma, aby uniknąć duplikatów i błędów unikalności. Integracja z API GUS jest obecnie wyłączona (zastąpiona wyszukiwaniem i wprowadzaniem ręcznym).
+
+### Build & Synchronization
+        - **Vercel Build Hook**: Proactive database sync using `npx prisma db push && npx prisma generate` in `package.json` before `next build`.
+        - **Dual-Sync Guard**: Firestore acts as the primary source of truth, Prisma is synchronized during the build and runtime.
+
+        ### UI/UX Protections
+        - **Conditional Form Logic**: The "Kaucja Gwarancyjna" (Security Deposit) section is rendered only for `REVENUE` or when the category is set to `INWESTYCJA`. This prevents "UI/UX Drift" where users are presented with irrelevant fields for standard expenses.
 
 ---
 
@@ -98,6 +104,9 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 007 | Project Drift | FIXED | Projekty widoczne tylko w Firestore. | Poprawiono `projects.ts`, dodano tryb Healer dla synchronizacji. |
 | Vector 009 | Fetcher Error | FIXED | NoSQL limit `in` (max 30 id). | Wdrożono Chunking zapytań w `crm.ts`. |
 | Vector 011 | Dashboard | FIXED | Błędna matematyka marży (Gross vs Net). | Obliczenia zysku oparte teraz wyłącznie o wartości Netto. |
+| Vector 012 | RegisterIncomeModal | FIXED | Brak kategorii "INWESTYCJA". | Dodano kategorię do słowników w `lib/categories` i modalach. |
+| Vector 013 | Build / Vercel | FIXED | Null constraint violation (projectId). | Wymuszono `db push` w `package.json` oraz ustawiono `projectId` jako optional (?) w Prisma Schema. |
+| Vector 014 | UI/UX Drift | FIXED | Kaucja widoczna dla kosztów paliwa. | Wdrożono warunkowy rendering kaucji w modalach (tylko dla INWESTYCJA). |
 
 ---
 

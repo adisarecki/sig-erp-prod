@@ -296,39 +296,41 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                             <Textarea name="description" value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-[60px]" />
                         </div>
 
-                        {/* Kaucja Gwarancyjna section */}
-                        <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl space-y-3">
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 bg-indigo-500 rounded-full" />
-                                <Label className="text-indigo-900 font-bold text-xs uppercase tracking-wider">Kaucja Gwarancyjna (Opcjonalnie)</Label>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="retainedAmount" className="text-[10px] text-indigo-700 font-bold">KWOTA KAUCJI (PLN)</Label>
-                                    <Input
-                                        id="retainedAmount"
-                                        name="retainedAmount"
-                                        type="number"
-                                        step="0.01"
-                                        placeholder="0.00"
-                                        value={retainedAmount}
-                                        onChange={(e) => setRetainedAmount(e.target.value)}
-                                        className="h-9 border-indigo-200 focus:ring-indigo-500 bg-white/50 text-sm font-mono"
-                                    />
+                        {/* Kaucja Gwarancyjna (Conditional) */}
+                        {category === "INWESTYCJA" && (
+                            <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-indigo-500 rounded-full" />
+                                    <Label className="text-indigo-900 font-bold text-xs uppercase tracking-wider">Kaucja Gwarancyjna (Opcjonalnie)</Label>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="retentionReleaseDate" className="text-[10px] text-indigo-700 font-bold">TERMIN ZWROTU</Label>
-                                    <Input
-                                        id="retentionReleaseDate"
-                                        name="retentionReleaseDate"
-                                        type="date"
-                                        value={retentionReleaseDate}
-                                        onChange={(e) => setRetentionReleaseDate(e.target.value)}
-                                        className="h-9 border-indigo-200 focus:ring-indigo-500 bg-white/50 text-sm"
-                                    />
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="retainedAmount" className="text-[10px] text-indigo-700 font-bold">KWOTA KAUCJI (PLN)</Label>
+                                        <Input
+                                            id="retainedAmount"
+                                            name="retainedAmount"
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="0.00"
+                                            value={retainedAmount}
+                                            onChange={(e) => setRetainedAmount(e.target.value)}
+                                            className="h-9 border-indigo-200 focus:ring-indigo-500 bg-white/50 text-sm font-mono"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="retentionReleaseDate" className="text-[10px] text-indigo-700 font-bold">TERMIN ZWROTU</Label>
+                                        <Input
+                                            id="retentionReleaseDate"
+                                            name="retentionReleaseDate"
+                                            type="date"
+                                            value={retentionReleaseDate}
+                                            onChange={(e) => setRetentionReleaseDate(e.target.value)}
+                                            className="h-9 border-indigo-200 focus:ring-indigo-500 bg-white/50 text-sm"
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
 
                         <div className="flex items-center gap-2 pt-2">
                             <input type="checkbox" id="isPaidImmediately" name="isPaidImmediately" value="true" defaultChecked={true} className="w-5 h-5 text-orange-500 rounded border-slate-300 focus:ring-orange-500 cursor-pointer" />

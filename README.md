@@ -46,7 +46,16 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - **Unikalność NIP per Tenant**: Zmieniono schemat bazy danych Prisma, aby umożliwić wielu osobom (tenantom) posiadanie faktur od tego samego dostawcy (np. ORLEN S.A.). NIP jest teraz unikalny w obrębie jednej firmy, a nie globalnie.
 - **Wzorzec Find-or-Create**: Rejestracja kosztów i przychodów wykorzystuje teraz bezpieczny wzorzec wyszukiwania kontrahenta przed zapisem, co eliminuje błędy `Unique constraint failed`.
 - **Koszty Ogólne**: Faktury bez przypisanego projektu są teraz poprawnie klasyfikowane jako `GENERAL_COST` w obu bazach danych (Dual-Sync).
-- **Opcjonalność Projektu**: Model Faktury wspiera teraz brak przypisania do projektu (projectId: optional), co jest standardem dla kosztów administracyjnych.
+- **Opcjonalność Projektu**: Zmiana w Prisma Schema: Ustawiono `projectId` jako opcjonalne w modelach `Invoice` i `Transaction`, aby umożliwić pełną obsługę Kosztów Ogólnych Firmy (GENERAL_COST).
+- **Synchronizacja Produkcyjna**: Wymuszono synchronizację schematu Prisma podczas buildu Vercel (db push && generate).
+- **Logika Formularza (UI/UX)**: Sekcja "Kaucja Gwarancyjna" jest teraz renderowana warunkowo – pojawia się tylko przy kategorii **INWESTYCJA**, co upraszcza księgowanie standardowych kosztów i paliwa.
+
+---
+### 📅 Status Wdrożenia (2026-03-23)
+- **Sukces**: Pomyślnie wdrożono i przetestowano obsługę Kosztów Ogólnych (GENERAL_COST).
+- **Fix**: Poprawiono synchronizację Prisma Schema na Vercel – `projectId` jest teraz opcjonalny.
+- **UI**: Wprowadzono warunkowe ukrywanie sekcji kaucji dla dokumentów kosztowych.
+- **Finanse**: Potwierdzono poprawność wzoru: **Safe to Spend = Bilans - VAT - CIT (9%)**.
 
 ---
 *Dla programistów: Techniczna dokumentacja DNA znajduje się v [docs/AI_look.md](./docs/AI_look.md)*

@@ -5,6 +5,7 @@ export const COST_CATEGORIES = {
         { value: "SPRZĘT", label: "Wynajem sprzętu" },
         { value: "TRANSPORT", label: "Transport / Logistyka (Projekt)" },
         { value: "PALIWO_PROJEKT", label: "Paliwo (Projekt)" },
+        { value: "INWESTYCJA", label: "Inwestycja (Kaucjonowana)" },
     ],
     INDIRECT: [
         { value: "BIURO", label: "Biuro / Administracja" },
