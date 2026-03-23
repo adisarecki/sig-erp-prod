@@ -671,7 +671,7 @@ export default async function DashboardPage({
                    </li>
                    <li className="flex items-start gap-3">
                       <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                      <p className="text-sm font-medium text-slate-300"><b>Tax Guard</b>: Rezerwa 19% CIT + VAT Netto blokowana na starcie.</p>
+                      <p className="text-sm font-medium text-slate-300"><b>Tax Guard</b>: Rezerwa 9% CIT + VAT Netto blokowana na starcie.</p>
                    </li>
                    <li className="flex items-start gap-3">
                       <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />

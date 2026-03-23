@@ -25,7 +25,7 @@ Witaj w centrum dowodzenia Twoją firmą. System Sig ERP został zaprojektowany,
 
 ## 📈 Dashboard CEO (Widok Strategiczny)
 
-- **Czysta Gotówka (Safe to Spend)**: Ile pieniędzy możesz realnie wypłacić z firmy po odliczeniu VAT i rezerwy na podatek dochodowy (19%).
+- **Czysta Gotówka (Safe to Spend)**: Ile pieniędzy możesz realnie wypłacić z firmy po odliczeniu VAT i rezerwy na podatek dochodowy (9%).
 - **Realny Zysk**: Obliczany jako `Suma Marż z Projektów - Koszty Ogólne Zarządu`.
 - **Alarm Płynności**: Jeśli status zmieni się na „Realista”, oznacza to, że uwzględniamy możliwe 14-dniowe opóźnienia wpłat od klientów.
 

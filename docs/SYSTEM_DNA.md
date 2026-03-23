@@ -49,7 +49,7 @@ To najwyższy poziom kontroli finansowej, wdrożony w architekturze NoSQL.
 ### Advanced Tax Guard (Ochrona Podatkowa)
 System automatycznie oblicza i blokuje środki na przyszłe podatki:
 1.  **VAT Netto**: `Suma VAT z faktur INCOME (PAID) - Suma VAT z faktur COST (PAID)`.
-2.  **Total Tax Reserve**: `(Zysk Netto * 19%) + VAT Netto`.
+2.  **Total Tax Reserve**: `(Zysk Netto * 9%) + VAT Netto`.
 3.  **Czysta Gotówka (Clean Cash)**: `Płynna Gotówka - Total Tax Reserve`. To jest kwota wolna od obciążeń fiskalnych.
 
 ### Cash Reality Simulator (Symulator Realizmu)

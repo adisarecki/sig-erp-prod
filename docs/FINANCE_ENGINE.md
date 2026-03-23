@@ -8,7 +8,7 @@
 ## KPIs & Logic
 
 ### Profit First (Safe Withdrawal)
-- **Algorithm:** `Liquid Cash (Net) - Upcoming Liabilities (30d Gross) - Tax Reserve (19% of Net Profit)`.
+- **Algorithm:** `Liquid Cash (Net) - Upcoming Liabilities (30d Gross) - Tax Reserve (9% of Net Profit)`.
 - **Purpose:** Protects management capital by ensuring all future obligations and taxes are covered before determining payout availability.
 
 ### Cash Flow Projection
