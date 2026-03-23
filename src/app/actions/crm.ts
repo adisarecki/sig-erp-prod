@@ -173,17 +173,17 @@ export async function updateContractor(formData: FormData): Promise<{ success: b
             console.warn("[CRM_SYNC] Contractor not found in Prisma during update. Attempting auto-heal for ID:", id)
             
             try {
-                await (prisma.contractor.create as any)({
-                    data: {
-                        id: id,
-                        tenantId,
-                        name,
-                        nip: nip || null,
-                        address: address || null,
-                        type,
-                        status: status || "ACTIVE"
-                    }
-                })
+                await prisma.contractor.create({
+                data: {
+                    id: id,
+                    tenantId,
+                    name,
+                    nip: nip || null,
+                    address: address || null,
+                    type: type,
+                    status: "ACTIVE"
+                }
+            })
                 console.info("[CRM_SYNC] Contractor successfully auto-healed in Prisma.")
             } catch (createErr) {
                 console.error("[CRM_SYNC] Fatal error during contractor auto-heal:", createErr)
@@ -310,7 +310,8 @@ export async function createContractor(data: { name: string; nip?: string; addre
     }
 
     try {
-        const contractorRef = await adminDb.collection("contractors").add({
+        const contractorRef = adminDb.collection("contractors").doc()
+        await contractorRef.set({
             tenantId,
             name: data.name,
             nip: data.nip || null,

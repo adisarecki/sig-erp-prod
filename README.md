@@ -69,8 +69,10 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 ---
 ### 📅 Status Wdrożenia (2026-03-23 v4 - CRM Consistency)
 - **Prisma-First CRM**: Lista kontrahentów pobiera teraz dane bezpośrednio z Prismy (SQL), zapewniając 100% spójności z wyszukiwarkami i raportami.
-- **Master Sync SQL**: Dodano funkcję pełnej synchronizacji `Firestore -> SQL`, która naprawia brakujące rekordy kontrahentów w bazie relacyjnej.
-- **Enhanced UI**: Na liście CRM dodano etykiety typów (Dostawca / Inwestor) oraz poprawiono wydajność poprzez natywne joiny SQL.
+- **Master Sync SQL**: Dodano funkcję pełnej synchronizacji `Firestore -> SQL` dla kontrahentów i statusów faktur.
+- **Ujednolicone UI CRM**: Wprowadzono manualne zakładki [WSZYSTKIE], [INWESTORZY], [DOSTAWCY] w stylu Rejestru Transakcji oraz badge typów przy nazwach.
+- **Formuła Real Debt**: Saldo kontrahenta bazuje na `SUM(amountGross) WHERE status NOT IN ('PAID', 'REVERSED')`. Badge "ZALEGA" znika z DOM przy bilansie 0.
+- **Poprawa Modali**: Zaimplementowano `max-h-[70vh]` dla list rozwijanych (Select/Dropdown).
 
 ---
 *Dla programistów: Techniczna dokumentacja DNA znajduje się v [docs/AI_look.md](./docs/AI_look.md)*

@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button"
 import { Database, Loader2, Sparkles, RefreshCw } from "lucide-react"
 import { cleanupDuplicateContractors, syncAllContractorsToPrisma } from "@/app/actions/contractorHealer"
 import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 
 export function DatabaseHealer() {
     const [isHealing, setIsHealing] = useState(false)
     const [isSyncing, setIsSyncing] = useState(false)
+    const router = useRouter()
 
     const handleHeal = async () => {
         if (!confirm("Czy na pewno chcesz uruchomić procedurę 'Czysta Kartoteka' dla firmy Orlen? Usunie to duplikaty bez NIP-u (zostawiając tylko te z NIP).")) return
@@ -37,6 +39,7 @@ export function DatabaseHealer() {
             const result = await syncAllContractorsToPrisma()
             if (result.success) {
                 toast.success(result.message)
+                router.refresh()
             } else {
                 toast.error(result.error)
             }
@@ -77,6 +80,18 @@ export function DatabaseHealer() {
                     <RefreshCw className="w-3 h-3 mr-1" />
                 )}
                 Sync SQL (Prisma)
+            </Button>
+
+            <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={() => {
+                    toast.info("Wymuszam twarde przeładowanie UI...");
+                    window.location.reload();
+                }}
+                className="text-[10px] uppercase font-black tracking-widest h-8 px-4 shadow-lg animate-pulse"
+            >
+                Emergency Refresh
             </Button>
         </div>
     )

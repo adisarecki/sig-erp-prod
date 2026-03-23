@@ -200,7 +200,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                     <SelectTrigger className="h-11 bg-white" onPointerDown={(e) => e.stopPropagation()}>
                                         <SelectValue />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="max-h-[70vh] overflow-y-auto">
                                         <SelectItem value="0.23">23%</SelectItem>
                                         <SelectItem value="0.08">8%</SelectItem>
                                         <SelectItem value="0.00">0%</SelectItem>
@@ -254,7 +254,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                             <SelectTrigger className="h-12 border-slate-200" onPointerDown={(e) => e.stopPropagation()}>
                                                 <SelectValue placeholder="Wybierz projekt" />
                                             </SelectTrigger>
-                                            <SelectContent className="max-h-60 overflow-y-auto">
+                                            <SelectContent className="max-h-[70vh] overflow-y-auto">
                                                 <SelectItem value="GENERAL" className="font-semibold text-blue-700 bg-blue-50 focus:bg-blue-100">
                                                     🏢 [Koszty Ogólne Firmy]
                                                 </SelectItem>
@@ -278,7 +278,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                 <SelectTrigger className="h-12 border-slate-200" onPointerDown={(e) => e.stopPropagation()}>
                                     <SelectValue placeholder="Wybierz kategorię" />
                                 </SelectTrigger>
-                                <SelectContent className="max-h-60 overflow-y-auto">
+                                <SelectContent className="max-h-[70vh] overflow-y-auto">
                                     {(!selectedProjectId || selectedProjectId === "GENERAL" || selectedProjectId === "INTERNAL")
                                         ? COST_CATEGORIES.INDIRECT.map(cat => (
                                             <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>

@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic"
 import { TooltipHelp } from "@/components/ui/TooltipHelp"
 import { AddContractorModal } from "@/components/crm/AddContractorModal"
-import { InteractiveCRMList } from "@/components/crm/InteractiveCRMList"
+import { CRMContainer } from "@/components/crm/CRMContainer"
 import { DatabaseHealer } from "@/components/crm/DatabaseHealer"
 import { Upload } from "lucide-react"
 import Link from "next/link"
@@ -40,7 +40,7 @@ export default async function CRMPage() {
                 </div>
             </div>
 
-            <InteractiveCRMList contractors={contractors} />
+            <CRMContainer contractors={contractors} />
         </div>
     );
 }

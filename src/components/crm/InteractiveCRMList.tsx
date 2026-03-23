@@ -1,18 +1,18 @@
 "use client"
 
 import { useState } from "react"
-import { Trash, Layers } from "lucide-react"
+import { Trash, Layers, Trash2 } from "lucide-react"
 import { FloatingActionBar } from "@/components/ui/FloatingActionBar"
 import { EditContractorModal } from "@/components/crm/EditContractorModal"
 import { deleteContractor, deleteSelectedContractors } from "@/app/actions/crm"
 import { MergeContractorsDialog } from "@/components/crm/MergeContractorsDialog"
-import { Trash2 } from "lucide-react"
 
 interface Invoice {
     id: string;
     amountGross: number;
     dueDate: Date;
     type: string;
+    status: string;
 }
 
 interface Contractor {
@@ -32,7 +32,6 @@ interface InteractiveCRMListProps {
 
 export function InteractiveCRMList({ contractors }: InteractiveCRMListProps) {
     const [selectedIds, setSelectedIds] = useState<string[]>([])
-    const now = new Date()
 
     const toggleSelection = (id: string) => {
         setSelectedIds(prev =>
@@ -71,104 +70,116 @@ export function InteractiveCRMList({ contractors }: InteractiveCRMListProps) {
         }
     }
 
-    if (contractors.length === 0) {
-        return (
-            <div className="bg-white rounded-xl border shadow-sm p-8 text-center text-slate-500 font-medium italic">
-                Brak zarejestrowanych firm. Dodaj pierwszą firmę, aby rozpocząć współpracę.
-            </div>
-        )
-    }
-
     return (
-        <div className="bg-white rounded-xl border shadow-sm overflow-hidden relative">
-            <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3 flex items-center gap-4">
-                <input
-                    type="checkbox"
-                    className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                    checked={selectedIds.length === contractors.length && contractors.length > 0}
-                    onChange={toggleAll}
-                />
-                <span className="text-sm font-semibold text-slate-600">
-                    Zaznacz wszystkich
-                </span>
-            </div>
+        <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden relative">
+                <div className="border-b border-slate-100 bg-slate-50/50 px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <input
+                            type="checkbox"
+                            className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            checked={selectedIds.length === contractors.length && contractors.length > 0}
+                            onChange={toggleAll}
+                        />
+                        <span className="text-sm font-bold text-slate-600 uppercase tracking-tighter">
+                            Zaznacz wszystkich ({contractors.length})
+                        </span>
+                    </div>
+                    {/* VERSION TAG FOR DEBUGGING */}
+                    <span className="text-[9px] font-mono text-slate-300">V.018-RESCUE-ACTIVE</span>
+                </div>
 
-            <div className="divide-y divide-slate-100">
-                {contractors.map((contractor) => {
-                    const invoices = contractor.invoices || []
-                    const overdueInvoices = invoices.filter(inv => inv.type === 'SPRZEDAŻ' && new Date(inv.dueDate) < now)
-                    const totalOverdue = overdueInvoices.reduce((sum, inv) => sum + inv.amountGross, 0)
+                <div className="divide-y divide-slate-100">
+                    {contractors.length === 0 ? (
+                        <div className="p-20 text-center text-slate-400 font-medium italic">
+                            Brak kontrahentów do wyświetlenia.
+                        </div>
+                    ) : (
+                        contractors.map((contractor) => {
+                            const invoices = contractor.invoices || []
+                            // STRICT LOGIC: Formula: Debt = SUM(Invoice.amountGross) WHERE Invoice.status NOT IN ('PAID', 'REVERSED')
+                            const unpaidInvoices = invoices.filter(inv => 
+                                inv.status !== 'PAID' && 
+                                inv.status !== 'REVERSED'
+                            )
+                            const totalDebt = unpaidInvoices.reduce((sum, inv) => sum + inv.amountGross, 0)
 
-                    return (
-                        <div 
-                            key={contractor.id} 
-                            className={`p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center hover:bg-slate-50 transition-colors cursor-pointer ${selectedIds.includes(contractor.id) ? 'bg-blue-50/50' : ''}`}
-                            onClick={(e) => {
-                                // Prevent checkbox toggling when clicking exactly on the edit modal trigger
-                                if ((e.target as HTMLElement).closest('button[data-edit="true"]')) return;
-                                toggleSelection(contractor.id);
-                            }}
-                        >
-                            <div className="flex items-start gap-4 w-full">
-                                <input
-                                    type="checkbox"
-                                    className="w-5 h-5 mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                    checked={selectedIds.includes(contractor.id)}
-                                    onChange={() => toggleSelection(contractor.id)}
-                                    onClick={(e) => e.stopPropagation()}
-                                />
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-3">
-                                        <h2 className="text-lg font-bold text-slate-900">{contractor.name}</h2>
-                                        {totalOverdue > 0 && (
-                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200 uppercase tracking-wider animate-pulse">
-                                                ZALEGA: {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(totalOverdue)}
-                                            </span>
-                                        )}
+                            return (
+                                <div
+                                    key={contractor.id}
+                                    className={`p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center hover:bg-slate-50/50 transition-all cursor-pointer ${selectedIds.includes(contractor.id) ? 'bg-blue-50/30' : ''}`}
+                                    onClick={(e) => {
+                                        if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return;
+                                        toggleSelection(contractor.id);
+                                    }}
+                                >
+                                    <div className="flex items-start gap-4 flex-1">
+                                        <input
+                                            type="checkbox"
+                                            className="w-5 h-5 mt-1.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                            checked={selectedIds.includes(contractor.id)}
+                                            onChange={() => toggleSelection(contractor.id)}
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-3 flex-wrap">
+                                                <h2 className="text-lg font-extrabold text-slate-900 truncate">
+                                                    {contractor.name}
+                                                </h2>
+                                                
+                                                {/* TYPE BADGE */}
+                                                <span className={`px-2 py-0.5 text-[10px] font-black rounded border uppercase tracking-wider ${
+                                                    contractor.type === 'INWESTOR' 
+                                                    ? 'bg-blue-50 text-blue-700 border-blue-200' 
+                                                    : 'bg-orange-50 text-orange-700 border-orange-200'
+                                                }`}>
+                                                    {contractor.type}
+                                                </span>
+
+                                                {/* DEBT BADGE - TOTAL DESTROY IF 0 */}
+                                                {totalDebt > 0 && (
+                                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black bg-rose-100 text-rose-700 border border-rose-300 uppercase tracking-widest animate-pulse shadow-sm">
+                                                        ZALEGA: {new Intl.PluralRules('pl-PL').select(totalDebt) && new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(totalDebt)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-slate-500 text-sm mt-0.5">
+                                                {contractor.nip ? `NIP: ${contractor.nip}` : "Brak NIP"} • {contractor.address || "Brak adresu"}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <p className="text-slate-500 text-sm mt-1">
-                                        {contractor.nip ? `NIP: ${contractor.nip}` : "Brak NIP"} • {contractor.address || "Brak adresu"}
-                                    </p>
-                                </div>
-                                <div className="flex items-center gap-3 pl-4">
-                                    <div className="flex items-center gap-2">
-                                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md border ${
-                                            contractor.type === 'INWESTOR' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                                            contractor.type === 'DOSTAWCA' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                                            'bg-slate-50 text-slate-700 border-slate-100'
+
+                                    <div className="flex items-center gap-4 mt-4 sm:mt-0 pl-11 sm:pl-0">
+                                        <span className={`px-3 py-1 text-[10px] font-black rounded-full border uppercase tracking-widest ${
+                                            contractor.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                            'bg-slate-100 text-slate-600 border-slate-200'
                                         }`}>
-                                            {contractor.type}
-                                        </span>
-                                        <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${contractor.status === 'ACTIVE' ? 'bg-green-50 text-green-700 border-green-200' :
-                                            contractor.status === 'IN_REVIEW' ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                                                'bg-slate-100 text-slate-700 border-slate-200'
-                                            }`}>
                                             {contractor.status}
                                         </span>
-                                    </div>
-                                    <div data-edit="true" className="flex items-center gap-2">
-                                        <EditContractorModal contractor={{
-                                            id: contractor.id,
-                                            name: contractor.name,
-                                            nip: contractor.nip,
-                                            address: contractor.address,
-                                            type: contractor.type || "INWESTOR",
-                                            status: contractor.status,
-                                            objects: contractor.objects || []
-                                        }} />
-                                        <button
-                                            onClick={() => handleDeleteSingle(contractor.id, contractor.name)}
-                                            className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-all hover:scale-110"
-                                            title="Usuń kontrahenta"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        
+                                        <div className="flex items-center gap-1">
+                                            <EditContractorModal contractor={{
+                                                ...contractor,
+                                                type: contractor.type || "INWESTOR",
+                                                objects: contractor.objects || []
+                                            }} />
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteSingle(contractor.id, contractor.name);
+                                                }}
+                                                className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                                title="Usuń na stałe"
+                                            >
+                                                <Trash2 className="w-5 h-5" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    )
-                })}
+                            )
+                        })
+                    )}
+                </div>
             </div>
 
             <FloatingActionBar
@@ -183,17 +194,15 @@ export function InteractiveCRMList({ contractors }: InteractiveCRMListProps) {
                     }
                 ]}
             />
-            
-            {/* Ukryty trigger Mergera uruchamiany z poziomu paska bo potrzebuje modala */}
+
             {selectedIds.length > 1 && (
-                <MergeContractorsDialog 
+                <MergeContractorsDialog
                     selectedIds={selectedIds}
                     contractorsList={contractors}
                     onSuccess={() => setSelectedIds([])}
                     triggerElement={
                         <div className="fixed bottom-8 left-[calc(50%+190px)] -translate-x-1/2 z-50">
-                            {/* Dopina się wizualnie do istniejącego paska */}
-                            <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-2xl transition-all h-full">
+                            <button className="flex items-center gap-2 px-6 py-3 text-xs font-black uppercase tracking-widest rounded-full bg-slate-900 hover:bg-slate-800 text-white shadow-2xl transition-all h-full scale-110 active:scale-100">
                                 <Layers className="w-4 h-4" /> Scal Duplikaty
                             </button>
                         </div>

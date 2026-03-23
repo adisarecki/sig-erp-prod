@@ -80,29 +80,24 @@ export async function cleanupDuplicateContractors() {
 }
 
 /**
- * Synchronizuje wszystkich kontrahentów z Firestore do Prismy.
- * Naprawia "dziury" w bazie relacyjnej.
+ * Synchronizuje wszystkich kontrahentów oraz ich faktury z Firestore do Prismy.
+ * Naprawia "dziury" w bazie relacyjnej i aktualizuje statusy płatności.
  */
 export async function syncAllContractorsToPrisma() {
     try {
         const tenantId = await getCurrentTenantId()
         const adminDb = getAdminDb()
 
-        console.log(`[SYNC] Starting full sync for tenant: ${tenantId}`)
+        console.log(`[SYNC] Starting full master sync for tenant: ${tenantId}`)
 
-        const snapshot = await adminDb.collection("contractors")
+        // 1. Synchronizacja Kontrahentów
+        const contractorSnap = await adminDb.collection("contractors")
             .where("tenantId", "==", tenantId)
             .get()
 
-        if (snapshot.empty) {
-            return { success: true, message: "Brak kontrahentów w Firestore do synchronizacji." }
-        }
-
-        let syncCount = 0
-        for (const doc of snapshot.docs) {
+        let contractorCount = 0
+        for (const doc of contractorSnap.docs) {
             const d = doc.data()
-            
-            // Upsert do Prismy
             await (prisma.contractor.upsert as any)({
                 where: { id: doc.id },
                 update: {
@@ -122,14 +117,35 @@ export async function syncAllContractorsToPrisma() {
                     status: d.status || "ACTIVE"
                 }
             })
-            syncCount++
+            contractorCount++
+        }
+
+        // 2. Synchronizacja Statusów Faktur (Krytyczne dla Sald)
+        const invoiceSnap = await adminDb.collection("invoices")
+            .where("tenantId", "==", tenantId)
+            .get()
+
+        let invoiceCount = 0
+        for (const doc of invoiceSnap.docs) {
+            const d = doc.data()
+            // Tylko update statusu, aby nie nadpisać relacji jeśli istnieją w Prisma
+            await (prisma.invoice.updateMany as any)({
+                where: { id: doc.id, tenantId },
+                data: {
+                    status: d.status,
+                    amountGross: d.amountGross || 0,
+                    dueDate: d.dueDate ? new Date(d.dueDate) : undefined
+                }
+            })
+            invoiceCount++
         }
 
         revalidatePath("/crm")
-        return { success: true, message: `Zsynchronizowano pomyślnie ${syncCount} rekordów z Firestore do SQL.` }
+        revalidatePath("/finance")
+        return { success: true, message: `Master Sync zakończony. Zsynchronizowano ${contractorCount} firm i ${invoiceCount} statusów faktur.` }
 
     } catch (error: any) {
-        console.error("[SYNC_ERROR]", error)
-        return { success: false, error: error.message || "Błąd podczas synchronizacji bazy." }
+        console.error("[MASTER_SYNC_ERROR]", error)
+        return { success: false, error: error.message || "Błąd podczas Master Sync." }
     }
 }

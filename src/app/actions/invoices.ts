@@ -119,7 +119,7 @@ export async function addIncomeInvoice(formData: FormData) {
                         name: newContractorName,
                         nip: newContractorNip || null,
                         address: newContractorAddress || null,
-                        type: "KLIENT",
+                        type: "INWESTOR",
                         status: "ACTIVE",
                         createdAt: new Date().toISOString()
                     })
@@ -202,7 +202,7 @@ export async function addIncomeInvoice(formData: FormData) {
                             name: newContractorName,
                             nip: newContractorNip || null,
                             address: newContractorAddress || null,
-                            type: "KLIENT",
+                            type: "INWESTOR",
                             status: "ACTIVE"
                         }
                     })
@@ -406,7 +406,7 @@ export async function addCostInvoice(formData: FormData) {
                         name: newContractorName,
                         nip: newContractorNip || null,
                         address: newContractorAddress || null,
-                        type: (newContractorName.toLowerCase().includes("hurtownia") || newContractorName.toLowerCase().includes("sklep")) ? "HURTOWNIA" : "DOSTAWCA",
+                        type: "DOSTAWCA",
                         status: "ACTIVE",
                         createdAt: new Date().toISOString()
                     })
@@ -506,7 +506,7 @@ export async function addCostInvoice(formData: FormData) {
                             name: newContractorName,
                             nip: newContractorNip || null,
                             address: newContractorAddress || null,
-                            type: (newContractorName.toLowerCase().includes("hurtownia") || newContractorName.toLowerCase().includes("sklep")) ? "HURTOWNIA" : "DOSTAWCA",
+                            type: "DOSTAWCA",
                             status: "ACTIVE"
                         }
                     })
