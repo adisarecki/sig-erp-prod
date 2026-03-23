@@ -23,6 +23,9 @@ export async function POST(request: NextRequest) {
         // Zabezpieczenie innych pól przed byciem "null" dla spokoju Zoda
         if (!body.invoiceNumber) body.invoiceNumber = "";
         if (!body.nip) body.nip = "";
+        if (body.vatRate !== undefined && body.vatRate !== null) {
+            body.vatRate = String(body.vatRate);
+        }
 
     } catch {
         return NextResponse.json({ error: "Nieprawidłowy format JSON." }, { status: 400 })

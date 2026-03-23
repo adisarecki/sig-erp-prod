@@ -74,6 +74,7 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - **Formuła Real Debt**: Saldo kontrahenta bazuje na `SUM(amountGross) WHERE status NOT IN ('PAID', 'REVERSED')`. Badge "ZALEGA" znika z DOM przy bilansie 0.
 - **Poprawa Modali**: Zaimplementowano `max-h-[70vh]` dla list rozwijanych (Select/Dropdown).
 - **Skaner OCR Gemini 3 Flash Preview**: Wdrożono inteligentne skanowanie faktur z automatycznym mapowaniem kontrahentów (Smart Match) i blokadą duplikatów (Anti-Duplicate Shield).
+- **Naprawa Typów OCR & Prisma Config**: Rozwiązano problem walidacji `vatRate` (number/string) i zmigrowano konfigurację Prisma do `prisma.config.ts`.
 
 ---
 *Dla programistów: Techniczna dokumentacja DNA znajduje się v [docs/AI_look.md](./docs/AI_look.md)*

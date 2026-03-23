@@ -91,7 +91,7 @@ export const ocrDraftSchema = z.object({
     /**
      * VAT rate as string. Example: "0.23"
      */
-    vatRate: z
+    vatRate: z.coerce
         .string()
         .regex(/^[01](\.\d{1,2})?$/, "Stawka VAT musi być stringiem w formacie '0.23'")
         .optional(),
