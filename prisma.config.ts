@@ -1,5 +1,5 @@
-export default {
-  seed: {
-    command: "ts-node prisma/seed.ts",
-  },
-};
+import { defineConfig } from '@prisma/config';
+
+export default defineConfig({
+  schema: './prisma/schema.prisma',
+});
