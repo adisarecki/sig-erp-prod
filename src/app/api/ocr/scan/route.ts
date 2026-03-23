@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { initFirebaseAdmin } from "@/lib/firebaseAdmin";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { getGeminiModel } from "@/lib/gemini";
 
 // Inicjalizacja dla OCR
 initFirebaseAdmin();
@@ -26,54 +26,67 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: false, error: "Brak klucza API Gemini w systemie." }, { status: 500 });
         }
 
-        // Zamieniamy plik na bufor, a bufor na base64 - tak jak lubi Gemini
+        // Zamieniamy plik na bufor, a bufor na base64
         const buffer = Buffer.from(await file.arrayBuffer());
         const base64Data = buffer.toString("base64");
 
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        // --- UNIFIED GENAI ENGINE (Vector 021) ---
+        const model = getGeminiModel();
 
-        console.log("[OCR] Wysyłanie natywnego pliku do Gemini...");
+        console.log(`[OCR] Wysyłanie do Gemini (Model: gemini-3-flash)...`);
 
         const result = await model.generateContent([
-            `Jesteś ekspertem księgowym. Wyciągnij dane z załączonej faktury. Zwróć WYŁĄCZNIE czysty JSON, bez znaczników markdown.
+            `Jesteś ekspertem księgowym. Wyciągnij dane z załączonej faktury. Zwróć WYŁĄCZNIE czysty JSON.
             Struktura:
             {
-                "nip": "10 cyfr bez myślników (np. 9542751368)",
-                "parsedName": "Pełna nazwa sprzedawcy",
+                "nip": "10 cyfr bez myślników",
+                "parsedName": "Nazwa sprzedawcy",
                 "issueDate": "YYYY-MM-DD",
                 "dueDate": "YYYY-MM-DD lub null",
-                "netAmount": "kwota netto z kropką",
-                "grossAmount": "kwota brutto z kropką",
-                "vatAmount": "kwota VAT z kropką",
+                "netAmount": "kwota netto",
+                "grossAmount": "kwota brutto",
+                "vatAmount": "kwota VAT",
                 "invoiceNumber": "numer faktury",
                 "type": "COST",
-                "vatRate": "stawka vat jako ułamek (np. 0.23)",
-                "ocrConfidence": 0.99
+                "vatRate": "ułamek np. 0.23"
             }`,
             {
                 inlineData: {
                     data: base64Data,
-                    mimeType: file.type // "application/pdf" lub "image/jpeg"
+                    mimeType: file.type
                 }
             }
         ]);
 
-        let responseText = result.response.text().trim();
-
-        // Czasami AI lubi dodać ```json na początku. Usuwamy to.
-        responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
-
-        const parsedData = JSON.parse(responseText);
-        console.log("[OCR] Sukces! Wykryto NIP:", parsedData.nip);
-
-        return NextResponse.json({ success: true, data: parsedData });
+        const responseText = result.response.text().trim();
+        const cleanedJson = responseText.replace(/```json\n?|\n?```/g, "").trim();
+        
+        try {
+            const parsedData = JSON.parse(cleanedJson);
+            console.log("[OCR] Sukces! Wykryto NIP:", parsedData.nip);
+            return NextResponse.json({ success: true, data: parsedData });
+        } catch (jsonErr) {
+            console.error("[OCR JSON ERROR]", cleanedJson);
+            return NextResponse.json({ 
+                success: false, 
+                error: "AI zwróciło niepoprawny format danych. Spróbuj ponownie lub wprowadź dane ręcznie." 
+            }, { status: 422 });
+        }
 
     } catch (error: any) {
-        console.error("[OCR API ERROR]:", error);
+        console.error("[OCR API CRITICAL ERROR]:", error);
+        
+        // Specyficzna obsługa modelu 404
+        if (error.message?.includes("404") || error.message?.includes("not found")) {
+            return NextResponse.json({
+                success: false,
+                error: "Błąd konfiguracji modelu AI (Gemini 3 Flash). Skontaktuj się z administratorem lub spróbuj później."
+            }, { status: 503 });
+        }
+
         return NextResponse.json({
             success: false,
-            error: error.message || "Błąd wewnętrzny serwera."
+            error: error.message || "Błąd wewnętrzny serwera OCR."
         }, { status: 500 });
     }
 }
