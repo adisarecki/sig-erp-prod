@@ -426,43 +426,43 @@ export async function deleteSelectedContractors(ids: string[]) {
 }
 
 /**
- * 5. POBIERANIE
+ * 5. POBIERANIE (Prisma-First for Reporting & Consistency)
  */
 export async function getContractors() {
-    const adminDb = getAdminDb()
-    const tenantId = await getCurrentTenantId()
-    const snapshot = await adminDb.collection("contractors")
-        .where("tenantId", "==", tenantId)
-        .get()
+    try {
+        const tenantId = await getCurrentTenantId()
+        
+        const contractors = await prisma.contractor.findMany({
+            where: { tenantId },
+            include: {
+                objects: {
+                    select: { id: true, name: true, address: true }
+                },
+                invoices: {
+                    select: { 
+                        id: true, 
+                        amountGross: true, 
+                        dueDate: true, 
+                        type: true,
+                        status: true 
+                    }
+                }
+            },
+            orderBy: { name: 'asc' }
+        })
 
-    const contractors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
-
-    // Pobierz obiekty TYLKO dla kontrahentów tego tenanta
-    const contractorIds = contractors.map(c => c.id)
-    if (contractorIds.length === 0) return []
-
-    // Firestore 'in' has a limit of 30 items
-    const chunkSize = 30
-    const chunks = []
-    for (let i = 0; i < contractorIds.length; i += chunkSize) {
-        chunks.push(contractorIds.slice(i, i + chunkSize))
-    }
-
-    const objectPromises = chunks.map(chunk => 
-        adminDb.collection("objects")
-            .where("contractorId", "in", chunk)
-            .get()
-    )
-    
-    const snaps = await Promise.all(objectPromises)
-    const allObjects = snaps.flatMap(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() as any })))
-
-    return contractors
-        .map(c => ({
+        // Map do formatu oczekiwanego przez frontend (obsługa Decimal -> number)
+        return contractors.map(c => ({
             ...c,
-            objects: allObjects.filter(o => o.contractorId === c.id)
+            invoices: c.invoices.map(inv => ({
+                ...inv,
+                amountGross: Number(inv.amountGross)
+            }))
         }))
-        .sort((a, b) => a.name.localeCompare(b.name))
+    } catch (error) {
+        console.error("[CRM_GET_CONTRACTORS_ERROR]", error)
+        return []
+    }
 }
 
 /**

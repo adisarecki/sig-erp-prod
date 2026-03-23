@@ -71,10 +71,65 @@ export async function cleanupDuplicateContractors() {
         }
 
         revalidatePath("/crm")
-        return { success: true, message: `Oczyszczono ${idsToDelete.length} rekordów.` }
+        return { success: true, message: `Oczyszczono ${idsToDelete.length} rekordów Orlenu.` }
 
     } catch (error: any) {
         console.error("[HEALER_ERROR]", error)
         return { success: false, error: error.message || "Błąd podczas operacji leczenia bazy." }
+    }
+}
+
+/**
+ * Synchronizuje wszystkich kontrahentów z Firestore do Prismy.
+ * Naprawia "dziury" w bazie relacyjnej.
+ */
+export async function syncAllContractorsToPrisma() {
+    try {
+        const tenantId = await getCurrentTenantId()
+        const adminDb = getAdminDb()
+
+        console.log(`[SYNC] Starting full sync for tenant: ${tenantId}`)
+
+        const snapshot = await adminDb.collection("contractors")
+            .where("tenantId", "==", tenantId)
+            .get()
+
+        if (snapshot.empty) {
+            return { success: true, message: "Brak kontrahentów w Firestore do synchronizacji." }
+        }
+
+        let syncCount = 0
+        for (const doc of snapshot.docs) {
+            const d = doc.data()
+            
+            // Upsert do Prismy
+            await (prisma.contractor.upsert as any)({
+                where: { id: doc.id },
+                update: {
+                    name: d.name,
+                    nip: d.nip || null,
+                    address: d.address || null,
+                    type: d.type || "DOSTAWCA",
+                    status: d.status || "ACTIVE"
+                },
+                create: {
+                    id: doc.id,
+                    tenantId,
+                    name: d.name,
+                    nip: d.nip || null,
+                    address: d.address || null,
+                    type: d.type || "DOSTAWCA",
+                    status: d.status || "ACTIVE"
+                }
+            })
+            syncCount++
+        }
+
+        revalidatePath("/crm")
+        return { success: true, message: `Zsynchronizowano pomyślnie ${syncCount} rekordów z Firestore do SQL.` }
+
+    } catch (error: any) {
+        console.error("[SYNC_ERROR]", error)
+        return { success: false, error: error.message || "Błąd podczas synchronizacji bazy." }
     }
 }

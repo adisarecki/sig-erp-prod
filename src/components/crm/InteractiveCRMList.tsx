@@ -131,12 +131,21 @@ export function InteractiveCRMList({ contractors }: InteractiveCRMListProps) {
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-3 pl-4">
-                                    <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${contractor.status === 'ACTIVE' ? 'bg-green-50 text-green-700 border-green-200' :
-                                        contractor.status === 'IN_REVIEW' ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                                            'bg-slate-100 text-slate-700 border-slate-200'
+                                    <div className="flex items-center gap-2">
+                                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md border ${
+                                            contractor.type === 'INWESTOR' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                                            contractor.type === 'DOSTAWCA' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                            'bg-slate-50 text-slate-700 border-slate-100'
                                         }`}>
-                                        {contractor.status}
-                                    </span>
+                                            {contractor.type}
+                                        </span>
+                                        <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${contractor.status === 'ACTIVE' ? 'bg-green-50 text-green-700 border-green-200' :
+                                            contractor.status === 'IN_REVIEW' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                                                'bg-slate-100 text-slate-700 border-slate-200'
+                                            }`}>
+                                            {contractor.status}
+                                        </span>
+                                    </div>
                                     <div data-edit="true" className="flex items-center gap-2">
                                         <EditContractorModal contractor={{
                                             id: contractor.id,

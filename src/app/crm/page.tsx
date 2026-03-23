@@ -10,22 +10,7 @@ import { getAdminDb } from "@/lib/firebaseAdmin"
 import { getCurrentTenantId } from "@/lib/tenant"
 
 export default async function CRMPage() {
-    const tenantId = await getCurrentTenantId()
-    const rawContractors = (await getContractors()) as any[]
-    
-    // Fetch related invoices to avoid client-side crash
-    const adminDb = getAdminDb()
-    const invoicesSnap = await adminDb.collection("invoices")
-        .where("tenantId", "==", tenantId)
-        .get()
-    
-    const allInvoices = invoicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }))
-
-    // Merge invoices into contractors
-    const contractors = rawContractors.map(c => ({
-        ...c,
-        invoices: allInvoices.filter(inv => inv.contractorId === c.id)
-    }))
+    const contractors = (await getContractors()) as any[]
 
     return (
         <div className="space-y-6">
