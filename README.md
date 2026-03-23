@@ -42,17 +42,14 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 
 ---
 
-## 📝 Changelog & Status Testów
-
-- [x] **Import PKO BP**: Stabilny.
-- [x] **OCR Faktur**: System rozpoznaje NIP, kwoty i daty.
-- [x] **General Costs**: Pełna separacja kosztów zarządu od projektowych.
-- [x] **Dual-Sync**: Dane są bezpieczne w dwóch niezależnych chmurach (Google + Neon).
-- [x] **Dashboard Logic Refactor**: Poprawa modelu obliczeniowego (Net Profits, 19% Tax Reserve od Netto) - Vector 011.
-- [x] **API Proxy Architecture**: Wewnętrzne Route Handlery (Next.js) odpytują zewnętrzne mikroserwisy (np. Net-Pocket) pomijając limitacje CORS i chroniąc płynność UI przed awariami obcych integracji (Vector 010).
+### 🛠️ Bug Fix #012: Stabilizacja Kontrahentów & NIP
+- **Unikalność NIP per Tenant**: Zmieniono schemat bazy danych Prisma, aby umożliwić wielu osobom (tenantom) posiadanie faktur od tego samego dostawcy (np. ORLEN S.A.). NIP jest teraz unikalny w obrębie jednej firmy, a nie globalnie.
+- **Wzorzec Find-or-Create**: Rejestracja kosztów i przychodów wykorzystuje teraz bezpieczny wzorzec wyszukiwania kontrahenta przed zapisem, co eliminuje błędy `Unique constraint failed`.
+- **Koszty Ogólne**: Faktury bez przypisanego projektu są teraz poprawnie klasyfikowane jako `GENERAL_COST` w obu bazach danych (Dual-Sync).
+- **Opcjonalność Projektu**: Model Faktury wspiera teraz brak przypisania do projektu (projectId: optional), co jest standardem dla kosztów administracyjnych.
 
 ---
-*Dla programistów: Techniczna dokumentacja DNA znajduje się w [docs/AI_look.md](./docs/AI_look.md)*
+*Dla programistów: Techniczna dokumentacja DNA znajduje się v [docs/AI_look.md](./docs/AI_look.md)*
 
 ---
 *Vercel & Firestore Ready 🚀*

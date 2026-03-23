@@ -1,97 +1,105 @@
 # Sig ERP – AI Master Context (AI_look.md)
 
-Ten plik jest przeznaczony wyłącznie dla modeli LLM. Zawiera "DNA" techniczne systemu, mapy relacji i rejestr błędów, aby zapewnić 100% synchronizacji kontekstu.
+Ten plik jest "DNA" technologicznym i biznesowym systemu SIG ERP. Jest przeznaczony wyłącznie dla modeli LLM, aby zapewnić 100% zrozumienia architektury, logiki finansowej i standardów kodowania bez konieczności ponownego researchu całego codebase.
 
 ---
 
-## 🏗️ 1. Architektura Techniczna (Next.js 15)
+## 🏗️ 1. Architektura Systemu (The "How")
 
-System zbudowany w architekturze **Server Components (RSC)** z wykorzystaniem:
-- **Frontend**: Next.js 15 (App Router), Tailwind CSS (Vanilla Logic).
-- **Backend**: Server Actions (logic layer), Route Handlers (OCR/API).
+System zbudowany w oparciu o **RSC (React Server Components)** i architekturę **Next.js 15 (App Router)**.
+
+### Tech Stack:
+- **Core**: Next.js 15.2.8, React 19, Tailwind CSS 4.
 - **Persistence (Dual-Sync)**:
-  - **Cloud Firestore**: Primary SSoT dla danych operacyjnych (NoSQL, szybki odczyt, dynamiczne schematy).
-  - **PostgreSQL (Neon) + Prisma**: Secondary Storage (Relacyjne raportowanie, analityka, backup).
+  - **Cloud Firestore**: Primary SSoT dla szybkości i elastyczności (NoSQL).
+  - **PostgreSQL (Neon) + Prisma**: Secondary SSoT dla raportowania relacyjnego i analityki.
 - **Auth**: Firebase Auth (Admin SDK na backendzie, Client SDK na frontendzie).
+- **AI**: Google Gemini 2.0 Flash (OCR faktur i analiza danych).
+- **Finanse**: `decimal.js` dla precyzyjnych obliczeń pieniężnych.
+
+### 🔴 Build-Safe Firebase Admin
+Inicjalizacja Admin SDK w `src/lib/firebaseAdmin.ts` jest **leniwa (lazy initialization)**. Ma to na celu zapobieganie crashom podczas buildu na Vercelu, gdy zmienne środowiskowe nie są jeszcze dostępne. Zawsze używaj getterów: `getAdminDb()`, `getAdminAuth()`, `getAdminStorage()`.
 
 ---
 
-## 💎 2. SSoT (Single Source of Truth) dla Transakcji
+## 🔁 2. Mechanizm Dual-Sync (Persistence Strategy)
 
-Transakcja jest atomowym rekordem pieniądza. Spójność wymuszana jest przez:
-1. **Atrybut `tenantId`**: Całkowita izolacja danych między firmami.
-2. **Atrybut `classification`**:
-   - `PROJECT_COST`: Koszt powiązany z konkretnym ID projektu.
-   - `GENERAL_COST`: Koszt administracyjny/ogólny (bez przypisanego projektu).
-3. **Logika Fallback**: Każdy brak `projectId` przy koszcie -> auto-klasyfikacja jako `GENERAL_COST`.
-4. **Relacja kaskadowa**: Usunięcie projektu -> kaskadowe usunięcie wszystkich jego transakcji (Firestore & Prisma).
+Zapis danych odbywa się w modelu **Firestore-First with Manual Rollback**:
+1. Server Action inicjuje transakcję w Firestore (`adminDb.runTransaction`).
+2. Po sukcesie w Firestore, dane są zapisywane w Prisma (PostgreSQL).
+3. **Rollback**: Jeśli Prisma rzuci błąd, Server Action musi **ręcznie usunąć** rekordy z Firestore, aby zachować spójność.
+4. **Health Check**: W UI znajduje się wskaźnik spójności (`getSyncStatus`), który porównuje licznik rekordów w obu bazach.
 
 ---
 
-## 🗺️ 3. Mapa Relacji (Data Lineage)
+## 🗺️ 3. Domena i Relacje (Data Lineage)
 
 ```mermaid
 graph TD
-    Contractor["Contractor (Firma)"] -->|1:N| Object["Object (Lokalizacja/Budowa)"]
+    Tenant["Tenant (Firma użytkownika)"] -->|1:N| Contractor["Contractor (Inwestor/Dostawca)"]
+    Contractor -->|1:N| Object["Object (Budowa/Lokalizacja)"]
     Object -->|1:N| Project["Project (Zlecenie/Inwestycja)"]
-    Project -->|1:N| Transaction["Transaction (Przychód/Koszt - PROJECT_COST)"]
-    Transaction -.->|Fallback| General["GENERAL_COST (Orphan Transaction)"]
+    Project -->|1:N| Invoice["Invoice (Dokument)"]
+    Invoice -->|1:N| Transaction["Transaction (Ruch pieniądza)"]
+    Project -->|1:N| Transaction
 ```
 
-- **Contractor**: Centralny podmiot (Inwestor/Dostawca).
-- **Object**: Fizyczna lokalizacja (miejsce powstawania kosztów).
-- **Project**: Kontener logiczny (budżet, etapy).
-- **Transaction**: Ruch gotówkowy.
+### Kluczowe Zasady:
+- **TenantId**: Każdy rekord musi posiadać `tenantId` dla izolacji danych.
+- **Classification**: 
+    - `PROJECT_COST`: Koszt przypisany do konkretnego ID projektu.
+    - `GENERAL_COST`: Koszt ogólny (np. biuro, paliwo), nieposiadający ID projektu.
+    - `INTERNAL_COST`: Koszty wewnętrzne.
+- **Hierarchia**: Usunięcie Kontrahenta usuwa jego Obiekty, te usuwają Projekty itd. (Cascade).
 
 ---
 
-## 🚩 4. Aktywne Flagi i Tryby (Feature Flags)
+## 💰 4. Logika Biznesowa i Finanse
 
-- `ENABLE_TEST_DELETE`: Jeśli `true`, UI wyświetla przyciski usuwania. Weryfikowane po stronie serwera przez `NEXT_PUBLIC_ENABLE_TEST_DELETE`.
-- `FORCE_DYNAMIC`: System wymusza `force-dynamic` na wszystkich stronach odczytu danych, aby zapobiec starzeniu się cache'u Firestore.
+### Modele Obliczeń (Profit First):
+System implementuje strategię bezpiecznych wypłat:
+1. `Real Revenue = Revenue Gross - VAT`
+2. `Operating Profit = Real Revenue - Costs Net`
+3. `Safe Withdrawal = Operating Profit - Tax Reserve (19%)`
 
----
+### Standard Ledger (Append-Only):
+- Wszystkie transakcje są **niezmienne (Immutable)** po wyjściu ze statusu `DRAFT`.
+- **Reversal Pattern**: Błędną transakcję koryguje się poprzez stworzenie nowej o przeciwnym znaku (negacja kwoty) i powiązanie jej polem `reversalOf`.
 
-### Monitorowanie Spójności (Health Check)
-Wdrożono system "Licznika Spójności" (Dual-Sync Health Indicator) w głównym pasku nawigacyjnym. System weryfikuje w czasie rzeczywistym (co 5 minut lub przy przeładowaniu) liczbę rekordów w kluczowych kolekcjach: `Projects`, `Transactions`, `Invoices`.
-- **Status 🟢**: Pełna synchronizacja 1:1 między Firestore (Operational) a Prisma (Analytical).
-- **Status 🔴**: Rozbieżność danych. Wymaga interwencji i sprawdzenia logów pod kątem "Dual-Sync Drift".
-- **Metoda**: Akcja serwerowa `getSyncStatus` wykonuje zapytania `.count()` na obu warstwach bazodanowych dla aktywnego `tenantId`.
-
-### Słownik Kategorii Finansowych
-Wdrożono dynamiczny system podziału kategorii kosztów oparty na relacji z projektami:
-- **DIRECT (Koszty Bezpośrednie):** Dotyczą konkretnego projektu budowlanego/wykonawczego (np. Materiały, Usługi obce, Wynajem sprzętu, Paliwo Projektu).
-- **INDIRECT (Koszty Pośrednie):** Koszty ogólne funkcjonowania firmy (Brak Projektu) (np. Biuro, Flota, Marketing, Księgowość/Prawne, Podatki).
-Logika zawarta jest w pliku `categories.ts` i bezpośrednio kontroluje dostępne opcje w oknie dodawania kosztu.
+### Contractor Search & NIP Upsert:
+System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Implementuje **Intelligent Upsert** – przed zapisem kosztu/przychodu system sprawdza czy NIP istnieje w Firestore oraz Prisma, aby uniknąć duplikatów i błędów unikalności. Integracja z API GUS jest obecnie wyłączona (zastąpiona wyszukiwaniem i wprowadzaniem ręcznym).
 
 ---
 
-## Log Błędów i Rozwiązań (Bug Log)
+## 🔍 5. OCR Scanner (Gemini 2.0 Workflow)
+
+1. **Upload**: PDF/Obraz trafia do `InvoiceScanner.tsx`.
+2. **Scan**: Route Handler `/api/ocr/scan` przesyła Base64 do Gemini 2.0 Flash.
+3. **JSON Contract**: Gemini zwraca ustandaryzowany JSON (NIP, kwoty, daty, nr faktury).
+4. **Draft**: Dane tworzą szkic (`ocr-draft`), który użytkownik musi zatwierdzić przed zapisem w bazach SSoT.
+
+---
+
+## 🚩 6. Wytyczne dla AI (Coding Standards)
+
+- **Zero Mutation**: Nigdy nie modyfikuj bezpośrednio obiektów systemowych (np. `File`), używaj stanów Reacta.
+- **Server Action Contract**: Zawsze zwracaj `{ success: boolean, error?: string, data?: any }`.
+- **Decimal Precision**: Do obliczeń finansowych używaj wyłącznie `Decimal`. Prisma przechowuje `Decimal(12,2)`.
+- **Dual-Sync Guard**: Każdy CRUD zmieniający stan musi operować na obu bazach danych.
+
+---
+
+## 📜 7. Log błędów i Rozwiązań (Bug Log History)
 
 | ID | Moduł | Status | Opis | Naprawa |
 |:---|:---|:---|:---|:---|
-| 001 | Finanse | FIXED | Błąd serializacji Decimal przy przesyłaniu do RSC. | Konwersja na String/Number przed wysyłką. |
-| 002 | CRM | FIXED | Contractor Data Mapping | NIP mapowany do adresu przy typie HURTOWNIA. Wdrożono heurystykę serwerową i hardening UI. |
-| 003 | Projekty | FIXED | Brak punktu wejścia transakcji | Dodano przyciski "Dodaj Przychód/Koszt" bezpośrednio na kartach projektów. |
-| 004 | Finanse | FIXED | Raw IDs in Modals & Auto-fill | Naprawiono mapowanie nazw w Selectach oraz wdrożono contextual auto-fill kontrahenta. |
-| 003 | Projekty | FIXED | 500 error przy revalidatePath po usunięciu. | Zastosowanie Safe Redirect Pattern (redirect przed renderem). |
-| B3 | Firebase | FIXED | Init Build Error | Wdrożono `getAdminDb()` (Lazy Initialization) w `@/lib/firebaseAdmin.ts`. |
-| B4 | Persistence | FIXED | Dual-Sync Drift | Wszystkie akcje (CRUD) wykonują operację w Firestore, a następnie `await prisma...` dla spójności. |
-| B5 | CRM | FIXED | Contractor Data Mapping | Nieprawidłowe mapowanie danych kontrahenta z formularza do bazy danych. |
-| Vector 004 | Skrypt OCR | ROZWIĄZANY | `gemini` object not found w InvoiceScanner | Zamiana @google/generative-ai na lokalny /api endpoint używający OpenAI, wyczyszczenie błędnych importów i logiki frontendowej Gemini.<br/>Opracowano sztywny kontrakt `SanitizedOcrDraft`. |
-| Vector 005 | Słownik Walut | WAITING | Wpisywanie ręczne kodu waluty powoduje literówki | Zamiana inputa na dropdown standardu ISO 4217, wstępna adaptacja bazy `Currency` i modalu na EUR, USD. |
-| Vector 006 | Dual-Sync Drift | ROZWIĄZANY | Błąd 500 w Firestore + Prisma podczas księgowania faktur. Częściowy zapis powodował niespójności. | Oplecenie Server Actions w instrukcje `try/catch`. W przypadku błędu na poziomie `prisma.create(...)`, rekord w Firestore jest usuwany (Simulated Rollback). Wdrożono skrypt `clean_firestore.ts` i wskaźnik Health Check. |
-| Vector 007 | Project Drift | ROZWIĄZANY | Health Check zgłosił błąd ilości projektów. Nowy projekt + obiekt istniał tylko w Firestore (API używało wyłącznie polecenia .add(), omijając Prisma DB). | Logika w `projects.ts` otrzymała wymuszone `.doc().id` na tworzenie oraz manualny zapis do Postgres. Do ratowania osieroconych danych post-mortem dodano tryb Healer w pliku `healer.ts`. |
-| Vector 008 | Błąd Finansów | ROZWIĄZANY | Odwrotna matematyka (koszty dodane do przychodów), Pusty widok `/finances`, zablokowany modal dostawców. | Poprawiono obliczanie marż, wprowadzając poprawne filtrowanie po zmiennej `type`. Podmieniono typ w transakcjach na `EXPENSE`. Optymalizowano zapytania Firestore by uniknąć braków przy złożonych indexach. Zezwolono na swobodny wybór Dostawcy w `RegisterCostModal`. Wymuszono domyślnie księgowanie z Cash-Flowem. |
-| Vector 009 | Fetcher Null Error | ROZWIĄZANY | Karta Finanse przestała sie ładować (zwracała Pusty Ekran/Null), podczas gdy panel projektów działał poprawnie. | Problem wynikał z limitu NoSQL dla operatora `in` (max 30 id) w `crm.ts`, który "wysadzał" cały rendering komponentu serwerowego na zapytaniu o obiekty. Wdrożono Chunking limitowany do 30 oraz zabezpieczenie wierzchniej warstwy UI poprzez `try/catch`. |
-| Vector 011 | Błąd Dashboardu | ROZWIĄZANY | Dashboard wyświetlał wartości Brutto jako Marżę i błędnie liczył dochodowy od stanu konta (Gross). | Przebudowano agregację danych w `page.tsx`. Zysk i Marża są teraz liczone od wartości Netto. Rezerwa podatkowa (19%) liczona jest od Net Profit (Revenue Net - Cost Net). |
-| Vector 012 | UX/UI & Memoriał | ROZWIĄZANY | Surowe ID w dokumentach, brak edukacyjnych tooltipów, moduł Finansów oparty o kasowość (tylko opłacone transakcje), utrudniający analizę Cash Flow. | Zastąpiono surowe ID czytelnymi numerami faktur/opisami. Dodano ikony Tooltip wyłuszczające definicje marży i podatku. W `/finances` wdrożono zasadę Memoriałową: pobieranie faktur i łączenie z transakcjami w jedną oś czasu z jasnymi statusami [DO ZAPŁATY], [OPÓŹNIONA], [OPŁACONA]. |
-| Vector 013 | Normalizacja & Math Dashboard | ROZWIĄZANY | Duplikaty w rejestrze (Faktura+Płatność), błędna matematyka Dashboardu (pomijanie kosztów `EXPENSE`). | Wdrożono grupowanie po `invoiceId` w `/finances`. Naprawiono check typów w `page.tsx`. Dodano komplet edukacyjnych Tooltipów. |
-| Vector 010 | CORS Blocking SSoT | ROZWIĄZANY | Bezpośredni Fetch API Net-Pocket odpalany w przeglądarce (z Client Component) wywalał awarię CORS, zabijając cały cykl zaciągania transakcji finansowych. | Wyprowadzono proxy do `route.ts`. Logika omija policy browserskie i używa Server-Side Fetch wyposażonego w fallback na AbortController (timeout 8s). W razie padu Net-Pocket serwer cicho wydaje pustą listę statusowi "200 OK". |
-| 005 | Finanse | FIXED | Błąd 500 (Server Action) przy addTransaction / render charts. | Wdrożono safe error handling w Server Actions `{error: string}`. Wymuszono `minWidth={0} minHeight={0}` oraz wstrzymano render po stronie serwera (`isMounted`) w Recharts. |
-| 006 | Finanse | FIXED | Utrata spójności (Dual-Sync Drift) podczas zapisu faktur. | Wprowadzono blok `try/catch` otaczający zapis Prisma. W razie wystąpienia błędu system symuluje Rollback, usuwając zapisane rekordy z chmury Firebase (invoices, transactions). |
+| 001 | Finanse | FIXED | Błąd serializacji Decimal w RSC. | Konwersja na String/Number przed wysyłką. |
+| B3 | Firebase | FIXED | Crash buildu na Vercelu (Init). | Wdrożono mechanizm `getAdminDb()` (Lazy Init). |
+| Vector 007 | Project Drift | FIXED | Projekty widoczne tylko w Firestore. | Poprawiono `projects.ts`, dodano tryb Healer dla synchronizacji. |
+| Vector 009 | Fetcher Error | FIXED | NoSQL limit `in` (max 30 id). | Wdrożono Chunking zapytań w `crm.ts`. |
+| Vector 011 | Dashboard | FIXED | Błędna matematyka marży (Gross vs Net). | Obliczenia zysku oparte teraz wyłącznie o wartości Netto. |
 
 ---
 
 > [!IMPORTANT]
-> Przy każdej modyfikacji kodu, Assistent musi zweryfikować, czy zmiana nie narusza Mapy Relacji (Punkt 3) oraz czy typowanie `classification` transakcji jest zachowane.
+> Przy każdej modyfikacji kodu, Assistent musi zweryfikować, czy zmiana zachowuje spójność między Firestore a Prisma oraz czy zachowano izolację `tenantId`.

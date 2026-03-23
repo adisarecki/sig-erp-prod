@@ -9,13 +9,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { PlusCircle, Building2 } from "lucide-react"
 import { addCostInvoice } from "@/app/actions/invoices"
-import { getGusDataByNip } from "@/app/actions/gus"
+import { ContractorSearch } from "./ContractorSearch"
 import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
 import { COST_CATEGORIES } from "@/lib/categories"
 import { toast } from "sonner"
-import { Loader2, Search } from "lucide-react"
+import { Loader2, PlusCircle } from "lucide-react"
 
 interface Project { id: string; name: string; contractorId?: string }
 interface Contractor { id: string; name: string; nip?: string | null }
@@ -44,13 +43,11 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const [retainedAmount, setRetainedAmount] = useState("")
     const [retentionReleaseDate, setRetentionReleaseDate] = useState("")
     const [category, setCategory] = useState("MATERIAŁY")
-
-    // New Contractor State
     const [isNewContractor, setIsNewContractor] = useState(false)
+
     const [newContractorName, setNewContractorName] = useState("")
     const [newContractorNip, setNewContractorNip] = useState("")
     const [newContractorAddress, setNewContractorAddress] = useState("")
-    const [isGusLoading, setIsGusLoading] = useState(false)
 
     const lastOcrRef = useRef<SanitizedOcrDraft | undefined>(undefined)
 
@@ -91,7 +88,6 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                     setIsNewContractor(true)
                     setNewContractorName(ocrData.parsedName || "")
                     setNewContractorNip(ocrData.nip)
-                    // @ts-ignore
                     setNewContractorAddress(ocrData.address || "")
                 }
             }
@@ -150,27 +146,6 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
         }
     }
 
-    const handleGusFetch = async () => {
-        if (newContractorNip.length !== 10) {
-            toast.error("NIP musi mieć 10 cyfr.");
-            return;
-        }
-        setIsGusLoading(true);
-        try {
-            const result = await getGusDataByNip(newContractorNip);
-            if (result.success && result.data) {
-                setNewContractorName(result.data.name);
-                setNewContractorAddress(result.data.fullAddress);
-                toast.success("Dane pobrane pomyślnie z bazy GUS.");
-            } else {
-                toast.error(result.error || "Nie udało się pobrać danych z GUS.");
-            }
-        } catch (error) {
-            toast.error("Błąd połączenia z API GUS.");
-        } finally {
-            setIsGusLoading(false);
-        }
-    }
 
     const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
@@ -244,87 +219,27 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                     </div>
 
                     <div className="space-y-4">
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <Label className="font-semibold">Sprzedawca / Dostawca *</Label>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-xs text-blue-600 h-7"
-                                            onClick={() => setIsNewContractor(!isNewContractor)}
-                                        >
-                                            {isNewContractor ? "Wybierz z listy" : "+ Dodaj nowego"}
-                                        </Button>
-                                    </div>
-
-                                    {!isNewContractor ? (
-                                        <Select name="contractorId" value={selectedContractorId} onValueChange={(v) => setSelectedContractorId(v || "")}>
-                                            <SelectTrigger className="h-12 border-slate-200" onPointerDown={(e) => e.stopPropagation()}>
-                                                <SelectValue placeholder="Wybierz firmę ze słownika" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {contractors.map((c) => (
-                                                    <SelectItem key={c.id} value={c.id}>{c.name} {c.nip ? `(NIP: ${c.nip})` : ""}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    ) : (
-                                        <div className="space-y-3 p-4 bg-blue-50/50 border border-blue-100 rounded-xl animate-in fade-in slide-in-from-top-2">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                <div className="space-y-1">
-                                                    <Label className="text-[10px] uppercase font-bold text-slate-500">NIP</Label>
-                                                    <div className="flex gap-2">
-                                                        <Input
-                                                            id="cost-new-contractor-nip"
-                                                            name="newContractorNip"
-                                                            autoComplete="off"
-                                                            placeholder="10 cyfr"
-                                                            value={newContractorNip}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value.replace(/\D/g, '').slice(0, 10)
-                                                                setNewContractorNip(val)
-                                                            }}
-                                                            className="bg-white font-mono h-10"
-                                                        />
-                                                        <Button 
-                                                            type="button" 
-                                                            variant="secondary" 
-                                                            onClick={handleGusFetch}
-                                                            disabled={isGusLoading || newContractorNip.length !== 10}
-                                                            className="h-10 bg-blue-100 hover:bg-blue-200 text-blue-700 gap-2 shrink-0 border border-blue-200"
-                                                        >
-                                                            {isGusLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
-                                                            GUS
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label className="text-[10px] uppercase font-bold text-slate-500">Nazwa firmy *</Label>
-                                                    <Input
-                                                        placeholder="np. Demetrix Sp. z o.o."
-                                                        value={newContractorName}
-                                                        onChange={(e) => setNewContractorName(e.target.value)}
-                                                        className="bg-white h-10"
-                                                        required={false}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label className="text-[10px] uppercase font-bold text-slate-500">Adres (Ulica, Kod, Miasto)</Label>
-                                                <Input
-                                                    id="cost-new-contractor-address"
-                                                    name="newContractorAddress"
-                                                    autoComplete="off"
-                                                    placeholder="ul. Słoneczna 1, 00-001 Warszawa"
-                                                    value={newContractorAddress}
-                                                    onChange={(e) => setNewContractorAddress(e.target.value)}
-                                                    className="bg-white h-10"
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                                    <ContractorSearch 
+                                        contractors={contractors}
+                                        onSelect={(c) => {
+                                            if (c) {
+                                                setSelectedContractorId(c.id)
+                                                setIsNewContractor(false)
+                                            } else {
+                                                setSelectedContractorId("")
+                                            }
+                                        }}
+                                        onManualEntry={(name, nip, address) => {
+                                            setIsNewContractor(true)
+                                            setNewContractorName(name)
+                                            setNewContractorNip(nip)
+                                            setNewContractorAddress(address)
+                                            setSelectedContractorId("")
+                                        }}
+                                        initialValue={isNewContractor ? newContractorName : ""}
+                                        initialNip={isNewContractor ? newContractorNip : ""}
+                                        initialAddress={isNewContractor ? newContractorAddress : ""}
+                                    />
 
                                 {lockedProjectId ? (
                                     <input type="hidden" name="projectId" value={lockedProjectId} />

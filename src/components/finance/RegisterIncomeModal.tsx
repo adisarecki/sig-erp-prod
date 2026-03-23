@@ -15,12 +15,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { TrendingUp, Building2 } from "lucide-react"
 import { addIncomeInvoice } from "@/app/actions/invoices"
-import { getGusDataByNip } from "@/app/actions/gus"
+import { ContractorSearch } from "./ContractorSearch"
 import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
 import { toast } from "sonner"
-import { Loader2, Search } from "lucide-react"
+import { Loader2, TrendingUp, Building2 } from "lucide-react"
 
 interface Project {
     id: string
@@ -54,12 +53,10 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
     const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || "GENERAL")
     const [selectedContractorId, setSelectedContractorId] = useState<string>("")
 
-    // New Contractor States
-    const [isNewContractor, setIsNewContractor] = useState(false)
     const [newContractorName, setNewContractorName] = useState("")
+    const [isNewContractor, setIsNewContractor] = useState(false)
     const [newContractorNip, setNewContractorNip] = useState("")
     const [newContractorAddress, setNewContractorAddress] = useState("")
-    const [isGusLoading, setIsGusLoading] = useState(false)
 
     // Track last OCR data to detect new scans
     const lastOcrRef = useRef<SanitizedOcrDraft | undefined>(undefined)
@@ -168,35 +165,15 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
                 toast.error(result.error || "Błąd podczas zapisywania przychodu.")
                 console.error("[INCOME_SUBMIT_ERROR]", result.error)
             }
-        } catch (error: any) {
-            toast.error(error.message || "Błąd połączenia.")
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : "Błąd połączenia."
+            toast.error(msg)
             console.error("[CRITICAL_INCOME_ERROR]", error)
         } finally {
             setIsLoading(false)
         }
     }
 
-    const handleGusFetch = async () => {
-        if (newContractorNip.length !== 10) {
-            toast.error("NIP musi mieć 10 cyfr.");
-            return;
-        }
-        setIsGusLoading(true);
-        try {
-            const result = await getGusDataByNip(newContractorNip);
-            if (result.success && result.data) {
-                setNewContractorName(result.data.name);
-                setNewContractorAddress(result.data.fullAddress);
-                toast.success("Dane pobrane pomyślnie z bazy GUS.");
-            } else {
-                toast.error(result.error || "Nie udało się pobrać danych z GUS.");
-            }
-        } catch (error) {
-            toast.error("Błąd połączenia z API GUS.");
-        } finally {
-            setIsGusLoading(false);
-        }
-    }
 
     const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
@@ -343,81 +320,27 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
                             </div>
                         ) : (
                             <>
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <Label htmlFor="contractorId" className="text-slate-700 font-semibold">Nabywca (Wymagane) *</Label>
-                                        <Button 
-                                            type="button" 
-                                            variant="ghost" 
-                                            size="sm" 
-                                            onClick={() => setIsNewContractor(!isNewContractor)}
-                                            className="h-7 text-[10px] uppercase font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                        >
-                                            {isNewContractor ? "Anuluj i wybierz z listy" : "+ Dodaj nową firmę"}
-                                        </Button>
-                                    </div>
-                                    
-                                    {!isNewContractor ? (
-                                        <Select name="contractorId" value={selectedContractorId} onValueChange={(v) => setSelectedContractorId(v || "")} required={!isNewContractor}>
-                                            <SelectTrigger className="min-h-[50px] h-auto text-base border-slate-200" onPointerDown={(e) => e.stopPropagation()}>
-                                                <SelectValue placeholder="Wybierz firmę ze słownika" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {contractors.map((c) => (
-                                                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    ) : (
-                                        <div className="space-y-3 p-4 bg-blue-50/50 border border-blue-100 rounded-xl animate-in fade-in slide-in-from-top-2">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                <div className="space-y-1">
-                                                    <Label className="text-[10px] uppercase font-bold text-slate-500">NIP</Label>
-                                                    <div className="flex gap-2">
-                                                        <Input
-                                                            id="newContractorNip"
-                                                            placeholder="10 cyfr"
-                                                            value={newContractorNip}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value.replace(/\D/g, '').slice(0, 10)
-                                                                setNewContractorNip(val)
-                                                            }}
-                                                            className="bg-white font-mono h-10"
-                                                        />
-                                                        <Button 
-                                                            type="button" 
-                                                            variant="secondary" 
-                                                            onClick={handleGusFetch}
-                                                            disabled={isGusLoading || newContractorNip.length !== 10}
-                                                            className="h-10 bg-blue-100 hover:bg-blue-200 text-blue-700 gap-2 shrink-0 border border-blue-200"
-                                                        >
-                                                            {isGusLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
-                                                            GUS
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label className="text-[10px] uppercase font-bold text-slate-500">Nazwa firmy *</Label>
-                                                    <Input
-                                                        placeholder="np. Demetrix Sp. z o.o."
-                                                        value={newContractorName}
-                                                        onChange={(e) => setNewContractorName(e.target.value)}
-                                                        className="bg-white h-10"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label className="text-[10px] uppercase font-bold text-slate-500">Adres (Ulica, Kod, Miasto)</Label>
-                                                <Input
-                                                    placeholder="ul. Słoneczna 1, 00-001 Warszawa"
-                                                    value={newContractorAddress}
-                                                    onChange={(e) => setNewContractorAddress(e.target.value)}
-                                                    className="bg-white h-10"
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                                    <ContractorSearch 
+                                        contractors={contractors}
+                                        onSelect={(c) => {
+                                            if (c) {
+                                                setSelectedContractorId(c.id)
+                                                setIsNewContractor(false)
+                                            } else {
+                                                setSelectedContractorId("")
+                                            }
+                                        }}
+                                        onManualEntry={(name, nip, address) => {
+                                            setIsNewContractor(true)
+                                            setNewContractorName(name)
+                                            setNewContractorNip(nip)
+                                            setNewContractorAddress(address)
+                                            setSelectedContractorId("")
+                                        }}
+                                        initialValue={isNewContractor ? newContractorName : ""}
+                                        initialNip={isNewContractor ? newContractorNip : ""}
+                                        initialAddress={isNewContractor ? newContractorAddress : ""}
+                                    />
                                 <div className="space-y-2">
                                     <Label htmlFor="projectId" className="text-slate-700 font-semibold">Projekt (Wymagane) *</Label>
                                     <Select 

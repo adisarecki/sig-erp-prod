@@ -28,19 +28,25 @@ export async function addContractor(formData: FormData): Promise<{ success: bool
     const tenantId = await getCurrentTenantId()
 
     // 0. Sprawdzenie czy NIP już istnieje (Intelligent Upsert)
-    if (nip) {
-        const existingQuery = await adminDb.collection("contractors")
-            .where("tenantId", "==", tenantId)
-            .where("nip", "==", nip)
-            .limit(1)
-            .get()
-        
-        if (!existingQuery.empty) {
-            // Kontrahent już istnieje, nie rzucamy błędu, tylko go zwracamy lub aktualizujemy
-            // W tym przypadku po prostu zwracamy sukces (użytkownik zobaczy istniejącą masę danych)
-            return { success: true } 
+        if (nip) {
+            const existingQuery = await adminDb.collection("contractors")
+                .where("tenantId", "==", tenantId)
+                .where("nip", "==", nip)
+                .limit(1)
+                .get()
+            
+            if (!existingQuery.empty) {
+                return { success: true } 
+            }
+
+            // Prisma Check (Backup)
+            const prismaContractor = await prisma.contractor.findFirst({
+                where: { tenantId, nip }
+            })
+            if (prismaContractor) {
+                return { success: true }
+            }
         }
-    }
 
     // 1. Zapis kontrahenta w Firestore
     const contractorRef = await adminDb.collection("contractors").add({
@@ -270,6 +276,14 @@ export async function createContractor(data: { name: string; nip?: string; addre
         
         if (!existingQuery.empty) {
             return { success: true, id: existingQuery.docs[0].id }
+        }
+
+        // Prisma Check
+        const prismaContractor = await prisma.contractor.findFirst({
+            where: { tenantId, nip: data.nip }
+        })
+        if (prismaContractor) {
+            return { success: true, id: prismaContractor.id }
         }
     }
 

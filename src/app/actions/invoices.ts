@@ -88,8 +88,10 @@ export async function addIncomeInvoice(formData: FormData) {
             let finalContractorId = contractorId
 
             // 1. Jeśli to nowy kontrahent, sprawdź czy NIP już istnieje (Intelligent Upsert)
+            // Szukamy po NIP w Firestore i Prisma, aby uniknąć błędów unikalności
             if (isNewContractor) {
                 if (newContractorNip) {
+                    // Firestore Check
                     const existingContractorQuery = await adminDb.collection("contractors")
                         .where("tenantId", "==", tenantId)
                         .where("nip", "==", newContractorNip)
@@ -98,6 +100,14 @@ export async function addIncomeInvoice(formData: FormData) {
                     
                     if (!existingContractorQuery.empty) {
                         finalContractorId = existingContractorQuery.docs[0].id
+                    } else {
+                        // Prisma Check (Backup for Dual-Sync Drift)
+                        const prismaContractor = await prisma.contractor.findFirst({
+                            where: { tenantId, nip: newContractorNip }
+                        })
+                        if (prismaContractor) {
+                            finalContractorId = prismaContractor.id
+                        }
                     }
                 }
 
@@ -170,29 +180,35 @@ export async function addIncomeInvoice(formData: FormData) {
 
         // 4. Prisma Sync
         try {
+            let prismaContractorId = txResult.contractorId
             if (isNewContractor) {
-                // Używamy upsert zamiast create, aby uniknąć błędu unikalności NIP
-                await (prisma.contractor.upsert as any)({
-                    where: { id: txResult.contractorId },
-                    update: {}, 
-                    create: {
-                        id: txResult.contractorId,
+                const existingPrismaContractor = await prisma.contractor.findFirst({
+                    where: { 
                         tenantId,
-                        name: newContractorName,
-                        nip: newContractorNip || null,
-                        address: newContractorAddress || null,
-                        type: "KLIENT",
-                        status: "ACTIVE"
+                        OR: [
+                            { id: txResult.contractorId },
+                            { nip: newContractorNip }
+                        ]
                     }
                 })
-                // Obiekt
-                const existingObject = await prisma.object.findFirst({
-                    where: { contractorId: txResult.contractorId }
-                })
-                if (!existingObject) {
+
+                if (existingPrismaContractor) {
+                    prismaContractorId = existingPrismaContractor.id
+                } else {
+                    await prisma.contractor.create({
+                        data: {
+                            id: txResult.contractorId,
+                            tenantId,
+                            name: newContractorName,
+                            nip: newContractorNip || null,
+                            address: newContractorAddress || null,
+                            type: "KLIENT",
+                            status: "ACTIVE"
+                        }
+                    })
+                    
                     await prisma.object.create({
                         data: {
-                            id: crypto.randomUUID(), // Generujemy ID dla nowego obiektu
                             contractorId: txResult.contractorId,
                             name: "Siedziba Główna",
                             address: newContractorAddress || null
@@ -205,8 +221,8 @@ export async function addIncomeInvoice(formData: FormData) {
                 data: {
                     id: txResult.invoiceId,
                     tenantId,
-                    contractorId: txResult.contractorId,
-                    projectId,
+                    contractorId: prismaContractorId,
+                    projectId: ((projectIdRaw === "INTERNAL" || (!projectId || projectId === "GENERAL" || projectId === "NONE" || projectId === "")) ? null : projectId) as any,
                     type: "SPRZEDAŻ",
                     amountNet: amountNet.toNumber(),
                     amountGross: amountGross.toNumber(),
@@ -362,6 +378,7 @@ export async function addCostInvoice(formData: FormData) {
             // 1. Jeśli to nowy kontrahent, sprawdź czy NIP już istnieje
             if (isNewContractor) {
                 if (newContractorNip) {
+                    // Firestore Check
                     const existingContractorQuery = await adminDb.collection("contractors")
                         .where("tenantId", "==", tenantId)
                         .where("nip", "==", newContractorNip)
@@ -370,6 +387,14 @@ export async function addCostInvoice(formData: FormData) {
                     
                     if (!existingContractorQuery.empty) {
                         finalContractorId = existingContractorQuery.docs[0].id
+                    } else {
+                        // Prisma Check (Backup for Dual-Sync Drift)
+                        const prismaContractor = await prisma.contractor.findFirst({
+                            where: { tenantId, nip: newContractorNip }
+                        })
+                        if (prismaContractor) {
+                            finalContractorId = prismaContractor.id
+                        }
                     }
                 }
 
@@ -416,13 +441,16 @@ export async function addCostInvoice(formData: FormData) {
                 createdAt: new Date().toISOString()
             })
 
-            const classificationValue = (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (finalProjectId ? "PROJECT_COST" : "GENERAL_COST")
+            const isGeneralCost = !finalProjectId || finalProjectId === "GENERAL" || finalProjectId === "NONE" || finalProjectId === ""
+            const classificationValue = (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (!isGeneralCost ? "PROJECT_COST" : "GENERAL_COST")
+            const safeProjectId = isGeneralCost ? null : finalProjectId
+
             // 3. Transakcja powiązana
             if (isPaidImmediately) {
                 const transRef = adminDb.collection("transactions").doc()
                 transaction.set(transRef, {
                     tenantId,
-                    projectId: finalProjectId,
+                    projectId: safeProjectId,
                     classification: classificationValue,
                     amount: amountGross.toNumber(),
                     type: "EXPENSE",
@@ -435,7 +463,14 @@ export async function addCostInvoice(formData: FormData) {
                     createdAt: new Date().toISOString()
                 })
             }
-            return { invoiceId: invoiceRef.id, contractorId: finalContractorId }
+
+            return { 
+                invoiceId: invoiceRef.id, 
+                contractorId: finalContractorId,
+                isGeneralCost,
+                safeProjectId,
+                classificationValue
+            }
         })
 
         // 4. Prisma Sync
@@ -444,26 +479,39 @@ export async function addCostInvoice(formData: FormData) {
         // Wypadałoby zsynchronizować też Contractora jeśli jest nowy.
         // 4. Prisma Sync Rollback Wrapper
         try {
+            let prismaContractorId = txResult.contractorId
+
+            // --- KONTRAHENT (Find-or-Create) ---
             if (isNewContractor) {
-                // Używamy upsert zamiast create, aby uniknąć błędu unikalności NIP
-                await (prisma.contractor.upsert as any)({
-                    where: { id: txResult.contractorId },
-                    update: {}, // Jeśli istnieje, nic nie zmieniaj
-                    create: {
-                        id: txResult.contractorId,
+                // Szukamy po NIP w Prisma (Ignorujemy spacje w NIP-ie zapisanym w bazie jeśli to możliwe, 
+                // ale tu zrobimy po prostu findFirst po zgrubnym dopasowaniu)
+                const existingPrismaContractor = await prisma.contractor.findFirst({
+                    where: { 
                         tenantId,
-                        name: newContractorName,
-                        nip: newContractorNip || null,
-                        address: newContractorAddress || null,
-                        type: (newContractorName.toLowerCase().includes("hurtownia") || newContractorName.toLowerCase().includes("sklep")) ? "HURTOWNIA" : "DOSTAWCA",
-                        status: "ACTIVE"
+                        OR: [
+                            { id: txResult.contractorId },
+                            { nip: newContractorNip }
+                        ]
                     }
                 })
-                // Obiekt - również bezpiecznie
-                const existingObject = await prisma.object.findFirst({
-                    where: { contractorId: txResult.contractorId }
-                })
-                if (!existingObject) {
+
+                if (existingPrismaContractor) {
+                    prismaContractorId = existingPrismaContractor.id
+                } else {
+                    // Tworzymy nowego jeśli nie znaleziono
+                    await prisma.contractor.create({
+                        data: {
+                            id: txResult.contractorId,
+                            tenantId,
+                            name: newContractorName,
+                            nip: newContractorNip || null,
+                            address: newContractorAddress || null,
+                            type: (newContractorName.toLowerCase().includes("hurtownia") || newContractorName.toLowerCase().includes("sklep")) ? "HURTOWNIA" : "DOSTAWCA",
+                            status: "ACTIVE"
+                        }
+                    })
+                    
+                    // Obiekt domyślny
                     await prisma.object.create({
                         data: {
                             contractorId: txResult.contractorId,
@@ -472,14 +520,33 @@ export async function addCostInvoice(formData: FormData) {
                         }
                     })
                 }
+            } else {
+                // Jeśli wybieramy z listy, upewnijmy się że kontrahent istnieje w Prisma (Auto-Heal)
+                const check = await prisma.contractor.findUnique({ where: { id: txResult.contractorId } })
+                if (!check) {
+                    const fsDoc = await adminDb.collection("contractors").doc(txResult.contractorId).get()
+                    if (fsDoc.exists) {
+                        const d = fsDoc.data()!
+                        await prisma.contractor.create({
+                            data: {
+                                id: txResult.contractorId,
+                                tenantId: d.tenantId,
+                                name: d.name,
+                                nip: d.nip || null,
+                                address: d.address || null,
+                                type: d.type || "DOSTAWCA"
+                            }
+                        })
+                    }
+                }
             }
 
             await prisma.invoice.create({
                 data: {
                     id: txResult.invoiceId,
                     tenantId,
-                    contractorId: txResult.contractorId,
-                    projectId: finalProjectId,
+                    contractorId: prismaContractorId,
+                    projectId: (txResult.safeProjectId as any),
                     type: "EXPENSE",
                     amountNet: amountNet.toNumber(),
                     amountGross: amountGross.toNumber(),
@@ -501,8 +568,8 @@ export async function addCostInvoice(formData: FormData) {
                         data: {
                             id: tDoc.id,
                             tenantId,
-                            projectId: finalProjectId,
-                            classification: (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (finalProjectId ? "PROJECT_COST" : "GENERAL_COST"),
+                            projectId: txResult.safeProjectId,
+                            classification: txResult.classificationValue,
                             amount: amountGross.toNumber(),
                             type: "EXPENSE",
                             transactionDate: issueDate,
