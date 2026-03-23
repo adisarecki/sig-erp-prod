@@ -37,10 +37,11 @@ const getNextDateForDayOfMonth = (day: number) => {
 export default async function DashboardPage({ 
   searchParams 
 }: { 
-  searchParams: Promise<{ period?: string }> 
+  searchParams: Promise<{ period?: string; year?: string }> 
 }) {
   const params = await searchParams
   const period = params.period || 'ALL'
+  const selectedYear = parseInt(params.year || '2026')
   const tenantId = await getCurrentTenantId()
   const leakageAlerts = await scanForLeaks(tenantId)
 
@@ -49,17 +50,21 @@ export default async function DashboardPage({
   const now = new Date()
   now.setHours(0, 0, 0, 0)
 
-  // Filtry czasowe dla Dashboardu
+  // Filtry czasowe dla Dashboardu (Vector 023: Dynamic Date Ranges)
   let startDate: Date | null = null
-  const currentYear = now.getFullYear()
+  let endDate: Date | null = null
   const currentMonth = now.getMonth()
 
   if (period === 'MONTH') {
-    startDate = new Date(currentYear, currentMonth, 1)
+    startDate = new Date(selectedYear, currentMonth, 1)
+    endDate = new Date(selectedYear, currentMonth + 1, 0, 23, 59, 59)
   } else if (period === 'QUARTER') {
-    startDate = new Date(currentYear, Math.floor(currentMonth / 3) * 3, 1)
+    const startMonth = Math.floor(currentMonth / 3) * 3
+    startDate = new Date(selectedYear, startMonth, 1)
+    endDate = new Date(selectedYear, startMonth + 3, 0, 23, 59, 59)
   } else if (period === 'YEAR') {
-    startDate = new Date(currentYear, 0, 1)
+    startDate = new Date(selectedYear, 0, 1)
+    endDate = new Date(selectedYear, 11, 31, 23, 59, 59)
   }
 
   // POBRANIE DANYCH Z FIRESTORE (NoSQL Approach)
@@ -104,6 +109,7 @@ export default async function DashboardPage({
   transactions.forEach(tx => {
     const txDate = new Date(tx.transactionDate)
     if (startDate && txDate < startDate) return
+    if (endDate && txDate > endDate) return
     
     if (tx.type === 'PRZYCHÓD' || tx.type === 'INCOME') {
       realCashIncomes = realCashIncomes.plus(new Decimal(tx.amount))
@@ -137,15 +143,20 @@ export default async function DashboardPage({
     const amountNet = new Decimal(inv.amountNet)
     const issueDate = new Date(inv.issueDate)
     
+    // Filtrowanie (Vector 023)
+    const isWithinRange = (!startDate || issueDate >= startDate) && (!endDate || issueDate <= endDate)
+
     // Logika Memoriałowa (Skumulowany Zysk)
-    if (inv.type === 'SPRZEDAŻ') {
-      cumulativeIncomeNet = cumulativeIncomeNet.plus(amountNet)
-    } else {
-      cumulativeCostNet = cumulativeCostNet.plus(amountNet)
+    if (isWithinRange) {
+        if (inv.type === 'SPRZEDAŻ') {
+          cumulativeIncomeNet = cumulativeIncomeNet.plus(amountNet)
+        } else {
+          cumulativeCostNet = cumulativeCostNet.plus(amountNet)
+        }
     }
 
     if (inv.status === 'PAID') {
-       if (!startDate || issueDate >= startDate) {
+       if (isWithinRange) {
           const vat = amountGross.minus(amountNet)
           if (inv.type === 'SPRZEDAŻ') {
             vatIncome = vatIncome.plus(vat)
@@ -329,6 +340,13 @@ export default async function DashboardPage({
   const formattedGeneralCosts = formatPln(totalGeneralCostsNet);
   const formattedProjectMargin = formatPln(projectMarginSumNet);
 
+  // Dynamiczna lista lat (Vector 023)
+  const invoiceYears = allInvoices.map(inv => new Date(inv.issueDate).getFullYear())
+  const minYear = invoiceYears.length > 0 ? Math.min(...invoiceYears, 2024) : 2024
+  const maxYear = now.getFullYear() + 1
+  const availableYears = []
+  for (let y = minYear; y <= maxYear; y++) availableYears.push(y)
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
@@ -337,7 +355,7 @@ export default async function DashboardPage({
           <p className="text-slate-500 font-medium">System Operacyjny Firmy • <span className="text-slate-900 uppercase font-bold text-xs bg-slate-100 px-2 py-1 rounded">Precyzja Gotówkowa</span></p>
         </div>
         <div className="flex flex-col items-end gap-3">
-          <TimeFilterTabs />
+          <TimeFilterTabs availableYears={availableYears} currentYear={selectedYear} />
           <QuickActionsBar
             projects={projects.map(p => ({ id: p.id, name: p.name }))}
             contractors={contractors}
