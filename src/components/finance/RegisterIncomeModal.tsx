@@ -353,7 +353,7 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
                                         <SelectTrigger className="min-h-[50px] h-auto text-base border-slate-200" onPointerDown={(e) => e.stopPropagation()}>
                                             <SelectValue placeholder="Wybierz projekt" />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="max-h-60 overflow-y-auto">
                                             <SelectItem value="GENERAL" className="font-semibold text-blue-700 bg-blue-50 focus:bg-blue-100 mb-1">
                                                 🏢 [Koszty Ogólne Firmy]
                                             </SelectItem>
@@ -376,7 +376,7 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
                             <SelectTrigger className="min-h-[50px] h-auto text-base border-slate-200" onPointerDown={(e) => e.stopPropagation()}>
                                 <SelectValue placeholder="Wybierz kategorię" />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="max-h-60 overflow-y-auto">
                                 <SelectItem value="USŁUGA">Usługa Inżynieryjna</SelectItem>
                                 <SelectItem value="SPRZEDAŻ_TOWARU">Sprzedaż Towaru</SelectItem>
                                 <SelectItem value="INWESTYCJA">Realizacja Inwestycji (Kaucjonowana)</SelectItem>

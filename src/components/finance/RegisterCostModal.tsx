@@ -254,7 +254,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                             <SelectTrigger className="h-12 border-slate-200" onPointerDown={(e) => e.stopPropagation()}>
                                                 <SelectValue placeholder="Wybierz projekt" />
                                             </SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent className="max-h-60 overflow-y-auto">
                                                 <SelectItem value="GENERAL" className="font-semibold text-blue-700 bg-blue-50 focus:bg-blue-100">
                                                     🏢 [Koszty Ogólne Firmy]
                                                 </SelectItem>
@@ -278,7 +278,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                 <SelectTrigger className="h-12 border-slate-200" onPointerDown={(e) => e.stopPropagation()}>
                                     <SelectValue placeholder="Wybierz kategorię" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="max-h-60 overflow-y-auto">
                                     {(!selectedProjectId || selectedProjectId === "GENERAL" || selectedProjectId === "INTERNAL")
                                         ? COST_CATEGORIES.INDIRECT.map(cat => (
                                             <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>

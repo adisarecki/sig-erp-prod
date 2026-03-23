@@ -27,7 +27,7 @@ export async function addContractor(formData: FormData): Promise<{ success: bool
 
     const tenantId = await getCurrentTenantId()
 
-    // 0. Sprawdzenie czy NIP już istnieje (Intelligent Upsert)
+        // 0. Sprawdzenie czy NIP już istnieje (Intelligent Upsert)
         if (nip) {
             const existingQuery = await adminDb.collection("contractors")
                 .where("tenantId", "==", tenantId)
@@ -45,6 +45,17 @@ export async function addContractor(formData: FormData): Promise<{ success: bool
             })
             if (prismaContractor) {
                 return { success: true }
+            }
+        } else {
+            // 0a. Jeśli brak NIP, sprawdź czy istnieje już firma o tej samej nazwie (Deduplikacja)
+            const existingByName = await prisma.contractor.findFirst({
+                where: { 
+                    tenantId, 
+                    name: { equals: name, mode: 'insensitive' } 
+                }
+            })
+            if (existingByName) {
+                throw new Error(`Kontrahent o nazwie "${name}" już istnieje w bazie. Podaj NIP, aby rozróżnić firmy o tej samej nazwie lub wybierz istniejącą kartotekę.`)
             }
         }
 
@@ -284,6 +295,17 @@ export async function createContractor(data: { name: string; nip?: string; addre
         })
         if (prismaContractor) {
             return { success: true, id: prismaContractor.id }
+        }
+    } else {
+        // 0a. Sprawdzenie po nazwie (Deduplikacja)
+        const existingByName = await prisma.contractor.findFirst({
+            where: { 
+                tenantId, 
+                name: { equals: data.name, mode: 'insensitive' } 
+            }
+        })
+        if (existingByName) {
+            return { success: true, id: existingByName.id } // Zwróć istniejącego zamiast tworzyć szum
         }
     }
 
