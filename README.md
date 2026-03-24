@@ -80,7 +80,7 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 
 ---
 ### 📅 Status Wdrożenia (2026-03-24 - OCR Inbox & Auto-Matching)
-- **OCR Inbox**: System masowego przetwarzania dokumentów. Zamiast zatwierdzać faktury pojedynczo, system zbiera je w kolejkę (Inbox), gdzie można je seryjnie weryfikować.
+- **OCR Inbox**: Wdrożono Inbox OCR z obsługą wielu dokumentów na jednym skanie oraz wstępną weryfikacją przed księgowaniem.
 - **Auto-Matching (Pewniak)**: Jeśli system rozpozna NIP dostawcy z bazy, automatycznie przypisuje mu ostatnio użytą kategorię i projekt. Takie pola są oznaczane jako "Pewniak" (Sparkles).
 - **Bulk Action**: Dodano przycisk "Zaksięguj Wszystkie Prawidłowe", który jednym kliknięciem zapisuje wszystkie poprawnie zweryfikowane dokumenty do bazy.
 - **Multi-Entity OCR**: Obsługa wielu faktur/paragonów na jednym zdjęciu oraz seryjne przesyłanie do 5 plików.

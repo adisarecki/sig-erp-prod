@@ -294,7 +294,12 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
                     {scannerState === "INBOX" && editingIndex === null && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             {queue.map((item, idx) => (
-                                <div key={item.id} className={`group relative p-4 rounded-2xl border-2 transition-all hover:shadow-md ${item.status === "ERROR" ? 'border-red-200 bg-red-50/30' : item.status === "SUCCESS" ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-100 bg-white'}`}>
+                                <div key={item.id} className={`group relative p-4 rounded-2xl border-2 transition-all hover:shadow-md ${
+                                    item.status === "ERROR" ? 'border-red-200 bg-red-50/30' : 
+                                    item.status === "SUCCESS" ? 'border-emerald-200 bg-emerald-50/30' : 
+                                    (item.autoMatched?.category || item.autoMatched?.project) ? 'border-emerald-100 bg-emerald-50/10 shadow-sm' : 
+                                    'border-slate-100 bg-white'
+                                }`}>
                                     <div className="absolute -top-2 -right-2 flex gap-1">
                                         {item.status === "SUCCESS" && <CheckCircle2 className="w-5 h-5 text-emerald-500 bg-white rounded-full" />}
                                         {item.status === "ERROR" && (
@@ -452,7 +457,7 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
                                 {queue.some(i => i.status === "SAVING") ? (
                                     <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> KSIĘGOWANIE...</>
                                 ) : (
-                                    <><Save className="mr-2 h-5 w-5" /> Zaksięguj Wszystkie Prawidłowe</>
+                                    <><Save className="mr-2 h-5 w-5" /> Zaksięguj Zweryfikowane</>
                                 )}
                             </Button>
                         </>
