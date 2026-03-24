@@ -118,8 +118,8 @@ export async function POST(request: NextRequest) {
 
                 const tagsStr = tags.length > 0 ? tags.join(", ") : null;
 
-                // Deduplication: Hash of Ref + Date + Amount
-                const dedupeKey = `${t.reference || 'REF'}-${operationDate}-${amount.toFixed(2)}`;
+                // Deduplication: Hash of Ref + Date + Amount + Type
+                const dedupeKey = `${t.reference || 'REF'}-${operationDate}-${amount.toFixed(2)}-${t.typeDescription || 'NA'}`;
 
                 const duplicateQuery = await adminDb
                     .collection("transactions")
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
                 const isManagementCost = !isIncome && (
                     tags.includes("KOSZTY OGÓLNE FIRMY") || 
                     managementKeywords.some(kw => kw.test(description) || kw.test(title) || kw.test(counterpartyRaw)) ||
-                    ["ZABKA", "ORLEN", "CIRCLE K", "STOKROTKA", "BIEDRONKA", "SHELL", "LIDL", "BP", "MOYA"].includes(counterpartyRaw.toUpperCase())
+                    ["ZABKA", "ORLEN", "CIRCLE K", "STOKROTKA", "BIEDRONKA", "SHELL", "LIDL", "BP", "MOYA", "ARKADIA", "BULECKA"].includes(counterpartyRaw.toUpperCase())
                 );
 
                 const isTaxOrZus = !isIncome && (
