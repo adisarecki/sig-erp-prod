@@ -15,6 +15,7 @@ import { getCurrentTenantId } from "@/lib/tenant"
 import { TimeFilterTabs } from "@/components/finance/TimeFilterTabs"
 import { CIT_RATE } from "@/lib/config/tax"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
+import { RetentionVault } from "@/components/finance/RetentionVault"
 
 // Inicjalizacja Firebase Admin dla Dashboardu
 initFirebaseAdmin();
@@ -77,7 +78,8 @@ export default async function DashboardPage({
     debtInstallmentsSnap,
     legacyDebtsSnap,
     projectStagesSnap,
-    contractorsSnap
+    contractorsSnap,
+    retentionsSnap
   ] = await Promise.all([
     adminDb.collection("projects").where("tenantId", "==", tenantId).where("lifecycleStatus", "==", "ACTIVE").get(),
     adminDb.collection("transactions").where("tenantId", "==", tenantId).where("status", "==", "ACTIVE").get(),
@@ -85,7 +87,8 @@ export default async function DashboardPage({
     adminDb.collection("legacy_debt_installments").get(),
     adminDb.collection("legacy_debts").where("tenantId", "==", tenantId).get(),
     adminDb.collection("project_stages").get(),
-    adminDb.collection("contractors").where("tenantId", "==", tenantId).get()
+    adminDb.collection("contractors").where("tenantId", "==", tenantId).get(),
+    adminDb.collection("retentions").where("tenantId", "==", tenantId).get()
   ])
 
   const projects = projectsSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
@@ -95,12 +98,13 @@ export default async function DashboardPage({
   const legacyDebts = legacyDebtsSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
   const allStages = projectStagesSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
   const contractors = contractorsSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
+  const retentions = retentionsSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
 
   // Filtrowanie i Mapy (In-Memory Processing)
   const debtIds = legacyDebts.map(d => d.id)
   const tenantDebtInstallments = allDebtInstallments.filter(di => debtIds.includes(di.debtId))
   const contractorsMap: Record<string, string> = {}
-  contractors.forEach(c => { contractorsMap[c.id] = c.name })
+  contractors.forEach((c: any) => { contractorsMap[c.id] = c.name })
 
   // AGREGACJA TRANSAKCJI (BILANS KASOWY)
   let realCashIncomes = new Decimal(0)
@@ -133,8 +137,17 @@ export default async function DashboardPage({
   let projectVatCost = new Decimal(0)
   let generalVatCost = new Decimal(0)
   let uncollectedRevenue = new Decimal(0)
-  let totalFrozenRetention = new Decimal(0)
-  let releasedRetention = new Decimal(0)
+  let totalFrozenRetentionValue = new Decimal(0)
+  let releasedRetentionValue = new Decimal(0)
+  
+  // Nowe kaucje ze Skarbca
+  retentions.forEach((ret: any) => {
+    if (ret.status === 'ACTIVE') {
+      const expiryDate = new Date(ret.expiryDate)
+      if (expiryDate <= thirtyDaysFromNow) releasedRetentionValue = releasedRetentionValue.plus(new Decimal(ret.amount))
+      else totalFrozenRetentionValue = totalFrozenRetentionValue.plus(new Decimal(ret.amount))
+    }
+  })
   
   let cumulativeIncomeNet = new Decimal(0)
   let cumulativeCostNet = new Decimal(0)
@@ -170,11 +183,11 @@ export default async function DashboardPage({
             }
           }
        }
-       // Kaucje
+       // Kaucje (Stary system - opcjonalnie)
        if (inv.retainedAmount) {
          const releaseDate = inv.retentionReleaseDate ? new Date(inv.retentionReleaseDate) : null
-         if (releaseDate && releaseDate <= thirtyDaysFromNow) releasedRetention = releasedRetention.plus(new Decimal(inv.retainedAmount))
-         else totalFrozenRetention = totalFrozenRetention.plus(new Decimal(inv.retainedAmount))
+         if (releaseDate && releaseDate <= thirtyDaysFromNow) releasedRetentionValue = releasedRetentionValue.plus(new Decimal(inv.retainedAmount))
+         else totalFrozenRetentionValue = totalFrozenRetentionValue.plus(new Decimal(inv.retainedAmount))
        }
     } else {
        if (inv.type === 'SPRZEDAŻ') uncollectedRevenue = uncollectedRevenue.plus(amountNet)
@@ -317,11 +330,11 @@ export default async function DashboardPage({
   const sortedAlerts = allAlerts.sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, 4)
 
   // Metryki do Progress Barów i Hero Section
-  const cfIncomes30d = unpaidIncomes.filter(inv => new Date(inv.dueDate) <= thirtyDaysFromNow).reduce((sum, inv) => sum.plus(new Decimal(inv.amountGross)), new Decimal(0)).plus(releasedRetention)
-  const cfExpenses30d = unpaidCosts.filter(inv => new Date(inv.dueDate) <= thirtyDaysFromNow).reduce((sum, inv) => sum.plus(new Decimal(inv.amountGross)), new Decimal(0)).plus(activeInstallments.filter(di => new Date(di.dueDate) <= thirtyDaysFromNow).reduce((sum, di) => sum.plus(new Decimal(di.amount)), new Decimal(0)))
+  const cfIncomes30d = unpaidIncomes.filter((inv: any) => new Date(inv.dueDate) <= thirtyDaysFromNow).reduce((sum: any, inv: any) => sum.plus(new Decimal(inv.amountGross)), new Decimal(0)).plus(releasedRetentionValue)
+  const cfExpenses30d = unpaidCosts.filter((inv: any) => new Date(inv.dueDate) <= thirtyDaysFromNow).reduce((sum: any, inv: any) => sum.plus(new Decimal(inv.amountGross)), new Decimal(0)).plus(activeInstallments.filter((di: any) => new Date(di.dueDate) <= thirtyDaysFromNow).reduce((sum: any, di: any) => sum.plus(new Decimal(di.amount)), new Decimal(0)))
 
   // Ostatnie Dokumenty
-  const recentInvoices = allInvoices.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5)
+  const recentInvoices = allInvoices.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5)
 
   // Dane do Wykresu Kołowego
   const pieChartData = [
@@ -508,7 +521,7 @@ export default async function DashboardPage({
           </div>
           <p className="text-3xl font-bold mt-4 text-green-600">+{formatPln(cfIncomes30d)}</p>
           <div className="flex flex-col mt-1">
-            <p className="text-[10px] text-slate-500 font-medium">Faktury + {formatPln(releasedRetention)} kaucji.</p>
+            <p className="text-[10px] text-slate-500 font-medium">Faktury + {formatPln(releasedRetentionValue)} kaucji.</p>
             {overdueAmount.gt(0) && (
               <span className="text-[10px] font-black text-rose-600 mt-1">
                 UWAGA: {formatPln(overdueAmount)} po terminie!
@@ -517,21 +530,13 @@ export default async function DashboardPage({
           </div>
         </div>
 
-        {/* SKARBIEC KAUCJI (NEW) */}
-        <div className="p-6 bg-indigo-900 text-white border border-indigo-800 rounded-2xl shadow-lg shadow-indigo-100 group transition-all hover:scale-[1.02]">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-800 text-indigo-300 rounded-lg">
-                <Lock className="w-5 h-5" />
-              </div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold uppercase tracking-tight text-indigo-200">Skarbiec Kaucji</h3>
-                <TooltipHelp content="Pieniądze zatrzymane na poczet usterek. Najczęściej zwalniane po zakończeniu okresu gwarancyjnego." />
-              </div>
-            </div>
-          </div>
-          <p className="text-3xl font-black mt-4 font-mono">{formatPln(totalFrozenRetention)}</p>
-          <p className="text-[10px] mt-1 text-indigo-400 font-medium">Kapitał zamrożony u Inwestorów.</p>
+        {/* SKARBIEC KAUCJI (NEW - VAULT COMPONENT) */}
+        <div className="lg:col-span-1">
+          <RetentionVault 
+            retentions={retentions} 
+            projects={projects.map((p: any) => ({ id: p.id, name: p.name }))} 
+            contractors={contractors.map((c: any) => ({ id: c.id, name: c.name }))}
+          />
         </div>
 
         {/* DŁUGI HISTORYCZNE (NEW) */}

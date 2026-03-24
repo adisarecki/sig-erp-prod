@@ -80,6 +80,39 @@ export function AddProjectModal({ contractors }: AddProjectModalProps) {
                         />
                     </div>
 
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase text-slate-500">Kaucja Krótka (%)</label>
+                            <input
+                                name="retentionShortTermRate"
+                                type="number"
+                                step="0.1"
+                                defaultValue="5"
+                                className="w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase text-slate-500">Kaucja Długa (%)</label>
+                            <input
+                                name="retentionLongTermRate"
+                                type="number"
+                                step="0.1"
+                                defaultValue="3"
+                                className="w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase text-slate-500">Budżet Szacowany (PLN)</label>
+                        <input
+                            name="budgetEstimated"
+                            type="number"
+                            className="w-full border border-slate-300 rounded-md px-3 py-2 font-black text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="0.00"
+                        />
+                    </div>
+
                     <DialogFooter>
                         <button
                             type="submit"

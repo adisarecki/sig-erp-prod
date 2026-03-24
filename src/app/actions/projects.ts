@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { getAdminDb } from "@/lib/firebaseAdmin"
 import prisma from "@/lib/prisma"
+import { syncRetentionsFromProject } from "./retentions"
 
 /**
  * POBIERANIE - Dashboard i Lista Projektów
@@ -29,7 +30,12 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
         const name = formData.get("name") as string
         const contractorId = formData.get("contractorId") as string
         const objectId = formData.get("objectId") as string
-        const budgetEstimated = formData.get("budgetEstimated") as string || "0"
+        const budgetEstimatedRaw = formData.get("budgetEstimated") as string || "0"
+        const budgetEstimated = Number(budgetEstimatedRaw)
+        const retShortRaw = formData.get("retentionShortTermRate") as string || "0"
+        const retLongRaw = formData.get("retentionLongTermRate") as string || "0"
+        const retShort = Number(retShortRaw) / 100 // convert % to decimal
+        const retLong = Number(retLongRaw) / 100
 
         if (!name || !contractorId) {
             return { success: false, error: "Wymagane pola to: Nazwa Projektu oraz Kontrahent." }
@@ -80,7 +86,9 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
             name,
             contractorId,
             objectId: targetObjectId,
-            budgetEstimated: Number(budgetEstimated),
+            budgetEstimated: budgetEstimated,
+            retentionShortTermRate: retShort,
+            retentionLongTermRate: retLong,
             status: "PLANNED",
             lifecycleStatus: "ACTIVE",
             type: "NOWY",
@@ -89,7 +97,7 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
         })
 
         try {
-            await prisma.project.create({
+            await (prisma as any).project.create({
                 data: {
                     id: projectId,
                     tenantId,
@@ -99,10 +107,17 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
                     type: "NOWY",
                     status: "PLANNED",
                     lifecycleStatus: "ACTIVE",
-                    budgetEstimated: Number(budgetEstimated),
-                    budgetUsed: 0
+                    budgetEstimated: budgetEstimated,
+                    budgetUsed: 0,
+                    retentionShortTermRate: retShort,
+                    retentionLongTermRate: retLong,
                 }
             })
+
+            // Sync Retentions
+            if (budgetEstimated > 0 && (retShort > 0 || retLong > 0)) {
+                await syncRetentionsFromProject(projectId, budgetEstimated, retShort, retLong)
+            }
         } catch (prismaError) {
             console.error("[PROJECT_PRISMA_SYNC_ERROR] Rollback Firestore...", prismaError)
             await newProjectRef.delete()
@@ -126,18 +141,40 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
 /**
  * AKTUALIZACJA
  */
-export async function updateProject(id: string, data: { name: string, budgetEstimated: string }): Promise<{ success: boolean, error?: string }> {
+export async function updateProject(id: string, data: { name: string, budgetEstimated: string, retentionShortTermRate?: string, retentionLongTermRate?: string }): Promise<{ success: boolean, error?: string }> {
     try {
         const adminDb = getAdminDb()
         if (!id) throw new Error("ID projektu jest wymagane.")
         
-        await adminDb.collection("projects").doc(id).update({
-            name: data.name,
-            budgetEstimated: Number(data.budgetEstimated),
-            updatedAt: new Date().toISOString()
-        })
-
         try {
+            const retShortRaw = data.retentionShortTermRate || "0"
+            const retLongRaw = data.retentionLongTermRate || "0"
+            const retShort = Number(retShortRaw) / 100
+            const retLong = Number(retLongRaw) / 100
+            const budget = Number(data.budgetEstimated)
+
+            await adminDb.collection("projects").doc(id).update({
+                name: data.name,
+                budgetEstimated: budget,
+                retentionShortTermRate: retShort,
+                retentionLongTermRate: retLong,
+                updatedAt: new Date().toISOString()
+            })
+
+            await (prisma as any).project.update({
+                where: { id },
+                data: {
+                    name: data.name,
+                    budgetEstimated: budget,
+                    retentionShortTermRate: retShort,
+                    retentionLongTermRate: retLong
+                }
+            })
+
+            if (budget > 0 && (retShort > 0 || retLong > 0)) {
+                await syncRetentionsFromProject(id, budget, retShort, retLong)
+            }
+
             revalidatePath("/projects")
             revalidatePath("/")
         } catch (e) {
