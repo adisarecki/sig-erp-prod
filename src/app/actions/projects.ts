@@ -369,13 +369,15 @@ export async function closeProject(id: string, receiptDate: string): Promise<{ s
         }
 
         // 5. Synchronizacja kaucji (Data Odmrożenia przelicza się na podstawie nowej daty zakończenia)
+        // Wymuszamy status ACTIVE przy zamknięciu projektu
         await syncRetentionsFromProject(
             id,
             Number(project.budgetEstimated),
             Number(project.retentionShortTermRate),
             Number(project.retentionLongTermRate),
             date,
-            project.warrantyPeriodYears
+            project.warrantyPeriodYears,
+            "ACTIVE"
         )
 
         revalidatePath("/projects")

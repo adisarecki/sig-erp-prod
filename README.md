@@ -103,8 +103,17 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - **Quick Entities**: Możliwość błyskawicznego dodawania nowych firm i projektów bezpośrednio z Inboxa OCR (Wektor 038).
 - **Safe-to-Deploy**: Kod został oczyszczony z niebezpiecznych rzutowań `any` i przygotowany do pełnej kompilacji na Vercel (Wektor 039).
 - **Automatyka Kaucji & Rentowności**: System w pełnej skali monitoruje marżę projektową i dba o kaucje gwarancyjne (Wektory 034-036).
+- **Wykres Dynamiki Finansowej**: Zaktualizowano wykres Analizy Zdrowia na wieloliniowy wykres dynamiki finansowej (Revenue vs Cost vs Profit vs Runway) z narastającym zyskiem oraz dynamiczną linią ROI.
+- **Wskaźniki ROI & Marży (Wektor 040)**: Wdrożono analitykę ROI i Marży Netto dla każdego projektu z wizualizacją progów rentowności (Super biznes / Alarm).
 
 *Dla programistów: Techniczna dokumentacja DNA znajduje się v [docs/AI_look.md](./docs/AI_look.md)*
 
 ---
+#### 🛠️ Ostatnie poprawki (2026-03-24 v3)
+- **UI Persistence Fix**: Naprawiono błąd wyświetlania kaucji w edycji projektu (zaciąganie aktualnych wartości % z bazy).
+- **Retention Activation Protocol**: Wdrożono system automatycznej aktywacji kaucji na podstawie faktycznej daty odbioru inwestycji (Status: `DRAFT` -> `ACTIVE`).
+- **Final Invoice Prompt**: Dodano automatyczne alerty o fakturach końcowych przy zamykaniu projektu.
+- **Dynamic Project Health Chart**: Wdrożono skumulowany wykres dynamiki finansowej (Revenue/Cost/Profit/Runway) z dodatkową linią ewolucji ROI.
+- **Profitability Dashboard**: Dodano widżety ROI i Marży Netto w Project Cockpit z kolorystyką warunkową (Badges).
+
 *Vercel & Firestore Ready 🚀*

@@ -9,7 +9,6 @@ import {
     CartesianGrid,
     Tooltip,
     ResponsiveContainer,
-    ReferenceLine,
     Legend
 } from "recharts"
 
@@ -38,102 +37,214 @@ export function ProjectBurnChart({ invoices, budgetEstimated }: ProjectBurnChart
         return () => cancelAnimationFrame(frame)
     }, [])
 
-    // 1. Wyciągnięcie tylko dokumentów kosztowych
-    const costInvoices = invoices
-        .filter((inv) => inv.type === "KOSZT" || inv.type === "EXPENSE" || inv.type === "WYDATEK")
-        .sort((a, b) => new Date(a.issueDate).getTime() - new Date(b.issueDate).getTime())
-
-    if (costInvoices.length === 0) {
+    if (invoices.length === 0) {
         return (
             <div className="w-full h-[320px] flex items-center justify-center text-slate-400 text-sm italic bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                Brak zarejestrowanych kosztów. Wykres zasilany danymi po dodaniu pierwszej faktury kosztowej.
+                Brak zarejestrowanych dokumentów. Wykres zasilany danymi po dodaniu pierwszej faktury.
             </div>
         )
     }
 
-    // 2. Budowa tabeli narastającej
-    const chartData: { date: string, Koszt: number }[] = []
-    let currentCumulative = 0
-    costInvoices.forEach((inv) => {
-        currentCumulative += Number(inv.amountGross || inv.amountNet)
-        chartData.push({
-            date: typeof inv.issueDate === 'string' ? inv.issueDate : (inv.issueDate as Date).toISOString(),
-            Koszt: currentCumulative,
-        })
+    // 1. Sortuj wszystkie faktury chronologicznie
+    const allSorted = [...invoices].sort((a, b) => new Date(a.issueDate).getTime() - new Date(b.issueDate).getTime())
+
+    // 2. Budowa tabeli narastającej (dziennej)
+    const groupedByDate: Record<string, { income: number, expense: number }> = {}
+    
+    allSorted.forEach(inv => {
+        const dateKey = new Date(inv.issueDate).toISOString().split('T')[0]
+        if (!groupedByDate[dateKey]) {
+            groupedByDate[dateKey] = { income: 0, expense: 0 }
+        }
+        
+        const isIncome = inv.type === 'SPRZEDAŻ' || inv.type === 'PRZYCHÓD' || inv.type === 'INCOME'
+        const isExpense = inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'WYDATEK'
+        
+        if (isIncome) groupedByDate[dateKey].income += Number(inv.amountNet)
+        if (isExpense) groupedByDate[dateKey].expense += Number(inv.amountNet)
     })
 
-    // Punkt startowy
-    if (chartData.length > 0) {
-        const firstDate = new Date(chartData[0].date)
-        firstDate.setDate(firstDate.getDate() - 2)
-        chartData.unshift({
+    const chartData: any[] = []
+    let cumulIncome = 0
+    let cumulExpense = 0
+    
+    // Pobierz wszystkie unikalne daty i posortuj
+    const sortedDates = Object.keys(groupedByDate).sort()
+    
+    // Punkt startowy (zerowy)
+    if (sortedDates.length > 0) {
+        const firstDate = new Date(sortedDates[0])
+        firstDate.setDate(firstDate.getDate() - 1)
+        chartData.push({
             date: firstDate.toISOString(),
-            Koszt: 0,
+            income: 0,
+            expense: 0,
+            result: 0,
+            runway: budgetEstimated,
+            roi: 0
         })
     }
 
-    const isDanger = budgetEstimated > 0 && currentCumulative > budgetEstimated * 0.85
+    sortedDates.forEach(date => {
+        cumulIncome += groupedByDate[date].income
+        cumulExpense += groupedByDate[date].expense
+        const result = cumulIncome - cumulExpense
+        const runway = Math.max(0, budgetEstimated - cumulIncome)
+        
+        // ROI(t) = (Profit(t) / Cost(t)) * 100
+        const currentRoi = cumulExpense > 0 ? (result / cumulExpense) * 100 : 0
+        
+        chartData.push({
+            date: new Date(date).toISOString(),
+            income: cumulIncome,
+            expense: cumulExpense,
+            result: result,
+            runway: runway,
+            roi: Number(currentRoi.toFixed(1))
+        })
+    })
 
     if (!isMounted) {
         return <div className="w-full h-[320px] bg-slate-50/50 animate-pulse rounded-xl border border-slate-100" />
     }
 
     return (
-        <div className="w-full h-[320px] min-h-[320px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+        <div className="w-full h-[350px] min-h-[350px]">
+            <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" opacity={0.5} />
                     <XAxis
                         dataKey="date"
                         tickFormatter={formatDate}
-                        tick={{ fontSize: 11, fill: '#64748b' }}
+                        tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }}
                         axisLine={false}
                         tickLine={false}
-                        minTickGap={20}
+                        minTickGap={30}
                     />
+                    {/* Oś lewa: PLN */}
                     <YAxis
-                        width={85}
+                        yAxisId="pln"
+                        width={80}
                         tickFormatter={formatPln}
-                        tick={{ fontSize: 11, fill: '#64748b' }}
+                        tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }}
                         axisLine={false}
                         tickLine={false}
+                    />
+                    {/* Oś prawa: ROI (%) */}
+                    <YAxis
+                        yAxisId="roi"
+                        orientation="right"
+                        tickFormatter={(val) => `${val}%`}
+                        tick={{ fontSize: 10, fill: '#6366f1', fontWeight: 600 }}
+                        axisLine={false}
+                        tickLine={false}
+                        domain={[0, 'auto']}
                     />
                     <Tooltip
-                        labelFormatter={(label: unknown) => `Data: ${formatDate(label as string)}`}
-                        formatter={(value: unknown) => [
-                            `${new Intl.NumberFormat("pl-PL").format(Number(value))} zł`,
-                            "Skumulowane koszty"
-                        ]}
-                        contentStyle={{
-                            borderRadius: '12px',
-                            border: '1px solid #e2e8f0',
-                            boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                            padding: '12px'
+                        content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                                return (
+                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xl space-y-2">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-1 mb-2">
+                                            Stan na: {label ? formatDate(label as string) : ''}
+                                        </p>
+                                        <div className="space-y-1">
+                                            <div className="flex justify-between gap-8 items-center">
+                                                <span className="text-xs font-bold text-slate-500">Zafakturowano:</span>
+                                                <span className="text-xs font-black text-amber-500">{new Intl.NumberFormat('pl-PL').format(payload[0]?.value as number || 0)} zł</span>
+                                            </div>
+                                            <div className="flex justify-between gap-8 items-center">
+                                                <span className="text-xs font-bold text-slate-500">Wydano (Netto):</span>
+                                                <span className="text-xs font-black text-blue-500">{new Intl.NumberFormat('pl-PL').format(payload[1]?.value as number || 0)} zł</span>
+                                            </div>
+                                            <div className="flex justify-between gap-8 items-center pt-1 border-t">
+                                                <span className="text-xs font-bold text-slate-700">Skumulowany Zysk:</span>
+                                                <span className={`text-sm font-black ${(payload[2]?.value as number || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                    {new Intl.NumberFormat('pl-PL').format(payload[2]?.value as number || 0)} zł
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between gap-8 items-center mt-1 pt-1 border-t border-dashed">
+                                                <span className="text-xs font-bold text-indigo-600">Aktualny ROI:</span>
+                                                <span className="text-sm font-black text-indigo-700">{(payload[4]?.value as number || 0).toFixed(1)}%</span>
+                                            </div>
+                                            <div className="flex justify-between gap-8 items-center mt-1 pt-1 border-t border-dashed">
+                                                <span className="text-[10px] font-bold text-slate-400 italic">Do zafakturowania:</span>
+                                                <span className="text-[10px] font-black text-slate-400 italic">{new Intl.NumberFormat('pl-PL').format(payload[3]?.value as number || 0)} zł</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            return null;
                         }}
                     />
                     <Legend
-                        verticalAlign="bottom"
-                        height={36}
+                        verticalAlign="top"
+                        height={40}
                         iconType="circle"
-                        formatter={(value) => <span className="text-xs font-medium text-slate-600 ml-1">{value}</span>}
+                        formatter={(value) => <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter ml-1">{value}</span>}
                     />
 
-                    <ReferenceLine
-                        y={budgetEstimated}
-                        stroke="#ef4444"
-                        strokeDasharray="4 4"
-                        strokeWidth={2}
-                        name="Limit Budżetu"
-                    />
-
+                    {/* Skumulowane Przychody */}
                     <Line
-                        name="Koszty Rzeczywiste (Brutto)"
+                        yAxisId="pln"
+                        name="Przychody (Netto)"
                         type="monotone"
-                        dataKey="Koszt"
-                        stroke={isDanger ? "#ef4444" : "#3b82f6"}
-                        strokeWidth={4}
+                        dataKey="income"
+                        stroke="#f59e0b" // Yellow/Amber
+                        strokeWidth={2}
                         dot={false}
-                        activeDot={{ r: 6, strokeWidth: 0, fill: isDanger ? "#ef4444" : "#3b82f6" }}
+                        activeDot={{ r: 4, strokeWidth: 0, fill: "#f59e0b" }}
+                    />
+
+                    {/* Skumulowane Koszty */}
+                    <Line
+                        yAxisId="pln"
+                        name="Koszty (Netto)"
+                        type="monotone"
+                        dataKey="expense"
+                        stroke="#3b82f6" // Blue
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 4, strokeWidth: 0, fill: "#3b82f6" }}
+                    />
+
+                    {/* Wynik / Zysk */}
+                    <Line
+                        yAxisId="pln"
+                        name="Wynik (Profit)"
+                        type="monotone"
+                        dataKey="result"
+                        stroke="#10b981" // Green
+                        strokeWidth={4} // Bold
+                        dot={false}
+                        activeDot={{ r: 6, strokeWidth: 0, fill: "#10b981" }}
+                    />
+
+                    {/* Runway / Pozostały Budżet */}
+                    <Line
+                        yAxisId="pln"
+                        name="Pozostały Budżet"
+                        type="monotone"
+                        dataKey="runway"
+                        stroke="#94a3b8" // Slate/Gray
+                        strokeWidth={1}
+                        strokeDasharray="5 5" // Dashed
+                        dot={false}
+                        activeDot={{ r: 3, strokeWidth: 0, fill: "#94a3b8" }}
+                    />
+
+                    {/* ROI Line (Dynamika zwrotu) */}
+                    <Line
+                        yAxisId="roi"
+                        name="ROI (%)"
+                        type="monotone"
+                        dataKey="roi"
+                        stroke="#6366f1" // Indigo
+                        strokeWidth={1.5}
+                        strokeDasharray="3 3"
+                        dot={false}
+                        activeDot={{ r: 4, strokeWidth: 0, fill: "#6366f1" }}
                     />
                 </LineChart>
             </ResponsiveContainer>

@@ -38,16 +38,13 @@ export function ProjectAnalysisDialog({ projectName, invoices, budgetEstimated }
                         const costInvoices = invoices.filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'WYDATEK')
                         const incomeInvoices = invoices.filter((inv) => inv.type === 'SPRZEDAŻ' || inv.type === 'PRZYCHÓD' || inv.type === 'INCOME')
 
-                        const totalCostsGross = costInvoices.reduce((sum, inv) => sum + Number(inv.amountGross || inv.amountNet), 0)
                         const totalCostsNet = costInvoices.reduce((sum, inv) => sum + Number(inv.amountNet), 0)
                         const totalIncomesNet = incomeInvoices.reduce((sum, inv) => sum + Number(inv.amountNet), 0)
-                        const totalIncomesGross = incomeInvoices.reduce((sum, inv) => sum + Number(inv.amountGross || inv.amountNet), 0)
 
                         const percentBilled = budgetEstimated > 0 ? (totalIncomesNet / budgetEstimated) * 100 : 0
                         const remainingToBill = budgetEstimated - totalIncomesNet
                         
                         const netMargin = totalIncomesNet - totalCostsNet
-                        const costToIncomeRatio = totalIncomesNet > 0 ? (totalCostsNet / totalIncomesNet) * 100 : 0
                         const isLoss = netMargin < 0
 
                         return (
@@ -87,32 +84,49 @@ export function ProjectAnalysisDialog({ projectName, invoices, budgetEstimated }
                                         {isLoss && <span className="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full animate-pulse">Projekt Niezarobkowy!</span>}
                                     </h3>
 
-                                    <div className="grid grid-cols-3 gap-6">
+                                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
                                         <div>
                                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mb-1">Przychody (Netto)</p>
                                             <p className="text-xl font-black text-emerald-400">{new Intl.NumberFormat('pl-PL').format(totalIncomesNet)} zł</p>
-                                            <p className="text-[10px] text-slate-500 mt-1">Realny wpływ do firmy</p>
+                                            <p className="text-[10px] text-slate-500 mt-1">Realny wpływ</p>
                                         </div>
                                         <div>
                                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mb-1">Koszty (Netto)</p>
                                             <p className="text-xl font-black text-rose-400">-{new Intl.NumberFormat('pl-PL').format(totalCostsNet)} zł</p>
-                                            <p className="text-[10px] text-slate-500 mt-1">Podgryzają {costToIncomeRatio.toFixed(1)}% marży</p>
+                                            <p className="text-[10px] text-slate-500 mt-1">Wydatki realne</p>
                                         </div>
-                                        <div className={`pl-6 border-l border-slate-800`}>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mb-1">Marża (Netto)</p>
-                                            <p className={`text-2xl font-black ${isLoss ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                        <div>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mb-1">Marża Kwotowa</p>
+                                            <p className={`text-xl font-black ${isLoss ? 'text-rose-500' : 'text-emerald-500'}`}>
                                                 {isLoss ? '' : '+'}{new Intl.NumberFormat('pl-PL').format(netMargin)} zł
                                             </p>
-                                            <p className="text-[10px] text-slate-500 mt-1">Zysk rzeczywisty</p>
-                                            {/* Wizualizacja podgryzania marży */}
-                                            {!isLoss && totalIncomesNet > 0 && (
-                                                <div className="w-full bg-slate-800 rounded-full h-1 mt-2 overflow-hidden">
-                                                    <div 
-                                                        className="h-full bg-rose-500" 
-                                                        style={{ width: `${Math.min(100, costToIncomeRatio)}%` }} 
-                                                    />
-                                                </div>
-                                            )}
+                                            <p className="text-[10px] text-slate-500 mt-1">Zysk / Strata</p>
+                                        </div>
+                                        {/* ROI Badge */}
+                                        <div className={`p-2 rounded-xl h-full flex flex-col justify-center border ${
+                                            (netMargin / totalCostsNet * 100) > 30 ? 'bg-emerald-500/10 border-emerald-500/20' :
+                                            (netMargin / totalCostsNet * 100) >= 15 ? 'bg-amber-500/10 border-amber-500/20' :
+                                            'bg-rose-500/10 border-rose-500/20'
+                                        }`}>
+                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-tighter mb-1">ROI (Zwrot)</p>
+                                            <p className={`text-xl font-black ${
+                                                (netMargin / totalCostsNet * 100) > 30 ? 'text-emerald-400' :
+                                                (netMargin / totalCostsNet * 100) >= 15 ? 'text-amber-400' :
+                                                'text-rose-400'
+                                            }`}>
+                                                {totalCostsNet > 0 ? (netMargin / totalCostsNet * 100).toFixed(1) : '0'}%
+                                            </p>
+                                            <p className="text-[8px] font-bold uppercase mt-1 opacity-70">
+                                                {(netMargin / totalCostsNet * 100) > 30 ? "Super biznes" : (netMargin / totalCostsNet * 100) >= 15 ? "Ok, pilnuj" : "Alarm!"}
+                                            </p>
+                                        </div>
+                                        {/* Rentowność */}
+                                        <div className="flex flex-col justify-center">
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mb-1">Rentowność</p>
+                                            <p className="text-xl font-black text-indigo-400">
+                                                {totalIncomesNet > 0 ? (netMargin / totalIncomesNet * 100).toFixed(1) : '0'}%
+                                            </p>
+                                            <p className="text-[10px] text-slate-500 mt-1">Marża na sprzedaży</p>
                                         </div>
                                     </div>
                                 </div>
@@ -126,7 +140,7 @@ export function ProjectAnalysisDialog({ projectName, invoices, budgetEstimated }
                                         />
                                     </div>
                                     <p className="text-[10px] text-slate-400 mt-4 text-center italic">
-                                        * Wykres prezentuje skumulowane koszty rzeczywiste (Brutto) w porównaniu do estymowanego budżetu (sufitu).
+                                        * Wykres prezentuje dynamikę przychodów, kosztów (Netto) oraz narastający zysk projektu na osi czasu.
                                     </p>
                                 </div>
                             </div>

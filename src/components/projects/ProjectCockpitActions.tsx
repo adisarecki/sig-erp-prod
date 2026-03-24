@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import dynamic from "next/dynamic"
 import { RegisterCostModal } from "@/components/finance/RegisterCostModal"
 import { RegisterIncomeModal } from "@/components/finance/RegisterIncomeModal"
@@ -12,15 +11,29 @@ const InvoiceScanner = dynamic(() => import("@/components/finance/InvoiceScanner
 })
 import { Trash2 } from "lucide-react"
 import { deleteProject } from "@/app/actions/projects"
+import { ClosureProjectModal } from "./ClosureProjectModal"
 
 interface ProjectCockpitActionsProps {
     projectId: string
+    projectName: string
+    budgetEstimated: number
+    totalInvoicedNet: number
     allProjects: { id: string; name: string }[]
     contractors: { id: string; name: string; nip?: string | null }[]
     isTestMode?: boolean
+    projectStatus?: string
 }
 
-export function ProjectCockpitActions({ projectId, allProjects, contractors, isTestMode }: ProjectCockpitActionsProps) {
+export function ProjectCockpitActions({ 
+    projectId, 
+    projectName,
+    budgetEstimated,
+    totalInvoicedNet,
+    allProjects, 
+    contractors, 
+    isTestMode,
+    projectStatus
+}: ProjectCockpitActionsProps) {
     // router no longer needed in this component
 
     const handleDelete = async () => {
@@ -52,6 +65,19 @@ export function ProjectCockpitActions({ projectId, allProjects, contractors, isT
                     Usuń Projekt
                 </button>
             )}
+            
+            {projectStatus !== 'CLOSED' && (
+                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-lg pl-4 pr-1 py-1">
+                    <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest hidden sm:inline">Gotowy do odbioru?</span>
+                    <ClosureProjectModal 
+                        projectId={projectId}
+                        projectName={projectName}
+                        budgetEstimated={budgetEstimated}
+                        totalInvoicedNet={totalInvoicedNet}
+                    />
+                </div>
+            )}
+
             <InvoiceScanner />
             <RegisterIncomeModal 
                 projects={allProjects} 

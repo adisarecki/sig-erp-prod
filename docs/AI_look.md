@@ -60,6 +60,8 @@ graph TD
 System implementuje strategię bezpiecznych wypłat:
 1. `Safe to Spend = Bilans - VAT - CIT (9%)` (Standardowa rezerwa podatkowa).
 2. `Operating Profit = Revenue Net - Costs Net`
+3. **ROI (Return on Investment)**: `(Net Profit / Real Costs) * 100`.
+4. **Net Margin (Profitability)**: `(Net Profit / Net Invoiced) * 100`.
 
 ### Standard Ledger (Append-Only):
 - Wszystkie transakcje są **niezmienne (Immutable)** po wyjściu ze statusu `DRAFT`.
@@ -134,6 +136,7 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 037 | AI / Logic | FIXED | Income/Expense Auto-Detection. | Wdrożono inteligentną detekcję typu dokumentu na podstawie NIP-u właściciela (`9542751368`) w API OCR. |
 | Vector 038 | AI / UX | FIXED | Seamless Save & Quick entities. | Zaimplementowano interfejs "Quick Add" w Inboxie OCR, umożliwiający błyskawiczne dodawanie firm i projektów. |
 | Vector 039 | Code Quality | FIXED | Any type purge & Catch blocks. | Usunięto rzutowania `as any` oraz poprawiono typowanie w Server Actions dla lepszej stabilności Vercel. |
+| Vector 040 | Analytics / P&L | FIXED | Missing ROI & Margin indicators. | Wdrożono analitykę ROI i Marży Netto w Project Cockpit oraz dynamiczną linię ROI w wykresie zdrowia (Phase 12). |
 
 ---
 

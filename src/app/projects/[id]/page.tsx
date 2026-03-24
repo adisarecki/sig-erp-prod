@@ -8,7 +8,7 @@ import { ProjectStageList } from "@/components/projects/ProjectStageList"
 import { ProjectFinancialChart } from "@/components/projects/ProjectFinancialChart"
 import { ProjectCockpitActions } from "@/components/projects/ProjectCockpitActions"
 import { TransactionDeleteButton } from "@/components/projects/TransactionDeleteButton"
-import { ArrowLeft, Building2, MapPin, Wallet, TrendingUp, ReceiptText, Calendar, BadgeDollarSign } from "lucide-react"
+import { ArrowLeft, Building2, MapPin, Wallet, TrendingUp, ReceiptText, Calendar, BadgeDollarSign, Percent, PieChart } from "lucide-react"
 import Link from "next/link"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 
@@ -50,6 +50,14 @@ export default async function ProjectCockpit({ params }: PageProps) {
     const margin = totalInvoiced - totalCosts
     const percentUsed = budgetEstimated > 0 ? (totalCosts / budgetEstimated) * 100 : 0
 
+    // NEW PRECENTAGE METRICS
+    const roi = totalCosts > 0 ? (margin / totalCosts) * 100 : 0
+    const profitabilityMargin = totalInvoiced > 0 ? (margin / totalInvoiced) * 100 : 0
+
+    const totalInvoicedNet = invoices
+        .filter((inv: any) => inv.type === 'SPRZEDAŻ')
+        .reduce((sum: number, inv: any) => sum + Number(inv.amountNet), 0)
+
     const totalStageBudgets = stages.reduce((sum: number, s: any) => sum + (Number(s.budgetEstimated) || 0), 0)
     const plannedMargin = budgetEstimated - totalStageBudgets
 
@@ -74,33 +82,27 @@ export default async function ProjectCockpit({ params }: PageProps) {
                 </div>
                 <div className="flex items-center gap-3">
                    <ProjectCockpitActions 
-                        projectId={project.id}
+                        projectId={id}
+                        projectName={project.name}
+                        budgetEstimated={budgetEstimated}
+                        totalInvoicedNet={totalInvoicedNet}
                         allProjects={allProjects}
                         contractors={contractors}
                         isTestMode={isTestMode}
+                        projectStatus={project.status}
                     />
                 </div>
             </div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
                 <Card className="bg-slate-900 text-white border-none shadow-xl overflow-hidden relative">
                     <div className="absolute top-0 right-0 p-4 opacity-10">
                         <Wallet className="w-12 h-12" />
                     </div>
                     <CardHeader className="pb-2">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Budżet Szacowany</p>
-                        <CardTitle className="text-2xl font-black">{formatPln(budgetEstimated)}</CardTitle>
-                    </CardHeader>
-                </Card>
-
-                <Card className="bg-white border-slate-200 shadow-sm border-l-4 border-l-indigo-500">
-                    <CardHeader className="pb-2">
-                        <div className="flex justify-between items-center text-slate-500">
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Planowana Marża</span>
-                            <BadgeDollarSign className="w-4 h-4 text-indigo-500" />
-                        </div>
-                        <CardTitle className="text-2xl font-black text-indigo-700">{formatPln(plannedMargin)}</CardTitle>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Budget Szacowany</p>
+                        <CardTitle className="text-xl font-black truncate">{formatPln(budgetEstimated)}</CardTitle>
                     </CardHeader>
                 </Card>
 
@@ -110,7 +112,7 @@ export default async function ProjectCockpit({ params }: PageProps) {
                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Przychody (Faktury)</span>
                             <TrendingUp className="w-4 h-4 text-emerald-500" />
                         </div>
-                        <CardTitle className="text-2xl font-black text-slate-900">{formatPln(totalInvoiced)}</CardTitle>
+                        <CardTitle className="text-xl font-black text-slate-900">{formatPln(totalInvoiced)}</CardTitle>
                     </CardHeader>
                 </Card>
 
@@ -120,28 +122,65 @@ export default async function ProjectCockpit({ params }: PageProps) {
                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Koszty Realne</span>
                             <ReceiptText className="w-4 h-4 text-rose-500" />
                         </div>
-                        <CardTitle className="text-2xl font-black text-rose-600">{formatPln(totalCosts)}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="h-1.5 w-full bg-slate-100 rounded-full mt-1 overflow-hidden">
+                        <CardTitle className="text-xl font-black text-rose-600 truncate">{formatPln(totalCosts)}</CardTitle>
+                        <div className="mt-1 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
                             <div 
-                                className={`h-full transition-all duration-1000 ${percentUsed > 90 ? 'bg-rose-500' : 'bg-blue-600'}`}
+                                className={`h-full ${percentUsed > 90 ? 'bg-rose-500' : 'bg-blue-500'}`}
                                 style={{ width: `${Math.min(percentUsed, 100)}%` }}
                             />
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-tight">{percentUsed.toFixed(1)}% budżetu wykorzystane</p>
-                    </CardContent>
+                    </CardHeader>
                 </Card>
 
                 <Card className={`border-none shadow-sm ${margin < 0 ? 'bg-rose-50' : 'bg-emerald-50'}`}>
                     <CardHeader className="pb-2">
                         <div className="flex justify-between items-center text-slate-500">
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Marża (Zysk/Strata)</span>
-                            <div className={`w-2.5 h-2.5 rounded-full ${margin < 0 ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Marża Kwotowa</span>
+                            <div className={`w-2 h-2 rounded-full ${margin < 0 ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
                         </div>
-                        <CardTitle className={`text-2xl font-black ${margin < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                        <CardTitle className={`text-xl font-black ${margin < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
                             {formatPln(margin)}
                         </CardTitle>
+                    </CardHeader>
+                </Card>
+
+                {/* ROI Card with Conditional Branding */}
+                <Card className={`border-none ${
+                    roi > 30 ? 'bg-emerald-600 text-white shadow-emerald-100/50' :
+                    roi >= 15 ? 'bg-amber-100 text-amber-900' :
+                    'bg-red-50 text-red-700 border border-red-100'
+                } shadow-xl relative overflow-hidden transition-all hover:scale-105 duration-300`}>
+                    <CardHeader className="pb-2">
+                        <div className="flex justify-between items-center opacity-80">
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Real ROI</span>
+                            <Percent className="w-4 h-4" />
+                        </div>
+                        <CardTitle className="text-3xl font-black">{roi.toFixed(1)}%</CardTitle>
+                        <p className={`text-[9px] font-black uppercase mt-1 ${roi > 30 ? 'text-emerald-100' : roi >= 15 ? 'text-amber-700' : 'text-red-500'}`}>
+                            {roi > 30 ? "Super biznes 🚀" : roi >= 15 ? "Ok, pilnuj kosztów 🛡️" : "Alarm - po kosztach! ⚠️"}
+                        </p>
+                    </CardHeader>
+                </Card>
+
+                {/* Rentowność Sprzedaży */}
+                <Card className="bg-white border-slate-200 shadow-sm border-t-4 border-t-indigo-500">
+                    <CardHeader className="pb-2">
+                        <div className="flex justify-between items-center text-slate-500">
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Rentowność (%)</span>
+                            <PieChart className="w-4 h-4 text-indigo-500" />
+                        </div>
+                        <CardTitle className="text-2xl font-black text-indigo-700">{profitabilityMargin.toFixed(1)}%</CardTitle>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Net Margin On Sale</p>
+                    </CardHeader>
+                </Card>
+
+                <Card className="bg-white border-slate-200 shadow-sm border-l-4 border-l-indigo-500">
+                    <CardHeader className="pb-2">
+                        <div className="flex justify-between items-center text-slate-500">
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Planowana Marża</span>
+                            <BadgeDollarSign className="w-4 h-4 text-indigo-500" />
+                        </div>
+                        <CardTitle className="text-xl font-black text-indigo-700 truncate">{formatPln(plannedMargin)}</CardTitle>
                     </CardHeader>
                 </Card>
             </div>

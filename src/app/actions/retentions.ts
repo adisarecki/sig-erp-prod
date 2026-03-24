@@ -126,7 +126,8 @@ export async function syncRetentionsFromProject(
     shortRate: number, 
     longRate: number,
     estimatedCompletionDate?: Date | null,
-    warrantyPeriodYears: number = 0
+    warrantyPeriodYears: number = 0,
+    forceStatus?: string
 ) {
     try {
         const tenantId = await getCurrentTenantId()
@@ -159,35 +160,63 @@ export async function syncRetentionsFromProject(
             longExpiryDate.setFullYear(longExpiryDate.getFullYear() + 3)
         }
 
+        const retentionStatus = forceStatus || "DRAFT"
+
         // 1. Kaucja Krótka
         const shortType = "SHORT_TERM"
         const existingShort = (existing as any[]).find((r: any) => r.type === shortType)
         if (shortAmount > 0) {
             if (existingShort) {
-                await adminDb.collection("retentions").doc(existingShort.id).update({
+                const updateData: any = {
                     amount: shortAmount,
                     expiryDate: shortExpiryDate.toISOString(),
                     updatedAt: new Date().toISOString()
-                })
+                }
+                if (forceStatus) updateData.status = forceStatus
+
+                await adminDb.collection("retentions").doc(existingShort.id).update(updateData)
+                
+                const prismaUpdate: any = {
+                    amount: shortAmount,
+                    expiryDate: shortExpiryDate
+                }
+                if (forceStatus) prismaUpdate.status = forceStatus
+
                 await (prisma as any).retention.update({
                     where: { id: existingShort.id },
-                    data: { 
-                        amount: shortAmount,
-                        expiryDate: shortExpiryDate
-                    }
+                    data: prismaUpdate
                 })
             } else {
-                const fd = new FormData()
-                fd.append("amount", shortAmount.toString())
-                fd.append("type", shortType)
-                fd.append("expiryDate", shortExpiryDate.toISOString())
-                fd.append("projectId", projectId)
-                fd.append("source", "PROJECT")
-                fd.append("description", "Automatyczna kaucja krótkookresowa z projektu")
-                await addRetention(fd)
+                // Manually create to ensure correct status
+                const retentionRef = adminDb.collection("retentions").doc()
+                const data = {
+                    tenantId,
+                    projectId,
+                    amount: shortAmount,
+                    type: shortType,
+                    expiryDate: shortExpiryDate.toISOString(),
+                    source: "PROJECT",
+                    description: "Automatyczna kaucja krótkookresowa z projektu",
+                    status: retentionStatus,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                }
+                await retentionRef.set(data)
+                await (prisma as any).retention.create({
+                    data: {
+                        id: retentionRef.id,
+                        tenantId,
+                        projectId,
+                        amount: shortAmount,
+                        type: shortType,
+                        expiryDate: shortExpiryDate,
+                        source: "PROJECT",
+                        description: "Automatyczna kaucja krótkookresowa z projektu",
+                        status: retentionStatus
+                    }
+                })
             }
         } else if (existingShort) {
-            // Jeśli kwota spadła do 0, możemy usunąć lub zostawić z 0 (zostawiamy dla historii ale updateujemy datę)
             await adminDb.collection("retentions").doc(existingShort.id).update({
                 amount: 0,
                 expiryDate: shortExpiryDate.toISOString(),
@@ -204,27 +233,53 @@ export async function syncRetentionsFromProject(
         const existingLong = (existing as any[]).find((r: any) => r.type === longType)
         if (longAmount > 0) {
             if (existingLong) {
-                await adminDb.collection("retentions").doc(existingLong.id).update({
+                const updateData: any = {
                     amount: longAmount,
                     expiryDate: longExpiryDate.toISOString(),
                     updatedAt: new Date().toISOString()
-                })
+                }
+                if (forceStatus) updateData.status = forceStatus
+
+                await adminDb.collection("retentions").doc(existingLong.id).update(updateData)
+                
+                const prismaUpdate: any = {
+                    amount: longAmount,
+                    expiryDate: longExpiryDate
+                }
+                if (forceStatus) prismaUpdate.status = forceStatus
+
                 await (prisma as any).retention.update({
                     where: { id: existingLong.id },
-                    data: { 
-                        amount: longAmount,
-                        expiryDate: longExpiryDate
-                    }
+                    data: prismaUpdate
                 })
             } else {
-                const fd = new FormData()
-                fd.append("amount", longAmount.toString())
-                fd.append("type", longType)
-                fd.append("expiryDate", longExpiryDate.toISOString())
-                fd.append("projectId", projectId)
-                fd.append("source", "PROJECT")
-                fd.append("description", "Automatyczna kaucja długookresowa z projektu")
-                await addRetention(fd)
+                const retentionRef = adminDb.collection("retentions").doc()
+                const data = {
+                    tenantId,
+                    projectId,
+                    amount: longAmount,
+                    type: longType,
+                    expiryDate: longExpiryDate.toISOString(),
+                    source: "PROJECT",
+                    description: "Automatyczna kaucja długookresowa z projektu",
+                    status: retentionStatus,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                }
+                await retentionRef.set(data)
+                await (prisma as any).retention.create({
+                    data: {
+                        id: retentionRef.id,
+                        tenantId,
+                        projectId,
+                        amount: longAmount,
+                        type: longType,
+                        expiryDate: longExpiryDate,
+                        source: "PROJECT",
+                        description: "Automatyczna kaucja długookresowa z projektu",
+                        status: retentionStatus
+                    }
+                })
             }
         } else if (existingLong) {
             await adminDb.collection("retentions").doc(existingLong.id).update({
