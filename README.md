@@ -20,6 +20,7 @@ Witaj w centrum dowodzenia Twoją firmą. System Sig ERP został zaprojektowany,
 - **Rejestr Transakcji**: Wszystkie wydatki i wpływy w jednym miejscu.
 - **Koszty Ogólne (Zarząd)**: Wydatki nieprzypisane do konkretnej budowy (biuro, paliwo, telefony). Znajdziesz je w zakładce „Ogólne / Administracyjne”.
 - **Wzbogacanie Danych**: Jeśli transakcja z banku nie ma projektu, możesz ją później „Przypisać do projektu” jednym klikiem.
+- **Inteligentny Import (Drag & Drop)**: Funkcja "Importuj wyciąg" w Panelu Szybkich Akcji obsługuje teraz przeciąganie plików MT940 (SWIFT) i CSV bezpośrednio do przeglądarki.
 
 ---
 
@@ -118,6 +119,7 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - **Wektor 041: Silnik Uzgadniania Bankowego (MT940)**: Wdrożono pełną obsługę standardu SWIFT MT940. System automatycznie parsuje wyciągi, dopasowuje przelewy do faktur, obsługuje niedopłaty (Red Light Alert) oraz separuje koszty zarządu od budżetów projektowych.
 - **Live Profit Tracking**: Zielona linia zysku na wykresach odzwierciedla teraz rzeczywiste wpływy i wydatki z banku, zapewniając 100% precyzji Cash Flow.
 - **Wektor 042: Integracja KSeF 2.0 (Krajowy System e-Faktur)**: Wdrożono moduł `ksef-service` umożliwiający automatyczne pobieranie faktur FA(3) bezpośrednio z Portalu Podatnika. Dokumenty trafiają do Inboxu jako `UNVERIFIED` (Draft). Tryb **Tylko Odczyt** zapewnia 100% bezpieczeństwo operacyjne.
+- **Wektor 044: Optymalizacja PKO BP & UI Cleanup**: Refinement parsera MT940 pod kątem sub-tagów PKO BP (`~`). Rozszerzono listę auto-kategoryzacji o stacje paliw (Orlen, BP, Shell itp.) oraz wdrożono funkcjonalny Drag & Drop w toolbarze.
 - **Build Verified**: Projekt przeszedł testy statyczne (`tsc`) i jest gotowy do wdrożenia na Vercel.
 
 *Vercel & Firestore Ready 🚀*

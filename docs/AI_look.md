@@ -140,6 +140,7 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 041 | Finance / Bank | FIXED | Phase 11: Bank Reconciliation Engine. | Wdrożono parser MT940, algorytm uzgadniania faktur (Regex/Amount), automatyczny routing kosztów zarządu oraz powiadomienia Red Light. |
 | Vector 042 | KSeF / Integration | FIXED | Phase 12: KSeF 2.0 Integration. | Zaimplementowano `ksef-service` (Read-only) do pobierania faktur FA(3). Automatyczna klasyfikacja typów i status UNVERIFIED w Inboxie. |
 | Vector 043 | Build / Vercel | FIXED | Build Integrity Check. | Usunięto zbędne pliki `tmp/` i potwierdzono poprawność kompilacji `tsc`. Gotowość do push Vercel. |
+| Vector 044 | Finance / UI | FIXED | PKO BP MT940 Refinement & Drag&Drop. | Wdrożono parowanie sub-tagów `~` w MT940, rozszerzono keywords o stacje paliw i aktywowano Drag & Drop w toolbarze. |
 
 ---
 
@@ -162,8 +163,9 @@ System integruje standard SWIFT MT940 w celu automatyzacji rozliczeń:
     - **Primary**: Regex `(FV|FS|FAKTURA)[\s\/]?\d+` w tytule przelewu.
     - **Secondary**: Kwota Brutto dla faktur o statusie `ACTIVE`.
 3. **Partial Payments**: Jeśli kwota przelewu < kwota faktury, status zmienia się na `PARTIALLY_PAID` i system wysyła powiadomienie `WARNING` (Red Light Alert).
-4. **General Cost Routing**: Transakcje z wybranymi słowami kluczowymi (ZUS, Żabka, Prowizja) są automatycznie klasyfikowane jako `GENERAL_COST` bez przypisania do projektu.
+4. **General Cost Routing**: Transakcje z wybranymi słowami kluczowymi (ZUS, Żabka, Prowizja, Paliwo, Orlen, BP, Shell, Circle K, Moya, Stacja) są automatycznie klasyfikowane jako `GENERAL_COST` bez przypisania do projektu.
 5. **Chart Data**: Zielona linia profitu na wykresach (`ProjectBurnChart`) bazuje na rzeczywistej gotówce (`transactions`), podczas gdy żółta linia przychodów opiera się na wystawionych dokumentach (`invoices`).
+6. **PKO BP Specifics**: System obsługuje separator `~` w tagu `:86:`, wyciągając tytuł z `~20` i kontrahenta z `~32`/`~22`.
 
 ---
 

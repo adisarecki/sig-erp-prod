@@ -25,39 +25,40 @@ export class MT940Parser {
         let currentTransaction: Partial<MT940Transaction> | null = null;
 
         for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) continue;
+
             // Tag :20: Transaction Reference Number
-            if (line.startsWith(':20:')) {
-                currentRef = line.substring(4).trim();
+            if (trimmedLine.startsWith(':20:')) {
+                currentRef = trimmedLine.substring(4).trim();
                 continue;
             }
 
             // Tag :61: Statement Line
             // Format: YYMMDD[MMDD]DC[Currency]AmountTransactionType[Reference]
             // Example: :61:2403240324CR1250,50N064NONREF
-            if (line.startsWith(':61:')) {
-                // If we have a pending transaction, push it (though :86: usually follows immediately)
+            if (trimmedLine.startsWith(':61:')) {
+                // If we have a pending transaction, push it
                 if (currentTransaction) {
                     transactions.push(currentTransaction as MT940Transaction);
                 }
 
-                const content = line.substring(4);
+                const content = trimmedLine.substring(4);
                 const dateRaw = content.substring(0, 6); // YYMMDD
                 const year = 2000 + parseInt(dateRaw.substring(0, 2));
                 const month = parseInt(dateRaw.substring(2, 4)) - 1;
                 const day = parseInt(dateRaw.substring(4, 6));
                 const date = new Date(year, month, day);
 
-                // Find DC (Debit/Credit)
-                // It can be D, C, RC, RD
+                // Find DC (Debit/Credit) - strictly C or D in standard, but RC/RD allowed
                 const dcMatch = content.match(/[C|D|RC|RD]{1,2}/);
                 const dc = dcMatch ? dcMatch[0] : 'C';
                 const isCredit = dc.includes('C');
 
                 // Extract Amount
-                // After DC, before Transaction Type (usually N, F, S, etc.)
-                // Example: 1250,50N
-                const amountPart = content.substring(dcMatch ? content.indexOf(dc) + dc.length : 6);
-                const amountMatch = amountPart.match(/(\d+,\d{2})/);
+                // The amount starts after DC. It ends at the first non-numeric/comma char after digits.
+                const afterDc = content.substring(dcMatch ? content.indexOf(dc) + dc.length : 6);
+                const amountMatch = afterDc.match(/^(\d+,\d{2})/);
                 const amountStr = amountMatch ? amountMatch[1].replace(',', '.') : '0';
                 const amount = new Decimal(amountStr);
 
@@ -66,22 +67,21 @@ export class MT940Parser {
                     date: date,
                     amount: amount,
                     type: isCredit ? 'INCOME' : 'EXPENSE',
-                    bankReference: content.substring(content.length - 16).trim(), // Placeholder for bank-specific ref
+                    bankReference: content.substring(content.length - 16).trim(), 
                     description: ""
                 };
                 continue;
             }
 
             // Tag :86: Information to Account Owner (Description)
-            if (line.startsWith(':86:') && currentTransaction) {
-                currentTransaction.description = line.substring(4).trim();
-                // Check if next lines are also part of :86: (some formats use multiline without tags)
+            if (trimmedLine.startsWith(':86:') && currentTransaction) {
+                currentTransaction.description = trimmedLine.substring(4).trim();
                 continue;
             }
             
-            // Multiline description support (often lines after :86: that don't start with :)
-            if (currentTransaction && line && !line.startsWith(':')) {
-                currentTransaction.description += " " + line.trim();
+            // Multiline description support
+            if (currentTransaction && trimmedLine && !trimmedLine.startsWith(':')) {
+                currentTransaction.description += (currentTransaction.description ? " " : "") + trimmedLine;
             }
         }
 
@@ -90,6 +90,45 @@ export class MT940Parser {
             transactions.push(currentTransaction as MT940Transaction);
         }
 
-        return transactions;
+        // Clean up and optimize descriptions (e.g., PKO BP ~ tags)
+        return transactions.map(t => ({
+            ...t,
+            description: MT940Parser.cleanDescription(t.description)
+        }));
+    }
+
+    /**
+     * Specialized PKO BP / SWIFT cleaner for tag :86:
+     */
+    private static cleanDescription(rawDesc: string): string {
+        if (!rawDesc.includes('~')) return rawDesc;
+
+        // PKO BP uses ~ as internal tag separator
+        // ~20: Title/Description, ~32/33: Counterparty
+        const parts = rawDesc.split('~');
+        let title = "";
+        let counterparty = "";
+
+        for (const p of parts) {
+            if (p.startsWith('20')) {
+                const val = p.substring(2).trim();
+                if (val && val !== '˙') title = val;
+            } else if (p.startsWith('32')) {
+                const val = p.substring(2).trim();
+                if (val && val !== '˙') counterparty = val;
+            } else if (p.startsWith('22')) {
+                // Secondary fallback for counterparty (sometimes ~22 holds the merchant name)
+                if (!counterparty) {
+                    const val = p.substring(2).trim();
+                    if (val && val !== '˙') counterparty = val;
+                }
+            }
+        }
+
+        if (title && counterparty) return `${title} | ${counterparty}`;
+        if (title) return title;
+        if (counterparty) return counterparty;
+
+        return rawDesc.replace(/~\d{2}/g, ' ').trim();
     }
 }
