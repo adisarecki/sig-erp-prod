@@ -82,6 +82,7 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 ### 📅 Status Wdrożenia (2026-03-24 - OCR Inbox & Refinement)
 - **Quick Action: Opłać**: Dodano przycisk szybkiego opłacania faktur na liście dokumentów, który jednym kliknięciem zmienia status na PAID i tworzy powiązaną transakcję.
 - **Skarbiec Kaucji (Retention Vault)**: Wdrożono moduł zarządzania środkami zamrożonymi u inwestorów z obsługą kaucji manualnych, procentowych oraz systemem ostrzegania 30 dni przed wygaśnięciem.
+- **Quick Add (Kaucje)**: Umożliwiono błyskawiczną rejestrację nowych firm (Inwestorów) i Projektów bezpośrednio z formularza kaucji, co przyspiesza wprowadzanie danych historycznych.
 - **Zero-Day Auto-Pay**: Brakujące ogniwo automatyzacji – system automatycznie oznacza faktury jako opłacone, gdy data wystawienia pokrywa się z terminem płatności.
 - **OCR Inbox**: Wdrożono Inbox OCR z obsługą wielu dokumentów na jednym skanie oraz wstępną weryfikacją przed księgowaniem.
 - **Safe Delete & Quick View**: Wdrożono funkcję Safe Delete (usuwanie z potwierdzeniem) oraz podgląd detali dokumentu finansowego z danymi OCR (NIP, Daty, Projekt).

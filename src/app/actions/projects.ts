@@ -139,6 +139,83 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
 }
 
 /**
+ * SZYBKIE DODAWANIE PROJEKTU (Lightweight)
+ */
+export async function createProject(data: { name: string, contractorId: string }) {
+    const adminDb = getAdminDb()
+    const tenantId = await getCurrentTenantId()
+
+    try {
+        // 1. Znajdź lub stwórz domyślny obiekt dla kontrahenta
+        let objectId = ""
+        const objectsSnap = await adminDb.collection("objects")
+            .where("contractorId", "==", data.contractorId)
+            .limit(1)
+            .get()
+
+        if (!objectsSnap.empty) {
+            objectId = objectsSnap.docs[0].id
+        } else {
+            const newObjRef = adminDb.collection("objects").doc()
+            objectId = newObjRef.id
+            await newObjRef.set({
+                contractorId: data.contractorId,
+                name: "Siedziba Główna",
+                createdAt: new Date().toISOString()
+            })
+            await prisma.object.create({
+                data: {
+                    id: objectId,
+                    contractorId: data.contractorId,
+                    name: "Siedziba Główna"
+                }
+            })
+        }
+
+        const projectRef = adminDb.collection("projects").doc()
+        const projectId = projectRef.id
+
+        await projectRef.set({
+            tenantId,
+            name: data.name,
+            contractorId: data.contractorId,
+            objectId,
+            budgetEstimated: 0,
+            retentionShortTermRate: 0,
+            retentionLongTermRate: 0,
+            status: "PLANNED",
+            lifecycleStatus: "ACTIVE",
+            type: "NOWY",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        })
+
+        await (prisma as any).project.create({
+            data: {
+                id: projectId,
+                tenantId,
+                name: data.name,
+                contractorId: data.contractorId,
+                objectId,
+                type: "NOWY",
+                status: "PLANNED",
+                lifecycleStatus: "ACTIVE",
+                budgetEstimated: 0,
+                budgetUsed: 0
+            }
+        })
+
+        revalidatePath("/projects")
+        revalidatePath("/")
+
+        return { success: true, id: projectId }
+    } catch (error) {
+        console.error("[PROJECT_QUICK_CREATE_ERROR]", error)
+        throw new Error("Nie udało się szybko dodać projektu.")
+    }
+}
+
+/**
  * AKTUALIZACJA
  */
 export async function updateProject(id: string, data: { name: string, budgetEstimated: string, retentionShortTermRate?: string, retentionLongTermRate?: string }): Promise<{ success: boolean, error?: string }> {

@@ -10,8 +10,8 @@ import Decimal from "decimal.js"
 
 interface RetentionVaultProps {
     retentions: any[]
-    projects: any[]
-    contractors: any[]
+    projects: { id: string, name: string }[]
+    contractors: { id: string, name: string }[]
 }
 
 export function RetentionVault({ retentions, projects, contractors }: RetentionVaultProps) {
@@ -38,6 +38,16 @@ export function RetentionVault({ retentions, projects, contractors }: RetentionV
 
     const activeRetentions = retentions.filter(r => r.status !== "RECOVERED")
     const totalFrozen = activeRetentions.reduce((sum, r) => sum.plus(new Decimal(r.amount)), new Decimal(0))
+
+    const getContractorName = (id?: string) => {
+        if (!id) return null
+        return contractors.find(c => c.id === id)?.name || "Nieznany Inwestor"
+    }
+
+    const getProjectName = (id?: string) => {
+        if (!id) return null
+        return projects.find(p => p.id === id)?.name || "Ogólny"
+    }
 
     return (
         <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden flex flex-col h-full">
@@ -80,8 +90,10 @@ export function RetentionVault({ retentions, projects, contractors }: RetentionV
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="font-bold text-slate-900 truncate">
-                                                {ret.project?.name || ret.description || "Kaucja bez opisu"}
+                                            <p className="font-bold text-slate-900 truncate flex items-center gap-1">
+                                                <span className="text-slate-500 font-medium">{getContractorName(ret.contractorId)}</span>
+                                                <span className="text-slate-300 mx-1">|</span>
+                                                <span>{getProjectName(ret.projectId) || ret.description || "Kaucja Bez Nazwy"}</span>
                                             </p>
                                             <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
                                                 <Clock className="w-3 h-3" />
