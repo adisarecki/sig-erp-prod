@@ -8,6 +8,44 @@ import { getAdminDb } from "@/lib/firebaseAdmin"
 import prisma from "@/lib/prisma"
 
 
+export async function getAutoMatchData(nip: string) {
+    try {
+        const tenantId = await getCurrentTenantId()
+        const cleanNip = nip.replace(/\D/g, "")
+        if (!cleanNip || cleanNip.length < 10) return null
+
+        const contractor = await prisma.contractor.findFirst({
+            where: { tenantId, nip: cleanNip }
+        })
+
+        if (!contractor) return null
+
+        // Znajdź ostatnią fakturę dla tego kontrahenta
+        const lastInvoice = await prisma.invoice.findFirst({
+            where: { tenantId, contractorId: contractor.id },
+            orderBy: { issueDate: "desc" },
+            include: {
+                payments: {
+                    include: {
+                        transaction: true
+                    },
+                    take: 1
+                }
+            }
+        })
+
+        return {
+            contractorId: contractor.id,
+            contractorName: contractor.name,
+            lastProjectId: lastInvoice?.projectId || "GENERAL",
+            lastCategory: lastInvoice?.payments[0]?.transaction?.category || "KOSZT_FIRMOWY"
+        }
+    } catch (error) {
+        console.error("[GET_AUTO_MATCH_ERROR]", error)
+        return null
+    }
+}
+
 export async function addIncomeInvoice(formData: FormData) {
     try {
         const adminDb = getAdminDb()
