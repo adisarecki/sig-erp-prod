@@ -12,7 +12,6 @@
  * Użycie: <QuickActionsBar projects={...} contractors={...} />
  */
 
-import { useState } from "react"
 import dynamic from "next/dynamic"
 import { RegisterIncomeModal } from "@/components/finance/RegisterIncomeModal"
 import { RegisterCostModal } from "@/components/finance/RegisterCostModal"
@@ -24,7 +23,6 @@ const InvoiceScanner = dynamic(() => import("@/components/finance/InvoiceScanner
     loading: () => <div className="animate-pulse bg-slate-100 h-9 w-24 rounded-lg" />
 })
 import { TrendingUp, TrendingDown, ScanLine, DownloadCloud, History } from "lucide-react"
-import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
 
 interface QuickActionsBarProps {
     projects: { id: string; name: string }[]
@@ -33,13 +31,8 @@ interface QuickActionsBarProps {
 
 export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps) {
     // OCR scan result – stored here to pass as initial values to modals
-    const [ocrData, setOcrData] = useState<SanitizedOcrDraft | null>(null)
-
-    const handleOcrExtracted = (data: SanitizedOcrDraft) => {
-        setOcrData(data)
-        // The data is now available for RegisterCostModal/RegisterIncomeModal
-        // to use as initial values. The modal will open automatically via state.
-    }
+    // OCR scan result – no longer needed with the New Inbox workflow (Phase 10)
+    // const [ocrData, setOcrData] = useState<SanitizedOcrDraft | null>(null)
 
     return (
         <div className="flex flex-wrap items-center gap-3 p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
@@ -56,7 +49,7 @@ export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps)
                 <div className="text-xs text-slate-400 leading-tight hidden lg:block">
                     Skan AI<br />/ OCR
                 </div>
-                <InvoiceScanner onDataExtracted={handleOcrExtracted} />
+                <InvoiceScanner />
             </div>
 
             <div className="w-px bg-slate-100 hidden sm:block" />
@@ -69,7 +62,7 @@ export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps)
                 <div className="text-xs text-slate-400 leading-tight hidden lg:block">
                     Faktura sprzedażowa<br />/ Wpływ
                 </div>
-                <RegisterIncomeModal projects={projects} contractors={contractors} ocrData={ocrData?.type === "INCOME" ? ocrData : undefined} />
+                <RegisterIncomeModal projects={projects} contractors={contractors} />
             </div>
 
             <div className="w-px bg-slate-100 hidden sm:block" />
@@ -82,7 +75,7 @@ export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps)
                 <div className="text-xs text-slate-400 leading-tight hidden lg:block">
                     Faktura zakupowa<br />/ Wydatek
                 </div>
-                <RegisterCostModal projects={projects} contractors={contractors} ocrData={ocrData?.type === "COST" ? ocrData : undefined} />
+                <RegisterCostModal projects={projects} contractors={contractors} />
             </div>
 
             <div className="w-px bg-slate-100 hidden sm:block" />

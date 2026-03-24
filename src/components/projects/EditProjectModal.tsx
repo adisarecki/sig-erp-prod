@@ -22,6 +22,8 @@ interface EditProjectModalProps {
         budgetEstimated: number
         retentionShortTermRate?: number
         retentionLongTermRate?: number
+        estimatedCompletionDate?: string | Date
+        warrantyPeriodYears?: number
     }
 }
 
@@ -32,6 +34,12 @@ export function EditProjectModal({ project }: EditProjectModalProps) {
     const [budget, setBudget] = useState(project.budgetEstimated.toString())
     const [retShort, setRetShort] = useState(((project.retentionShortTermRate || 0) * 100).toString())
     const [retLong, setRetLong] = useState(((project.retentionLongTermRate || 0) * 100).toString())
+    const [estCompletion, setEstCompletion] = useState("")
+    const [warranty, setWarranty] = useState((project.warrantyPeriodYears || 0).toString())
+
+    // Memory Fix: Cache original values to compare for guardrail
+    const originalRetShort = (project.retentionShortTermRate || 0) * 100
+    const originalRetLong = (project.retentionLongTermRate || 0) * 100
 
     // Reset form when project prop changes or modal opens
     useEffect(() => {
@@ -40,18 +48,42 @@ export function EditProjectModal({ project }: EditProjectModalProps) {
             setBudget(project.budgetEstimated.toString())
             setRetShort(((project.retentionShortTermRate || 0) * 100).toString())
             setRetLong(((project.retentionLongTermRate || 0) * 100).toString())
+            setWarranty((project.warrantyPeriodYears || 0).toString())
+            
+            if (project.estimatedCompletionDate) {
+                const date = new Date(project.estimatedCompletionDate)
+                setEstCompletion(date.toISOString().split('T')[0])
+            } else {
+                setEstCompletion("")
+            }
         }
     }, [open, project])
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
+
+        // Guardrail: Alert user if retention rates have changed
+        const newRetShort = Number(retShort)
+        const newRetLong = Number(retLong)
+
+        if (newRetShort !== originalRetShort || newRetLong !== originalRetLong) {
+            const confirmed = window.confirm(
+                `Uwaga: Twoja dotychczasowa kaucja dla tego projektu to ${originalRetShort}% (krótka) / ${originalRetLong}% (długa).\n\n` +
+                `Czy na pewno chcesz ją zmienić na ${newRetShort}% / ${newRetLong}%?\n\n` +
+                `Spowoduje to natychmiastowe przeliczenie kwot w Skarbcu.`
+            )
+            if (!confirmed) return
+        }
+
         setIsPending(true)
         try {
             await updateProject(project.id, {
                 name,
                 budgetEstimated: budget,
                 retentionShortTermRate: retShort,
-                retentionLongTermRate: retLong
+                retentionLongTermRate: retLong,
+                estimatedCompletionDate: estCompletion,
+                warrantyPeriodYears: warranty
             })
             setOpen(false)
         } catch (error) {
@@ -127,6 +159,30 @@ export function EditProjectModal({ project }: EditProjectModalProps) {
                                 step="0.1"
                                 value={retLong}
                                 onChange={(e) => setRetLong(e.target.value)}
+                                className="font-bold"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-completion">Zakończenie (Estymacja)</Label>
+                            <Input
+                                id="edit-completion"
+                                type="date"
+                                value={estCompletion}
+                                onChange={(e) => setEstCompletion(e.target.value)}
+                                className="font-bold"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-warranty">Gwarancja (Lata)</Label>
+                            <Input
+                                id="edit-warranty"
+                                type="number"
+                                min="0"
+                                value={warranty}
+                                onChange={(e) => setWarranty(e.target.value)}
                                 className="font-bold"
                             />
                         </div>

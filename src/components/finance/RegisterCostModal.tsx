@@ -17,7 +17,7 @@ import { toast } from "sonner"
 import { Loader2, PlusCircle, ScanText, AlertTriangle, FileCheck } from "lucide-react"
 import { scanInvoiceAction } from "@/app/actions/ocr"
 
-interface Project { id: string; name: string; contractorId?: string }
+interface Project { id: string; name: string; contractorId?: string; status?: string }
 interface Contractor { id: string; name: string; nip?: string | null }
 
 interface RegisterCostModalProps {
@@ -367,7 +367,9 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                                 <SelectItem value="INTERNAL" className="font-semibold text-slate-700 bg-slate-100 focus:bg-slate-200 border-b border-slate-200 mb-1">
                                                     🔒 [Koszty Własne]
                                                 </SelectItem>
-                                                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                                {projects
+                                                    .filter(p => !lockedProjectId && p.status !== "CLOSED")
+                                                    .map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                     </div>

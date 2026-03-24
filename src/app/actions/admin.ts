@@ -122,11 +122,12 @@ export async function fullResetTenantData() {
             success: true, 
             message: "Database Purged. Persistence Confirmed. 0 documents remaining for this tenant." 
         }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("[MASTER_RESET] Fatal Error during Atomic Purge:", error)
+        const errorMessage = error instanceof Error ? error.message : "Błąd krytyczny podczas czyszczenia bazy danych."
         return { 
             success: false, 
-            error: error.message || "Błąd krytyczny podczas czyszczenia bazy danych." 
+            error: errorMessage 
         }
     }
 }

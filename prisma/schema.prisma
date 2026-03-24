@@ -28,6 +28,7 @@ model Tenant {
   bankTransactions   BankTransactionRaw[]
   auditLogs          AuditLog[]
   retentions         Retention[]
+  notifications      Notification[]
 }
 
 model Role {
@@ -123,6 +124,8 @@ model Project {
   lifecycleStatus String         @default("ACTIVE")
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+  estimatedCompletionDate DateTime?
+  warrantyPeriodYears     Int       @default(0)
   
   retentionShortTermRate Decimal @default(0) @db.Decimal(5, 4)
   retentionLongTermRate  Decimal @default(0) @db.Decimal(5, 4)
@@ -356,4 +359,20 @@ model Retention {
   @@index([tenantId])
   @@index([projectId])
   @@index([expiryDate])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  type      String   // INFO, WARNING, SUCCESS, ERROR
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  priority  String   @default("NORMAL") // LOW, NORMAL, HIGH
+  link      String?  // Optional URL to navigate to
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
 }

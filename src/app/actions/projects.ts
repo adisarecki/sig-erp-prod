@@ -5,6 +5,7 @@ import { getCurrentTenantId } from "@/lib/tenant"
 import { getAdminDb } from "@/lib/firebaseAdmin"
 import prisma from "@/lib/prisma"
 import { syncRetentionsFromProject } from "./retentions"
+import { createNotification } from "./notifications"
 
 /**
  * POBIERANIE - Dashboard i Lista Projektów
@@ -34,8 +35,13 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
         const budgetEstimated = Number(budgetEstimatedRaw)
         const retShortRaw = formData.get("retentionShortTermRate") as string || "0"
         const retLongRaw = formData.get("retentionLongTermRate") as string || "0"
+        const estCompletionRaw = formData.get("estimatedCompletionDate") as string
+        const warrantyRaw = formData.get("warrantyPeriodYears") as string || "0"
+        
         const retShort = Number(retShortRaw) / 100 // convert % to decimal
         const retLong = Number(retLongRaw) / 100
+        const warrantyPeriodYears = parseInt(warrantyRaw)
+        const estimatedCompletionDate = estCompletionRaw ? new Date(estCompletionRaw) : null
 
         if (!name || !contractorId) {
             return { success: false, error: "Wymagane pola to: Nazwa Projektu oraz Kontrahent." }
@@ -89,6 +95,8 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
             budgetEstimated: budgetEstimated,
             retentionShortTermRate: retShort,
             retentionLongTermRate: retLong,
+            estimatedCompletionDate: estimatedCompletionDate ? estimatedCompletionDate.toISOString() : null,
+            warrantyPeriodYears: warrantyPeriodYears,
             status: "PLANNED",
             lifecycleStatus: "ACTIVE",
             type: "NOWY",
@@ -111,12 +119,21 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
                     budgetUsed: 0,
                     retentionShortTermRate: retShort,
                     retentionLongTermRate: retLong,
+                    estimatedCompletionDate: estimatedCompletionDate,
+                    warrantyPeriodYears: warrantyPeriodYears,
                 }
             })
 
             // Sync Retentions
             if (budgetEstimated > 0 && (retShort > 0 || retLong > 0)) {
-                await syncRetentionsFromProject(projectId, budgetEstimated, retShort, retLong)
+                await syncRetentionsFromProject(
+                    projectId, 
+                    budgetEstimated, 
+                    retShort, 
+                    retLong, 
+                    estimatedCompletionDate, 
+                    warrantyPeriodYears
+                )
             }
         } catch (prismaError) {
             console.error("[PROJECT_PRISMA_SYNC_ERROR] Rollback Firestore...", prismaError)
@@ -218,7 +235,17 @@ export async function createProject(data: { name: string, contractorId: string }
 /**
  * AKTUALIZACJA
  */
-export async function updateProject(id: string, data: { name: string, budgetEstimated: string, retentionShortTermRate?: string, retentionLongTermRate?: string }): Promise<{ success: boolean, error?: string }> {
+export async function updateProject(
+    id: string, 
+    data: { 
+        name: string, 
+        budgetEstimated: string, 
+        retentionShortTermRate?: string, 
+        retentionLongTermRate?: string,
+        estimatedCompletionDate?: string,
+        warrantyPeriodYears?: string
+    }
+): Promise<{ success: boolean, error?: string }> {
     try {
         const adminDb = getAdminDb()
         if (!id) throw new Error("ID projektu jest wymagane.")
@@ -226,15 +253,22 @@ export async function updateProject(id: string, data: { name: string, budgetEsti
         try {
             const retShortRaw = data.retentionShortTermRate || "0"
             const retLongRaw = data.retentionLongTermRate || "0"
+            const estCompletionRaw = data.estimatedCompletionDate
+            const warrantyRaw = data.warrantyPeriodYears || "0"
+
             const retShort = Number(retShortRaw) / 100
             const retLong = Number(retLongRaw) / 100
             const budget = Number(data.budgetEstimated)
+            const warrantyPeriodYears = parseInt(warrantyRaw)
+            const estimatedCompletionDate = estCompletionRaw ? new Date(estCompletionRaw) : null
 
             await adminDb.collection("projects").doc(id).update({
                 name: data.name,
                 budgetEstimated: budget,
                 retentionShortTermRate: retShort,
                 retentionLongTermRate: retLong,
+                estimatedCompletionDate: estimatedCompletionDate ? estimatedCompletionDate.toISOString() : null,
+                warrantyPeriodYears: warrantyPeriodYears,
                 updatedAt: new Date().toISOString()
             })
 
@@ -244,12 +278,21 @@ export async function updateProject(id: string, data: { name: string, budgetEsti
                     name: data.name,
                     budgetEstimated: budget,
                     retentionShortTermRate: retShort,
-                    retentionLongTermRate: retLong
+                    retentionLongTermRate: retLong,
+                    estimatedCompletionDate: estimatedCompletionDate,
+                    warrantyPeriodYears: warrantyPeriodYears,
                 }
             })
 
             if (budget > 0 && (retShort > 0 || retLong > 0)) {
-                await syncRetentionsFromProject(id, budget, retShort, retLong)
+                await syncRetentionsFromProject(
+                    id, 
+                    budget, 
+                    retShort, 
+                    retLong,
+                    estimatedCompletionDate,
+                    warrantyPeriodYears
+                )
             }
 
             revalidatePath("/projects")
@@ -262,6 +305,86 @@ export async function updateProject(id: string, data: { name: string, budgetEsti
     } catch (error: any) {
         console.error("[PROJECT_UPDATE_ERROR]", error)
         return { success: false, error: error.message || "Błąd podczas aktualizacji projektu." }
+    }
+}
+
+/**
+ * ZAKOŃCZ INWESTYCJĘ (Phase 9 Protocol)
+ */
+export async function closeProject(id: string, receiptDate: string): Promise<{ success: boolean, error?: string }> {
+    try {
+        const adminDb = getAdminDb()
+        const tenantId = await getCurrentTenantId()
+        
+        // 1. Pobierz dane projektu do obliczeń
+        const project = await (prisma as any).project.findUnique({
+            where: { id, tenantId },
+            include: { invoices: true }
+        })
+
+        if (!project) throw new Error("Projekt nie istnieje.")
+
+        const date = new Date(receiptDate)
+        
+        // 2. Oblicz pozostały budżet do zafakturowania
+        const totalInvoicedNet = project.invoices
+            .filter((inv: any) => inv.type === 'SPRZEDAŻ')
+            .reduce((sum: number, inv: any) => sum + Number(inv.amountNet), 0)
+        
+        const remainingNet = Number(project.budgetEstimated) - totalInvoicedNet
+
+        // 3. Update statusu (Project Lock)
+        await adminDb.collection("projects").doc(id).update({
+            status: "CLOSED",
+            lifecycleStatus: "CLOSED",
+            estimatedCompletionDate: date.toISOString(),
+            updatedAt: new Date().toISOString()
+        })
+
+        await (prisma as any).project.update({
+            where: { id },
+            data: {
+                status: "CLOSED",
+                lifecycleStatus: "CLOSED",
+                estimatedCompletionDate: date
+            }
+        })
+
+        // 4. Stwórz zadanie/powiadomienie o fakturze końcowej (High Priority)
+        if (remainingNet > 0) {
+            await createNotification({
+                type: 'WARNING',
+                title: `Wystaw fakturę końcową: ${project.name}`,
+                message: `Projekt został zamknięty (Odbiór: ${receiptDate}). Do zafakturowania pozostało: ${remainingNet.toLocaleString()} zł netto.`,
+                priority: 'HIGH',
+                link: `/projects/${id}`
+            })
+        } else {
+            await createNotification({
+                type: 'SUCCESS',
+                title: `Projekt zamknięty: ${project.name}`,
+                message: `Inwestycja została pomyślnie rozliczona i zamknięta.`,
+                priority: 'LOW'
+            })
+        }
+
+        // 5. Synchronizacja kaucji (Data Odmrożenia przelicza się na podstawie nowej daty zakończenia)
+        await syncRetentionsFromProject(
+            id,
+            Number(project.budgetEstimated),
+            Number(project.retentionShortTermRate),
+            Number(project.retentionLongTermRate),
+            date,
+            project.warrantyPeriodYears
+        )
+
+        revalidatePath("/projects")
+        revalidatePath("/")
+        
+        return { success: true }
+    } catch (error: any) {
+        console.error("[PROJECT_CLOSE_ERROR]", error)
+        return { success: false, error: error.message || "Błąd podczas zamykania projektu." }
     }
 }
 
@@ -290,6 +413,45 @@ export async function archiveProject(id: string): Promise<{ success: boolean, er
     } catch (error: any) {
         console.error("[PROJECT_ARCHIVE_ERROR]", error)
         return { success: false, error: error.message || "Błąd podczas archiwizacji projektu." }
+    }
+}
+
+/**
+ * POBIERZ ZAMKNIĘTE PROJEKTY DO FAJKTUROWANIA (Phase 9 Widget)
+ */
+export async function getClosedProjectsForInvoicing() {
+    try {
+        const tenantId = await getCurrentTenantId()
+        const projects = await (prisma as any).project.findMany({
+            where: { 
+                tenantId,
+                status: "CLOSED"
+            },
+            include: {
+                invoices: true,
+                contractor: { select: { name: true } }
+            }
+        })
+
+        return projects.filter((p: any) => {
+            const invoiced = p.invoices
+                .filter((inv: any) => inv.type === 'SPRZEDAŻ')
+                .reduce((sum: number, inv: any) => sum + Number(inv.amountNet), 0)
+            return Number(p.budgetEstimated) > invoiced
+        }).map((p: any) => {
+            const invoiced = p.invoices
+                .filter((inv: any) => inv.type === 'SPRZEDAŻ')
+                .reduce((sum: number, inv: any) => sum + Number(inv.amountNet), 0)
+            return {
+                id: p.id,
+                name: p.name,
+                contractorName: p.contractor.name,
+                remainingNet: Number(p.budgetEstimated) - invoiced
+            }
+        })
+    } catch (error) {
+        console.error("[GET_CLOSED_PROJECTS_ERROR]", error)
+        return []
     }
 }
 

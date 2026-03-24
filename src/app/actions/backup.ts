@@ -43,7 +43,7 @@ export async function exportBackup() {
 
         // 2. Firestore Data
         const collections = ["contractors", "projects", "project_stages", "invoices", "transactions", "objects", "debts"]
-        const firestoreData: Record<string, any[]> = {}
+        const firestoreData: Record<string, unknown[]> = {}
 
         for (const col of collections) {
             const snap = await adminDb.collection(col).where("tenantId", "==", tenantId).get()
@@ -77,10 +77,15 @@ export async function exportBackup() {
     }
 }
 
+interface BackupData {
+    prisma: Record<string, Record<string, unknown>[]>;
+    firestore: Record<string, Record<string, unknown>[]>;
+}
+
 /**
  * IMPORT DANYCH
  */
-export async function restoreFromBackup(backupData: any, passwordInput: string) {
+export async function restoreFromBackup(backupData: unknown, passwordInput: string) {
     const adminDb = getAdminDb()
     const tenantId = await getCurrentTenantId()
     
@@ -90,7 +95,8 @@ export async function restoreFromBackup(backupData: any, passwordInput: string) 
         throw new Error("Nieprawidłowe hasło autoryzacyjne. Operacja przerwana.")
     }
 
-    if (!backupData || !backupData.prisma || !backupData.firestore) {
+    const data = backupData as BackupData
+    if (!data || !data.prisma || !data.firestore) {
         throw new Error("Nieprawidłowy format pliku kopii zapasowej.")
     }
 
@@ -101,7 +107,7 @@ export async function restoreFromBackup(backupData: any, passwordInput: string) 
         console.log("[BACKUP] Starting Restore Process...")
 
         // 2. Firestore Restore (Batches)
-        const fsData = backupData.firestore
+        const fsData = data.firestore
         for (const col in fsData) {
             const items = fsData[col]
             if (!items.length) continue
@@ -114,9 +120,9 @@ export async function restoreFromBackup(backupData: any, passwordInput: string) 
 
             for (const chunk of chunks) {
                 const batch = adminDb.batch()
-                chunk.forEach((item: any) => {
+                chunk.forEach((item: Record<string, unknown>) => {
                     const { _id, ...data } = item
-                    const docRef = adminDb.collection(col).doc(_id)
+                    const docRef = adminDb.collection(col).doc(_id as string)
                     batch.set(docRef, { ...data, tenantId }) // Wymuszamy obecny tenantId dla bezpieczeństwa
                 })
                 await batch.commit()
@@ -124,44 +130,44 @@ export async function restoreFromBackup(backupData: any, passwordInput: string) 
         }
 
         // 3. Prisma Restore (Manual Order due to relations)
-        const pData = backupData.prisma
+        const pData = data.prisma
         
         await prisma.$transaction(async (tx) => {
             // Uwaga: Używamy createMany tam gdzie to możliwe, ale z id musimy uważać na typy SQL (String/Decimal)
             // Relacje w SQL wymagają zachowania kolejności: Contractors -> Objects -> Projects -> ...
             
             if (pData.contractors.length) {
-                await tx.contractor.createMany({ data: pData.contractors.map((c: any) => ({ ...c, createdAt: new Date(c.createdAt), updatedAt: new Date(c.updatedAt) })) })
+                await tx.contractor.createMany({ data: (pData.contractors as any[]).map((c) => ({ ...c, createdAt: new Date(c.createdAt), updatedAt: new Date(c.updatedAt) })) })
             }
             if (pData.objects.length) {
-                await tx.object.createMany({ data: pData.objects.map((o: any) => ({ ...o, createdAt: new Date(o.createdAt), updatedAt: new Date(o.updatedAt) })) })
+                await tx.object.createMany({ data: (pData.objects as any[]).map((o) => ({ ...o, createdAt: new Date(o.createdAt), updatedAt: new Date(o.updatedAt) })) })
             }
             if (pData.contacts.length) {
-                await tx.contact.createMany({ data: pData.contacts.map((c: any) => ({ ...c, createdAt: new Date(c.createdAt), updatedAt: new Date(c.updatedAt) })) })
+                await tx.contact.createMany({ data: (pData.contacts as any[]).map((c) => ({ ...c, createdAt: new Date(c.createdAt), updatedAt: new Date(c.updatedAt) })) })
             }
             if (pData.projects.length) {
-                await tx.project.createMany({ data: pData.projects.map((p: any) => ({ ...p, createdAt: new Date(p.createdAt), updatedAt: new Date(p.updatedAt) })) })
+                await tx.project.createMany({ data: (pData.projects as any[]).map((p) => ({ ...p, createdAt: new Date(p.createdAt), updatedAt: new Date(p.updatedAt) })) })
             }
             if (pData.projectStages.length) {
-                await tx.projectStage.createMany({ data: pData.projectStages.map((s: any) => ({ ...s, createdAt: new Date(s.createdAt), updatedAt: new Date(s.updatedAt) })) })
+                await tx.projectStage.createMany({ data: (pData.projectStages as any[]).map((s) => ({ ...s, createdAt: new Date(s.createdAt), updatedAt: new Date(s.updatedAt) })) })
             }
             if (pData.invoices.length) {
-                await tx.invoice.createMany({ data: pData.invoices.map((i: any) => ({ ...i, issueDate: new Date(i.issueDate), dueDate: new Date(i.dueDate), retentionReleaseDate: i.retentionReleaseDate ? new Date(i.retentionReleaseDate) : null, createdAt: new Date(i.createdAt), updatedAt: new Date(i.updatedAt) })) })
+                await tx.invoice.createMany({ data: (pData.invoices as any[]).map((i) => ({ ...i, issueDate: new Date(i.issueDate), dueDate: new Date(i.dueDate), retentionReleaseDate: i.retentionReleaseDate ? new Date(i.retentionReleaseDate) : null, createdAt: new Date(i.createdAt), updatedAt: new Date(i.updatedAt) })) })
             }
             if (pData.transactions.length) {
-                await tx.transaction.createMany({ data: pData.transactions.map((t: any) => ({ ...t, transactionDate: new Date(t.transactionDate), createdAt: new Date(t.createdAt), updatedAt: new Date(t.updatedAt) })) })
+                await tx.transaction.createMany({ data: (pData.transactions as any[]).map((t) => ({ ...t, transactionDate: new Date(t.transactionDate), createdAt: new Date(t.createdAt), updatedAt: new Date(t.updatedAt) })) })
             }
             if (pData.invoicePayments.length) {
-                await tx.invoicePayment.createMany({ data: pData.invoicePayments.map((ip: any) => ({ ...ip, createdAt: new Date(ip.createdAt) })) })
+                await tx.invoicePayment.createMany({ data: (pData.invoicePayments as any[]).map((ip) => ({ ...ip, createdAt: new Date(ip.createdAt) })) })
             }
             if (pData.liabilities.length) {
-                await tx.liability.createMany({ data: pData.liabilities.map((l: any) => ({ ...l, startDate: new Date(l.startDate), endDate: new Date(l.endDate), createdAt: new Date(l.createdAt), updatedAt: new Date(l.updatedAt) })) })
+                await tx.liability.createMany({ data: (pData.liabilities as any[]).map((l) => ({ ...l, startDate: new Date(l.startDate), endDate: new Date(l.endDate), createdAt: new Date(l.createdAt), updatedAt: new Date(l.updatedAt) })) })
             }
             if (pData.legacyDebts.length) {
-                await tx.legacyDebt.createMany({ data: pData.legacyDebts.map((d: any) => ({ ...d, createdAt: new Date(d.createdAt), updatedAt: new Date(d.updatedAt) })) })
+                await tx.legacyDebt.createMany({ data: (pData.legacyDebts as any[]).map((d) => ({ ...d, createdAt: new Date(d.createdAt), updatedAt: new Date(d.updatedAt) })) })
             }
             if (pData.legacyDebtInstallments.length) {
-                await tx.legacyDebtInstallment.createMany({ data: pData.legacyDebtInstallments.map((i: any) => ({ ...i, dueDate: new Date(i.dueDate), paidAt: i.paidAt ? new Date(i.paidAt) : null, createdAt: new Date(i.createdAt), updatedAt: new Date(i.updatedAt) })) })
+                await tx.legacyDebtInstallment.createMany({ data: (pData.legacyDebtInstallments as any[]).map((i) => ({ ...i, dueDate: new Date(i.dueDate), paidAt: i.paidAt ? new Date(i.paidAt) : null, createdAt: new Date(i.createdAt), updatedAt: new Date(i.updatedAt) })) })
             }
         })
 
@@ -173,8 +179,9 @@ export async function restoreFromBackup(backupData: any, passwordInput: string) 
 
         return { success: true, message: "System został pomyślnie odtworzony z kopii zapasowej." }
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("[BACKUP_RESTORE_ERROR]", error)
-        throw new Error("Błąd podczas odtwarzania danych: " + (error as Error).message)
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        throw new Error("Błąd podczas odtwarzania danych: " + errorMessage)
     }
 }

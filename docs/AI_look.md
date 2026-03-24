@@ -128,6 +128,12 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 031 | Project Health / Logic | FIXED | Dynamic Budget Aggregation (Gross Invoices). | Przełączono moduł Analizy Zdrowia na obliczenia oparte o faktury EXPENSE (Brutto) zamiast płatności, z precyzyjnym ProgressBar i statusem limitu. |
 | Vector 032 | Project Health / P&L | FIXED | Unit Profitability Scorecard (P&L). | Wdrożono widok rentowności w modalu analizy: Przychody Netto vs Koszty Netto = Marża, z automatycznym alertem dla projektów niedochodowych. |
 | Vector 033 | Project Health / Logic | FIXED | Refined Progress & Margin UI. | Pasek postępu przełączono na Progress Fakturowania. Dodano wizualizację "podgryzania" marży przez koszty rzeczywiste. |
+| Vector 034 | Project Health / Automation | FIXED | Automatic Retention Scheduling. | Wdrożono automatyczne harmonogramowanie zwrotów kaucji na podstawie daty zakończenia prac i okresu gwarancji. |
+| Vector 035 | Project Closure | FIXED | Closure Protocol (Archive Lock). | Wdrożono modal zamknięcia inwestycji, który blokuje koszty i precyzyjnie przelicza kaucje. |
+| Vector 036 | Notifications | FIXED | Billing Alerts & Global Notifications. | Zaimplementowano system powiadomień systemowych oraz widżet "Do Zafakturowania". |
+| Vector 037 | AI / Logic | FIXED | Income/Expense Auto-Detection. | Wdrożono inteligentną detekcję typu dokumentu na podstawie NIP-u właściciela (`9542751368`) w API OCR. |
+| Vector 038 | AI / UX | FIXED | Seamless Save & Quick entities. | Zaimplementowano interfejs "Quick Add" w Inboxie OCR, umożliwiający błyskawiczne dodawanie firm i projektów. |
+| Vector 039 | Code Quality | FIXED | Any type purge & Catch blocks. | Usunięto rzutowania `as any` oraz poprawiono typowanie w Server Actions dla lepszej stabilności Vercel. |
 
 ---
 

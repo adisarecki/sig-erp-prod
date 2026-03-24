@@ -16,6 +16,7 @@ import { TimeFilterTabs } from "@/components/finance/TimeFilterTabs"
 import { CIT_RATE } from "@/lib/config/tax"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 import { RetentionVault } from "@/components/finance/RetentionVault"
+import { PendingInvoicesWidget } from "@/components/dashboard/PendingInvoicesWidget"
 
 // Inicjalizacja Firebase Admin dla Dashboardu
 initFirebaseAdmin();
@@ -537,6 +538,11 @@ export default async function DashboardPage({
             projects={projects.map((p: any) => ({ id: p.id, name: p.name }))} 
             contractors={contractors.map((c: any) => ({ id: c.id, name: c.name }))}
           />
+        </div>
+
+        {/* PROWIZJA / FAKTUROWANIE (Phase 9) */}
+        <div className="lg:col-span-1">
+          <PendingInvoicesWidget />
         </div>
 
         {/* DŁUGI HISTORYCZNE (NEW) */}

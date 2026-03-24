@@ -9,6 +9,7 @@ import { bulkUpdateProjectLifecycle } from "@/app/actions/projectsBulk"
 import { deleteProject, deleteSelectedProjects } from "@/app/actions/projects"
 import { ProjectAnalysisDialog } from "@/components/projects/ProjectAnalysisDialog"
 import { EditProjectModal } from "@/components/projects/EditProjectModal"
+import { ClosureProjectModal } from "@/components/projects/ClosureProjectModal"
 import { RegisterIncomeModal } from "@/components/finance/RegisterIncomeModal"
 import { RegisterCostModal } from "@/components/finance/RegisterCostModal"
 import { TrendingUp, PlusCircle, MinusCircle } from "lucide-react"
@@ -32,6 +33,10 @@ interface ProjectData {
     object: { name: string; address: string | null };
     invoices: { type: string; amountNet: number | string; amountGross?: number | string; issueDate: string | Date }[];
     transactions: { type: string; amount: number | string; transactionDate: string | Date }[];
+    retentionShortTermRate?: number;
+    retentionLongTermRate?: number;
+    estimatedCompletionDate?: string | Date;
+    warrantyPeriodYears?: number;
 }
 
 interface InteractiveProjectListProps {
@@ -220,9 +225,21 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                                 project={{
                                                     id: project.id,
                                                     name: project.name,
-                                                    budgetEstimated: Number(project.budgetEstimated)
+                                                    budgetEstimated: Number(project.budgetEstimated),
+                                                    retentionShortTermRate: project.retentionShortTermRate,
+                                                    retentionLongTermRate: project.retentionLongTermRate,
+                                                    estimatedCompletionDate: project.estimatedCompletionDate,
+                                                    warrantyPeriodYears: project.warrantyPeriodYears
                                                 }}
                                             />
+                                            {project.status !== 'CLOSED' && (
+                                                <ClosureProjectModal 
+                                                    projectId={project.id}
+                                                    projectName={project.name}
+                                                    budgetEstimated={Number(project.budgetEstimated)}
+                                                    totalInvoicedNet={totalInvoicedNet}
+                                                />
+                                            )}
                                             <button
                                                 onClick={(e) => handleDeleteSingle(e, project.id, project.name)}
                                                 className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-all hover:scale-110"

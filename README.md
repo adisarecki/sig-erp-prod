@@ -85,15 +85,25 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - **Quick Add (Kaucje)**: Umożliwiono błyskawiczną rejestrację nowych firm (Inwestorów) i Projektów bezpośrednio z formularza kaucji, co przyspiesza wprowadzanie danych historycznych.
 - **Dynamiczna Agregacja Budżetu**: Wdrożono dynamiczne odliczanie rzeczywistych kosztów (faktur EXPENSE Brutto) od budżetu projektu w module Analizy Zdrowia, zapewniając realny status "Bezpieczny/Zagrożenie".
 - **Moduł Rentowności Jednostkowej (P&L Projektu)**: Wdrożono widok rentowności w modalu analizy: Przychody Netto vs Koszty Netto = Marża, z automatycznym alertem dla projektów niedochodowych.
-- **Przemodelowanie Logiki Projektu**: Pasek postępu przełączono na Progress Fakturowania. Dodano wizualizację "podgryzania" marży przez koszty rzeczywiste. Budżet (ProgressBar) śledzi teraz postęp fakturowania klienta, a sekcja P&L skupia się na realnym zysku (Przychody - Koszty), pokazując jak wydatki "podgryzają" marżę.
+- **Przemodelowanie Logiki Projektu**: Pasek postępu przełączono na Progress Fakturowania. Dodano wizualizację "podgryzania" marży przez koszty rzeczywiste (Wektor 033). Budżet (ProgressBar) śledzi teraz postęp fakturowania klienta, a sekcja P&L skupia się na realnym zysku.
+- **Automatyzacja Kaucji (Wektor 034)**: Wdrożono automatyczne harmonogramowanie zwrotów kaucji na podstawie daty zakończenia prac i okresu gwarancji. Poprawiono trwałość danych w formularzu edycji projektu (Memory Fix) oraz dodano system ostrzeżeń (Guardrail) przy zmianie parametrów kaucji.
 - **Zero-Day Auto-Pay**: Brakujące ogniwo automatyzacji – system automatycznie oznacza faktury jako opłacone, gdy data wystawienia pokrywa się z terminem płatności.
 - **OCR Inbox**: Wdrożono Inbox OCR z obsługą wielu dokumentów na jednym skanie oraz wstępną weryfikacją przed księgowaniem.
 - **Safe Delete & Quick View**: Wdrożono funkcję Safe Delete (usuwanie z potwierdzeniem) oraz podgląd detali dokumentu finansowego z danymi OCR (NIP, Daty, Projekt).
 - **Auto-Matching (Pewniak)**: Jeśli system rozpozna NIP dostawcy z bazy, automatycznie przypisuje mu ostatnio użytą kategorię i projekt. Takie pola są oznaczane jako "Pewniak" (Sparkles).
 - **Bulk Action**: Dodano przycisk "Zaksięguj Wszystkie Prawidłowe", który jednym kliknięciem zapisuje wszystkie poprawnie zweryfikowane dokumenty do bazy.
 - **Multi-Entity OCR**: Obsługa wielu faktur/paragonów na jednym zdjęciu oraz seryjne przesyłanie do 5 plików.
+- **Wektor 035: Protokół Zamknięcia Projektu**: Wdrożono inteligentny modal zamknięcia inwestycji (`ClosureProjectModal`), który oblicza kwotę pozostałą do zafakturowania, blokuje przypisywanie nowych kosztów (Archive Lock) oraz precyzyjnie przelicza daty zwrotu kaucji na podstawie daty odbioru protokołu.
+- **Wektor 036: Alerty Fakturowania i Powiadomienia**: Zaimplementowano system powiadomień systemowych (Notifications) oraz dedykowany widżet Dashboardu "Do Zafakturowania", który pilnuje, aby każda zamknięta budowa została rozliczona do ostatniego grosza.
 
 ---
+---
+### 📅 Status Wdrożenia (2026-03-24 v2 - Finalizing OCR Workflow)
+- **OCR Inbox Perfection**: System obsługuje teraz pełen cykl od skanu wielostronicowego do seryjnego księgowania z automatycznym wykrywaniem typu dokumentu (Wektor 037).
+- **Quick Entities**: Możliwość błyskawicznego dodawania nowych firm i projektów bezpośrednio z Inboxa OCR (Wektor 038).
+- **Safe-to-Deploy**: Kod został oczyszczony z niebezpiecznych rzutowań `any` i przygotowany do pełnej kompilacji na Vercel (Wektor 039).
+- **Automatyka Kaucji & Rentowności**: System w pełnej skali monitoruje marżę projektową i dba o kaucje gwarancyjne (Wektory 034-036).
+
 *Dla programistów: Techniczna dokumentacja DNA znajduje się v [docs/AI_look.md](./docs/AI_look.md)*
 
 ---

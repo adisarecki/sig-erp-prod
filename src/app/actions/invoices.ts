@@ -6,13 +6,11 @@ import { validateNonZero } from "@/lib/ledger"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { getAdminDb } from "@/lib/firebaseAdmin"
 import prisma from "@/lib/prisma"
-import { Transaction } from "@google-cloud/firestore"
 
 
 export async function deleteInvoice(id: string): Promise<{ success: boolean, error?: string }> {
     try {
         const adminDb = getAdminDb()
-        const tenantId = await getCurrentTenantId()
 
         // 1. Znajdź powiązane transakcje (source: INVOICE)
         const payments = await prisma.invoicePayment.findMany({
@@ -61,13 +59,13 @@ export async function deleteInvoice(id: string): Promise<{ success: boolean, err
         revalidatePath("/")
 
         return { success: true }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("[INVOICE_DELETE_ERROR]", error)
-        return { success: false, error: error.message || "Błąd podczas usuwania dokumentu." }
+        return { success: false, error: error instanceof Error ? error.message : "Błąd podczas usuwania dokumentu." }
     }
 }
 
-export async function markInvoiceAsPaid(id: string): Promise<{ success: boolean, error?: string }> {
+export async function markInvoiceAsPaid(id: string, paymentDateOverride?: string): Promise<{ success: boolean, error?: string }> {
     try {
         const adminDb = getAdminDb()
         const tenantId = await getCurrentTenantId()
@@ -81,7 +79,7 @@ export async function markInvoiceAsPaid(id: string): Promise<{ success: boolean,
         if (!invoice) throw new Error("Nie znaleziono dokumentu.")
         if (invoice.status === "PAID") return { success: true }
 
-        const paymentDate = new Date()
+        const paymentDate = paymentDateOverride ? new Date(paymentDateOverride) : new Date()
         const amountGross = Number(invoice.amountGross)
 
         // 2. Firestore Update (Transaction)
@@ -129,7 +127,7 @@ export async function markInvoiceAsPaid(id: string): Promise<{ success: boolean,
                 const tData = tDoc.data()
                 
                 // Create Transaction in Prisma
-                const prismaTrans = await (tx.transaction.create as any)({
+                const prismaTrans = await tx.transaction.create({
                     data: {
                         id: tDoc.id,
                         tenantId,
@@ -161,9 +159,9 @@ export async function markInvoiceAsPaid(id: string): Promise<{ success: boolean,
         revalidatePath("/")
 
         return { success: true }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("[INVOICE_MARK_PAID_ERROR]", error)
-        return { success: false, error: error.message || "Błąd podczas oznaczania jako zapłacone." }
+        return { success: false, error: error instanceof Error ? error.message : "Błąd podczas oznaczania jako zapłacone." }
     }
 }
 export async function getAutoMatchData(nip: string) {
@@ -198,7 +196,7 @@ export async function getAutoMatchData(nip: string) {
             lastProjectId: lastInvoice?.projectId || "GENERAL",
             lastCategory: lastInvoice?.payments[0]?.transaction?.category || "KOSZT_FIRMOWY"
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("[GET_AUTO_MATCH_ERROR]", error)
         return null
     }
@@ -282,6 +280,24 @@ export async function addIncomeInvoice(formData: FormData) {
 
         const txResult = await adminDb.runTransaction(async (transaction) => {
             let finalContractorId = contractorId
+            let finalProjectId = (projectIdRaw === "none" || projectIdRaw === "NONE" || projectIdRaw === "GENERAL" || projectIdRaw === "INTERNAL") ? "" : (projectId || "")
+
+            // --- 0. PROJEKT (Quick Add) ---
+            const isNewProject = formData.get("isNewProject") === "true"
+            const newProjectName = formData.get("newProjectName") as string
+
+            if (isNewProject && newProjectName) {
+                const projectRef = adminDb.collection("projects").doc()
+                transaction.set(projectRef, {
+                    tenantId,
+                    name: newProjectName,
+                    contractorId: finalContractorId || null,
+                    status: "PLANNED",
+                    budgetEstimated: 0,
+                    createdAt: new Date().toISOString()
+                })
+                finalProjectId = projectRef.id
+            }
 
             // 1. Jeśli to nowy kontrahent, sprawdź czy NIP już istnieje (Intelligent Upsert)
             // Szukamy po NIP w Firestore i Prisma, aby uniknąć błędów unikalności
@@ -329,6 +345,13 @@ export async function addIncomeInvoice(formData: FormData) {
                         address: newContractorAddress || null
                     })
                 }
+
+                // Jeśli projekt był nowy, przypisz mu nowo utworzonego kontrahenta
+                if (isNewProject && finalProjectId) {
+                    transaction.update(adminDb.collection("projects").doc(finalProjectId), {
+                        contractorId: finalContractorId
+                    })
+                }
             }
 
             // 2. Zapisujemy Fakturę
@@ -336,7 +359,7 @@ export async function addIncomeInvoice(formData: FormData) {
             transaction.set(invoiceRef, {
                 tenantId,
                 contractorId: finalContractorId,
-                projectId,
+                projectId: finalProjectId,
                 type: "SPRZEDAŻ",
                 amountNet: amountNet.toNumber(),
                 amountGross: amountGross.toNumber(),
@@ -354,10 +377,10 @@ export async function addIncomeInvoice(formData: FormData) {
             // 3. Transakcja powiązana (Tylko jeśli opłacono od razu)
             if (isPaidImmediately) {
                 const transRef = adminDb.collection("transactions").doc()
-                const classificationValue = (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (projectId ? "PROJECT_COST" : "GENERAL_COST")
+                const classificationValue = (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (finalProjectId ? "PROJECT_COST" : "GENERAL_COST")
                 transaction.set(transRef, {
                     tenantId,
-                    projectId,
+                    projectId: finalProjectId || null,
                     classification: classificationValue,
                     amount: amountGross.toNumber(),
                     type: "PRZYCHÓD",
@@ -371,7 +394,7 @@ export async function addIncomeInvoice(formData: FormData) {
                     updatedAt: new Date().toISOString()
                 })
             }
-            return { invoiceId: invoiceRef.id, contractorId: finalContractorId }
+            return { invoiceId: invoiceRef.id, contractorId: finalContractorId, projectId: finalProjectId }
         })
 
         // 4. Prisma Sync
@@ -413,12 +436,53 @@ export async function addIncomeInvoice(formData: FormData) {
                 }
             }
 
+            // --- PROJEKT (Find-or-Create) ---
+            const isNewProject = formData.get("isNewProject") === "true"
+            const newProjectName = formData.get("newProjectName") as string
+
+            if (isNewProject && txResult.projectId && newProjectName) {
+                const existingPrismaProject = await prisma.project.findUnique({
+                    where: { id: txResult.projectId }
+                })
+                if (!existingPrismaProject) {
+                    let targetObjectId: string | undefined
+                    const existingObject = await prisma.object.findFirst({
+                        where: { contractorId: prismaContractorId }
+                    })
+                    
+                    if (existingObject) {
+                        targetObjectId = existingObject.id
+                    } else {
+                        const newObj = await prisma.object.create({
+                            data: {
+                                contractorId: prismaContractorId,
+                                name: "Siedziba Główna"
+                            }
+                        })
+                        targetObjectId = newObj.id
+                    }
+
+                    await prisma.project.create({
+                        data: {
+                            id: txResult.projectId,
+                            tenantId,
+                            name: newProjectName,
+                            contractorId: prismaContractorId,
+                            objectId: targetObjectId!,
+                            type: "INWESTYCJA",
+                            status: "PLANNED",
+                            budgetEstimated: 0
+                        }
+                    })
+                }
+            }
+
             await prisma.invoice.create({
                 data: {
                     id: txResult.invoiceId,
                     tenantId,
                     contractorId: prismaContractorId,
-                    projectId: ((projectIdRaw === "INTERNAL" || (!projectId || projectId === "GENERAL" || projectId === "NONE" || projectId === "")) ? null : projectId) as any,
+                    projectId: txResult.projectId || null,
                     type: "SPRZEDAŻ",
                     amountNet: amountNet.toNumber(),
                     amountGross: amountGross.toNumber(),
@@ -437,12 +501,12 @@ export async function addIncomeInvoice(formData: FormData) {
                 if (!transSnap.empty) {
                     const tDoc = transSnap.docs[0]
                     // 3a. Tworzymy Transakcję w Prisma
-                    const prismaTrans = await (prisma.transaction.create as any)({
+                    const prismaTrans = await prisma.transaction.create({
                         data: {
                             id: tDoc.id,
                             tenantId,
-                            projectId,
-                            classification: (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (projectId ? "PROJECT_COST" : "GENERAL_COST"),
+                            projectId: txResult.projectId || null,
+                            classification: (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (txResult.projectId ? "PROJECT_COST" : "GENERAL_COST"),
                             amount: amountGross.toNumber(),
                             type: "PRZYCHÓD",
                             transactionDate: issueDate,
@@ -463,7 +527,7 @@ export async function addIncomeInvoice(formData: FormData) {
                     })
                 }
             }
-        } catch (prismaError: any) {
+        } catch (prismaError: unknown) {
             // Rollback Firebase
             await adminDb.collection("invoices").doc(txResult.invoiceId).delete()
             if (isNewContractor) {
@@ -477,7 +541,7 @@ export async function addIncomeInvoice(formData: FormData) {
             for (const doc of orphans.docs) {
                 await doc.ref.delete()
             }
-            throw new Error("Błąd synchronizacji relacyjnej (Prisma). Dane w Firebase zostały wycofane. " + prismaError.message)
+            throw new Error("Błąd synchronizacji relacyjnej (Prisma). Dane w Firebase zostały wycofane. " + (prismaError instanceof Error ? prismaError.message : "Nieznany błąd"))
         }
 
         revalidatePath("/")
@@ -485,9 +549,9 @@ export async function addIncomeInvoice(formData: FormData) {
         revalidatePath("/finance")
 
         return { success: true }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("[ADD_INCOME_INVOICE_ERROR]", error)
-        return { success: false, error: error.message || "Wystąpił błąd przy dodawaniu przychodu." }
+        return { success: false, error: error instanceof Error ? error.message : "Wystąpił błąd przy dodawaniu przychodu." }
     }
 }
 
@@ -541,8 +605,6 @@ export async function addCostInvoice(formData: FormData) {
         const issueDate = new Date(dateStr)
         const dueDate = new Date(dueDateStr)
 
-        const projectIdRaw = projectId || ""
-        const finalProjectId = (projectIdRaw === "none" || projectIdRaw === "NONE" || projectIdRaw === "GENERAL" || projectIdRaw === "INTERNAL") ? "" : projectIdRaw
 
         const isPaidImmediately = formData.get("isPaidImmediately") === "true"
 
@@ -570,6 +632,24 @@ export async function addCostInvoice(formData: FormData) {
 
         const txResult = await adminDb.runTransaction(async (transaction) => {
             let finalContractorId = contractorId
+            let finalProjectId = (projectId === "none" || projectId === "NONE" || projectId === "GENERAL" || projectId === "INTERNAL" || !projectId) ? "" : projectId
+
+            // --- 0. PROJEKT (Quick Add) ---
+            const isNewProject = formData.get("isNewProject") === "true"
+            const newProjectName = formData.get("newProjectName") as string
+
+            if (isNewProject && newProjectName) {
+                const projectRef = adminDb.collection("projects").doc()
+                transaction.set(projectRef, {
+                    tenantId,
+                    name: newProjectName,
+                    contractorId: finalContractorId || null, // Will be updated if contractor is also new?
+                    status: "PLANNED",
+                    budgetEstimated: 0,
+                    createdAt: new Date().toISOString()
+                })
+                finalProjectId = projectRef.id
+            }
 
             // 1. Jeśli to nowy kontrahent, sprawdź czy NIP już istnieje
             if (isNewContractor) {
@@ -616,6 +696,13 @@ export async function addCostInvoice(formData: FormData) {
                         address: newContractorAddress || null
                     })
                 }
+                
+                // Jeśli projekt był nowy, przypisz mu nowo utworzonego kontrahenta
+                if (isNewProject && finalProjectId) {
+                    transaction.update(adminDb.collection("projects").doc(finalProjectId), {
+                        contractorId: finalContractorId
+                    })
+                }
             }
 
             // 2. Zapisujemy Fakturę
@@ -638,7 +725,7 @@ export async function addCostInvoice(formData: FormData) {
             })
 
             const isGeneralCost = !finalProjectId || finalProjectId === "GENERAL" || finalProjectId === "NONE" || finalProjectId === ""
-            const classificationValue = (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (!isGeneralCost ? "PROJECT_COST" : "GENERAL_COST")
+            const classificationValue = (projectId === "INTERNAL") ? "INTERNAL_COST" : (!isGeneralCost ? "PROJECT_COST" : "GENERAL_COST")
             const safeProjectId = isGeneralCost ? null : finalProjectId
 
             // 3. Transakcja powiązana
@@ -737,12 +824,55 @@ export async function addCostInvoice(formData: FormData) {
                 }
             }
 
+            // --- PROJEKT (Find-or-Create) ---
+            const isNewProject = formData.get("isNewProject") === "true"
+            const newProjectName = formData.get("newProjectName") as string
+
+            if (isNewProject && txResult.safeProjectId && newProjectName) {
+                const existingPrismaProject = await prisma.project.findUnique({
+                    where: { id: txResult.safeProjectId }
+                })
+                if (!existingPrismaProject) {
+                    // Musimy mieć objectId. Szukamy dowolnego obiektu dla tego kontrahenta lub tworzymy domyślny.
+                    let targetObjectId: string | undefined
+                    const existingObject = await prisma.object.findFirst({
+                        where: { contractorId: prismaContractorId }
+                    })
+                    
+                    if (existingObject) {
+                        targetObjectId = existingObject.id
+                    } else {
+                        // Tworzymy techniczny obiekt "Siedziba Główna" dla relacji
+                        const newObj = await prisma.object.create({
+                            data: {
+                                contractorId: prismaContractorId,
+                                name: "Siedziba Główna"
+                            }
+                        })
+                        targetObjectId = newObj.id
+                    }
+
+                    await prisma.project.create({
+                        data: {
+                            id: txResult.safeProjectId,
+                            tenantId,
+                            name: newProjectName,
+                            contractorId: prismaContractorId,
+                            objectId: targetObjectId!,
+                            type: "INWESTYCJA",
+                            status: "PLANNED",
+                            budgetEstimated: 0
+                        }
+                    })
+                }
+            }
+
             await prisma.invoice.create({
                 data: {
                     id: txResult.invoiceId,
                     tenantId,
                     contractorId: prismaContractorId,
-                    projectId: (txResult.safeProjectId as any),
+                    projectId: txResult.safeProjectId as string | null,
                     type: "EXPENSE",
                     amountNet: amountNet.toNumber(),
                     amountGross: amountGross.toNumber(),
@@ -760,7 +890,7 @@ export async function addCostInvoice(formData: FormData) {
                 const transSnap = await adminDb.collection("transactions").where("invoiceId", "==", txResult.invoiceId).limit(1).get()
                 if (!transSnap.empty) {
                     const tDoc = transSnap.docs[0]
-                    const prismaTrans = await (prisma.transaction.create as any)({
+                    const prismaTrans = await prisma.transaction.create({
                         data: {
                             id: tDoc.id,
                             tenantId,
@@ -785,7 +915,7 @@ export async function addCostInvoice(formData: FormData) {
                     })
                 }
             }
-        } catch (prismaError: any) {
+        } catch (prismaError: unknown) {
             // Rollback w Firebase
             await adminDb.collection("invoices").doc(txResult.invoiceId).delete()
             if (isNewContractor) {
@@ -799,7 +929,7 @@ export async function addCostInvoice(formData: FormData) {
             for (const doc of orphans.docs) {
                 await doc.ref.delete()
             }
-            throw new Error("Błąd synchronizacji relacyjnej (Prisma). Transakcja wycofana. " + prismaError.message)
+            throw new Error("Błąd synchronizacji relacyjnej (Prisma). Transakcja wycofana. " + (prismaError instanceof Error ? prismaError.message : "Nieznany błąd"))
         }
 
         revalidatePath("/")
@@ -807,8 +937,8 @@ export async function addCostInvoice(formData: FormData) {
         revalidatePath("/finance")
 
         return { success: true }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("[ADD_COST_INVOICE_ERROR]", error)
-        return { success: false, error: error.message || "Wystąpił błąd przy dodawaniu kosztu." }
+        return { success: false, error: error instanceof Error ? error.message : "Wystąpił błąd przy dodawaniu kosztu." }
     }
 }

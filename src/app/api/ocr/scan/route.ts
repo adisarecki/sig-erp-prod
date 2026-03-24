@@ -72,9 +72,26 @@ export async function POST(req: NextRequest) {
                 parsedData = [parsedData];
             }
 
-            console.log(`[OCR] Sukces! Wykryto ${parsedData.length} dokument(y/ów).`);
+            // --- THE NIP LOGIC (Zadanie 1) ---
+            // NIP Wizjonera: 9542751368
+            const OWNER_NIP = "9542751368";
+            
+            parsedData = parsedData.map((item: { nip?: string, type?: string }) => {
+                const itemNip = (item.nip || "").replace(/\D/g, "");
+                // Jeśli Sprzedawca (nip z dokumentu) to My -> INCOME
+                // W przeciwnym razie -> EXPENSE (Kupujemy coś)
+                const type = itemNip === OWNER_NIP ? "INCOME" : "EXPENSE";
+                
+                return {
+                    ...item,
+                    type,
+                    nip: itemNip // Sanitize NIP to digits only
+                };
+            });
+
+            console.log(`[OCR] Sukces! Wykryto ${parsedData.length} dokument(y/ów). Typy: ${parsedData.map((i: { type: string }) => i.type).join(", ")}`);
             return NextResponse.json({ success: true, data: parsedData });
-        } catch (jsonErr) {
+        } catch {
             console.error("[OCR JSON ERROR]", cleanedJson);
             return NextResponse.json({ 
                 success: false, 
@@ -82,11 +99,13 @@ export async function POST(req: NextRequest) {
             }, { status: 422 });
         }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("[OCR API CRITICAL ERROR]:", error);
         
+        const errorMessage = error instanceof Error ? error.message : String(error);
+
         // Specyficzna obsługa modelu 404
-        if (error.message?.includes("404") || error.message?.includes("not found")) {
+        if (errorMessage.includes("404") || errorMessage.includes("not found")) {
             return NextResponse.json({
                 success: false,
                 error: "Błąd konfiguracji modelu AI (Gemini 3 Flash). Skontaktuj się z administratorem lub spróbuj później."
@@ -95,7 +114,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             success: false,
-            error: error.message || "Błąd wewnętrzny serwera OCR."
+            error: errorMessage || "Błąd wewnętrzny serwera OCR."
         }, { status: 500 });
     }
 }

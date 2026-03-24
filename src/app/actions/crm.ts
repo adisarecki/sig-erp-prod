@@ -111,9 +111,10 @@ export async function addContractor(formData: FormData): Promise<{ success: bool
     revalidatePath("/crm")
     revalidatePath("/")
     return { success: true }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("[CRM_ACTION] Add Contractor error:", error)
-        return { success: false, error: error.message || "Błąd podczas dodawania kontrahenta." }
+        const errorMessage = error instanceof Error ? error.message : "Błąd podczas dodawania kontrahenta."
+        return { success: false, error: errorMessage }
     }
 }
 
@@ -200,9 +201,10 @@ export async function updateContractor(formData: FormData): Promise<{ success: b
         }
 
         return { success: true }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("[CRM_ACTION] Update Contractor error:", error)
-        return { success: false, error: error.message || "Błąd podczas aktualizacji kontrahenta." }
+        const errorMessage = error instanceof Error ? error.message : "Błąd podczas aktualizacji kontrahenta."
+        return { success: false, error: errorMessage }
     }
 }
 
@@ -263,9 +265,10 @@ export async function updateObject(formData: FormData): Promise<{ success: boole
         }
 
         return { success: true }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("[CRM_ACTION] Update Object error:", error)
-        return { success: false, error: error.message || "Błąd podczas aktualizacji obiektu." }
+        const errorMessage = error instanceof Error ? error.message : "Błąd podczas aktualizacji obiektu."
+        return { success: false, error: errorMessage }
     }
 }
 

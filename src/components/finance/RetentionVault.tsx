@@ -97,7 +97,7 @@ export function RetentionVault({ retentions, projects, contractors }: RetentionV
                                             </p>
                                             <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
                                                 <Clock className="w-3 h-3" />
-                                                <span>Wygaśnięcie: {format(expiryDate, 'd MMMM yyyy', { locale: pl })}</span>
+                                                <span>Data Odmrożenia: {format(expiryDate, 'd MMMM yyyy', { locale: pl })}</span>
                                             </div>
                                         </div>
                                         <div className="text-right">

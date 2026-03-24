@@ -14,9 +14,9 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import type { OcrInvoiceData } from "@/lib/ocr/types"
-import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
 import { getAutoMatchData, addCostInvoice, addIncomeInvoice } from "@/app/actions/invoices"
 import { getProjects } from "@/app/actions/projects"
+import { getContractors } from "@/app/actions/crm"
 import { COST_CATEGORIES } from "@/lib/categories"
 
 interface QueueItem extends OcrInvoiceData {
@@ -29,13 +29,15 @@ interface QueueItem extends OcrInvoiceData {
         project?: boolean
         category?: boolean
     }
+    // Quick Add Phase 10
+    isNewProject?: boolean
+    newProjectName?: string
+    isNewContractorOverride?: boolean
+    newContractorNameOverride?: string
+    contractorId?: string | null
 }
 
-interface InvoiceScannerProps {
-    onDataExtracted: (data: SanitizedOcrDraft) => void
-}
-
-export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
+export function InvoiceScanner() {
     const [open, setOpen] = useState(false)
     const [dragActive, setDragActive] = useState(false)
     const [files, setFiles] = useState<File[]>([])
@@ -44,7 +46,9 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
     const [queue, setQueue] = useState<QueueItem[]>([])
     const [editingIndex, setEditingIndex] = useState<number | null>(null)
     const [projects, setProjects] = useState<{ id: string, name: string }[]>([])
+    const [contractors, setContractors] = useState<{ id: string, name: string, nip: string | null }[]>([])
     const [loadingProjects, setLoadingProjects] = useState(false)
+    const [loadingContractors, setLoadingContractors] = useState(false)
     
     const inputRef = useRef<HTMLInputElement>(null)
 
@@ -60,7 +64,14 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
                 setLoadingProjects(false)
             }).catch(() => setLoadingProjects(false))
         }
-    }, [open, projects.length, loadingProjects])
+        if (open && contractors.length === 0 && !loadingContractors) {
+            setLoadingContractors(true)
+            getContractors().then((res) => {
+                setContractors(res.map((c: { id: string, name: string, nip: string | null }) => ({ id: c.id, name: c.name, nip: c.nip })))
+                setLoadingContractors(false)
+            }).catch(() => setLoadingContractors(false))
+        }
+    }, [open, projects.length, contractors.length, loadingProjects, loadingContractors])
 
     const handleFileDetection = useCallback((newFiles: FileList | null) => {
         if (!newFiles) return
@@ -94,7 +105,8 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
                 const formData = new FormData(); formData.append("file", f)
                 const response = await fetch("/api/ocr/scan", { method: "POST", body: formData })
                 const text = await response.text()
-                let result; try { result = JSON.parse(text) } catch { throw new Error("Błąd serwera (HTML)") }
+                let result: { success: boolean, data?: OcrInvoiceData[], error?: string }; 
+                try { result = JSON.parse(text) } catch { throw new Error("Błąd serwera (HTML)") }
                 if (!response.ok || !result.success) throw new Error(result.error || `Błąd OCR dla pliku ${f.name}`)
                 
                 if (Array.isArray(result.data)) {
@@ -115,6 +127,7 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
                             const match = await getAutoMatchData(data.nip)
                             if (match) {
                                 item.projectId = match.lastProjectId || "GENERAL"
+                                item.contractorId = match.contractorId || ""
                                 item.category = match.lastCategory || (data.type === "INCOME" ? "SPRZEDAŻ_TOWARU" : "KOSZT_FIRMOWY")
                                 item.autoMatched = {
                                     project: !!match.lastProjectId,
@@ -134,8 +147,8 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
             
             // Background validation
             validateQueue(allItems)
-        } catch (err: any) {
-            setError(err.message); setScannerState("ERROR")
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Błąd skanowania"); setScannerState("ERROR")
         }
     }
 
@@ -160,7 +173,7 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
                     updated[i].validationError = undefined
                 } else {
                     updated[i].status = "ERROR"
-                    updated[i].validationError = result.details ? result.details.map((d: any) => d.message).join(", ") : result.error
+                    updated[i].validationError = result.details ? result.details.map((d: { message: string }) => d.message).join(", ") : result.error
                 }
             } catch {
                 updated[i].status = "ERROR"
@@ -192,9 +205,21 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
             formData.append("category", item.category)
             formData.append("projectId", item.projectId)
             formData.append("description", item.invoiceNumber || "Skan OCR")
-            formData.append("isNewContractor", "true") 
-            formData.append("newContractorName", item.parsedName)
-            formData.append("newContractorNip", item.nip)
+            
+            // Seamless Save Phase 10
+            if (item.isNewProject && item.newProjectName) {
+                formData.append("isNewProject", "true")
+                formData.append("newProjectName", item.newProjectName)
+            }
+
+            if (item.isNewContractorOverride || !item.contractorId) {
+                formData.append("isNewContractor", "true") 
+                formData.append("newContractorName", item.newContractorNameOverride || item.parsedName)
+                formData.append("newContractorNip", item.nip)
+            } else {
+                formData.append("isNewContractor", "false")
+                formData.append("contractorId", item.contractorId)
+            }
             
             // Zero-Day Auto-Pay Logic
             const isAutoPaid = item.isPaid || (item.issueDate === item.dueDate && item.issueDate !== null)
@@ -210,9 +235,9 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
                     updatedQueue[idx].status = "ERROR"
                     updatedQueue[idx].validationError = result.error
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
                 updatedQueue[idx].status = "ERROR"
-                updatedQueue[idx].validationError = err.message
+                updatedQueue[idx].validationError = err instanceof Error ? err.message : "Błąd zapisu"
             }
             setQueue([...updatedQueue])
         }
@@ -370,8 +395,42 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
 
                             <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 shadow-inner">
                                 <div className="col-span-2 space-y-1">
-                                    <Label className="text-[10px] uppercase font-bold text-slate-500">Sprzedawca</Label>
-                                    <Input value={currentEditingItem.parsedName} onChange={(e) => updateItem(editingIndex, { parsedName: e.target.value })} className="bg-white" />
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[10px] uppercase font-bold text-slate-500">Kontrahent</Label>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={() => updateItem(editingIndex, { isNewContractorOverride: !currentEditingItem.isNewContractorOverride })}
+                                            className={`h-5 px-1 ${currentEditingItem.isNewContractorOverride ? 'text-blue-600 bg-blue-50' : 'text-slate-400'}`}
+                                        >
+                                            <Badge variant="outline" className="text-[9px] h-4">NOWY +</Badge>
+                                        </Button>
+                                    </div>
+                                    {currentEditingItem.isNewContractorOverride ? (
+                                        <div className="grid grid-cols-1 gap-2">
+                                            <Input 
+                                                placeholder="Nazwa nowej firmy..." 
+                                                value={currentEditingItem.newContractorNameOverride || currentEditingItem.parsedName} 
+                                                onChange={(e) => updateItem(editingIndex, { newContractorNameOverride: e.target.value })}
+                                                className="bg-white border-blue-300 focus:ring-blue-500"
+                                            />
+                                            <div className="text-[9px] text-slate-400 px-1 italic">Zostanie utworzony nowy kontrahent z tym NIP-em</div>
+                                        </div>
+                                    ) : (
+                                        <Select 
+                                            value={currentEditingItem.contractorId || ""} 
+                                            onValueChange={(val) => { if (editingIndex !== null) updateItem(editingIndex, { contractorId: val, isNewContractorOverride: false }) }}
+                                        >
+                                            <SelectTrigger className="bg-white">
+                                                <SelectValue placeholder="Wybierz kontrahenta lub kliknij +" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {contractors.map(c => (
+                                                    <SelectItem key={c.id} value={c.id}>{c.name} ({c.nip || 'Brak NIP'})</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
                                 </div>
                                 <div className="space-y-1">
                                     <Label className="text-[10px] uppercase font-bold text-slate-500">NIP</Label>
@@ -391,23 +450,42 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
                                 </div>
 
                                 <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1">
-                                        Projekt {currentEditingItem.autoMatched?.project && <Sparkles className="w-3 h-3 text-emerald-500" />}
-                                    </Label>
-                                    <Select 
-                                        value={currentEditingItem.projectId as string} 
-                                        onValueChange={(val) => { if (editingIndex !== null && val) updateItem(editingIndex, { projectId: val as string }) }}
-                                    >
-                                        <SelectTrigger className={`bg-white ${currentEditingItem.autoMatched?.project ? 'border-emerald-500 focus:ring-emerald-500' : ''}`}>
-                                            <SelectValue placeholder="Wybierz projekt" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="GENERAL" className="font-bold text-slate-500">KOSZTY OGÓLNE (Bez projektu)</SelectItem>
-                                            {projects.map(p => (
-                                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1">
+                                            Projekt {currentEditingItem.autoMatched?.project && <Sparkles className="w-3 h-3 text-emerald-500" />}
+                                        </Label>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={() => updateItem(editingIndex, { isNewProject: !currentEditingItem.isNewProject })}
+                                            className={`h-5 px-1 ${currentEditingItem.isNewProject ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'}`}
+                                        >
+                                            <Badge className="text-[9px] h-4">NOWY +</Badge>
+                                        </Button>
+                                    </div>
+                                    {currentEditingItem.isNewProject ? (
+                                        <Input 
+                                            placeholder="Nazwa nowego projektu..." 
+                                            value={currentEditingItem.newProjectName || ""} 
+                                            onChange={(e) => updateItem(editingIndex, { newProjectName: e.target.value })}
+                                            className="bg-white border-emerald-300 focus:ring-emerald-500"
+                                        />
+                                    ) : (
+                                        <Select 
+                                            value={currentEditingItem.projectId as string} 
+                                            onValueChange={(val) => { if (editingIndex !== null && val) updateItem(editingIndex, { projectId: val as string }) }}
+                                        >
+                                            <SelectTrigger className={`bg-white ${currentEditingItem.autoMatched?.project ? 'border-emerald-500 focus:ring-emerald-500' : ''}`}>
+                                                <SelectValue placeholder="Wybierz projekt" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="GENERAL" className="font-bold text-slate-500">KOSZTY OGÓLNE (Bez projektu)</SelectItem>
+                                                {projects.map(p => (
+                                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
                                 </div>
 
                                 <div className="space-y-1">
