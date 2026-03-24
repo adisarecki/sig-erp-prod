@@ -6,9 +6,11 @@ import Decimal from "decimal.js";
 export interface MT940Transaction {
     reference: string;      // Tag :20:
     date: Date;           // Tag :61:
-    amount: Decimal;      // Tag :61: (Positive for CR, cells for DR?)
+    amount: Decimal;      // Tag :61: (Positive for CR, negative for DR handled in route)
     type: 'INCOME' | 'EXPENSE'; // CR -> INCOME, DR -> EXPENSE
-    description: string;   // Tag :86:
+    description: string;   // Full sanitized string
+    title: string;         // Extracted ~20 (Title)
+    counterparty: string;  // Extracted ~32/22 (Contractor)
     bankReference: string; // Internal ref from :61:
 }
 
@@ -68,7 +70,9 @@ export class MT940Parser {
                     amount: amount,
                     type: isCredit ? 'INCOME' : 'EXPENSE',
                     bankReference: content.substring(content.length - 16).trim(), 
-                    description: ""
+                    description: "",
+                    title: "",
+                    counterparty: ""
                 };
                 continue;
             }
@@ -91,33 +95,47 @@ export class MT940Parser {
         }
 
         // Clean up and optimize descriptions (e.g., PKO BP ~ tags)
-        return transactions.map(t => ({
-            ...t,
-            description: MT940Parser.cleanDescription(t.description)
-        }));
+        return transactions.map(t => {
+            const { title, counterparty, fullClean } = MT940Parser.cleanDescription(t.description);
+            return {
+                ...t,
+                title,
+                counterparty,
+                description: fullClean
+            };
+        });
     }
 
     /**
      * Specialized PKO BP / SWIFT cleaner for tag :86:
      */
-    private static cleanDescription(rawDesc: string): string {
-        if (!rawDesc.includes('~')) return rawDesc;
+    private static cleanDescription(rawDesc: string): { title: string, counterparty: string, fullClean: string } {
+        // Strip common SWIFT operational metadata
+        let cleaned = rawDesc
+            .replace(/\/(TRF|KONTO|REF|CDPT|FEE|COMM|NP|TAX)\//g, ' ')
+            .replace(/NONREF\/\/\w+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if (!cleaned.includes('~')) {
+            return { title: cleaned, counterparty: "", fullClean: cleaned };
+        }
 
         // PKO BP uses ~ as internal tag separator
-        // ~20: Title/Description, ~32/33: Counterparty
-        const parts = rawDesc.split('~');
+        const parts = cleaned.split('~');
         let title = "";
         let counterparty = "";
 
         for (const p of parts) {
             if (p.startsWith('20')) {
                 const val = p.substring(2).trim();
-                if (val && val !== '˙') title = val;
-            } else if (p.startsWith('32')) {
+                // Remove redundant timestamps/IDs if present (often at start of ~20)
+                const sanitizedVal = val.replace(/^\d{10,}\s?/, '').trim();
+                if (sanitizedVal && sanitizedVal !== '˙') title = sanitizedVal;
+            } else if (p.startsWith('32') || p.startsWith('33')) {
                 const val = p.substring(2).trim();
                 if (val && val !== '˙') counterparty = val;
             } else if (p.startsWith('22')) {
-                // Secondary fallback for counterparty (sometimes ~22 holds the merchant name)
                 if (!counterparty) {
                     const val = p.substring(2).trim();
                     if (val && val !== '˙') counterparty = val;
@@ -125,10 +143,14 @@ export class MT940Parser {
             }
         }
 
-        if (title && counterparty) return `${title} | ${counterparty}`;
-        if (title) return title;
-        if (counterparty) return counterparty;
+        // Final cleanup for title if it's still containing pure IDs
+        if (title.match(/^\d+$/)) title = "";
 
-        return rawDesc.replace(/~\d{2}/g, ' ').trim();
+        const fullClean = [title, counterparty].filter(Boolean).join(' | ');
+        return { 
+            title: title || "Transakcja Bankowa", 
+            counterparty: counterparty || "Nieznany", 
+            fullClean 
+        };
     }
 }

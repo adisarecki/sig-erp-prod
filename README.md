@@ -120,6 +120,7 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - **Live Profit Tracking**: Zielona linia zysku na wykresach odzwierciedla teraz rzeczywiste wpływy i wydatki z banku, zapewniając 100% precyzji Cash Flow.
 - **Wektor 042: Integracja KSeF 2.0 (Krajowy System e-Faktur)**: Wdrożono moduł `ksef-service` umożliwiający automatyczne pobieranie faktur FA(3) bezpośrednio z Portalu Podatnika. Dokumenty trafiają do Inboxu jako `UNVERIFIED` (Draft). Tryb **Tylko Odczyt** zapewnia 100% bezpieczeństwo operacyjne.
 - **Wektor 044: Optymalizacja PKO BP & UI Cleanup**: Refinement parsera MT940 pod kątem sub-tagów PKO BP (`~`). Rozszerzono listę auto-kategoryzacji o stacje paliw (Orlen, BP, Shell itp.) oraz wdrożono funkcjonalny Drag & Drop w toolbarze.
+- **Wektor 045: Refactored MT940 UI & Sanitization**: Refaktoryzacja komponentu listy transakcji. Wdrożono sanitację backendową tagu `:86:`, automatyczne matchowanie kontrahentów z bazą danych oraz middleware do tagowania wydatków (np. `[PALIWO]`).
 - **Build Verified**: Projekt przeszedł testy statyczne (`tsc`) i jest gotowy do wdrożenia na Vercel.
 
 *Vercel & Firestore Ready 🚀*

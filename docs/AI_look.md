@@ -140,7 +140,8 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 041 | Finance / Bank | FIXED | Phase 11: Bank Reconciliation Engine. | Wdrożono parser MT940, algorytm uzgadniania faktur (Regex/Amount), automatyczny routing kosztów zarządu oraz powiadomienia Red Light. |
 | Vector 042 | KSeF / Integration | FIXED | Phase 12: KSeF 2.0 Integration. | Zaimplementowano `ksef-service` (Read-only) do pobierania faktur FA(3). Automatyczna klasyfikacja typów i status UNVERIFIED w Inboxie. |
 | Vector 043 | Build / Vercel | FIXED | Build Integrity Check. | Usunięto zbędne pliki `tmp/` i potwierdzono poprawność kompilacji `tsc`. Gotowość do push Vercel. |
-| Vector 044 | Finance / UI | FIXED | PKO BP MT940 Refinement & Drag&Drop. | Wdrożono parowanie sub-tagów `~` w MT940, rozszerzono keywords o stacje paliw i aktywowano Drag & Drop w toolbarze. |
+| Vector 044 | Finance / UI | FIXED | Phase 11.1: PKO BP MT940 Refinement & Drag&Drop. | Wdrożono parowanie sub-tagów `~` w MT940, rozszerzono keywords o stacje paliw i aktywowano Drag & Drop w toolbarze. |
+| Vector 045 | Finance / Engine | FIXED | Phase 11.2: Refactored MT940 UI & Sanitization. | Refaktoryzacja gridu transakcji. Separacja pól `title` i `counterparty`. Wdrożono entity resolution (contractor matching) i auto-tagging. |
 
 ---
 

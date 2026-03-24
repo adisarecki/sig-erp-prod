@@ -21,7 +21,7 @@ interface HistoryItem {
     id: string;
     isInvoice: boolean;
     type: string;
-    title: string;
+    title: string;          // Main clean title
     documentNumber?: string | null;
     date: string;
     dueDate?: string | null;
@@ -34,6 +34,10 @@ interface HistoryItem {
     contractorId?: string;
     contractorName?: string;
     nip?: string | null;
+    // New fields for Phase 11.2
+    counterpartyRaw?: string | null;
+    matchedContractorId?: string | null;
+    tags?: string | null;
 }
 
 interface TransactionHistoryProps {
@@ -138,6 +142,11 @@ export function TransactionHistory({
                                     <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 ${t.statusColor}`}>
                                         {t.statusBadge}
                                     </span>
+                                    {t.tags?.split(',').map(tag => (
+                                        <Badge key={tag} variant="outline" className="text-[10px] font-black tracking-tighter shrink-0 bg-blue-50 text-blue-700 border-blue-200">
+                                            {tag.trim()}
+                                        </Badge>
+                                    ))}
                                     {t.classification === 'INTERNAL_COST' ? (
                                         <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 border border-slate-200">
                                             🔒 [Koszty Własne]
@@ -149,6 +158,14 @@ export function TransactionHistory({
                                     )}
                                 </div>
                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 mt-0.5">
+                                    {t.counterpartyRaw && (
+                                        <div className="flex items-center gap-1.5">
+                                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                                            <span className="font-semibold text-slate-700 truncate max-w-[200px]">
+                                                {t.contractorName || t.counterpartyRaw}
+                                            </span>
+                                        </div>
+                                    )}
                                     {t.documentNumber && (
                                         <span className="font-mono text-[11px] text-slate-400 font-medium whitespace-nowrap">
                                             Dok: {t.documentNumber}
@@ -303,9 +320,12 @@ export function TransactionHistory({
                                 <Label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5 grayscale opacity-70">
                                     <Building2 className="w-3 h-3" /> Kontrahent
                                 </Label>
-                                <p className="font-bold text-slate-800 text-sm truncate">{viewingItem?.contractorName || 'Brak danych'}</p>
+                                <p className="font-bold text-slate-800 text-sm truncate">{viewingItem?.contractorName || viewingItem?.counterpartyRaw || 'Brak danych'}</p>
                                 {viewingItem?.nip && (
                                     <p className="font-mono text-[10px] text-slate-500 bg-white px-1.5 py-0.5 rounded border self-start inline-block">NIP: {viewingItem.nip}</p>
+                                )}
+                                {viewingItem?.counterpartyRaw && viewingItem?.counterpartyRaw !== viewingItem?.contractorName && (
+                                    <p className="text-[10px] text-slate-400 italic">Oryginał: {viewingItem.counterpartyRaw}</p>
                                 )}
                             </div>
 

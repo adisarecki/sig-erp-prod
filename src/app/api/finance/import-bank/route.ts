@@ -55,8 +55,39 @@ export async function POST(request: NextRequest) {
                 const amount = new Decimal(Math.abs(t.amount));
                 const operationDate = new Date(t.date).toISOString();
                 const description = t.description || "";
+                const title = t.title || "Transakcja Bankowa";
+                const counterpartyRaw = t.counterparty || "Nieznany";
                 const isIncome = t.type === 'INCOME';
                 
+                // 1. Entity Resolution (Fuzzy match counterparty to DB)
+                let matchedContractorId: string | null = null;
+                if (counterpartyRaw && counterpartyRaw !== "Nieznany") {
+                    const contractor = await adminDb.collection("contractors")
+                        .where("tenantId", "==", tenantId)
+                        .orderBy("name")
+                        .get();
+                    
+                    // Simple fuzzy match: name exists in counterpartyRaw or vice versa
+                    const match = contractor.docs.find(doc => {
+                        const name = doc.data().name.toLowerCase();
+                        const raw = counterpartyRaw.toLowerCase();
+                        return raw.includes(name) || name.includes(raw);
+                    });
+                    
+                    if (match) matchedContractorId = match.id;
+                }
+
+                // 2. Auto-Tagging Middleware
+                let tags: string[] = [];
+                if (!isIncome && (title.match(/PALIWO|ORLEN|BP|SHELL|STACJA/i) || description.match(/PALIWO|ORLEN|BP|SHELL|STACJA/i))) {
+                    tags.push("KOSZTY OGÓLNE FIRMY", "PALIWO");
+                }
+                if (title.match(/USŁUGI|PODWYKONAWCA|MONTAŻ|PRACE/i)) {
+                    tags.push("WYMAGA PRZYPISANIA DO PROJEKTU");
+                }
+
+                const tagsStr = tags.length > 0 ? tags.join(", ") : null;
+
                 // Deduplication: Hash of Ref + Date + Amount
                 const dedupeKey = `${t.reference || 'REF'}-${operationDate}-${amount.toFixed(2)}`;
 
@@ -72,9 +103,9 @@ export async function POST(request: NextRequest) {
                     continue;
                 }
 
-                const isManagementCost = !isIncome && managementKeywords.some(kw => kw.test(description));
+                const isManagementCost = !isIncome && (tags.includes("KOSZTY OGÓLNE FIRMY") || managementKeywords.some(kw => kw.test(description)));
 
-                // 2. Automated Expense Routing (Non-Project)
+                // 3. Automated Expense Routing (Non-Project)
                 let matchedInvoiceId: string | null = null;
                 let projectId: string | null = null;
                 let category = isIncome ? "SPRZEDAŻ_TOWARU" : "KOSZT_FIRMOWY";
@@ -85,7 +116,7 @@ export async function POST(request: NextRequest) {
                     classification = "GENERAL_COST";
                     projectId = null;
                 } else {
-                    // 3. Reconciliation & Matching Algorithm
+                    // 4. Reconciliation & Matching Algorithm
                     const match = description.match(invoiceNumberRegex);
                     const matchedRef = match ? match[0].toUpperCase() : null;
 
@@ -145,7 +176,7 @@ export async function POST(request: NextRequest) {
                             }
 
                             const transRef = adminDb.collection("transactions").doc();
-                            tx.set(transRef, {
+                            const transData = {
                                 tenantId,
                                 projectId,
                                 amount: amount.toNumber(),
@@ -153,6 +184,10 @@ export async function POST(request: NextRequest) {
                                 transactionDate: operationDate,
                                 category,
                                 description: `[Import Bank] ${description}`,
+                                title,
+                                counterpartyRaw,
+                                matchedContractorId,
+                                tags: tagsStr,
                                 status: "ACTIVE",
                                 source: "BANK_IMPORT",
                                 invoiceId: matchedInvoiceId,
@@ -160,15 +195,16 @@ export async function POST(request: NextRequest) {
                                 bankTransactionId: t.bankReference || null,
                                 classification,
                                 createdAt: new Date().toISOString(),
-                            });
+                            };
+                            tx.set(transRef, transData);
                         });
                         results.imported++;
-                        continue; // Transaction completed inside block
+                        continue; 
                     }
                 }
 
-                // If no matching invoice or management cost handled without transaction above
-                await adminDb.collection("transactions").add({
+                // Standard Record (Fallback)
+                const docRef = await adminDb.collection("transactions").add({
                     tenantId,
                     projectId,
                     amount: amount.toNumber(),
@@ -176,6 +212,10 @@ export async function POST(request: NextRequest) {
                     transactionDate: operationDate,
                     category,
                     description: `[Import Bank] ${description}`,
+                    title,
+                    counterpartyRaw,
+                    matchedContractorId,
+                    tags: tagsStr,
                     status: "ACTIVE",
                     source: "BANK_IMPORT",
                     invoiceId: matchedInvoiceId,

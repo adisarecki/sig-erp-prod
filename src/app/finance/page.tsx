@@ -77,7 +77,7 @@ export default async function FinancePage({
                     id: t.id,
                     isInvoice: false,
                     type: t.type,
-                    title: t.description || t.category || "Inny wydatek",
+                    title: t.title || t.description || t.category || "Inny wydatek",
                     documentNumber: t.externalId || null,
                     date: t.transactionDate,
                     amount: Number(t.amount),
@@ -85,7 +85,10 @@ export default async function FinancePage({
                     projectId: t.projectId || null,
                     classification: t.classification || (t.projectId ? 'PROJECT_COST' : 'GENERAL_COST'),
                     statusBadge: 'OPŁACONA',
-                    statusColor: 'bg-emerald-100 text-emerald-700'
+                    statusColor: 'bg-emerald-100 text-emerald-700',
+                    counterpartyRaw: t.counterpartyRaw,
+                    matchedContractorId: t.matchedContractorId,
+                    tags: t.tags
                 })),
             // 2. Faktury (z ewentualnie wstrzykniętym statusem płatności)
             ...rawInvoices.map(inv => {
