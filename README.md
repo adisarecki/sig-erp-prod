@@ -81,6 +81,7 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 ---
 ### 📅 Status Wdrożenia (2026-03-24 - OCR Inbox & Auto-Matching)
 - **OCR Inbox**: Wdrożono Inbox OCR z obsługą wielu dokumentów na jednym skanie oraz wstępną weryfikacją przed księgowaniem.
+- **Safe Delete & Quick View**: Wdrożono funkcję Safe Delete (usuwanie z potwierdzeniem) oraz podgląd detali dokumentu finansowego z danymi OCR (NIP, Daty, Projekt).
 - **Auto-Matching (Pewniak)**: Jeśli system rozpozna NIP dostawcy z bazy, automatycznie przypisuje mu ostatnio użytą kategorię i projekt. Takie pola są oznaczane jako "Pewniak" (Sparkles).
 - **Bulk Action**: Dodano przycisk "Zaksięguj Wszystkie Prawidłowe", który jednym kliknięciem zapisuje wszystkie poprawnie zweryfikowane dokumenty do bazy.
 - **Multi-Entity OCR**: Obsługa wielu faktur/paragonów na jednym zdjęciu oraz seryjne przesyłanie do 5 plików.

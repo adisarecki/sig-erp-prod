@@ -92,6 +92,7 @@ export default async function FinancePage({
                 const isIncome = inv.type === 'SPRZEDAŻ'
                 const dueDate = new Date(inv.dueDate)
                 const linkedTx = txByInvoiceId.get(inv.id)
+                const contractor = rawContractors.find(c => c.id === inv.contractorId)
                 
                 let badge = 'DO ZAPŁATY'
                 let color = 'bg-amber-100 text-amber-700'
@@ -123,7 +124,9 @@ export default async function FinancePage({
                     classification: inv.projectId ? 'PROJECT_COST' : 'GENERAL_COST',
                     statusBadge: badge,
                     statusColor: color,
-                    contractorId: inv.contractorId
+                    contractorId: inv.contractorId,
+                    contractorName: contractor?.name || 'Nieznany kontrahent',
+                    nip: contractor?.nip || null
                 }
             })
         ]

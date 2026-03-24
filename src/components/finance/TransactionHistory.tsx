@@ -1,9 +1,21 @@
 "use client"
 
-import { Trash2, ArrowUpRight, ArrowDownRight, Link as LinkIcon, Loader2 } from "lucide-react"
+import { Trash2, ArrowUpRight, ArrowDownRight, Link as LinkIcon, Loader2, X, AlertTriangle, FileText, Calendar, Building2, Briefcase, Info, Sparkles } from "lucide-react"
 import { assignTransactionToProject, deleteTransaction } from "@/app/actions/transactions"
+import { deleteInvoice } from "@/app/actions/invoices"
 import { useState } from "react"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    DialogDescription,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
 
 interface HistoryItem {
     id: string;
@@ -19,6 +31,9 @@ interface HistoryItem {
     classification?: string;
     statusBadge: string;
     statusColor: string;
+    contractorId?: string;
+    contractorName?: string;
+    nip?: string | null;
 }
 
 interface TransactionHistoryProps {
@@ -33,18 +48,31 @@ export function TransactionHistory({
     allProjects = []
 }: TransactionHistoryProps) {
     const [assigningId, setAssigningId] = useState<string | null>(null)
+    const [deleteConfirmItem, setDeleteConfirmItem] = useState<HistoryItem | null>(null)
+    const [viewingItem, setViewingItem] = useState<HistoryItem | null>(null)
+    const [isDeleting, setIsDeleting] = useState(false)
 
-    const formatPln = (value: number) => {
-        return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(value)
-    }
-
-    const handleDelete = async (id: string, description: string) => {
-        if (confirm(`Czy na pewno chcesz usunąć tę transakcję? (${description})\nTej operacji nie da się cofnąć.`)) {
-            try {
-                await deleteTransaction(id)
-            } catch (err: any) {
-                alert(err.message || "Błąd podczas usuwania transakcji.")
+    const handleDelete = async () => {
+        if (!deleteConfirmItem) return
+        
+        setIsDeleting(true)
+        try {
+            let result;
+            if (deleteConfirmItem.isInvoice) {
+                result = await deleteInvoice(deleteConfirmItem.id)
+            } else {
+                result = await deleteTransaction(deleteConfirmItem.id)
             }
+
+            if (result.success) {
+                setDeleteConfirmItem(null)
+            } else {
+                alert(result.error || "Błąd podczas usuwania.")
+            }
+        } catch (err: any) {
+            alert(err.message || "Błąd sieci.")
+        } finally {
+            setIsDeleting(false)
         }
     }
 
@@ -77,8 +105,12 @@ export function TransactionHistory({
             {initialTransactions.map((t) => {
                 
                 return (
-                    <div key={t.id} className="p-4 sm:p-6 flex flex-col lg:flex-row justify-between items-start lg:items-center hover:bg-slate-50 transition-colors group">
-                        <div className="flex gap-4 items-center flex-1 min-w-0">
+                    <div 
+                        key={t.id} 
+                        className="p-4 sm:p-6 flex flex-col lg:flex-row justify-between items-start lg:items-center hover:bg-slate-50 transition-colors group cursor-pointer"
+                        onClick={() => setViewingItem(t)}
+                    >
+                        <div className="flex gap-4 items-center flex-1 min-w-0 pointer-events-none">
                             <div className={`p-3 rounded-xl flex items-center justify-center shrink-0 ${t.type === 'PRZYCHÓD' ? 'bg-green-100 text-green-600' : 'bg-rose-100 text-rose-600'}`}>
                                 {t.type === 'PRZYCHÓD' ? <ArrowUpRight className="w-6 h-6" /> : <ArrowDownRight className="w-6 h-6" />}
                             </div>
@@ -102,7 +134,7 @@ export function TransactionHistory({
                                 </div>
                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 mt-0.5">
                                     {t.documentNumber && (
-                                        <span className="font-mono text-[11px] text-slate-400 font-medium">
+                                        <span className="font-mono text-[11px] text-slate-400 font-medium whitespace-nowrap">
                                             Dok: {t.documentNumber}
                                         </span>
                                     )}
@@ -117,48 +149,188 @@ export function TransactionHistory({
                                         ) : (
                                             <div className="flex items-center gap-2">
                                                 <span className="italic text-slate-400 shrink-0">Brak przypisania</span>
-                                                {!t.isInvoice && (
-                                                    assigningId === t.id ? (
-                                                        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                                                    ) : (
-                                                        <select 
-                                                            className="text-xs bg-white border border-slate-200 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer hover:border-blue-300 transition-colors"
-                                                            onChange={(e) => handleAssign(t.id, e.target.value)}
-                                                            defaultValue=""
-                                                        >
-                                                            <option value="" disabled>Przypisz Projekt...</option>
-                                                            {allProjects.map(p => (
-                                                                <option key={p.id} value={p.id}>{p.name}</option>
-                                                            ))}
-                                                        </select>
-                                                    )
-                                                )}
+                                                <div className="pointer-events-auto">
+                                                    {!t.isInvoice && (
+                                                        assigningId === t.id ? (
+                                                            <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                                                        ) : (
+                                                            <select 
+                                                                className="text-xs bg-white border border-slate-200 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer hover:border-blue-300 transition-colors"
+                                                                onChange={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleAssign(t.id, e.target.value);
+                                                                }}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                defaultValue=""
+                                                            >
+                                                                <option value="" disabled>Przypisz Projekt...</option>
+                                                                {allProjects.map(p => (
+                                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        )
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div className="flex items-center gap-6 mt-4 lg:mt-0 ml-14 lg:ml-0">
+                        <div className="flex items-center gap-6 mt-4 lg:mt-0 ml-14 lg:ml-0 pointer-events-none">
                             <CurrencyDisplay 
                                 gross={t.amount}
                                 net={t.amountNet}
                                 isIncome={t.type === 'PRZYCHÓD'}
                                 className={`text-xl font-bold whitespace-nowrap ${t.type === 'PRZYCHÓD' ? 'text-green-600' : 'text-slate-900'}`}
                             />
-                            {!t.isInvoice && (
+                            <div className="pointer-events-auto">
                                 <button
-                                    onClick={() => handleDelete(t.id, t.title)}
-                                    className="p-2 text-rose-600 hover:bg-rose-100 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
-                                    title="Usuń transakcję"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeleteConfirmItem(t);
+                                    }}
+                                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-lg transition-all hover:scale-110"
+                                    title="Usuń dokument"
                                 >
                                     <Trash2 className="w-4 h-4" />
                                 </button>
-                            )}
+                            </div>
                         </div>
                     </div>
                 );
             })}
+
+            {/* SAFE DELETE MODAL */}
+            <Dialog open={!!deleteConfirmItem} onOpenChange={(open) => !open && setDeleteConfirmItem(null)}>
+                <DialogContent className="sm:max-w-[425px] border-rose-100">
+                    <DialogHeader className="space-y-3">
+                        <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 mb-2">
+                            <AlertTriangle className="w-6 h-6" />
+                        </div>
+                        <DialogTitle className="text-xl font-bold text-slate-900">
+                            Bezpieczne Usuwanie (Safe Delete)
+                        </DialogTitle>
+                        <DialogDescription className="text-slate-600 font-medium text-base">
+                            Czy na pewno chcesz usunąć dokument <span className="text-rose-600 font-bold">{deleteConfirmItem?.title}</span>?
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="py-4 bg-rose-50 p-4 rounded-xl border border-rose-100 text-sm text-rose-800 leading-relaxed">
+                        <p className="font-bold flex items-center gap-2 mb-1">
+                            <Info className="w-4 h-4" /> OSTRZEŻENIE:
+                        </p>
+                        Tej operacji nie można cofnąć, a statystyki finansowe zostaną natychmiast zaktualizowane. 
+                        Wszystkie powiązane zapisy księgowe zostaną usunięte z bazy danych.
+                    </div>
+
+                    <DialogFooter className="mt-6 flex gap-2">
+                        <Button variant="outline" onClick={() => setDeleteConfirmItem(null)} className="flex-1">
+                            Anuluj
+                        </Button>
+                        <Button 
+                            variant="destructive" 
+                            onClick={handleDelete} 
+                            disabled={isDeleting}
+                            className="flex-1 font-bold shadow-lg shadow-rose-200"
+                        >
+                            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                            USUŃ NA ZAWSZE
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* QUICK VIEW MODAL */}
+            <Dialog open={!!viewingItem} onOpenChange={(open) => !open && setViewingItem(null)}>
+                <DialogContent className="sm:max-w-[550px] overflow-hidden p-0 rounded-2xl border-none shadow-2xl">
+                    <div className={`h-2 ${viewingItem?.type === 'PRZYCHÓD' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                    
+                    <div className="p-6 pt-8 space-y-6">
+                        <div className="flex justify-between items-start">
+                            <div className="space-y-1">
+                                <Badge variant="outline" className={`uppercase font-black text-[10px] tracking-widest ${viewingItem?.statusColor} border-none px-0`}>
+                                    {viewingItem?.statusBadge}
+                                </Badge>
+                                <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-tight uppercase">
+                                    {viewingItem?.title}
+                                </h3>
+                                <p className="text-slate-500 font-mono text-xs">
+                                    ID: {viewingItem?.id}
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <CurrencyDisplay 
+                                    gross={viewingItem?.amount || 0}
+                                    net={viewingItem?.amountNet}
+                                    isIncome={viewingItem?.type === 'PRZYCHÓD'}
+                                    className="text-2xl font-black text-slate-900"
+                                />
+                                {viewingItem?.amountNet && (
+                                    <p className="text-xs text-slate-400 font-medium">Baza netto: {viewingItem.amountNet.toFixed(2)} PLN</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-slate-50 p-4 rounded-xl space-y-1 border border-slate-100">
+                                <Label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5 grayscale opacity-70">
+                                    <Building2 className="w-3 h-3" /> Kontrahent
+                                </Label>
+                                <p className="font-bold text-slate-800 text-sm truncate">{viewingItem?.contractorName || 'Brak danych'}</p>
+                                {viewingItem?.nip && (
+                                    <p className="font-mono text-[10px] text-slate-500 bg-white px-1.5 py-0.5 rounded border self-start inline-block">NIP: {viewingItem.nip}</p>
+                                )}
+                            </div>
+
+                            <div className="bg-slate-50 p-4 rounded-xl space-y-1 border border-slate-100">
+                                <Label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5 grayscale opacity-70">
+                                    <Calendar className="w-3 h-3" /> Daty Dokumentu
+                                </Label>
+                                <div className="space-y-0.5">
+                                    <p className="text-xs font-medium text-slate-700">Wystawiono: {viewingItem?.date ? new Date(viewingItem.date).toLocaleDateString('pl-PL') : '-'}</p>
+                                    {viewingItem?.dueDate && (
+                                        <p className="text-xs font-bold text-rose-600">Termin: {new Date(viewingItem.dueDate).toLocaleDateString('pl-PL')}</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-50 p-4 rounded-xl space-y-1 border border-slate-100 col-span-2">
+                                <Label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5 grayscale opacity-70">
+                                    <Briefcase className="w-3 h-3" /> Projekt i Klasyfikacja
+                                </Label>
+                                <div className="flex items-center gap-2">
+                                    <p className="font-bold text-slate-800 text-sm">
+                                        {viewingItem?.projectId ? (projectsMap[viewingItem.projectId] || viewingItem.projectId) : 'KOSZTY OGÓLNE FIRMY'}
+                                    </p>
+                                    {viewingItem?.projectId && (
+                                        <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-100 text-[9px] font-bold">PROJEKTOWY</Badge>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {viewingItem?.documentNumber && (
+                            <div className="flex items-center gap-3 p-4 border-2 border-dashed border-slate-100 rounded-xl bg-white shadow-sm">
+                                <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
+                                    <FileText className="w-5 h-5" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-[10px] uppercase font-bold text-slate-400">Numer Dokumentu</p>
+                                    <p className="font-mono font-bold text-slate-800">{viewingItem.documentNumber}</p>
+                                </div>
+                                <Sparkles className="w-5 h-5 text-emerald-500 opacity-20" />
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter className="bg-slate-50 p-4 mt-0 border-t">
+                        <Button onClick={() => setViewingItem(null)} variant="secondary" className="w-full font-bold uppercase tracking-tight">
+                            Zamknij Podgląd
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

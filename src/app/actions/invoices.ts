@@ -6,8 +6,66 @@ import { validateNonZero } from "@/lib/ledger"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { getAdminDb } from "@/lib/firebaseAdmin"
 import prisma from "@/lib/prisma"
+import { Transaction } from "@google-cloud/firestore"
 
 
+export async function deleteInvoice(id: string): Promise<{ success: boolean, error?: string }> {
+    try {
+        const adminDb = getAdminDb()
+        const tenantId = await getCurrentTenantId()
+
+        // 1. Znajdź powiązane transakcje (source: INVOICE)
+        const payments = await prisma.invoicePayment.findMany({
+            where: { invoiceId: id },
+            include: { transaction: true }
+        })
+
+        const transactionIdsToDelete = payments
+            .filter(p => p.transaction.source === "INVOICE")
+            .map(p => p.transaction.id)
+
+        // 2. Firestore Deletion (Batch/Transaction)
+        await adminDb.runTransaction(async (transaction) => {
+            // Usuń fakturę
+            transaction.delete(adminDb.collection("invoices").doc(id))
+            
+            // Usuń powiązane transakcje w Firestore
+            for (const txId of transactionIdsToDelete) {
+                transaction.delete(adminDb.collection("transactions").doc(txId))
+            }
+        })
+
+        // 3. Prisma Deletion (Cascading cleanup)
+        // Uwaga: InvoicePayment ma onDelete: Cascade dla Transaction w schema? 
+        // Sprawdźmy schema: 
+        // InvoicePayment -> Transaction (onDelete: Cascade)
+        // InvoicePayment -> Invoice (brak onDelete specified, domyślnie Restrict?)
+        
+        // Bezpieczne usuwanie kolejno:
+        await prisma.$transaction(async (tx) => {
+            // Usuń powiązania i transakcje
+            await tx.invoicePayment.deleteMany({ where: { invoiceId: id } })
+            
+            if (transactionIdsToDelete.length > 0) {
+                await tx.transaction.deleteMany({
+                    where: { id: { in: transactionIdsToDelete } }
+                })
+            }
+
+            // Usuń samą fakturę
+            await tx.invoice.delete({ where: { id } })
+        })
+
+        revalidatePath("/finance")
+        revalidatePath("/projects")
+        revalidatePath("/")
+
+        return { success: true }
+    } catch (error: any) {
+        console.error("[INVOICE_DELETE_ERROR]", error)
+        return { success: false, error: error.message || "Błąd podczas usuwania dokumentu." }
+    }
+}
 export async function getAutoMatchData(nip: string) {
     try {
         const tenantId = await getCurrentTenantId()
