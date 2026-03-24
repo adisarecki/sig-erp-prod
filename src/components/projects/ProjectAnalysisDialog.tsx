@@ -15,10 +15,11 @@ import { ProjectBurnChart } from "./ProjectBurnChart"
 interface ProjectAnalysisDialogProps {
     projectName: string
     invoices: { type: string, amountNet: number, amountGross: number, issueDate: string | Date }[]
+    transactions?: { type: string, amount: number, transactionDate: string | Date }[]
     budgetEstimated: number
 }
 
-export function ProjectAnalysisDialog({ projectName, invoices, budgetEstimated }: ProjectAnalysisDialogProps) {
+export function ProjectAnalysisDialog({ projectName, invoices, transactions = [], budgetEstimated }: ProjectAnalysisDialogProps) {
     return (
         <Dialog>
             <DialogTrigger asChild>
@@ -136,6 +137,7 @@ export function ProjectAnalysisDialog({ projectName, invoices, budgetEstimated }
                                     <div className="w-full h-[350px] min-w-[500px]">
                                         <ProjectBurnChart
                                             invoices={invoices}
+                                            transactions={transactions}
                                             budgetEstimated={budgetEstimated}
                                         />
                                     </div>

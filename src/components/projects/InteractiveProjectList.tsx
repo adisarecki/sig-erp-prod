@@ -274,6 +274,11 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                             amountGross: Number(inv.amountGross || inv.amountNet),
                                             issueDate: typeof inv.issueDate === 'string' ? inv.issueDate : (inv.issueDate as Date).toISOString()
                                         }))}
+                                        transactions={project.transactions.map((t) => ({
+                                            type: t.type,
+                                            amount: Number(t.amount),
+                                            transactionDate: typeof t.transactionDate === 'string' ? t.transactionDate : (t.transactionDate as Date).toISOString()
+                                        }))}
                                         budgetEstimated={Number(project.budgetEstimated)}
                                     />
                                 </div>

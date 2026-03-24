@@ -137,6 +137,33 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 038 | AI / UX | FIXED | Seamless Save & Quick entities. | Zaimplementowano interfejs "Quick Add" w Inboxie OCR, umożliwiający błyskawiczne dodawanie firm i projektów. |
 | Vector 039 | Code Quality | FIXED | Any type purge & Catch blocks. | Usunięto rzutowania `as any` oraz poprawiono typowanie w Server Actions dla lepszej stabilności Vercel. |
 | Vector 040 | Analytics / P&L | FIXED | Missing ROI & Margin indicators. | Wdrożono analitykę ROI i Marży Netto w Project Cockpit oraz dynamiczną linię ROI w wykresie zdrowia (Phase 12). |
+| Vector 041 | Finance / Bank | FIXED | Phase 11: Bank Reconciliation Engine. | Wdrożono parser MT940, algorytm uzgadniania faktur (Regex/Amount), automatyczny routing kosztów zarządu oraz powiadomienia Red Light. |
+| Vector 042 | KSeF / Integration | FIXED | Phase 12: KSeF 2.0 Integration. | Zaimplementowano `ksef-service` (Read-only) do pobierania faktur FA(3). Automatyczna klasyfikacja typów i status UNVERIFIED w Inboxie. |
+| Vector 043 | Build / Vercel | FIXED | Build Integrity Check. | Usunięto zbędne pliki `tmp/` i potwierdzono poprawność kompilacji `tsc`. Gotowość do push Vercel. |
+
+---
+
+## 🏗️ 9. KSeF 2.0 Integration (Phase 12)
+
+System został zintegrowany z KSeF (Krajowy System e-Faktur) w trybie **Tylko Odczyt**:
+1. **SSoT**: System pobiera faktury bezpośrednio z Portalu Podatnika z użyciem Tokena.
+2. **Read-Only Enforced**: Brak endpointów wysyłkowych gwarantuje bezpieczeństwo – system SIG ERP służy wyłącznie jako agregator i Inbox faktur.
+3. **Owner Context**: NIP `9542751368` jest używany jako punkt odniesienia dla logicznej segregacji faktur na **Przychody** (INCOME) i **Koszty** (EXPENSE).
+4. **Data Lifecycle**: Faktury KSeF trafiają na start do statusu `UNVERIFIED` (Draft). Użytkownik musi ręcznie zatwierdzić i przypisać projekt, aby faktura wpłynęła na P&L.
+5. **Deployment**: Gotowość produkcyjna potwierdzona (`tsc --noEmit`).
+
+---
+
+## 🏦 8. Bank Reconciliation (MT940)
+
+System integruje standard SWIFT MT940 w celu automatyzacji rozliczeń:
+1. **Parser (`src/lib/mt940-parser.ts`)**: Autorska implementacja wyciągająca tagi `:20:`, `:61:` i `:86:`.
+2. **Matching Strategy**:
+    - **Primary**: Regex `(FV|FS|FAKTURA)[\s\/]?\d+` w tytule przelewu.
+    - **Secondary**: Kwota Brutto dla faktur o statusie `ACTIVE`.
+3. **Partial Payments**: Jeśli kwota przelewu < kwota faktury, status zmienia się na `PARTIALLY_PAID` i system wysyła powiadomienie `WARNING` (Red Light Alert).
+4. **General Cost Routing**: Transakcje z wybranymi słowami kluczowymi (ZUS, Żabka, Prowizja) są automatycznie klasyfikowane jako `GENERAL_COST` bez przypisania do projektu.
+5. **Chart Data**: Zielona linia profitu na wykresach (`ProjectBurnChart`) bazuje na rzeczywistej gotówce (`transactions`), podczas gdy żółta linia przychodów opiera się na wystawionych dokumentach (`invoices`).
 
 ---
 

@@ -14,6 +14,7 @@ import {
 
 interface ProjectBurnChartProps {
     invoices: { type: string, amountNet: number, amountGross: number, issueDate: string | Date }[]
+    transactions?: { type: string, amount: number, transactionDate: string | Date }[]
     budgetEstimated: number
 }
 
@@ -29,7 +30,7 @@ const formatPln = (value: number) => {
     }).format(value) + " zł"
 }
 
-export function ProjectBurnChart({ invoices, budgetEstimated }: ProjectBurnChartProps) {
+export function ProjectBurnChart({ invoices, transactions = [], budgetEstimated }: ProjectBurnChartProps) {
     const [isMounted, setIsMounted] = useState(false)
 
     useEffect(() => {
@@ -49,24 +50,39 @@ export function ProjectBurnChart({ invoices, budgetEstimated }: ProjectBurnChart
     const allSorted = [...invoices].sort((a, b) => new Date(a.issueDate).getTime() - new Date(b.issueDate).getTime())
 
     // 2. Budowa tabeli narastającej (dziennej)
-    const groupedByDate: Record<string, { income: number, expense: number }> = {}
+    const groupedByDate: Record<string, { invIncome: number, invExpense: number, cashIncome: number, cashExpense: number }> = {}
     
-    allSorted.forEach(inv => {
+    invoices.forEach(inv => {
         const dateKey = new Date(inv.issueDate).toISOString().split('T')[0]
         if (!groupedByDate[dateKey]) {
-            groupedByDate[dateKey] = { income: 0, expense: 0 }
+            groupedByDate[dateKey] = { invIncome: 0, invExpense: 0, cashIncome: 0, cashExpense: 0 }
         }
         
         const isIncome = inv.type === 'SPRZEDAŻ' || inv.type === 'PRZYCHÓD' || inv.type === 'INCOME'
         const isExpense = inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'WYDATEK'
         
-        if (isIncome) groupedByDate[dateKey].income += Number(inv.amountNet)
-        if (isExpense) groupedByDate[dateKey].expense += Number(inv.amountNet)
+        if (isIncome) groupedByDate[dateKey].invIncome += Number(inv.amountNet)
+        if (isExpense) groupedByDate[dateKey].invExpense += Number(inv.amountNet)
+    })
+
+    transactions.forEach(t => {
+        const dateKey = new Date(t.transactionDate).toISOString().split('T')[0]
+        if (!groupedByDate[dateKey]) {
+            groupedByDate[dateKey] = { invIncome: 0, invExpense: 0, cashIncome: 0, cashExpense: 0 }
+        }
+        
+        const isIncome = t.type === 'PRZYCHÓD'
+        const isExpense = t.type === 'KOSZT'
+        
+        if (isIncome) groupedByDate[dateKey].cashIncome += Number(t.amount)
+        if (isExpense) groupedByDate[dateKey].cashExpense += Number(t.amount)
     })
 
     const chartData: any[] = []
-    let cumulIncome = 0
-    let cumulExpense = 0
+    let cumulInvIncome = 0
+    let cumulInvExpense = 0
+    let cumulCashIncome = 0
+    let cumulCashExpense = 0
     
     // Pobierz wszystkie unikalne daty i posortuj
     const sortedDates = Object.keys(groupedByDate).sort()
@@ -86,18 +102,21 @@ export function ProjectBurnChart({ invoices, budgetEstimated }: ProjectBurnChart
     }
 
     sortedDates.forEach(date => {
-        cumulIncome += groupedByDate[date].income
-        cumulExpense += groupedByDate[date].expense
-        const result = cumulIncome - cumulExpense
-        const runway = Math.max(0, budgetEstimated - cumulIncome)
+        cumulInvIncome += groupedByDate[date].invIncome
+        cumulInvExpense += groupedByDate[date].invExpense
+        cumulCashIncome += groupedByDate[date].cashIncome
+        cumulCashExpense += groupedByDate[date].cashExpense
+        
+        const result = cumulCashIncome - cumulCashExpense
+        const runway = Math.max(0, budgetEstimated - cumulInvIncome)
         
         // ROI(t) = (Profit(t) / Cost(t)) * 100
-        const currentRoi = cumulExpense > 0 ? (result / cumulExpense) * 100 : 0
+        const currentRoi = cumulCashExpense > 0 ? (result / cumulCashExpense) * 100 : 0
         
         chartData.push({
             date: new Date(date).toISOString(),
-            income: cumulIncome,
-            expense: cumulExpense,
+            income: cumulInvIncome,
+            expense: cumulInvExpense,
             result: result,
             runway: runway,
             roi: Number(currentRoi.toFixed(1))

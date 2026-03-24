@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { ProjectStageList } from "@/components/projects/ProjectStageList"
 import { ProjectFinancialChart } from "@/components/projects/ProjectFinancialChart"
 import { ProjectCockpitActions } from "@/components/projects/ProjectCockpitActions"
+import { ProjectAnalysisDialog } from "@/components/projects/ProjectAnalysisDialog"
 import { TransactionDeleteButton } from "@/components/projects/TransactionDeleteButton"
 import { ArrowLeft, Building2, MapPin, Wallet, TrendingUp, ReceiptText, Calendar, BadgeDollarSign, Percent, PieChart } from "lucide-react"
 import Link from "next/link"
@@ -74,6 +75,21 @@ export default async function ProjectCockpit({ params }: PageProps) {
                         <Badge className="bg-blue-600 text-white border-none uppercase font-black tracking-widest text-[10px] px-2 py-1">
                             {project.status}
                         </Badge>
+                        <ProjectAnalysisDialog 
+                            projectName={project.name}
+                            budgetEstimated={budgetEstimated}
+                            invoices={invoices.map((inv: any) => ({
+                                type: inv.type,
+                                amountNet: Number(inv.amountNet),
+                                amountGross: Number(inv.amountGross || inv.amountNet),
+                                issueDate: typeof inv.issueDate === 'string' ? inv.issueDate : inv.issueDate.toISOString()
+                            }))}
+                            transactions={transactions.map((t: any) => ({
+                                type: t.type,
+                                amount: Number(t.amount),
+                                transactionDate: typeof t.transactionDate === 'string' ? t.transactionDate : t.transactionDate.toISOString()
+                            }))}
+                        />
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500 font-medium">
                         <span className="flex items-center gap-1.5"><Building2 className="w-4 h-4 text-slate-400" /> {project.contractor.name}</span>

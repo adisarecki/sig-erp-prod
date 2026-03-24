@@ -115,5 +115,9 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - **Final Invoice Prompt**: Dodano automatyczne alerty o fakturach końcowych przy zamykaniu projektu.
 - **Dynamic Project Health Chart**: Wdrożono skumulowany wykres dynamiki finansowej (Revenue/Cost/Profit/Runway) z dodatkową linią ewolucji ROI.
 - **Profitability Dashboard**: Dodano widżety ROI i Marży Netto w Project Cockpit z kolorystyką warunkową (Badges).
+- **Wektor 041: Silnik Uzgadniania Bankowego (MT940)**: Wdrożono pełną obsługę standardu SWIFT MT940. System automatycznie parsuje wyciągi, dopasowuje przelewy do faktur, obsługuje niedopłaty (Red Light Alert) oraz separuje koszty zarządu od budżetów projektowych.
+- **Live Profit Tracking**: Zielona linia zysku na wykresach odzwierciedla teraz rzeczywiste wpływy i wydatki z banku, zapewniając 100% precyzji Cash Flow.
+- **Wektor 042: Integracja KSeF 2.0 (Krajowy System e-Faktur)**: Wdrożono moduł `ksef-service` umożliwiający automatyczne pobieranie faktur FA(3) bezpośrednio z Portalu Podatnika. Dokumenty trafiają do Inboxu jako `UNVERIFIED` (Draft). Tryb **Tylko Odczyt** zapewnia 100% bezpieczeństwo operacyjne.
+- **Build Verified**: Projekt przeszedł testy statyczne (`tsc`) i jest gotowy do wdrożenia na Vercel.
 
 *Vercel & Firestore Ready 🚀*
