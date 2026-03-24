@@ -84,6 +84,7 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - **Skarbiec Kaucji (Retention Vault)**: Wdrożono moduł zarządzania środkami zamrożonymi u inwestorów z obsługą kaucji manualnych, procentowych oraz systemem ostrzegania 30 dni przed wygaśnięciem.
 - **Quick Add (Kaucje)**: Umożliwiono błyskawiczną rejestrację nowych firm (Inwestorów) i Projektów bezpośrednio z formularza kaucji, co przyspiesza wprowadzanie danych historycznych.
 - **Dynamiczna Agregacja Budżetu**: Wdrożono dynamiczne odliczanie rzeczywistych kosztów (faktur EXPENSE Brutto) od budżetu projektu w module Analizy Zdrowia, zapewniając realny status "Bezpieczny/Zagrożenie".
+- **Moduł Rentowności Jednostkowej (P&L Projektu)**: Wprowadzono pełną widoczność zysku/straty na każdym zleceniu z rozbiciem na przychody netto, koszty netto oraz marżę końcową.
 - **Zero-Day Auto-Pay**: Brakujące ogniwo automatyzacji – system automatycznie oznacza faktury jako opłacone, gdy data wystawienia pokrywa się z terminem płatności.
 - **OCR Inbox**: Wdrożono Inbox OCR z obsługą wielu dokumentów na jednym skanie oraz wstępną weryfikacją przed księgowaniem.
 - **Safe Delete & Quick View**: Wdrożono funkcję Safe Delete (usuwanie z potwierdzeniem) oraz podgląd detali dokumentu finansowego z danymi OCR (NIP, Daty, Projekt).
