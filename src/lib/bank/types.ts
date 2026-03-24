@@ -6,6 +6,7 @@ export interface RawTransaction {
     rawCounterparty: string;
     rawTitle: string;
     rawReference: string;
+    rawAccountNumber: string;
 }
 
 export interface NormalizedTx {
@@ -16,4 +17,5 @@ export interface NormalizedTx {
     title: string;
     description: string;
     reference: string;
+    accountNumber: string | null;
 }

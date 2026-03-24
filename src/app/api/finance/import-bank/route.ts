@@ -67,21 +67,61 @@ export async function POST(request: NextRequest) {
                 const operationDate = t.date.toISOString();
                 const isIncome = t.type === 'INCOME';
                 
-                // 1. Entity Resolution
+                // 1. Entity Resolution (Cascading: Account -> Name)
                 let matchedContractorId: string | null = null;
-                if (t.counterparty && t.counterparty !== "Nieznany") {
+                
+                // STEP 1: Match by Bank Account (IBAN/NRB)
+                if (t.accountNumber) {
                     const contractor = await adminDb.collection("contractors")
                         .where("tenantId", "==", tenantId)
-                        .orderBy("name")
+                        .where("bankAccounts", "array-contains", t.accountNumber)
+                        .limit(1)
                         .get();
                     
-                    const match = contractor.docs.find(doc => {
-                        const name = doc.data().name.toLowerCase();
-                        const raw = t.counterparty.toLowerCase();
-                        return raw.includes(name) || name.includes(raw);
+                    if (!contractor.empty) {
+                        matchedContractorId = contractor.docs[0].id;
+                    }
+                }
+
+                // STEP 2: Fallback to Name (Fuzzy)
+                if (!matchedContractorId && t.counterparty && t.counterparty !== "Nieznany") {
+                    const contractorsQuery = await adminDb.collection("contractors")
+                        .where("tenantId", "==", tenantId)
+                        .get();
+                    
+                    const normalizeName = (s: string) => s.toLowerCase()
+                        .replace(/\s+/g, '')
+                        .replace(/(sp\.?zo\.?o\.?|s\.?a\.?|sp\.?k\.?|spółkazograniczonąodpowiedzialnością)/g, '');
+                    
+                    const tNameNormal = normalizeName(t.counterparty);
+
+                    const match = contractorsQuery.docs.find(doc => {
+                        const cNameNormal = normalizeName(doc.data().name);
+                        return tNameNormal.includes(cNameNormal) || cNameNormal.includes(tNameNormal);
                     });
                     
-                    if (match) matchedContractorId = match.id;
+                    if (match) {
+                        matchedContractorId = match.id;
+
+                        // --- SCENARIO 1: ENRICHMENT (Learning) ---
+                        if (t.accountNumber) {
+                            const currentAccounts = match.data().bankAccounts || [];
+                            if (!currentAccounts.includes(t.accountNumber)) {
+                                // 1. Update Firestore
+                                await match.ref.update({
+                                    bankAccounts: [...currentAccounts, t.accountNumber]
+                                });
+
+                                // 2. Update Prisma (Dual-Sync)
+                                await prisma.contractor.update({
+                                    where: { id: match.id },
+                                    data: { bankAccounts: { push: t.accountNumber } } as any
+                                }).catch(err => console.error("[ENRICHMENT_ERROR_PRISMA]", err));
+                                
+                                console.log(`[ENRICHMENT] Learned new account ${t.accountNumber} for contractor ${match.data().name}`);
+                            }
+                        }
+                    }
                 }
 
                 // 2. Deduplication

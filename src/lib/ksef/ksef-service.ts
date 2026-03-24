@@ -112,6 +112,30 @@ export class KSeFService {
             }
         });
 
+        // --- SELF-LEARNING (Bank Account) ---
+        if (contractorId && data.bankAccountNumber && data.bankAccountNumber.length >= 10) {
+            const contractor = await prisma.contractor.findUnique({
+                where: { id: contractorId }
+            });
+            
+            if (contractor && !(contractor as any).bankAccounts.includes(data.bankAccountNumber)) {
+                await prisma.contractor.update({
+                    where: { id: contractorId },
+                    data: { 
+                        bankAccounts: { 
+                            push: data.bankAccountNumber 
+                        } 
+                    } as any
+                });
+
+                // Firestore Sync
+                const adminDb = getAdminDb();
+                await adminDb.collection("contractors").doc(contractorId).update({
+                    bankAccounts: Array.from(new Set([...((contractor as any).bankAccounts || []), data.bankAccountNumber]))
+                });
+            }
+        }
+
         // Optional: Also sync to Firestore if needed for real-time legacy support
         // Note: createContractor already synced the contractor. 
         // We usually sync invoices via Server Actions.

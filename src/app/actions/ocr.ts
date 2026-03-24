@@ -21,6 +21,7 @@ export interface OcrResult {
         isNewContractor: boolean;
         isDuplicate: boolean;
         duplicateId?: string;
+        bankAccountNumber?: string;
     };
     error?: string;
 }
@@ -49,6 +50,7 @@ export async function scanInvoiceAction(base64Data: string, mimeType: string): P
             - vatAmount: string like "287.62"
             - grossAmount: string like "1538.12"
             - vatRate: string like "0.23" for 23%
+            - bankAccountNumber: 26-digit account number (no spaces)
         `;
 
         const result = await model.generateContent([

@@ -58,6 +58,7 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
     const [isNewContractor, setIsNewContractor] = useState(false)
     const [newContractorNip, setNewContractorNip] = useState("")
     const [newContractorAddress, setNewContractorAddress] = useState("")
+    const [bankAccountNumber, setBankAccountNumber] = useState("")
     const [category, setCategory] = useState("USŁUGA")
 
     // Track last OCR data to detect new scans
@@ -73,6 +74,7 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
             setAmountVat((ocrData.vatAmountCents / 100).toFixed(2))
             if (ocrData.issueDate) setIssueDate(ocrData.issueDate)
             if (ocrData.dueDate) setDueDate(ocrData.dueDate)
+            if (ocrData.bankAccountNumber) setBankAccountNumber(ocrData.bankAccountNumber)
             setOpen(true)
         }
     }, [ocrData])
@@ -156,6 +158,7 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
         }
 
         formData.set("projectId", selectedProjectId)
+        formData.set("bankAccountNumber", bankAccountNumber)
 
         try {
             const result = await addIncomeInvoice(formData)

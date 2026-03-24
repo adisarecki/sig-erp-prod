@@ -5,12 +5,18 @@ import { RawTransaction } from "./types";
  * LAYER 1: EXTRACT & PARSE (Strictly Format-Specific)
  */
 
+function extractNrb(text: string): string {
+    // Standard Polish NRB is 26 digits. Sometimes with spaces.
+    const clean = text.replace(/\s/g, '');
+    const match = clean.match(/[0-9]{26}/);
+    return match ? match[0] : "";
+}
+
 export function parseCSV(buffer: Buffer): RawTransaction[] {
     // PKO BP CSV is win1250
     const content = iconv.decode(buffer, "win1250");
     const lines = content.split(/\r?\n/).filter(line => line.trim().length > 0);
     
-    // Find header
     let startIndex = 0;
     for (let i = 0; i < lines.length; i++) {
         if (lines[i].includes('Data operacji') || lines[i].includes('Kwota')) {
@@ -23,20 +29,23 @@ export function parseCSV(buffer: Buffer): RawTransaction[] {
 
     return dataLines.map((line, index) => {
         const columns = splitCsvLine(line);
+        const col5 = columns[5] || "";
+        const col6 = columns[6] || "";
+
         return {
             rawDate: columns[0] || "",
             rawAmount: columns[3] || "0",
             rawType: columns[2] || "",
-            rawDescription: columns[5] || "",
-            rawCounterparty: columns[6] || "",
+            rawDescription: col5,
+            rawCounterparty: col6,
             rawTitle: columns[7] || "",
-            rawReference: `PKO-CSV-${index}-${columns[0]}-${columns[3]}`
+            rawReference: `PKO-CSV-${index}-${columns[0]}-${columns[3]}`,
+            rawAccountNumber: extractNrb(col5 + " " + col6)
         };
     });
 }
 
 export function parseMT940(buffer: Buffer): RawTransaction[] {
-    // MT940 is often win1250 in Polish banks
     const content = iconv.decode(buffer, "win1250");
     const transactions: RawTransaction[] = [];
     const lines = content.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
@@ -46,14 +55,10 @@ export function parseMT940(buffer: Buffer): RawTransaction[] {
 
     for (const line of lines) {
         if (line.startsWith(':61:')) {
-            // Save previous
             if (currentTx && currentTx.rawAmount) {
                 transactions.push(currentTx as RawTransaction);
             }
-            // New transaction
             const data = line.substring(4);
-            // Format :61: YYMMDD[MMDD] DebitCreditAmount...
-            // Extract Amount (usually starts at index 10-12 depending on date)
             const amountPart = data.substring(10);
             const amountMatch = amountPart.match(/[0-9,.]+/);
             const amount = amountMatch ? amountMatch[0] : "0";
@@ -66,26 +71,29 @@ export function parseMT940(buffer: Buffer): RawTransaction[] {
                 rawDescription: "",
                 rawCounterparty: "",
                 rawTitle: "",
-                rawReference: data.substring(data.lastIndexOf('//') + 2).trim()
+                rawReference: data.substring(data.lastIndexOf('//') + 2).trim(),
+                rawAccountNumber: ""
             };
             currentTag = ':61:';
         } else if (line.startsWith(':86:')) {
             if (currentTx) {
-                currentTx.rawDescription = line.substring(4);
+                const desc = line.substring(4);
+                currentTx.rawDescription = desc;
+                currentTx.rawAccountNumber = extractNrb(desc);
                 currentTag = ':86:';
             }
         } else if (line.startsWith(':') && line.match(/^:\d{2,3}[A-Z]?:/)) {
-            // New tag started
             currentTag = line.substring(0, line.indexOf(':', 1) + 1);
         } else {
-            // Multiline continuation
             if (currentTag === ':86:' && currentTx) {
                 currentTx.rawDescription += " " + line;
+                if (!currentTx.rawAccountNumber) {
+                    currentTx.rawAccountNumber = extractNrb(currentTx.rawDescription || "");
+                }
             }
         }
     }
 
-    // Push last
     if (currentTx && currentTx.rawAmount) {
         transactions.push(currentTx as RawTransaction);
     }

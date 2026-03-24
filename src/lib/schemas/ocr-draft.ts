@@ -101,6 +101,11 @@ export const ocrDraftSchema = z.object({
      * Informational only – the Master decides what to do with partial data.
      */
     ocrConfidence: z.number().min(0).max(1).optional(),
+
+    /**
+     * Bank account number extracted from the invoice.
+     */
+    bankAccountNumber: z.string().max(34).optional(),
 })
 
 /** TypeScript type derived from the schema */
@@ -119,6 +124,7 @@ export interface SanitizedOcrDraft {
     invoiceNumber: string | null
     type: "COST" | "INCOME"
     vatRate: string
+    bankAccountNumber: string | null
     ocrConfidence: number | null
     tenantId: string           // Injected server-side, NEVER from payload
 }

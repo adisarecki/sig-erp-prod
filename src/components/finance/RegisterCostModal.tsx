@@ -45,6 +45,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const [retentionReleaseDate, setRetentionReleaseDate] = useState("")
     const [category, setCategory] = useState("MATERIAŁY")
     const [isNewContractor, setIsNewContractor] = useState(false)
+    const [bankAccountNumber, setBankAccountNumber] = useState("")
 
     const [newContractorName, setNewContractorName] = useState("")
     const [newContractorNip, setNewContractorNip] = useState("")
@@ -84,6 +85,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
             if (ocrData.issueDate) setIssueDate(ocrData.issueDate)
             if (ocrData.dueDate) setDueDate(ocrData.dueDate)
             if (ocrData.invoiceNumber) setDescription(`Faktura nr ${ocrData.invoiceNumber}`)
+            if (ocrData.bankAccountNumber) setBankAccountNumber(ocrData.bankAccountNumber)
 
             // Szukanie kontrahenta po NIP
             if (ocrData.nip) {
@@ -145,6 +147,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                     setDueDate(d.dueDate)
                     setInvoiceNumber(d.invoiceNumber)
                     setDescription(`Faktura nr ${d.invoiceNumber}`)
+                    if (d.bankAccountNumber) setBankAccountNumber(d.bankAccountNumber)
 
                     if (d.contractorId) {
                         setSelectedContractorId(d.contractorId)
@@ -194,6 +197,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
         formData.set("projectId", selectedProjectId)
         formData.set("retainedAmount", retainedAmount)
         formData.set("retentionReleaseDate", retentionReleaseDate)
+        formData.set("bankAccountNumber", bankAccountNumber)
 
         try {
             const result = await addCostInvoice(formData)

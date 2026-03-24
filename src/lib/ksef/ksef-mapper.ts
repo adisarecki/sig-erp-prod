@@ -16,6 +16,7 @@ export interface KSeFInvoiceData {
     taxRate: Decimal;
     type: 'INCOME' | 'EXPENSE';
     externalId: string; // Invoice number (P_2)
+    bankAccountNumber?: string;
 }
 
 export class KSeFMapper {
@@ -69,6 +70,14 @@ export class KSeFMapper {
         const type = sellerNip === OWNER_NIP ? 'INCOME' : 'EXPENSE';
         const invoiceNumber = fa.P_2 || ksefNumber;
 
+        // Extract Bank Account (NRB) from FA(3)
+        // Usually in Fa.RachunekBankowy.NrRachunku or similar
+        let bankAccountNumber = "";
+        const bankData = fa.RachunekBankowy;
+        if (bankData) {
+            bankAccountNumber = String(bankData.NrRachunku || "").replace(/\s/g, "");
+        }
+
         return {
             ksefNumber,
             issueDate,
@@ -81,7 +90,8 @@ export class KSeFMapper {
             amountGross,
             taxRate: taxRate.toDecimalPlaces(4),
             type,
-            externalId: invoiceNumber
+            externalId: invoiceNumber,
+            bankAccountNumber
         };
     }
 

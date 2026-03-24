@@ -126,6 +126,8 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 | Vector 048 | Database / Sync  | FIXED | HOTFIX: Resolved Sync: error after purge. | Wdrożono "Deep Purge" (czyszczenie dual-source), poprawiono obsługę błędów w `/health` i wymuszono odświeżanie cache w UI. |
 | Vector 049 | Finance / Parser | FIXED | Phase 12: PKO BP CSV Standard & Sync Reset. | Implementacja dedykowanego parsera PKO BP (kolumny 0,3,5,6,7), sanitacja prefiksów i auto-routing ZUS/Zarząd. Wdrożono `/api/finance/sync` do resetu stanu. |
 | Vector 050 | Finance / Engine | FIXED | Phase 13: 3-Layer Bank Import Pipeline. | Refaktoryzacja potoku importu (Parser -> Normalizer -> Mapper). Obsługa `win1250` przez `iconv-lite` oraz wydajny batch saving (`createMany`). |
+| Vector 051 | Finance / Engine | FIXED | Phase 14: Cascading Contractor Identification. | Wdrożenie systemu "Kaskady" (Konto -> NIP -> Nazwa). Auto-nauka NRB z faktur (OCR/KSeF), aktualizacja modelu Contractor i refaktoryzacja maperów bankowych. |
+| Vector 052 | Finance / Engine | FIXED | Phase 14b: Bi-directional Contractor Enrichment. | Wdrożono system bi-directional enrichment dla Kontrahentów. System automatycznie uczy się numerów kont z wyciągów bankowych (Scenario 1) i łączy je z profilami firm na podstawie nazw i numerów NIP (Scenario 2). |
 
 - **Build Verified**: Projekt przeszedł testy statyczne (`tsc`) i jest gotowy do wdrożenia na Vercel.
 

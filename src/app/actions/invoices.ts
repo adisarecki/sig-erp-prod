@@ -216,6 +216,7 @@ export async function addIncomeInvoice(formData: FormData) {
         const projectId = (projectIdRaw === "none" || projectIdRaw === "NONE" || projectIdRaw === "GENERAL" || projectIdRaw === "INTERNAL") ? "" : projectIdRaw
         const contractorId = formData.get("contractorId") as string
         const description = formData.get("description") as string
+        const bankAccountNumber = (formData.get("bankAccountNumber") as string || "").replace(/\s/g, "")
 
         // New Contractor Fields
         const isNewContractor = formData.get("isNewContractor") === "true"
@@ -436,6 +437,25 @@ export async function addIncomeInvoice(formData: FormData) {
                 }
             }
 
+            // --- SELF-LEARNING (Bank Account) ---
+            if (prismaContractorId && bankAccountNumber && bankAccountNumber.length >= 10) {
+                const contractor = await prisma.contractor.findUnique({
+                    where: { id: prismaContractorId }
+                });
+                
+                if (contractor && !(contractor as any).bankAccounts.includes(bankAccountNumber)) {
+                    await (prisma.contractor as any).update({
+                        where: { id: prismaContractorId },
+                        data: { bankAccounts: { push: bankAccountNumber } }
+                    });
+
+                    // Firestore Sync
+                    await adminDb.collection("contractors").doc(prismaContractorId).update({
+                        bankAccounts: Array.from(new Set([...((contractor as any).bankAccounts || []), bankAccountNumber]))
+                    });
+                }
+            }
+
             // --- PROJEKT (Find-or-Create) ---
             const isNewProject = formData.get("isNewProject") === "true"
             const newProjectName = formData.get("newProjectName") as string
@@ -568,6 +588,7 @@ export async function addCostInvoice(formData: FormData) {
         const projectId = formData.get("projectId") as string
         const contractorId = formData.get("contractorId") as string
         const description = formData.get("description") as string
+        const bankAccountNumber = (formData.get("bankAccountNumber") as string || "").replace(/\s/g, "")
 
         // New Contractor Fields
         const isNewContractor = formData.get("isNewContractor") === "true"
@@ -821,6 +842,25 @@ export async function addCostInvoice(formData: FormData) {
                             }
                         })
                     }
+                }
+            }
+
+            // --- SELF-LEARNING (Bank Account) ---
+            if (prismaContractorId && bankAccountNumber && bankAccountNumber.length >= 10) {
+                const contractor = await prisma.contractor.findUnique({
+                    where: { id: prismaContractorId }
+                });
+                
+                if (contractor && !(contractor as any).bankAccounts.includes(bankAccountNumber)) {
+                    await (prisma.contractor as any).update({
+                        where: { id: prismaContractorId },
+                        data: { bankAccounts: { push: bankAccountNumber } }
+                    });
+
+                    // Firestore Sync
+                    await adminDb.collection("contractors").doc(prismaContractorId).update({
+                        bankAccounts: Array.from(new Set([...((contractor as any).bankAccounts || []), bankAccountNumber]))
+                    });
                 }
             }
 

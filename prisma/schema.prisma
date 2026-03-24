@@ -68,6 +68,7 @@ model Contractor {
   type         String    @default("INWESTOR") // INWESTOR, DOSTAWCA, HURTOWNIA
   status       String    @default("ACTIVE")
   creditRating Int?
+  bankAccounts String[]  @default([])
   objects      Object[]
   contacts     Contact[]
   projects     Project[]

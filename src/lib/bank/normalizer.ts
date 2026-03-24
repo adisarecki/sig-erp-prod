@@ -38,6 +38,7 @@ export function normalizeTransaction(raw: RawTransaction): NormalizedTx {
         counterparty: (raw.rawCounterparty || "Nieznany").trim(),
         title: (raw.rawTitle || "Transakcja Bankowa").trim(),
         description: (raw.rawDescription || "").trim(),
-        reference: raw.rawReference || `REF-${dateObj.getTime()}-${Math.abs(amount)}`
+        reference: raw.rawReference || `REF-${dateObj.getTime()}-${Math.abs(amount)}`,
+        accountNumber: raw.rawAccountNumber ? raw.rawAccountNumber.replace(/\s/g, '') : null
     };
 }

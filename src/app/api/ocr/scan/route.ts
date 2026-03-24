@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
                 "invoiceNumber": "numer faktury",
                 "type": "COST",
                 "vatRate": "ułamek np. 0.23",
+                "bankAccountNumber": "26 cyfr bez spacji (numer konta do wpłaty)",
                 "isPaid": true/false (czy na dokumencie są słowa: Zapłacono, Gotówka, Karta, BLIK, Przelew wykonany itp.)
             }`,
             {
