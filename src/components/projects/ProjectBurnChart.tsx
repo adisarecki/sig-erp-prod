@@ -14,7 +14,7 @@ import {
 } from "recharts"
 
 interface ProjectBurnChartProps {
-    transactions: { type: string, amount: number | string | { toNumber: () => number }, transactionDate: string | Date }[]
+    invoices: { type: string, amountNet: number, amountGross: number, issueDate: string | Date }[]
     budgetEstimated: number
 }
 
@@ -30,49 +30,48 @@ const formatPln = (value: number) => {
     }).format(value) + " zł"
 }
 
-export function ProjectBurnChart({ transactions, budgetEstimated }: ProjectBurnChartProps) {
+export function ProjectBurnChart({ invoices, budgetEstimated }: ProjectBurnChartProps) {
     const [isMounted, setIsMounted] = useState(false)
 
     useEffect(() => {
         const frame = requestAnimationFrame(() => setIsMounted(true))
         return () => cancelAnimationFrame(frame)
     }, [])
-    // 1. Wyciągnięcie tylko transakcji z typu COST/WYDATEK
-    const costTransactions = transactions
-        .filter((t) => t.type === "KOSZT" || t.type === "WYDATEK")
-        .sort((a, b) => new Date(a.transactionDate).getTime() - new Date(b.transactionDate).getTime())
 
-    if (costTransactions.length === 0) {
+    // 1. Wyciągnięcie tylko dokumentów kosztowych
+    const costInvoices = invoices
+        .filter((inv) => inv.type === "KOSZT" || inv.type === "EXPENSE" || inv.type === "WYDATEK")
+        .sort((a, b) => new Date(a.issueDate).getTime() - new Date(b.issueDate).getTime())
+
+    if (costInvoices.length === 0) {
         return (
             <div className="w-full h-[320px] flex items-center justify-center text-slate-400 text-sm italic bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                Brak zarejestrowanych kosztów. Wykres zasilany danymi po dodaniu pierwszej wyceny.
+                Brak zarejestrowanych kosztów. Wykres zasilany danymi po dodaniu pierwszej faktury kosztowej.
             </div>
         )
     }
 
-    // 2. Budowa tabeli narastającej (Unikamy mutacji wewnątrz map)
+    // 2. Budowa tabeli narastającej
     const chartData: { date: string, Koszt: number }[] = []
     let currentCumulative = 0
-    costTransactions.forEach((t) => {
-        currentCumulative += Number(t.amount)
+    costInvoices.forEach((inv) => {
+        currentCumulative += Number(inv.amountGross || inv.amountNet)
         chartData.push({
-            date: typeof t.transactionDate === 'string' ? t.transactionDate : (t.transactionDate as Date).toISOString(),
+            date: typeof inv.issueDate === 'string' ? inv.issueDate : (inv.issueDate as Date).toISOString(),
             Koszt: currentCumulative,
         })
     })
 
-    // Dla lepszego efektu wizualnego dodajemy punkt startowy (jeśli nie ma z pierwszego dnia miesiąca)
+    // Punkt startowy
     if (chartData.length > 0) {
         const firstDate = new Date(chartData[0].date)
-        firstDate.setDate(firstDate.getDate() - 2) // Start z przesunięciem
-
+        firstDate.setDate(firstDate.getDate() - 2)
         chartData.unshift({
             date: firstDate.toISOString(),
             Koszt: 0,
         })
     }
 
-    // 3. Sprawdzenie, czy projekt przekracza np. 85% budżetu
     const isDanger = budgetEstimated > 0 && currentCumulative > budgetEstimated * 0.85
 
     if (!isMounted) {
@@ -103,7 +102,7 @@ export function ProjectBurnChart({ transactions, budgetEstimated }: ProjectBurnC
                         labelFormatter={(label: unknown) => `Data: ${formatDate(label as string)}`}
                         formatter={(value: unknown) => [
                             `${new Intl.NumberFormat("pl-PL").format(Number(value))} zł`,
-                            "Całkowite koszty wyniosły"
+                            "Skumulowane koszty"
                         ]}
                         contentStyle={{
                             borderRadius: '12px',
@@ -124,14 +123,14 @@ export function ProjectBurnChart({ transactions, budgetEstimated }: ProjectBurnC
                         stroke="#ef4444"
                         strokeDasharray="4 4"
                         strokeWidth={2}
-                        name="Nasz zaplanowany budżet (Limit)"
+                        name="Limit Budżetu"
                     />
 
                     <Line
-                        name="Suma wydanych pieniędzy (Koszty)"
+                        name="Koszty Rzeczywiste (Brutto)"
                         type="monotone"
                         dataKey="Koszt"
-                        stroke={isDanger ? "#ef4444" : "#3b82f6"} // Linia Czerwona gdy "Zdrowie Projektu" słabnie
+                        stroke={isDanger ? "#ef4444" : "#3b82f6"}
                         strokeWidth={4}
                         dot={false}
                         activeDot={{ r: 6, strokeWidth: 0, fill: isDanger ? "#ef4444" : "#3b82f6" }}

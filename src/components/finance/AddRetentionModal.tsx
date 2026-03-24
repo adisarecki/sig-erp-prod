@@ -26,10 +26,10 @@ interface AddRetentionModalProps {
 export function AddRetentionModal({ projects, contractors }: AddRetentionModalProps) {
     const [open, setOpen] = useState(false)
     const [isPending, setIsPending] = useState(false)
-    
+
     const [localProjects, setLocalProjects] = useState(projects)
     const [localContractors, setLocalContractors] = useState(contractors)
-    
+
     const [isAddingContractor, setIsAddingContractor] = useState(false)
     const [newContractorName, setNewContractorName] = useState("")
     const [isAddingProject, setIsAddingProject] = useState(false)

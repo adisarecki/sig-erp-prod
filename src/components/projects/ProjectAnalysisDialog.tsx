@@ -14,11 +14,11 @@ import { ProjectBurnChart } from "./ProjectBurnChart"
 
 interface ProjectAnalysisDialogProps {
     projectName: string
-    transactions: { type: string, amount: number | string | { toNumber: () => number }, transactionDate: string | Date }[]
+    invoices: { type: string, amountNet: number, amountGross: number, issueDate: string | Date }[]
     budgetEstimated: number
 }
 
-export function ProjectAnalysisDialog({ projectName, transactions, budgetEstimated }: ProjectAnalysisDialogProps) {
+export function ProjectAnalysisDialog({ projectName, invoices, budgetEstimated }: ProjectAnalysisDialogProps) {
     return (
         <Dialog>
             <DialogTrigger asChild>
@@ -36,15 +36,9 @@ export function ProjectAnalysisDialog({ projectName, transactions, budgetEstimat
 
                 <div className="mt-6">
                     {(() => {
-                        const totalCosts = transactions
-                            .filter((t: { type: string }) => t.type === 'KOSZT' || t.type === 'WYDATEK')
-                            .reduce((sum: number, t: { amount: number | string | { toNumber: () => number } }) => {
-                                const val = t.amount;
-                                const numericAmount = (typeof val === 'object' && val !== null && 'toNumber' in val)
-                                    ? (val as { toNumber: () => number }).toNumber()
-                                    : Number(val || 0);
-                                return sum + numericAmount;
-                            }, 0)
+                        const totalCosts = invoices
+                            .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'WYDATEK')
+                            .reduce((sum, inv) => sum + Number(inv.amountGross || inv.amountNet), 0)
 
                         const percentUsed = budgetEstimated > 0 ? (totalCosts / budgetEstimated) * 100 : 0
                         const isDanger = percentUsed >= 85
@@ -66,7 +60,7 @@ export function ProjectAnalysisDialog({ projectName, transactions, budgetEstimat
                                     <p className="text-sm opacity-90 mb-3 block">
                                         {isDanger
                                             ? `Przekroczono bezpieczny próg lub budżet o ${new Intl.NumberFormat('pl-PL').format(Math.abs(remaining))} zł. Przejrzyj koszty!`
-                                            : `Wykorzystano ${Math.round(percentUsed)}% szacowanego budżetu (Pozostało: ${new Intl.NumberFormat('pl-PL').format(remaining)} zł).`
+                                            : `Wykorzystano ${percentUsed.toFixed(1)}% szacowanego budżetu (Pozostały Budżet: ${new Intl.NumberFormat('pl-PL').format(remaining)} zł).`
                                         }
                                     </p>
                                     <div className="w-full bg-slate-200/50 rounded-full h-3 overflow-hidden mt-3">
@@ -87,7 +81,7 @@ export function ProjectAnalysisDialog({ projectName, transactions, budgetEstimat
                     <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                         <div className="w-full h-[350px] min-w-[500px]">
                             <ProjectBurnChart
-                                transactions={transactions}
+                                invoices={invoices}
                                 budgetEstimated={budgetEstimated}
                             />
                         </div>

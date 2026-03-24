@@ -30,7 +30,7 @@ interface ProjectData {
     contractorId: string;
     contractor: { name: string };
     object: { name: string; address: string | null };
-    invoices: { type: string; amountNet: number | string; amountGross?: number | string }[];
+    invoices: { type: string; amountNet: number | string; amountGross?: number | string; issueDate: string | Date }[];
     transactions: { type: string; amount: number | string; transactionDate: string | Date }[];
 }
 
@@ -251,10 +251,11 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                 <div className="flex items-center gap-2 lg:border-l lg:border-slate-100 lg:pl-4 h-full" data-dialog="true">
                                     <ProjectAnalysisDialog
                                         projectName={project.name}
-                                        transactions={project.transactions.map((t) => ({
-                                            type: t.type,
-                                            amount: Number(t.amount),
-                                            transactionDate: typeof t.transactionDate === 'string' ? t.transactionDate : (t.transactionDate as Date).toISOString()
+                                        invoices={project.invoices.map((inv) => ({
+                                            type: inv.type,
+                                            amountNet: Number(inv.amountNet),
+                                            amountGross: Number(inv.amountGross || inv.amountNet),
+                                            issueDate: typeof inv.issueDate === 'string' ? inv.issueDate : (inv.issueDate as Date).toISOString()
                                         }))}
                                         budgetEstimated={Number(project.budgetEstimated)}
                                     />
