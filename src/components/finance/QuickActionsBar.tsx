@@ -23,7 +23,16 @@ const InvoiceScanner = dynamic(() => import("@/components/finance/InvoiceScanner
     ssr: false,
     loading: () => <div className="animate-pulse bg-slate-100 h-9 w-24 rounded-lg" />
 })
-import { TrendingUp, TrendingDown, ScanLine, DownloadCloud, History, Loader2 } from "lucide-react"
+import { TrendingUp, TrendingDown, ScanLine, DownloadCloud, History, Loader2, Trash2, AlertTriangle, Info } from "lucide-react"
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    DialogDescription,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 
 interface QuickActionsBarProps {
     projects: { id: string; name: string }[]
@@ -32,6 +41,8 @@ interface QuickActionsBarProps {
 
 export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps) {
     const [isImporting, setIsImporting] = useState(false)
+    const [isPurging, setIsPurging] = useState(false)
+    const [showPurgeConfirm, setShowPurgeConfirm] = useState(false)
     const [isDragging, setIsDragging] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -64,6 +75,7 @@ export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps)
             const result = await response.json()
             if (result.success) {
                 alert(`Sukces: ${result.message}`)
+                window.location.reload() // Reload to see new transactions
             } else {
                 alert(`Błąd: ${result.error || "Wystąpił problem podczas importu"}`)
             }
@@ -73,6 +85,27 @@ export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps)
         } finally {
             setIsImporting(false)
             if (fileInputRef.current) fileInputRef.current.value = ""
+        }
+    }
+
+    const handlePurge = async () => {
+        setIsPurging(true)
+        try {
+            const response = await fetch("/api/finance/transactions/purge-all", {
+                method: "DELETE",
+            })
+            const result = await response.json()
+            if (result.success) {
+                alert(`Baza wyczyszczona. Usunięto ${result.purgedCount} transakcji.`)
+                setShowPurgeConfirm(false)
+                window.location.reload()
+            } else {
+                alert(`Błąd: ${result.error || "Błąd podczas czyszczenia"}`)
+            }
+        } catch (err) {
+            alert("Błąd sieci.")
+        } finally {
+            setIsPurging(false)
         }
     }
 
@@ -166,6 +199,62 @@ export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps)
                     {isImporting ? "Importowanie..." : "Importuj wyciąg"}
                 </button>
             </div>
+
+            <div className="w-px bg-slate-100 hidden sm:block" />
+
+            {/* EMERGENCY NUKE – Admin: Rose */}
+            <button 
+              type="button"
+              className="h-9 px-3 text-rose-600 hover:bg-rose-50 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all active:scale-95 flex items-center gap-2 border border-rose-100"
+              onClick={() => setShowPurgeConfirm(true)}
+            >
+                <Trash2 className="w-3 h-3" />
+                Wyczyść rejestr
+            </button>
+
+            {/* NUKE CONFIRMATION MODAL */}
+            <Dialog open={showPurgeConfirm} onOpenChange={setShowPurgeConfirm}>
+                <DialogContent className="sm:max-w-[425px] border-rose-100">
+                    <DialogHeader className="space-y-3">
+                        <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 mb-2">
+                            <AlertTriangle className="w-6 h-6" />
+                        </div>
+                        <DialogTitle className="text-xl font-bold text-slate-900">
+                            Resetowanie Rejestru Bankowego
+                        </DialogTitle>
+                        <DialogDescription className="text-slate-600 font-medium text-base leading-relaxed">
+                            Czy na pewno chcesz usunąć <span className="text-rose-600 font-bold">WSZYSTKIE</span> transakcje bez przypisanego projektu?
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="py-4 bg-rose-50 p-4 rounded-xl border border-rose-100 text-sm text-rose-800 leading-relaxed space-y-2">
+                        <p className="font-bold flex items-center gap-2">
+                            <Info className="w-4 h-4" /> SKUTKI OPERACJI:
+                        </p>
+                        <ul className="list-disc list-inside space-y-1 text-xs opacity-90">
+                            <li>Wszystkie transakcje bankowe zostaną trwale usunięte.</li>
+                            <li>Opłacone faktury zarządcze wrócą do statusu "DO ZAPŁATY".</li>
+                            <li>Zwolnione zostaną blokady "bankTransactionId" (możliwy ponowny import).</li>
+                            <li>Koszty projektowe pozostaną nienaruszone.</li>
+                        </ul>
+                    </div>
+
+                    <DialogFooter className="mt-6 flex gap-2">
+                        <Button variant="outline" onClick={() => setShowPurgeConfirm(false)} className="flex-1">
+                            Anuluj
+                        </Button>
+                        <Button 
+                            variant="destructive" 
+                            onClick={handlePurge} 
+                            disabled={isPurging}
+                            className="flex-1 font-bold shadow-lg shadow-rose-200 uppercase tracking-tighter"
+                        >
+                            {isPurging ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                            USUŃ I RESETUJ
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

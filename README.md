@@ -122,6 +122,7 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - **Wektor 044: Optymalizacja PKO BP & UI Cleanup**: Refinement parsera MT940 pod kątem sub-tagów PKO BP (`~`). Rozszerzono listę auto-kategoryzacji o stacje paliw (Orlen, BP, Shell itp.) oraz wdrożono funkcjonalny Drag & Drop w toolbarze.
 - **Wektor 045: Refactored MT940 UI & Sanitization**: Refaktoryzacja komponentu listy transakcji. Wdrożono sanitację backendową tagu `:86:`, automatyczne matchowanie kontrahentów z bazą danych oraz middleware do tagowania wydatków (np. `[PALIWO]`).
 - **Wektor 046: Pivot to CSV Standard**: Przejście na format CSV jako główny standard importu z PKO BP. Wdrożono precyzyjny parser kolumnowy, inteligentną ekstrakcję sprzedawców oraz auto-kategoryzację dla ZUS i podatków.
+- **Wektor 047: Emergency Database Purge**: Wdrożono narzędzie "Wyczyść rejestr" (Endpoint: `/purge-all`). Umożliwia bezpieczne usunięcie błędnych importów bankowych, przywracając faktury do statusu "DO ZAPŁATY" i czyszcząc blokady `bankTransactionId`.
 - **Build Verified**: Projekt przeszedł testy statyczne (`tsc`) i jest gotowy do wdrożenia na Vercel.
 
 *Vercel & Firestore Ready 🚀*
