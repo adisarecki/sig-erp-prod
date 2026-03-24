@@ -79,10 +79,10 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 
 ## 🔍 5. OCR Scanner (Gemini 2.0 Workflow)
 
-1. **Upload**: PDF/Obraz trafia do `InvoiceScanner.tsx`.
-2. **Scan**: Route Handler `/api/ocr/scan` przesyła Base64 do Gemini 2.0 Flash.
-3. **JSON Contract**: Gemini zwraca ustandaryzowany JSON (NIP, kwoty, daty, nr faktury).
-4. **Draft**: Dane tworzą szkic (`ocr-draft`), który użytkownik musi zatwierdzić przed zapisem w bazach SSoT.
+1. **Upload**: PDF/Obraz trafia do `InvoiceScanner.tsx`. Obsługuje do 5 plików jednocześnie (Batch Mode).
+2. **Scan**: Route Handler `/api/ocr/scan` przesyła każdą stronę do Gemini 3 Flash.
+3. **Multi-Entity**: Gemini wykrywa wiele dokumentów na jednym obrazie i zwraca tablicę obiektów JSON.
+4. **Draft Verification**: System przechodzi przez każdy wykryty dokument sekwencyjnie (Step-by-Step), pozwalając użytkownikowi na weryfikację przed zapisem.
 
 ---
 
@@ -117,6 +117,7 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 022 | Logic / Infra | FIXED | OCR Draft 422 & Prisma Warning. | Naprawiono typ `vatRate` w Zod (coerce) i zmigrowano konfigurację Prisma z `package.json` do `prisma.config.ts`. |
 | Vector 023 | Analytics / UX | FIXED | Yearly view precision & historic data. | Wdrożono dynamiczny selektor lat na Dashboardzie z filtrowaniem `startDate`/`endDate` w Server Component. |
 | Vector 024 | Analytics / UX | FIXED | Dead liquidity button. | Aktywowano przycisk "Zarządzaj Kosztami" z dynamicznym filtrowaniem `status=UNPAID` i zachowaniem kontekstu roku. |
+| Vector 025 | AI / Batch OCR | FIXED | Multi-document OCR & Batch Mode. | Wdrożono obsługę wielu dokumentów na jednym zdjęciu oraz seryjne przesyłanie plików (do 5) z sekwencyjną weryfikacją. |
 
 ---
 

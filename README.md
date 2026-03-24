@@ -79,6 +79,12 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - **Aktywacja Ratownika Płynności**: Ożywiono przycisk "Zarządzaj Kosztami" w module Alarmu Płynności – teraz przekierowuje on do listy nieopłaconych faktur (UNPAID) z automatycznym sortowaniem po terminie płatności.
 
 ---
+### 📅 Status Wdrożenia (2026-03-24 - Multi-Entity OCR & Batch Mode)
+- **Multi-Entity OCR**: Obsługa wielu faktur/paragonów na jednej stronie/zdjęciu. Jeśli na jednym obrazie Gemini wykryje kilka dokumentów, zostaną one wyodrębnione jako osobne pozycje.
+- **Batch Scanning**: Umożliwiono przesyłanie do 5 plików jednocześnie. System analizuje każdy z nich i zbiera wszystkie wykryte dokumenty do seryjnego zatwierdzenia.
+- **Sequential Verification**: Wprowadzono interfejs "krok po kroku" do weryfikacji i zatwierdzania każdego wykrytego dokumentu przed zapisem w bazie.
+
+---
 *Dla programistów: Techniczna dokumentacja DNA znajduje się v [docs/AI_look.md](./docs/AI_look.md)*
 
 ---

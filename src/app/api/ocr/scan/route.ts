@@ -36,8 +36,10 @@ export async function POST(req: NextRequest) {
         console.log(`[OCR] Wysyłanie do Gemini (Model: gemini-3-flash)...`);
 
         const result = await model.generateContent([
-            `Jesteś ekspertem księgowym. Wyciągnij dane z załączonej faktury. Zwróć WYŁĄCZNIE czysty JSON.
-            Struktura:
+            `Jesteś ekspertem księgowym. Wyciągnij dane z obrazu. Jeśli na zdjęciu znajduje się więcej niż jeden dokument (np. dwa paragony obok siebie), wyodrębnij dane dla każdego z nich osobno.
+            Zwróć WYŁĄCZNIE czysty JSON w formacie tablicy obiektów: [{...}, {...}].
+            
+            Struktura pojedynczego obiektu:
             {
                 "nip": "10 cyfr bez myślników",
                 "parsedName": "Nazwa sprzedawcy",
@@ -62,8 +64,14 @@ export async function POST(req: NextRequest) {
         const cleanedJson = responseText.replace(/```json\n?|\n?```/g, "").trim();
         
         try {
-            const parsedData = JSON.parse(cleanedJson);
-            console.log("[OCR] Sukces! Wykryto NIP:", parsedData.nip);
+            let parsedData = JSON.parse(cleanedJson);
+            
+            // Zawsze zwracamy tablicę, nawet jeśli AI zwróciło jeden obiekt
+            if (!Array.isArray(parsedData)) {
+                parsedData = [parsedData];
+            }
+
+            console.log(`[OCR] Sukces! Wykryto ${parsedData.length} dokument(y/ów).`);
             return NextResponse.json({ success: true, data: parsedData });
         } catch (jsonErr) {
             console.error("[OCR JSON ERROR]", cleanedJson);
