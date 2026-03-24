@@ -146,6 +146,7 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 047 | Database / Admin | FIXED | Phase 11c: Emergency Database Purge Utility. | Wdrożono endpoint `/purge-all` i modal bezpieczeństwa w UI. Resetuje statusy faktur i usuwa transakcje bez przypisanego projektu. |
 | Vector 048 | Database / Sync  | FIXED | HOTFIX: Resolved Sync: error after purge. | Wdrożono "Deep Purge" (czyszczenie dual-source), poprawiono obsługę błędów w `/health` i wymuszono odświeżanie cache w UI. |
 | Vector 049 | Finance / Parser | FIXED | Phase 12: PKO BP CSV Standard & Sync Reset. | Implementacja dedykowanego parsera PKO BP (kolumny 0,3,5,6,7), sanitacja prefiksów i auto-routing ZUS/Zarząd. Wdrożono `/api/finance/sync` do resetu stanu. |
+| Vector 050 | Finance / Engine | FIXED | Phase 13: 3-Layer Bank Import Pipeline. | Refaktoryzacja potoku importu (Parser -> Normalizer -> Mapper). Obsługa `win1250` przez `iconv-lite` oraz wydajny batch saving (`createMany`). |
 
 ---
 

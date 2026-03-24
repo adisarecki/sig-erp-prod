@@ -4,12 +4,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import Decimal from "decimal.js";
 import { getCurrentTenantId } from "@/lib/tenant";
-import { MT940Parser } from "@/lib/mt940-parser";
-import { CSVBankParser } from "@/lib/csv-bank-parser";
+import prisma from "@/lib/prisma";
+import { parseCSV, parseMT940 } from "@/lib/bank/parsers";
+import { normalizeTransaction } from "@/lib/bank/normalizer";
+import { mapToERP, ERPTransaction } from "@/lib/bank/mapper";
+import { RawTransaction } from "@/lib/bank/types";
 
 /**
- * BANK RECONCILIATION ENGINE (Phase 11)
- * Supports: JSON (Manual) and MT940 (Automated)
+ * BANK IMPORT PIPELINE (Phase 13: 3-Layer Architecture)
+ * Layer 1: Extract & Parse (win1250 support)
+ * Layer 2: Normalize (Amounts/Dates)
+ * Layer 3: Map & Save (Batch Logic)
  */
 export async function POST(request: NextRequest) {
     try {
@@ -17,58 +22,31 @@ export async function POST(request: NextRequest) {
         const tenantId = await getCurrentTenantId();
         const contentType = request.headers.get("content-type") || "";
 
-        let incomingTransactions: any[] = [];
+        // -- LAYER 1: EXTRACT & PARSE --
+        const arrayBuffer = await request.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const rawContent = buffer.toString("utf-8"); // For quick detection
 
-        // 1. Parser Logic: CSV, MT940 or JSON
-        if (contentType.includes("text/csv") || contentType.includes("application/vnd.ms-excel")) {
-            const rawContent = await request.text();
-            incomingTransactions = CSVBankParser.parse(rawContent).map(t => ({
-                amount: t.amount,
-                date: t.transactionDate,
-                title: t.title,
-                counterparty: t.counterpartyRaw,
-                description: t.description,
-                typeDescription: t.typeDescription,
-                reference: t.reference,
-                type: t.type
-            }));
-        } else if (contentType.includes("text/plain") || contentType.includes("application/octet-stream")) {
-            const rawContent = await request.text();
-            
-            // Check if it's actually a CSV (PKO BP CSV starts with "Data operacji")
-            if (rawContent.includes("Data operacji") || rawContent.includes("Kwota") || rawContent.includes(";")) {
-                incomingTransactions = CSVBankParser.parse(rawContent).map(t => ({
-                    amount: t.amount,
-                    date: t.transactionDate,
-                    title: t.title,
-                    counterparty: t.counterpartyRaw,
-                    description: t.description,
-                    typeDescription: t.typeDescription,
-                    reference: t.reference,
-                    type: t.type
-                }));
-            } else {
-                incomingTransactions = MT940Parser.parse(rawContent).map(t => ({
-                    amount: t.amount.toNumber(),
-                    date: t.date.toISOString(),
-                    description: t.description,
-                    title: t.title,
-                    counterparty: t.counterparty,
-                    bankReference: t.bankReference,
-                    type: t.type,
-                    reference: t.reference
-                }));
-            }
+        let rawTransactions: RawTransaction[] = [];
+
+        if (contentType.includes("text/csv") || contentType.includes("application/vnd.ms-excel") || rawContent.includes("Data operacji") || rawContent.includes(";")) {
+            rawTransactions = parseCSV(buffer);
         } else {
-            const body = await request.json();
-            incomingTransactions = body.transactions || [];
+            rawTransactions = parseMT940(buffer);
         }
 
-        if (!incomingTransactions.length) {
-            return NextResponse.json({ error: "Brak danych transakcji." }, { status: 400 });
+        if (!rawTransactions.length) {
+            return NextResponse.json({ error: "Brak danych transakcji lub nieznany format." }, { status: 400 });
         }
+
+        // -- LAYER 2: NORMALIZE --
+        const normalizedTx = rawTransactions.map(t => normalizeTransaction(t));
+
+        // -- LAYER 3: MAP & ENRICH --
+        const erpTransactions = normalizedTx.map(t => mapToERP(t));
 
         const results = {
+            processed: 0,
             imported: 0,
             skipped: 0,
             matchedFull: 0,
@@ -77,50 +55,37 @@ export async function POST(request: NextRequest) {
             errors: [] as string[],
         };
 
-        const managementKeywords = [/Żabka/i, /Stokrotka/i, /Biedronka/i, /Prowizja/i, /ZUS/i, /Paliwo/i, /Orlen/i, /Shell/i, /Circle K/i, /Stacja/i, /Moya/i, /BP/i];
         const invoiceNumberRegex = /(FV|FS|FAKTURA|KOREKTA)[\s\/]?\d+/i;
 
-        for (const t of incomingTransactions) {
+        // Enrichment & Reconciliation (Requires DB access, so we loop)
+        const finalImportBatch: any[] = [];
+
+        for (const t of erpTransactions) {
             try {
-                const amount = new Decimal(Math.abs(t.amount));
-                const operationDate = new Date(t.date).toISOString();
-                const description = t.description || "";
-                const title = t.title || "Transakcja Bankowa";
-                const counterpartyRaw = t.counterparty || "Nieznany";
+                results.processed++;
+                const amount = new Decimal(t.amount);
+                const operationDate = t.date.toISOString();
                 const isIncome = t.type === 'INCOME';
                 
-                // 1. Entity Resolution (Fuzzy match counterparty to DB)
+                // 1. Entity Resolution
                 let matchedContractorId: string | null = null;
-                if (counterpartyRaw && counterpartyRaw !== "Nieznany") {
+                if (t.counterparty && t.counterparty !== "Nieznany") {
                     const contractor = await adminDb.collection("contractors")
                         .where("tenantId", "==", tenantId)
                         .orderBy("name")
                         .get();
                     
-                    // Simple fuzzy match: name exists in counterpartyRaw or vice versa
                     const match = contractor.docs.find(doc => {
                         const name = doc.data().name.toLowerCase();
-                        const raw = counterpartyRaw.toLowerCase();
+                        const raw = t.counterparty.toLowerCase();
                         return raw.includes(name) || name.includes(raw);
                     });
                     
                     if (match) matchedContractorId = match.id;
                 }
 
-                // 2. Auto-Tagging Middleware
-                let tags: string[] = [];
-                if (!isIncome && (title.match(/PALIWO|ORLEN|BP|SHELL|STACJA/i) || description.match(/PALIWO|ORLEN|BP|SHELL|STACJA/i))) {
-                    tags.push("KOSZTY OGÓLNE FIRMY", "PALIWO");
-                }
-                if (title.match(/USŁUGI|PODWYKONAWCA|MONTAŻ|PRACE/i)) {
-                    tags.push("WYMAGA PRZYPISANIA DO PROJEKTU");
-                }
-
-                const tagsStr = tags.length > 0 ? tags.join(", ") : null;
-
-                // Deduplication: Hash of Ref + Date + Amount + Type
-                const dedupeKey = `${t.reference || 'REF'}-${operationDate}-${amount.toFixed(2)}-${t.typeDescription || 'NA'}`;
-
+                // 2. Deduplication
+                const dedupeKey = `${t.reference}-${operationDate}-${amount.toFixed(2)}`;
                 const duplicateQuery = await adminDb
                     .collection("transactions")
                     .where("tenantId", "==", tenantId)
@@ -133,55 +98,30 @@ export async function POST(request: NextRequest) {
                     continue;
                 }
 
-                const isManagementCost = !isIncome && (
-                    tags.includes("KOSZTY OGÓLNE FIRMY") || 
-                    managementKeywords.some(kw => kw.test(description) || kw.test(title) || kw.test(counterpartyRaw)) ||
-                    ["ZABKA", "ORLEN", "CIRCLE K", "STOKROTKA", "BIEDRONKA", "SHELL", "LIDL", "BP", "MOYA", "ARKADIA", "BULECKA"].includes(counterpartyRaw.toUpperCase())
-                );
-
-                const isTaxOrZus = !isIncome && (
-                    counterpartyRaw.match(/ZUS|PODATKI|URZAD SKARBOWY/i) || 
-                    title.match(/ZUS|PODATKI|VAT|PIT|CIT/i) ||
-                    (t.typeDescription && t.typeDescription.match(/ZUS|PODATEK/i))
-                );
-
-                // 3. Automated Expense Routing (Non-Project)
+                // 3. Reconciliation & Project Matching
                 let matchedInvoiceId: string | null = null;
-                let projectId: string | null = null;
-                let category = isIncome ? "SPRZEDAŻ_TOWARU" : "KOSZT_FIRMOWY";
-                let classification = "PROJECT_COST";
+                let projectId: string | null = t.projectId;
+                let classification = t.classification;
+                let category = t.category;
 
-                if (isTaxOrZus) {
-                    category = "ZUS_PODATKI";
-                    classification = "GENERAL_COST";
-                    projectId = null;
-                } else if (isManagementCost) {
-                    category = "KOSZTY_ZARZADU";
-                    classification = "GENERAL_COST";
-                    projectId = null;
-                } else {
-                    // 4. Reconciliation & Matching Algorithm
-                    const match = description.match(invoiceNumberRegex);
+                if (!t.isTaxOrZus && !t.isManagementCost) {
+                    const match = t.description.match(invoiceNumberRegex);
                     const matchedRef = match ? match[0].toUpperCase() : null;
 
                     let matchingInvoiceQuery = null;
                     if (matchedRef) {
-                        matchingInvoiceQuery = await adminDb
-                            .collection("invoices")
+                        matchingInvoiceQuery = await adminDb.collection("invoices")
                             .where("tenantId", "==", tenantId)
                             .where("externalId", "==", matchedRef)
-                            .limit(1)
-                            .get();
+                            .limit(1).get();
                     }
 
                     if (!matchingInvoiceQuery || matchingInvoiceQuery.empty) {
-                        matchingInvoiceQuery = await adminDb
-                            .collection("invoices")
+                        matchingInvoiceQuery = await adminDb.collection("invoices")
                             .where("tenantId", "==", tenantId)
                             .where("status", "==", "ACTIVE")
                             .where("amountGross", "==", amount.toNumber())
-                            .limit(1)
-                            .get();
+                            .limit(1).get();
                     }
 
                     if (!matchingInvoiceQuery.empty) {
@@ -189,101 +129,92 @@ export async function POST(request: NextRequest) {
                         const invValue = invDoc.data() as any;
                         matchedInvoiceId = invDoc.id;
                         projectId = invValue.projectId;
+                        classification = "PROJECT_COST";
 
                         const totalAmount = new Decimal(invValue.amountGross);
 
-                        await adminDb.runTransaction(async (tx) => {
-                            if (amount.gte(totalAmount)) {
-                                tx.update(invDoc.ref, {
-                                    status: "PAID",
-                                    updatedAt: new Date().toISOString(),
-                                });
-                                results.matchedFull++;
-                            } else {
-                                tx.update(invDoc.ref, {
-                                    status: "PARTIALLY_PAID",
-                                    updatedAt: new Date().toISOString(),
-                                });
-                                
-                                const balance = totalAmount.minus(amount);
-                                const notifRef = adminDb.collection("notifications").doc();
-                                tx.set(notifRef, {
-                                    tenantId,
-                                    type: "WARNING",
-                                    title: "Red Light Alert: Niedopłata",
-                                    message: `Wykryto niedopłatę dla faktury ${invValue.externalId || invDoc.id}. Brak: ${balance.toFixed(2)} PLN.`,
-                                    priority: "HIGH",
-                                    isRead: false,
-                                    createdAt: new Date().toISOString(),
-                                });
-                                results.matchedPartial++;
-                            }
-
-                            const transRef = adminDb.collection("transactions").doc();
-                            const transData = {
-                                tenantId,
-                                projectId,
-                                amount: amount.toNumber(),
-                                type: isIncome ? "PRZYCHÓD" : "KOSZT",
-                                transactionDate: operationDate,
-                                category,
-                                description: `[Import Bank] ${description}`,
-                                title,
-                                counterpartyRaw,
-                                matchedContractorId,
-                                tags: tagsStr,
-                                status: "ACTIVE",
-                                source: "BANK_IMPORT",
-                                invoiceId: matchedInvoiceId,
-                                externalId: dedupeKey,
-                                bankTransactionId: t.bankReference || null,
-                                classification,
-                                createdAt: new Date().toISOString(),
-                            };
-                            tx.set(transRef, transData);
-                        });
-                        results.imported++;
-                        continue; 
+                        // Update Invoice in Batch Transaction later or here?
+                        // For consistency, we'll update Firestore doc here
+                        if (amount.gte(totalAmount)) {
+                            await invDoc.ref.update({ status: "PAID", updatedAt: new Date().toISOString() });
+                            results.matchedFull++;
+                        } else {
+                            await invDoc.ref.update({ status: "PARTIALLY_PAID", updatedAt: new Date().toISOString() });
+                            results.matchedPartial++;
+                        }
                     }
                 }
 
-                // Standard Record (Fallback)
-                const docRef = await adminDb.collection("transactions").add({
+                // Collect for Final Batch
+                const finalTx = {
                     tenantId,
                     projectId,
                     amount: amount.toNumber(),
                     type: isIncome ? "PRZYCHÓD" : "KOSZT",
                     transactionDate: operationDate,
                     category,
-                    description: `[Import Bank] ${description}`,
-                    title,
-                    counterpartyRaw,
+                    description: `[Pipeline Import] ${t.description}`,
+                    title: t.title,
+                    counterpartyRaw: t.counterparty,
                     matchedContractorId,
-                    tags: tagsStr,
+                    tags: t.tags.length > 0 ? t.tags.join(", ") : null,
                     status: "ACTIVE",
                     source: "BANK_IMPORT",
                     invoiceId: matchedInvoiceId,
                     externalId: dedupeKey,
-                    bankTransactionId: t.bankReference || null,
                     classification,
                     createdAt: new Date().toISOString(),
-                });
+                };
 
-                if (isManagementCost) results.managementCosts++;
+                finalImportBatch.push(finalTx);
+                if (t.isManagementCost) results.managementCosts++;
                 results.imported++;
 
             } catch (e: any) {
-                results.errors.push(`Błąd przy transakcji ${t.description || t.reference}: ${e.message}`);
+                results.errors.push(`Błąd przy transakcji ${t.title}: ${e.message}`);
             }
+        }
+
+        // -- FINAL LAYER: BATCH SAVE --
+        if (finalImportBatch.length > 0) {
+            // Firestore Batch
+            const batch = adminDb.batch();
+            for (const txData of finalImportBatch) {
+                const docRef = adminDb.collection("transactions").doc();
+                batch.set(docRef, txData);
+            }
+            await batch.commit();
+
+            // Prisma createMany (Sync check)
+            await prisma.transaction.createMany({
+                data: finalImportBatch.map(tx => ({
+                    tenantId: tx.tenantId,
+                    projectId: tx.projectId,
+                    amount: new Decimal(tx.amount),
+                    type: tx.type === "PRZYCHÓD" ? "INCOME" : "EXPENSE",
+                    transactionDate: new Date(tx.transactionDate),
+                    category: tx.category,
+                    description: tx.description,
+                    counterpartyRaw: tx.counterpartyRaw,
+                    status: "ACTIVE",
+                    source: "BANK_IMPORT",
+                    externalId: tx.externalId,
+                    classification: tx.classification,
+                    title: tx.title,
+                    tags: tx.tags
+                })),
+                skipDuplicates: true
+            });
         }
 
         return NextResponse.json({
             success: true,
-            message: `Zaimportowano: ${results.imported}, Pełne: ${results.matchedFull}, Częściowe: ${results.matchedPartial}, Koszty Zarządu: ${results.managementCosts}`,
+            message: `Pipeline ukończony. Zaimportowano: ${results.imported}, Pominięto: ${results.skipped}`,
             report: results,
         });
+
     } catch (err: any) {
-        console.error("BANK_IMPORT_ERROR:", err);
-        return NextResponse.json({ error: "Błąd serwera: " + err.message }, { status: 500 });
+        console.error("PIPELINE_ERROR:", err);
+        return NextResponse.json({ error: "Błąd potoku importu: " + err.message }, { status: 500 });
     }
 }
