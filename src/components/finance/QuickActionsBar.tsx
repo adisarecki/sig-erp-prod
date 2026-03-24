@@ -90,19 +90,24 @@ export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps)
 
     const handlePurge = async () => {
         setIsPurging(true)
+        console.log("[ADMIN] Starting Deep Purge operation...")
         try {
             const response = await fetch("/api/finance/transactions/purge-all", {
                 method: "DELETE",
             })
             const result = await response.json()
             if (result.success) {
-                alert(`Baza wyczyszczona. Usunięto ${result.purgedCount} transakcji.`)
+                console.log("[ADMIN] Purge successful:", result)
+                alert(`Baza wyczyszczona (Deep Purge). Usunięto ${result.purgedCount} transakcji.`)
                 setShowPurgeConfirm(false)
-                window.location.reload()
+                // Force a hard reload to clear all caches (SWR, React Query, LocalState)
+                window.location.href = window.location.pathname + window.location.search
             } else {
+                console.error("[ADMIN] Purge failed:", result.error)
                 alert(`Błąd: ${result.error || "Błąd podczas czyszczenia"}`)
             }
         } catch (err) {
+            console.error("[ADMIN] Network error during purge:", err)
             alert("Błąd sieci.")
         } finally {
             setIsPurging(false)

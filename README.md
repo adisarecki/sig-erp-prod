@@ -121,8 +121,9 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - **Wektor 042: Integracja KSeF 2.0 (Krajowy System e-Faktur)**: Wdrożono moduł `ksef-service` umożliwiający automatyczne pobieranie faktur FA(3) bezpośrednio z Portalu Podatnika. Dokumenty trafiają do Inboxu jako `UNVERIFIED` (Draft). Tryb **Tylko Odczyt** zapewnia 100% bezpieczeństwo operacyjne.
 - **Wektor 044: Optymalizacja PKO BP & UI Cleanup**: Refinement parsera MT940 pod kątem sub-tagów PKO BP (`~`). Rozszerzono listę auto-kategoryzacji o stacje paliw (Orlen, BP, Shell itp.) oraz wdrożono funkcjonalny Drag & Drop w toolbarze.
 - **Wektor 045: Refactored MT940 UI & Sanitization**: Refaktoryzacja komponentu listy transakcji. Wdrożono sanitację backendową tagu `:86:`, automatyczne matchowanie kontrahentów z bazą danych oraz middleware do tagowania wydatków (np. `[PALIWO]`).
-- **Wektor 046: Pivot to CSV Standard**: Przejście na format CSV jako główny standard importu z PKO BP. Wdrożono precyzyjny parser kolumnowy, inteligentną ekstrakcję sprzedawców oraz auto-kategoryzację dla ZUS i podatków.
-- **Wektor 047: Emergency Database Purge**: Wdrożono narzędzie "Wyczyść rejestr" (Endpoint: `/purge-all`). Umożliwia bezpieczne usunięcie błędnych importów bankowych, przywracając faktury do statusu "DO ZAPŁATY" i czyszcząc blokady `bankTransactionId`.
+- **Wektor 046: Pivot na format CSV**: Wdrożono `CSVBankParser` z obsługą dedykowanych kolumn PKO BP, sanitację prefiksów i routing ZUS/Podatki.
+- **Wektor 047: Emergency Database Purge Utility**: Wdrożono endpoint `/purge-all` i modal bezpieczeństwa w UI. Resetuje statusy faktur i usuwa transakcje bez przypisanego projektu.
+- **Wektor 048: HOTFIX: Resolved Sync: error after purge**: Wdrożono "Deep Purge" (czyszczenie dual-source), poprawiono obsługę błędów w `/health` i wymuszono odświeżanie cache w UI.
 - **Build Verified**: Projekt przeszedł testy statyczne (`tsc`) i jest gotowy do wdrożenia na Vercel.
 
 *Vercel & Firestore Ready 🚀*

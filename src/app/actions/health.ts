@@ -38,9 +38,16 @@ export async function getSyncStatus() {
         }
     } catch (error: any) {
         console.error("[GET_SYNC_STATUS_ERROR]", error)
+        // Return a structured error response that the UI can handle instead of a blank 500
         return {
             success: false,
-            error: error.message || "Błąd podczas sprawdzania spójności danych."
+            isSynced: false,
+            error: error.message || "Błąd podczas sprawdzania spójności danych.",
+            details: {
+                projects: { firestore: 0, prisma: 0 },
+                transactions: { firestore: 0, prisma: 0 },
+                invoices: { firestore: 0, prisma: 0 }
+            }
         }
     }
 }
