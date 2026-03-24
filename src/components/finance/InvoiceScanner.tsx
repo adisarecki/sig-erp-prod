@@ -380,7 +380,10 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
                                     <Label className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1">
                                         Projekt {currentEditingItem.autoMatched?.project && <Sparkles className="w-3 h-3 text-emerald-500" />}
                                     </Label>
-                                    <Select value={currentEditingItem.projectId} onValueChange={(val) => updateItem(editingIndex, { projectId: val })}>
+                                    <Select 
+                                        value={currentEditingItem.projectId} 
+                                        onValueChange={(val) => { if (editingIndex !== null) updateItem(editingIndex, { projectId: val }) }}
+                                    >
                                         <SelectTrigger className={`bg-white ${currentEditingItem.autoMatched?.project ? 'border-emerald-500 focus:ring-emerald-500' : ''}`}>
                                             <SelectValue placeholder="Wybierz projekt" />
                                         </SelectTrigger>
@@ -397,7 +400,10 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
                                     <Label className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1">
                                         Kategoria {currentEditingItem.autoMatched?.category && <Sparkles className="w-3 h-3 text-emerald-500" />}
                                     </Label>
-                                    <Select value={currentEditingItem.category} onValueChange={(val) => updateItem(editingIndex, { category: val })}>
+                                    <Select 
+                                        value={currentEditingItem.category} 
+                                        onValueChange={(val) => { if (editingIndex !== null) updateItem(editingIndex, { category: val }) }}
+                                    >
                                         <SelectTrigger className={`bg-white ${currentEditingItem.autoMatched?.category ? 'border-emerald-500 focus:ring-emerald-500' : ''}`}>
                                             <SelectValue placeholder="Kategoria" />
                                         </SelectTrigger>
