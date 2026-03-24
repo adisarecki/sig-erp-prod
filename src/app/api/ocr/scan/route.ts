@@ -50,7 +50,8 @@ export async function POST(req: NextRequest) {
                 "vatAmount": "kwota VAT",
                 "invoiceNumber": "numer faktury",
                 "type": "COST",
-                "vatRate": "ułamek np. 0.23"
+                "vatRate": "ułamek np. 0.23",
+                "isPaid": true/false (czy na dokumencie są słowa: Zapłacono, Gotówka, Karta, BLIK, Przelew wykonany itp.)
             }`,
             {
                 inlineData: {

@@ -32,6 +32,8 @@ export interface OcrInvoiceData {
     vatRate: string
     /** OCR confidence score 0.0–1.0 */
     ocrConfidence: number
+    /** Whether the invoice is already paid based on keywords (zapłacono, gotówka, blik, etc.) */
+    isPaid?: boolean
 }
 
 /**
@@ -39,6 +41,6 @@ export interface OcrInvoiceData {
  */
 export interface OcrScanResponse {
     status: "success" | "error"
-    data?: OcrInvoiceData
+    data?: OcrInvoiceData[]
     error?: string
 }

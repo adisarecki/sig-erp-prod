@@ -12,6 +12,7 @@ import {
     ScanLine, Upload, AlertTriangle, Loader2, Sparkles, 
     Save, Trash2, Edit3, CheckCircle2, XCircle
 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import type { OcrInvoiceData } from "@/lib/ocr/types"
 import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
 import { getAutoMatchData, addCostInvoice, addIncomeInvoice } from "@/app/actions/invoices"
@@ -99,10 +100,12 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
                 if (Array.isArray(result.data)) {
                     for (const data of result.data) {
                         const id = Math.random().toString(36).substring(7)
+                        const isAutoPaid = data.isPaid || (data.issueDate === data.dueDate && data.dueDate !== null)
+
                         const item: QueueItem = {
                             ...data,
                             id,
-                            status: "PENDING",
+                            status: isAutoPaid ? "VALID" : "PENDING",
                             projectId: "GENERAL",
                             category: data.type === "INCOME" ? "SPRZEDAŻ_TOWARU" : "KOSZT_FIRMOWY"
                         }
@@ -192,7 +195,10 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
             formData.append("isNewContractor", "true") 
             formData.append("newContractorName", item.parsedName)
             formData.append("newContractorNip", item.nip)
-            formData.append("isPaidImmediately", "false")
+            
+            // Zero-Day Auto-Pay Logic
+            const isAutoPaid = item.isPaid || (item.issueDate === item.dueDate && item.issueDate !== null)
+            formData.append("isPaidImmediately", isAutoPaid ? "true" : "false")
 
             const action = item.type === "INCOME" ? addIncomeInvoice : addCostInvoice
             try {
@@ -301,6 +307,9 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
                                     'border-slate-100 bg-white'
                                 }`}>
                                     <div className="absolute -top-2 -right-2 flex gap-1">
+                                        {item.status === "VALID" && (item.issueDate === item.dueDate || item.isPaid) && (
+                                            <Badge className="bg-emerald-500 text-white border-none text-[9px] font-bold">ZAPŁACONO (AUTO)</Badge>
+                                        )}
                                         {item.status === "SUCCESS" && <CheckCircle2 className="w-5 h-5 text-emerald-500 bg-white rounded-full" />}
                                         {item.status === "ERROR" && (
                                             <div className="group/err relative">

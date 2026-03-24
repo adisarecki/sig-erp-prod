@@ -79,7 +79,8 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - **Aktywacja Ratownika Płynności**: Ożywiono przycisk "Zarządzaj Kosztami" w module Alarmu Płynności – teraz przekierowuje on do listy nieopłaconych faktur (UNPAID) z automatycznym sortowaniem po terminie płatności.
 
 ---
-### 📅 Status Wdrożenia (2026-03-24 - OCR Inbox & Auto-Matching)
+### 📅 Status Wdrożenia (2026-03-24 - OCR Inbox & Refinement)
+- **Zero-Day Auto-Pay**: System automatycznie oznacza faktury jako opłacone, gdy data wystawienia pokrywa się z terminem płatności lub wykryto słowa kluczowe (Gotówka, Karta itp.).
 - **OCR Inbox**: Wdrożono Inbox OCR z obsługą wielu dokumentów na jednym skanie oraz wstępną weryfikacją przed księgowaniem.
 - **Safe Delete & Quick View**: Wdrożono funkcję Safe Delete (usuwanie z potwierdzeniem) oraz podgląd detali dokumentu finansowego z danymi OCR (NIP, Daty, Projekt).
 - **Auto-Matching (Pewniak)**: Jeśli system rozpozna NIP dostawcy z bazy, automatycznie przypisuje mu ostatnio użytą kategorię i projekt. Takie pola są oznaczane jako "Pewniak" (Sparkles).
