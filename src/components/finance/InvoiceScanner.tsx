@@ -381,8 +381,8 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
                                         Projekt {currentEditingItem.autoMatched?.project && <Sparkles className="w-3 h-3 text-emerald-500" />}
                                     </Label>
                                     <Select 
-                                        value={currentEditingItem.projectId} 
-                                        onValueChange={(val) => { if (editingIndex !== null) updateItem(editingIndex, { projectId: val }) }}
+                                        value={currentEditingItem.projectId as string} 
+                                        onValueChange={(val) => { if (editingIndex !== null && val) updateItem(editingIndex, { projectId: val as string }) }}
                                     >
                                         <SelectTrigger className={`bg-white ${currentEditingItem.autoMatched?.project ? 'border-emerald-500 focus:ring-emerald-500' : ''}`}>
                                             <SelectValue placeholder="Wybierz projekt" />
@@ -401,8 +401,8 @@ export function InvoiceScanner({ onDataExtracted }: InvoiceScannerProps) {
                                         Kategoria {currentEditingItem.autoMatched?.category && <Sparkles className="w-3 h-3 text-emerald-500" />}
                                     </Label>
                                     <Select 
-                                        value={currentEditingItem.category} 
-                                        onValueChange={(val) => { if (editingIndex !== null) updateItem(editingIndex, { category: val }) }}
+                                        value={currentEditingItem.category as string} 
+                                        onValueChange={(val) => { if (editingIndex !== null && val) updateItem(editingIndex, { category: val as string }) }}
                                     >
                                         <SelectTrigger className={`bg-white ${currentEditingItem.autoMatched?.category ? 'border-emerald-500 focus:ring-emerald-500' : ''}`}>
                                             <SelectValue placeholder="Kategoria" />
