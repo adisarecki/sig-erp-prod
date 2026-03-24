@@ -1,8 +1,8 @@
 "use client"
 
-import { Trash2, ArrowUpRight, ArrowDownRight, Link as LinkIcon, Loader2, X, AlertTriangle, FileText, Calendar, Building2, Briefcase, Info, Sparkles } from "lucide-react"
+import { Trash2, ArrowUpRight, ArrowDownRight, Link as LinkIcon, Loader2, X, AlertTriangle, FileText, Calendar, Building2, Briefcase, Info, Sparkles, CheckCircle } from "lucide-react"
 import { assignTransactionToProject, deleteTransaction } from "@/app/actions/transactions"
-import { deleteInvoice } from "@/app/actions/invoices"
+import { deleteInvoice, markInvoiceAsPaid } from "@/app/actions/invoices"
 import { useState } from "react"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 import {
@@ -51,6 +51,22 @@ export function TransactionHistory({
     const [deleteConfirmItem, setDeleteConfirmItem] = useState<HistoryItem | null>(null)
     const [viewingItem, setViewingItem] = useState<HistoryItem | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
+    const [payingId, setPayingId] = useState<string | null>(null)
+
+    const handleQuickPay = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation()
+        setPayingId(id)
+        try {
+            const result = await markInvoiceAsPaid(id)
+            if (!result.success) {
+                alert(result.error || "Błąd podczas opłacania.")
+            }
+        } catch (err: any) {
+            alert(err.message || "Błąd sieci.")
+        } finally {
+            setPayingId(null)
+        }
+    }
 
     const handleDelete = async () => {
         if (!deleteConfirmItem) return
@@ -184,7 +200,17 @@ export function TransactionHistory({
                                 isIncome={t.type === 'PRZYCHÓD'}
                                 className={`text-xl font-bold whitespace-nowrap ${t.type === 'PRZYCHÓD' ? 'text-green-600' : 'text-slate-900'}`}
                             />
-                            <div className="pointer-events-auto">
+                            <div className="pointer-events-auto flex items-center gap-1">
+                                {t.isInvoice && t.statusBadge !== "OPŁACONA" && (
+                                    <button
+                                        onClick={(e) => handleQuickPay(e, t.id)}
+                                        disabled={payingId === t.id}
+                                        className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all hover:scale-110 disabled:opacity-50"
+                                        title="Oznacz jako opłacone"
+                                    >
+                                        {payingId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                                    </button>
+                                )}
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();

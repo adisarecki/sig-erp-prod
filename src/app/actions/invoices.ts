@@ -66,6 +66,106 @@ export async function deleteInvoice(id: string): Promise<{ success: boolean, err
         return { success: false, error: error.message || "Błąd podczas usuwania dokumentu." }
     }
 }
+
+export async function markInvoiceAsPaid(id: string): Promise<{ success: boolean, error?: string }> {
+    try {
+        const adminDb = getAdminDb()
+        const tenantId = await getCurrentTenantId()
+
+        // 1. Pobierz dane faktury z Prisma (SSoT dla relacji)
+        const invoice = await prisma.invoice.findUnique({
+            where: { id, tenantId },
+            include: { contractor: true }
+        })
+
+        if (!invoice) throw new Error("Nie znaleziono dokumentu.")
+        if (invoice.status === "PAID") return { success: true }
+
+        const paymentDate = new Date()
+        const amountGross = Number(invoice.amountGross)
+
+        // 2. Firestore Update (Transaction)
+        await adminDb.runTransaction(async (transaction) => {
+            const invoiceRef = adminDb.collection("invoices").doc(id)
+            transaction.update(invoiceRef, {
+                status: "PAID",
+                updatedAt: paymentDate.toISOString()
+            })
+
+            // Stwórz transakcję w Firestore
+            const transRef = adminDb.collection("transactions").doc()
+            const isIncome = invoice.type === "SPRZEDAŻ"
+            const classification = invoice.projectId ? "PROJECT_COST" : "GENERAL_COST"
+            
+            transaction.set(transRef, {
+                tenantId,
+                projectId: invoice.projectId,
+                classification,
+                amount: amountGross,
+                type: isIncome ? "PRZYCHÓD" : "KOSZT",
+                transactionDate: paymentDate.toISOString(),
+                category: isIncome ? "SPRZEDAŻ_TOWARU" : "KOSZT_FIRMOWY",
+                description: `Płatność faktury: ${invoice.externalId || 'Brak numeru'}`,
+                status: "ACTIVE",
+                source: "INVOICE",
+                invoiceId: id,
+                createdAt: paymentDate.toISOString(),
+                updatedAt: paymentDate.toISOString()
+            })
+        })
+
+        // 3. Prisma Sync (Syncing created transaction and payment link)
+        await prisma.$transaction(async (tx) => {
+            // Update Invoice
+            await tx.invoice.update({
+                where: { id },
+                data: { status: "PAID" }
+            })
+
+            // Find the Firestore transaction we just created
+            const transSnap = await adminDb.collection("transactions").where("invoiceId", "==", id).limit(1).get()
+            if (!transSnap.empty) {
+                const tDoc = transSnap.docs[0]
+                const tData = tDoc.data()
+                
+                // Create Transaction in Prisma
+                const prismaTrans = await (tx.transaction.create as any)({
+                    data: {
+                        id: tDoc.id,
+                        tenantId,
+                        projectId: invoice.projectId,
+                        classification: tData.classification,
+                        amount: amountGross,
+                        type: tData.type,
+                        transactionDate: paymentDate,
+                        category: tData.category,
+                        description: tData.description,
+                        status: "ACTIVE",
+                        source: "INVOICE"
+                    }
+                })
+
+                // Create InvoicePayment link
+                await tx.invoicePayment.create({
+                    data: {
+                        invoiceId: id,
+                        transactionId: prismaTrans.id,
+                        amountApplied: amountGross
+                    }
+                })
+            }
+        })
+
+        revalidatePath("/finance")
+        revalidatePath("/projects")
+        revalidatePath("/")
+
+        return { success: true }
+    } catch (error: any) {
+        console.error("[INVOICE_MARK_PAID_ERROR]", error)
+        return { success: false, error: error.message || "Błąd podczas oznaczania jako zapłacone." }
+    }
+}
 export async function getAutoMatchData(nip: string) {
     try {
         const tenantId = await getCurrentTenantId()
@@ -710,100 +810,5 @@ export async function addCostInvoice(formData: FormData) {
     } catch (error: any) {
         console.error("[ADD_COST_INVOICE_ERROR]", error)
         return { success: false, error: error.message || "Wystąpił błąd przy dodawaniu kosztu." }
-    }
-}
-
-export async function markInvoiceAsPaid(invoiceId: string, paymentDateStr: string) {
-    try {
-        const adminDb = getAdminDb()
-        if (!invoiceId || !paymentDateStr) {
-            throw new Error("Brak wymaganego ID faktury lub daty płatności.");
-        }
-
-        const tenantId = await getCurrentTenantId()
-        const paymentDate = new Date(paymentDateStr)
-
-        const invData = await adminDb.runTransaction(async (transaction) => {
-            const invoiceRef = adminDb.collection("invoices").doc(invoiceId)
-            const invDoc = await transaction.get(invoiceRef)
-
-            if (!invDoc.exists) throw new Error("Faktura nie istnieje.")
-            const inv = invDoc.data()!
-            if (inv.tenantId !== tenantId) throw new Error("Brak dostępu do tej faktury.")
-            if (inv.status === "PAID") return null // Idempotentność
-
-            // 1. Aktualizuj status faktury w Firestore
-            transaction.update(invoiceRef, {
-                status: "PAID",
-                updatedAt: new Date().toISOString()
-            })
-
-            // 2. Stwórz transakcję w Firestore
-            const transRef = adminDb.collection("transactions").doc()
-            transaction.set(transRef, {
-                tenantId,
-                projectId: inv.projectId || "",
-                classification: inv.projectId ? "PROJECT_COST" : "GENERAL_COST",
-                amount: inv.amountGross,
-                type: inv.type === "SPRZEDAŻ" ? "PRZYCHÓD" : "EXPENSE",
-                transactionDate: paymentDate.toISOString(),
-                category: inv.type === "SPRZEDAŻ" ? "SPRZEDAŻ_TOWARU" : "KOSZT_FIRMOWY",
-                description: `[Potwierdzenie Wpłaty] Rozliczenie faktury: ${inv.externalId || 'Brak numeru'}`,
-                status: "ACTIVE",
-                source: "INVOICE",
-                invoiceId: invoiceId,
-                createdAt: new Date().toISOString()
-            })
-            return { inv, transId: transRef.id }
-        })
-
-        if (invData) {
-            const { inv, transId } = invData;
-            // 3. Prisma Sync Rollback Wrapper
-            try {
-                await prisma.invoice.update({
-                    where: { id: invoiceId },
-                    data: { status: "PAID" }
-                })
-
-                const prismaTrans = await (prisma.transaction.create as any)({
-                    data: {
-                        id: transId,
-                        tenantId,
-                        projectId: inv.projectId || "",
-                        classification: inv.projectId ? "PROJECT_COST" : "GENERAL_COST",
-                        amount: inv.amountGross,
-                        type: inv.type === "SPRZEDAŻ" ? "PRZYCHÓD" : "EXPENSE",
-                        transactionDate: paymentDate,
-                        category: inv.type === "SPRZEDAŻ" ? "SPRZEDAŻ_TOWARU" : "KOSZT_FIRMOWY",
-                        description: `[Potwierdzenie Wpłaty] Faktura: ${inv.externalId || 'Brak numeru'}`,
-                        status: "ACTIVE",
-                        source: "INVOICE"
-                    }
-                })
-
-                await prisma.invoicePayment.create({
-                    data: {
-                        invoiceId: invoiceId,
-                        transactionId: prismaTrans.id,
-                        amountApplied: inv.amountGross
-                    }
-                })
-            } catch (prismaError: any) {
-                // Rollback statusu i usunięcie transakcji z Firestore
-                await adminDb.collection("invoices").doc(invoiceId).update({ status: inv.status, updatedAt: new Date().toISOString() })
-                await adminDb.collection("transactions").doc(transId).delete()
-                throw new Error("Błąd synchronizacji relacyjnej (Prisma). Płatność wycofana. " + prismaError.message)
-            }
-        }
-
-        revalidatePath("/")
-        revalidatePath("/projects")
-        revalidatePath("/finance")
-
-        return { success: true }
-    } catch (error: any) {
-        console.error("[MARK_PAID_ERROR]", error)
-        return { success: false, error: error.message || "Wystąpił błąd przy oznaczaniu jako opłacone." }
     }
 }
