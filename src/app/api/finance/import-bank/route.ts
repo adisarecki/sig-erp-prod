@@ -27,6 +27,8 @@ export async function POST(request: NextRequest) {
                 date: t.transactionDate,
                 title: t.title,
                 counterparty: t.counterpartyRaw,
+                description: t.description,
+                typeDescription: t.typeDescription,
                 reference: t.reference,
                 type: t.type
             }));
@@ -34,12 +36,14 @@ export async function POST(request: NextRequest) {
             const rawContent = await request.text();
             
             // Check if it's actually a CSV (PKO BP CSV starts with "Data operacji")
-            if (rawContent.includes("Data operacji") || rawContent.includes("Kwota")) {
+            if (rawContent.includes("Data operacji") || rawContent.includes("Kwota") || rawContent.includes(";")) {
                 incomingTransactions = CSVBankParser.parse(rawContent).map(t => ({
                     amount: t.amount,
                     date: t.transactionDate,
                     title: t.title,
                     counterparty: t.counterpartyRaw,
+                    description: t.description,
+                    typeDescription: t.typeDescription,
                     reference: t.reference,
                     type: t.type
                 }));
@@ -131,10 +135,15 @@ export async function POST(request: NextRequest) {
 
                 const isManagementCost = !isIncome && (
                     tags.includes("KOSZTY OGÓLNE FIRMY") || 
-                    managementKeywords.some(kw => kw.test(description) || kw.test(title) || kw.test(counterpartyRaw))
+                    managementKeywords.some(kw => kw.test(description) || kw.test(title) || kw.test(counterpartyRaw)) ||
+                    ["ZABKA", "ORLEN", "CIRCLE K", "STOKROTKA", "BIEDRONKA", "SHELL", "LIDL", "BP", "MOYA"].includes(counterpartyRaw.toUpperCase())
                 );
 
-                const isTaxOrZus = !isIncome && (counterpartyRaw.match(/ZUS|PODATKI|URZAD SKARBOWY/i) || title.match(/ZUS|PODATKI|VAT|PIT|CIT/i));
+                const isTaxOrZus = !isIncome && (
+                    counterpartyRaw.match(/ZUS|PODATKI|URZAD SKARBOWY/i) || 
+                    title.match(/ZUS|PODATKI|VAT|PIT|CIT/i) ||
+                    (t.typeDescription && t.typeDescription.match(/ZUS|PODATEK/i))
+                );
 
                 // 3. Automated Expense Routing (Non-Project)
                 let matchedInvoiceId: string | null = null;

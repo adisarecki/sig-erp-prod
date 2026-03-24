@@ -122,8 +122,9 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 - **Wektor 044: Optymalizacja PKO BP & UI Cleanup**: Refinement parsera MT940 pod kątem sub-tagów PKO BP (`~`). Rozszerzono listę auto-kategoryzacji o stacje paliw (Orlen, BP, Shell itp.) oraz wdrożono funkcjonalny Drag & Drop w toolbarze.
 - **Wektor 045: Refactored MT940 UI & Sanitization**: Refaktoryzacja komponentu listy transakcji. Wdrożono sanitację backendową tagu `:86:`, automatyczne matchowanie kontrahentów z bazą danych oraz middleware do tagowania wydatków (np. `[PALIWO]`).
 - **Wektor 046: Pivot na format CSV**: Wdrożono `CSVBankParser` z obsługą dedykowanych kolumn PKO BP, sanitację prefiksów i routing ZUS/Podatki.
-- **Wektor 047: Emergency Database Purge Utility**: Wdrożono endpoint `/purge-all` i modal bezpieczeństwa w UI. Resetuje statusy faktur i usuwa transakcje bez przypisanego projektu.
-- **Wektor 048: HOTFIX: Resolved Sync: error after purge**: Wdrożono "Deep Purge" (czyszczenie dual-source), poprawiono obsługę błędów w `/health` i wymuszono odświeżanie cache w UI.
+| Vector 047 | Database / Admin | FIXED | Phase 11c: Emergency Database Purge Utility. | Wdrożono endpoint `/purge-all` i modal bezpieczeństwa w UI. Resetuje statusy faktur i usuwa transakcje bez przypisanego projektu. |
+| Vector 048 | Database / Sync | FIXED | HOTFIX: Resolved Sync: error after purge. | Wdrożono "Deep Purge" (czyszczenie dual-source), poprawiono obsługę błędów w `/health` i wymuszono odświeżanie cache w UI. |
+| Vector 049 | Finance / Parser | FIXED | Phase 12: PKO BP CSV Standard & Sync Reset. | Implementacja dedykowanego parsera PKO BP (kolumny 0,3,5,6,7), sanitacja prefiksów i auto-routing ZUS/Zarząd. Wdrożono `/api/finance/sync` do resetu stanu. |
 - **Build Verified**: Projekt przeszedł testy statyczne (`tsc`) i jest gotowy do wdrożenia na Vercel.
 
 *Vercel & Firestore Ready 🚀*
