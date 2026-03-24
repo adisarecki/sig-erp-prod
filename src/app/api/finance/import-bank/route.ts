@@ -5,6 +5,7 @@ import { getAdminDb } from "@/lib/firebaseAdmin";
 import Decimal from "decimal.js";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { MT940Parser } from "@/lib/mt940-parser";
+import { CSVBankParser } from "@/lib/csv-bank-parser";
 
 /**
  * BANK RECONCILIATION ENGINE (Phase 11)
@@ -18,17 +19,42 @@ export async function POST(request: NextRequest) {
 
         let incomingTransactions: any[] = [];
 
-        // 1. Parser Logic: MT940 or JSON
-        if (contentType.includes("text/plain") || contentType.includes("application/octet-stream")) {
+        // 1. Parser Logic: CSV, MT940 or JSON
+        if (contentType.includes("text/csv") || contentType.includes("application/vnd.ms-excel")) {
             const rawContent = await request.text();
-            incomingTransactions = MT940Parser.parse(rawContent).map(t => ({
-                amount: t.amount.toNumber(),
-                date: t.date.toISOString(),
-                description: t.description,
-                bankReference: t.bankReference,
-                type: t.type,
-                reference: t.reference
+            incomingTransactions = CSVBankParser.parse(rawContent).map(t => ({
+                amount: t.amount,
+                date: t.transactionDate,
+                title: t.title,
+                counterparty: t.counterpartyRaw,
+                reference: t.reference,
+                type: t.type
             }));
+        } else if (contentType.includes("text/plain") || contentType.includes("application/octet-stream")) {
+            const rawContent = await request.text();
+            
+            // Check if it's actually a CSV (PKO BP CSV starts with "Data operacji")
+            if (rawContent.includes("Data operacji") || rawContent.includes("Kwota")) {
+                incomingTransactions = CSVBankParser.parse(rawContent).map(t => ({
+                    amount: t.amount,
+                    date: t.transactionDate,
+                    title: t.title,
+                    counterparty: t.counterpartyRaw,
+                    reference: t.reference,
+                    type: t.type
+                }));
+            } else {
+                incomingTransactions = MT940Parser.parse(rawContent).map(t => ({
+                    amount: t.amount.toNumber(),
+                    date: t.date.toISOString(),
+                    description: t.description,
+                    title: t.title,
+                    counterparty: t.counterparty,
+                    bankReference: t.bankReference,
+                    type: t.type,
+                    reference: t.reference
+                }));
+            }
         } else {
             const body = await request.json();
             incomingTransactions = body.transactions || [];
@@ -103,7 +129,12 @@ export async function POST(request: NextRequest) {
                     continue;
                 }
 
-                const isManagementCost = !isIncome && (tags.includes("KOSZTY OGÓLNE FIRMY") || managementKeywords.some(kw => kw.test(description)));
+                const isManagementCost = !isIncome && (
+                    tags.includes("KOSZTY OGÓLNE FIRMY") || 
+                    managementKeywords.some(kw => kw.test(description) || kw.test(title) || kw.test(counterpartyRaw))
+                );
+
+                const isTaxOrZus = !isIncome && (counterpartyRaw.match(/ZUS|PODATKI|URZAD SKARBOWY/i) || title.match(/ZUS|PODATKI|VAT|PIT|CIT/i));
 
                 // 3. Automated Expense Routing (Non-Project)
                 let matchedInvoiceId: string | null = null;
@@ -111,7 +142,11 @@ export async function POST(request: NextRequest) {
                 let category = isIncome ? "SPRZEDAŻ_TOWARU" : "KOSZT_FIRMOWY";
                 let classification = "PROJECT_COST";
 
-                if (isManagementCost) {
+                if (isTaxOrZus) {
+                    category = "ZUS_PODATKI";
+                    classification = "GENERAL_COST";
+                    projectId = null;
+                } else if (isManagementCost) {
                     category = "KOSZTY_ZARZADU";
                     classification = "GENERAL_COST";
                     projectId = null;
