@@ -85,15 +85,10 @@ interface BackupData {
 /**
  * IMPORT DANYCH
  */
-export async function restoreFromBackup(backupData: unknown, passwordInput: string) {
+export async function restoreFromBackup(backupData: unknown) {
     const adminDb = getAdminDb()
     const tenantId = await getCurrentTenantId()
     
-    // Zabezpieczenie hasłem
-    const SECRET_PASSWORD = process.env.BACKUP_RESTORE_PASSWORD || "cześć"
-    if (passwordInput !== SECRET_PASSWORD) {
-        throw new Error("Nieprawidłowe hasło autoryzacyjne. Operacja przerwana.")
-    }
 
     const data = backupData as BackupData
     if (!data || !data.prisma || !data.firestore) {
@@ -101,12 +96,14 @@ export async function restoreFromBackup(backupData: unknown, passwordInput: stri
     }
 
     try {
+        console.log(`[BACKUP] Starting Restore for tenant: ${tenantId}`)
+
         // 1. FULL RESET (Wyczyszczenie obecnych danych)
+        console.log("[BACKUP] Phase 1: Full Reset...")
         await fullResetTenantData()
+        console.log("[BACKUP] Phase 1: SUCCESS")
 
-        console.log("[BACKUP] Starting Restore Process...")
-
-        // 2. Firestore Restore (Batches)
+        console.log("[BACKUP] Phase 2: Firestore Restore...")
         const fsData = data.firestore
         for (const col in fsData) {
             const items = fsData[col]

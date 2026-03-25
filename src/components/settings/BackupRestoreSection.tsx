@@ -1,26 +1,16 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { Download, Upload, ShieldCheck, FileJson, AlertCircle, CheckCircle2, Lock } from "lucide-react"
+import { Download, Upload, ShieldCheck, FileJson, AlertCircle, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog"
 import { exportBackup, restoreFromBackup } from "@/app/actions/backup"
 
 export function BackupRestoreSection() {
     const [isExporting, setIsExporting] = useState(false)
     const [isImporting, setIsImporting] = useState(false)
-    const [showRestoreModal, setShowRestoreModal] = useState(false)
-    const [password, setPassword] = useState("")
     const [selectedFile, setSelectedFile] = useState<File | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -53,19 +43,14 @@ export function BackupRestoreSection() {
         }
     }
 
-    const handleRestoreInitiate = () => {
+    const handleRestoreInitiate = async () => {
         if (!selectedFile) {
             alert("Proszę najpierw wybrać plik kopii zapasowej (.json)")
             return
         }
-        setShowRestoreModal(true)
-    }
 
-    const handleRestoreConfirm = async () => {
-        if (!password) {
-            alert("Hasło autoryzacyjne jest wymagane.")
-            return
-        }
+        const confirmed = confirm("UWAGA: System zostanie odtworzony z pliku. Wszystkie aktualne dane zostaną nadpisane. Czy kontynuować?")
+        if (!confirmed) return
 
         setIsImporting(true)
         try {
@@ -73,7 +58,7 @@ export function BackupRestoreSection() {
             reader.onload = async (e) => {
                 try {
                     const jsonData = JSON.parse(e.target?.result as string)
-                    const result = await restoreFromBackup(jsonData, password)
+                    const result = await restoreFromBackup(jsonData)
                     if (result.success) {
                         alert(result.message)
                         window.location.reload()
@@ -113,8 +98,8 @@ export function BackupRestoreSection() {
                                 <p className="text-xs text-slate-500">Zawiera Firestore, SQL (Neon) oraz metadane projektu.</p>
                             </div>
                         </div>
-                        <Button 
-                            onClick={handleExport} 
+                        <Button
+                            onClick={handleExport}
                             disabled={isExporting}
                             className="bg-blue-600 hover:bg-blue-700 text-white h-12 px-8 font-bold flex items-center gap-2 shadow-lg shadow-blue-100"
                         >
@@ -139,68 +124,27 @@ export function BackupRestoreSection() {
                         <div className="grid w-full items-center gap-3">
                             <Label htmlFor="backup-file" className="font-bold text-slate-700">Wybierz plik kopii (.json)</Label>
                             <div className="flex flex-col md:flex-row gap-3">
-                                <Input 
-                                    id="backup-file" 
-                                    type="file" 
+                                <Input
+                                    id="backup-file"
+                                    type="file"
                                     accept=".json"
                                     ref={fileInputRef}
                                     onChange={handleFileChange}
-                                    className="flex-1 cursor-pointer file:font-bold file:text-blue-600 file:bg-blue-50 file:border-0 file:rounded-md file:px-3 file:py-1 file:mr-4 hover:border-blue-300 transition-colors" 
+                                    className="flex-1 cursor-pointer file:font-bold file:text-blue-600 file:bg-blue-50 file:border-0 file:rounded-md file:px-3 file:py-1 file:mr-4 hover:border-blue-300 transition-colors"
                                 />
-                                <Button 
+                                <Button
                                     onClick={handleRestoreInitiate}
                                     disabled={!selectedFile || isImporting}
                                     variant="outline"
                                     className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 font-bold h-10 px-6"
                                 >
-                                    <Upload className="w-4 h-4 mr-2" /> Odtwórz z pliku
+                                    <Upload className="w-4 h-4 mr-2" /> {isImporting ? "Przywracanie..." : "Odtwórz z pliku"}
                                 </Button>
                             </div>
                         </div>
                     </div>
                 </CardContent>
             </Card>
-
-            {/* Modal Autoryzacji */}
-            <Dialog open={showRestoreModal} onOpenChange={setShowRestoreModal}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-bold flex items-center gap-2 text-red-600">
-                            <Lock className="w-5 h-5" />
-                            Wymagana Autoryzacja
-                        </DialogTitle>
-                        <DialogDescription className="text-slate-600 pt-2 font-medium">
-                            Odtwarzanie bazy danych jest operacją krytyczną. Podaj hasło systemowe przekazane przez administratora, aby kontynuować.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4 space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="backup-password">Hasło autoryzacyjne *</Label>
-                            <Input 
-                                id="backup-password" 
-                                type="password" 
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="Wpisz hasło..."
-                                className="h-12 text-lg border-slate-200 focus:ring-red-500"
-                            />
-                        </div>
-                        <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-700 text-xs font-bold uppercase tracking-tight">
-                            Status: Dane zostaną trwale nadpisane.
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="ghost" onClick={() => setShowRestoreModal(false)} disabled={isImporting} className="h-12 flex-1">Anuluj</Button>
-                        <Button 
-                            onClick={handleRestoreConfirm} 
-                            disabled={isImporting || !password}
-                            className="h-12 flex-1 bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest shadow-xl"
-                        >
-                            {isImporting ? "Odtwarzanie..." : "Uruchom Import"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     )
 }
