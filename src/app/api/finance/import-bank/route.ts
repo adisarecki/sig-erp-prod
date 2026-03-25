@@ -254,7 +254,10 @@ export async function POST(request: NextRequest) {
         });
 
     } catch (err: any) {
-        console.error("PIPELINE_ERROR:", err);
-        return NextResponse.json({ error: "Błąd potoku importu: " + err.message }, { status: 500 });
+        console.error("PIPELINE_CRITICAL_ERROR:", err);
+        return NextResponse.json({ 
+            success: false, 
+            error: "Błąd krytyczny potoku importu: " + (err.message || "Unknown error") 
+        }, { status: 500 });
     }
 }

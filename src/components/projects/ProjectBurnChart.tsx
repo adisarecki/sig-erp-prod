@@ -128,7 +128,7 @@ export function ProjectBurnChart({ invoices, transactions = [], budgetEstimated 
     }
 
     return (
-        <div className="w-full h-[350px] min-h-[350px]">
+        <div className="w-full h-[400px] min-h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" opacity={0.5} />

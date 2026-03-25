@@ -8,17 +8,25 @@ const NET_POCKET_API_URL = "https://api.net-pocket.com/api/clients/details";
  * Służy do omijania polityki CORS narzucanej przez przeglądarkę przy wywołaniu Client Components,
  * oraz izolowania całej aplikacji od niestabilności wywołań API (Decoupling).
  */
-export async function GET() {
+export async function GET(req: Request) {
     try {
+        const { searchParams } = new URL(req.url);
+        const nip = searchParams.get("nip");
+
+        if (!nip) {
+            return NextResponse.json({ success: false, error: "Brak parametru NIP" }, { status: 400 });
+        }
+
         // Kontrolowany limit czasowy dla wywołania (np. zewnętrzna awaria)
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 sekund max
         
-        const response = await fetch(NET_POCKET_API_URL, {
+        const url = `${NET_POCKET_API_URL}?nip=${nip}`;
+        
+        const response = await fetch(url, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",
-                // "Authorization": `Bearer ${process.env.NET_POCKET_API_KEY}` // Odkomentuj w reaziem potrzeby autoryzacji
             },
             signal: controller.signal
         });
@@ -26,9 +34,8 @@ export async function GET() {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-            console.warn(`[NET_POCKET_PROXY] Błąd odpowiedzi od zewnętrznego API: ${response.status} ${response.statusText}. Zwracam pustą asercję.`);
-            // Zwracamy PUSTĄ TABLICĘ zamiast błędu dla Frontendu z 200 OK w celach bezpieczeństwa ciągłości UI
-            return NextResponse.json({ success: false, data: [] }, { status: 200 });
+            console.warn(`[NET_POCKET_PROXY] Błąd odpowiedzi dla NIP ${nip}: ${response.status}.`);
+            return NextResponse.json({ success: false, data: null }, { status: 200 });
         }
 
         const data = await response.json();
@@ -37,12 +44,11 @@ export async function GET() {
 
     } catch (error: any) {
         if (error.name === "AbortError") {
-            console.warn("[NET_POCKET_PROXY] Zewnętrzne serwery osiągnęły limit czasu (Timeout). Zwracam maskę pustych danych.");
+            console.warn("[NET_POCKET_PROXY] Timeout dla zewnętrznego API.");
         } else {
-            console.error("[NET_POCKET_PROXY] Krytyczny błąd połączenia z Net-Pocket:", error);
+            console.error("[NET_POCKET_PROXY] Krytyczny błąd:", error);
         }
         
-        // Cichy Fallback do renderowania głównego panelu pomimo awarii zewnętrznego API.
-        return NextResponse.json({ success: false, data: [], error: "Net-Pocket Integration Offline" }, { status: 200 });
+        return NextResponse.json({ success: false, data: null, error: "Net-Pocket Integration Offline" }, { status: 200 });
     }
 }

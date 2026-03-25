@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             success: false,
-            error: errorMessage || "Błąd wewnętrzny serwera OCR."
+            error: errorMessage || "Błąd wewnętrzny serwera OCR (Unexpected)."
         }, { status: 500 });
     }
 }
