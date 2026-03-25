@@ -33,12 +33,25 @@ export async function DELETE(request: NextRequest) {
             .get();
         
         const fsIds = fsSnap.docs.map(doc => doc.id);
+        
+        // 2b. Identify Deposits in Firestore (New Task)
+        const depositsSnap = await adminDb.collection("deposits")
+            .where("tenantId", "==", tenantId)
+            .where("projectId", "==", null)
+            .get();
+        const depositIds = depositsSnap.docs.map(doc => doc.id);
+
         const allIdsToPurge = Array.from(new Set([...prismaIds, ...fsIds]));
 
-        if (allIdsToPurge.length === 0) {
+        if (allIdsToPurge.length === 0 && depositIds.length === 0) {
             // Even if no transactions, double check BankTransactionRaw and counts
             await prisma.bankTransactionRaw.deleteMany({ where: { tenantId } });
-            return NextResponse.json({ success: true, message: "Baza była już czysta.", purgedCount: 0 });
+            return NextResponse.json({ 
+                success: true, 
+                message: "Baza była już czysta.", 
+                purgedCount: 0,
+                verificationStatus: "CLEAN" 
+            });
         }
 
         // 3. Database Reset (Prisma)
@@ -60,13 +73,23 @@ export async function DELETE(request: NextRequest) {
             });
         });
 
-        // 4. Firestore Sync (Batch Delete)
+        // 4. Firestore Sync (Batch Delete Transactions)
         const batchSize = 500;
         for (let i = 0; i < allIdsToPurge.length; i += batchSize) {
             const chunk = allIdsToPurge.slice(i, i + batchSize);
             const batch = adminDb.batch();
             for (const id of chunk) {
                 batch.delete(adminDb.collection("transactions").doc(id));
+            }
+            await batch.commit();
+        }
+
+        // 5. Firestore Sync (Batch Delete Deposits)
+        for (let i = 0; i < depositIds.length; i += batchSize) {
+            const chunk = depositIds.slice(i, i + batchSize);
+            const batch = adminDb.batch();
+            for (const id of chunk) {
+                batch.delete(adminDb.collection("deposits").doc(id));
             }
             await batch.commit();
         }
@@ -85,17 +108,29 @@ export async function DELETE(request: NextRequest) {
             await batch.commit();
         }
 
+        // 6. INTEGRITY CHECK (Final Step)
+        const sqlCheck = await prisma.transaction.count({ where: { tenantId, projectId: null } });
+        const fsTxCheck = await adminDb.collection("transactions").where("tenantId", "==", tenantId).where("projectId", "==", null).get();
+        const fsDepCheck = await adminDb.collection("deposits").where("tenantId", "==", tenantId).where("projectId", "==", null).get();
+
+        const isFullyClean = sqlCheck === 0 && fsTxCheck.empty && fsDepCheck.empty;
+
         return NextResponse.json({ 
             success: true, 
             purgedCount: allIdsToPurge.length,
+            purgedDepositsCount: depositIds.length,
             revertedInvoicesCount: invoiceIdsToRevert.length,
-            syncStatus: "OK"
+            syncStatus: "OK",
+            verificationStatus: isFullyClean ? "VERIFIED_ZERO" : "INCONSISTENT",
+            integrityAudit: {
+                remainingSql: sqlCheck,
+                remainingFsTx: fsTxCheck.size,
+                remainingFsDep: fsDepCheck.size
+            }
         });
 
     } catch (error: any) {
         console.error("[DEEP_PURGE_ERROR]", error);
-        // Special case: Always try to return success: true if we managed to do SOMETHING, 
-        // but here it's a catch block.
         return NextResponse.json({ 
             success: false, 
             error: error.message || "Błąd podczas głębokiego oczyszczania bazy." 

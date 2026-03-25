@@ -30,7 +30,10 @@ export async function fullResetTenantData() {
             "audit_logs", 
             "liabilities",
             "users",
-            "bank_transactions"
+            "bank_transactions",
+            "deposits",
+            "debts",
+            "notifications"
         ]
 
         let totalFsDeleted = 0;
