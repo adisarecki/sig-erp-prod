@@ -166,9 +166,10 @@ System został zintegrowany z KSeF (Krajowy System e-Faktur) w trybie **Tylko Od
 ## 🏦 8. Bank Reconciliation (MT940 & CSV)
 
 System integruje standardy SWIFT MT940 oraz PKO BP CSV w celu automatyzacji rozliczeń:
-1. **Parsery (`src/lib/bank/parsers.ts`)**: 
-    - **MT940**: Autorska implementacja wyciągająca tagi `:20:`, `:61:` i `:86:`.
-    - **PKO BP CSV**: Zaawansowany silnik Regex (V.051) wyciągający NIP, IBAN i Adres z pól semi-strukturalnych (`Opis transakcji`).
+1. **3-Layer Pipeline (`src/lib/bank/`)**: 
+    - **Layer 1 (Parser)**: Czysta ekstrakcja danych z PKO BP CSV (win1250, separator `;`).
+    - **Layer 2 (Normalizer)**: Silnik Regex - Condition A (Karty) vs Condition B (Przelewy).
+    - **Layer 3 (Mapper)**: Auto-routing (ZABKA, ZUS, itp.) i wzbogacanie danych.
 2. **Matching Strategy (Cascading)**:
     - **Tier 1 (NIP)**: Najwyższy priorytet dopasowania (dokładny match w bazie).
     - **Tier 2 (IBAN)**: Dopasowanie po numerze konta w profilu kontrahenta.

@@ -67,26 +67,13 @@ export async function POST(request: NextRequest) {
                 const operationDate = t.date.toISOString();
                 const isIncome = t.type === 'INCOME';
                 
-                // 1. Entity Resolution (Cascading: NIP -> Account -> Name)
+                // 1. Entity Resolution (Cascading: Account -> Name)
                 let matchedContractorId: string | null = null;
                 let matchingContractorDoc: any = null;
+                let matchType: 'IBAN' | 'NAME' | null = null;
 
-                // STEP 1: Match by NIP
-                if (t.nip) {
-                    const contractor = await adminDb.collection("contractors")
-                        .where("tenantId", "==", tenantId)
-                        .where("nip", "==", t.nip)
-                        .limit(1)
-                        .get();
-                    
-                    if (!contractor.empty) {
-                        matchingContractorDoc = contractor.docs[0];
-                        matchedContractorId = matchingContractorDoc.id;
-                    }
-                }
-
-                // STEP 2: Match by Bank Account (IBAN/NRB)
-                if (!matchedContractorId && t.accountNumber) {
+                // STEP 1: Match by Bank Account (Strict IBAN/NRB)
+                if (t.accountNumber) {
                     const contractor = await adminDb.collection("contractors")
                         .where("tenantId", "==", tenantId)
                         .where("bankAccounts", "array-contains", t.accountNumber)
@@ -96,10 +83,11 @@ export async function POST(request: NextRequest) {
                     if (!contractor.empty) {
                         matchingContractorDoc = contractor.docs[0];
                         matchedContractorId = matchingContractorDoc.id;
+                        matchType = 'IBAN';
                     }
                 }
 
-                // STEP 3: Fallback to Name (Fuzzy)
+                // STEP 2: Fallback to Vendor Name (Fuzzy)
                 if (!matchedContractorId && t.counterparty && t.counterparty !== "Nieznany") {
                     const contractorsQuery = await adminDb.collection("contractors")
                         .where("tenantId", "==", tenantId)
@@ -119,16 +107,22 @@ export async function POST(request: NextRequest) {
                     if (match) {
                         matchingContractorDoc = match;
                         matchedContractorId = match.id;
+                        matchType = 'NAME';
                     }
                 }
 
-                // --- SELF-LEARNING (Enrichment) ---
-                if (matchedContractorId && matchingContractorDoc && t.accountNumber) {
+                // --- SELF-LEARNING (Bi-directional Enrichment) ---
+                // IF match found by Vendor (Step 2) AND IBAN is present AND DB bankAccounts is empty or doesn't have it
+                if (matchType === 'NAME' && matchedContractorId && matchingContractorDoc && t.accountNumber) {
                     const currentAccounts = matchingContractorDoc.data().bankAccounts || [];
                     if (!currentAccounts.includes(t.accountNumber)) {
+                        // Złota Reguła: Learn the account number from the first transfer
+                        console.log(`[SELF-LEARNING] Learning IBAN ${t.accountNumber} for contractor ${matchingContractorDoc.data().name}`);
+                        
                         // 1. Update Firestore
                         await matchingContractorDoc.ref.update({
-                            bankAccounts: [...currentAccounts, t.accountNumber]
+                            bankAccounts: [...currentAccounts, t.accountNumber],
+                            updatedAt: new Date().toISOString()
                         });
 
                         // 2. Update Prisma (Dual-Sync)
@@ -136,8 +130,6 @@ export async function POST(request: NextRequest) {
                             where: { id: matchingContractorDoc.id },
                             data: { bankAccounts: { push: t.accountNumber } } as any
                         }).catch(err => console.error("[ENRICHMENT_ERROR_PRISMA]", err));
-                        
-                        console.log(`[ENRICHMENT] Learned new account ${t.accountNumber} for contractor ${matchingContractorDoc.data().name}`);
                     }
                 }
 

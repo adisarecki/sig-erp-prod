@@ -13,7 +13,7 @@ function extractNrb(text: string): string {
 }
 
 export function parseCSV(buffer: Buffer): RawTransaction[] {
-    // PKO BP CSV is win1250
+    // PKO BP CSV is win1250 encoding
     const content = iconv.decode(buffer, "win1250");
     const lines = content.split(/\r?\n/)
         .map(line => line.trim())
@@ -21,7 +21,7 @@ export function parseCSV(buffer: Buffer): RawTransaction[] {
     
     let startIndex = 0;
     for (let i = 0; i < lines.length; i++) {
-        // Find header row
+        // Find header row (Zestawienie operacji ...)
         if (lines[i].includes('Data operacji') || lines[i].includes('Kwota')) {
             startIndex = i + 1;
             break;
@@ -34,43 +34,16 @@ export function parseCSV(buffer: Buffer): RawTransaction[] {
         // PKO BP Spec: separator: ;
         const columns = splitCsvLine(line, ';');
         
-        // Basic columns
-        const rawDate = columns[0] || "";
-        const rawTypeDescription = columns[2] || "";
-        const rawAmount = columns[3] || "0";
-        const rawDescription = columns[5] || ""; // Opis transakcji
-        const rawCounterpartyCol = columns[6] || "";
-        const rawTitleCol = columns[7] || "";
-
-        // REGEX EXTRACTION (Normalization Layer)
-        // rachunek_nadawcy_odbiorcy: 26 digits after "Rachunek:"
-        const ibanMatch = rawDescription.match(/Rachunek:\s?([0-9\s]{26,32})/);
-        const rawIban = ibanMatch ? ibanMatch[1].replace(/\s/g, '') : "";
-
-        // kontrahent: after "Odbiorca:" or "Nadawca:"
-        const contractorMatch = rawDescription.match(/(?:Odbiorca|Nadawca):\s?([^:]+?)(?=\s(?:Rachunek|Lokalizacja|Tytuł|NIP):|$)/i);
-        const extractedCounterparty = contractorMatch ? contractorMatch[1].trim() : "";
-
-        // lokalizacja: after "Lokalizacja: Adres:"
-        const locationMatch = rawDescription.match(/Lokalizacja:\s?Adres:\s?([^:]+?)(?=\s(?:Rachunek|Odbiorca|Nadawca|Tytuł|NIP):|$)/i);
-        const rawAddress = locationMatch ? locationMatch[1].trim() : "";
-
-        // nip: 10 digits after "NIP:"
-        const nipMatch = rawDescription.match(/NIP:\s?([0-9]{10})/);
-        const rawNip = nipMatch ? nipMatch[1] : "";
-
+        // Layer 1: Strictly Raw Extraction (No mutations)
         return {
-            rawDate,
-            rawAmount,
-            rawType: rawTypeDescription,
-            rawDescription,
-            rawCounterparty: extractedCounterparty || rawCounterpartyCol || "Nieznany",
-            rawTitle: rawTitleCol,
-            rawReference: `PKO-CSV-${index}-${rawDate}-${rawAmount.replace(/[^\d]/g, '')}`,
-            rawAccountNumber: rawIban || extractNrb(rawDescription + " " + rawCounterpartyCol),
-            rawIban,
-            rawNip,
-            rawAddress
+            rawDate: columns[0] || "",
+            rawAmount: columns[3] || "0",
+            rawType: columns[2] || "UNKNOWN",
+            rawDescription: columns[5] || "",     // Opis transakcji
+            rawCounterparty: columns[6] || "",   // Nazwa odbiorcy/nadawcy
+            rawTitle: columns[7] || "",           // Tytuł
+            rawReference: `CSV-PKO-${index}-${columns[0]}-${(columns[3] || "").replace(/[^\d]/g, '')}`,
+            rawAccountNumber: "", // Will be extracted by Layer 2 Regex
         };
     });
 }
