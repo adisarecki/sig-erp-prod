@@ -12,7 +12,7 @@ export default function SettingsPage() {
 
     async function handleReset() {
         const confirmed = confirm(
-            "UWAGA! Ta operacja bezpowrotnie usunie WSZYSTKIE Projekty, Kontrahentów, Faktury i Transakcje. Czy na pewno chcesz wyczyścić bazę danych operacyjnych?"
+            "UWAGA! Ta operacja bezpowrotnie usunie WSZYSTKIE Projekty, Kontrahentów, Faktury, Transakcje oraz Kaucje Gwarancyjne. Czy na pewno chcesz wyczyścić bazę danych operacyjnych?"
         )
 
         if (!confirmed) return
@@ -49,7 +49,7 @@ export default function SettingsPage() {
                         <div className="flex-1">
                             <h3 className="text-lg font-bold text-slate-900">Wyczyść Dane Operacyjne</h3>
                             <p className="text-sm text-slate-500 mt-1">
-                                Usuń wszystkie dane testowe (Projekty, Kontrahentów, Finanse), aby przygotować system do wprowadzenia rzeczywistych danych produkcyjnych.
+                                Usuń wszystkie dane testowe (Projekty, Kontrahentów, Finanse, Kaucje), aby przygotować system do wprowadzenia rzeczywistych danych produkcyjnych.
                                 <span className="font-semibold text-red-600 block mt-2">To działanie jest nieodwracalne!</span>
                             </p>
                         </div>

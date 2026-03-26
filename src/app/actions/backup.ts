@@ -88,7 +88,7 @@ interface BackupData {
 export async function restoreFromBackup(backupData: unknown) {
     const adminDb = getAdminDb()
     const tenantId = await getCurrentTenantId()
-    
+
 
     const data = backupData as BackupData
     if (!data || !data.prisma || !data.firestore) {
@@ -128,11 +128,11 @@ export async function restoreFromBackup(backupData: unknown) {
 
         // 3. Prisma Restore (Manual Order due to relations)
         const pData = data.prisma
-        
+
         await prisma.$transaction(async (tx) => {
             // Uwaga: Używamy createMany tam gdzie to możliwe, ale z id musimy uważać na typy SQL (String/Decimal)
             // Relacje w SQL wymagają zachowania kolejności: Contractors -> Objects -> Projects -> ...
-            
+
             if (pData.contractors.length) {
                 await tx.contractor.createMany({ data: (pData.contractors as any[]).map((c) => ({ ...c, createdAt: new Date(c.createdAt), updatedAt: new Date(c.updatedAt) })) })
             }

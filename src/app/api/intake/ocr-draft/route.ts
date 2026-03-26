@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
         invoiceNumber: data.invoiceNumber ?? null,
         type: data.type,
         vatRate: data.vatRate ?? "0.23",
+        bankAccountNumber: data.bankAccountNumber ?? null,
         ocrConfidence: data.ocrConfidence ?? null,
         tenantId: SYSTEM_TENANT_ID,
     }

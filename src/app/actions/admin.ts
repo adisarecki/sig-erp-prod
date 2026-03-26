@@ -33,7 +33,8 @@ export async function fullResetTenantData() {
             "bank_transactions",
             "deposits",
             "debts",
-            "notifications"
+            "notifications",
+            "retentions"
         ]
 
         let totalFsDeleted = 0;
@@ -94,7 +95,8 @@ export async function fullResetTenantData() {
                 await tx.bankTransactionRaw.deleteMany({ where: { tenantId } })
                 await tx.bankAccount.deleteMany({ where: { tenantId } })
 
-                // D. Liabilities & Legacy
+                // D. Liabilities, Legacy & Retentions
+                await (tx as any).retention.deleteMany({ where: { tenantId } })
                 await tx.liability.deleteMany({ where: { tenantId } })
                 await tx.legacyDebtInstallment.deleteMany({
                     where: { debt: { tenantId } }
