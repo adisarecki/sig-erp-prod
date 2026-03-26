@@ -15,10 +15,13 @@ function extractNrb(text: string): string {
 export function parseCSV(buffer: Buffer): RawTransaction[] {
     // PKO BP CSV is win1250
     const content = iconv.decode(buffer, "win1250");
-    const lines = content.split(/\r?\n/).filter(line => line.trim().length > 0);
+    const lines = content.split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
     
     let startIndex = 0;
     for (let i = 0; i < lines.length; i++) {
+        // Find header row
         if (lines[i].includes('Data operacji') || lines[i].includes('Kwota')) {
             startIndex = i + 1;
             break;
@@ -28,19 +31,46 @@ export function parseCSV(buffer: Buffer): RawTransaction[] {
     const dataLines = lines.slice(startIndex);
 
     return dataLines.map((line, index) => {
-        const columns = splitCsvLine(line);
-        const col5 = columns[5] || "";
-        const col6 = columns[6] || "";
+        // PKO BP Spec: separator: ;
+        const columns = splitCsvLine(line, ';');
+        
+        // Basic columns
+        const rawDate = columns[0] || "";
+        const rawTypeDescription = columns[2] || "";
+        const rawAmount = columns[3] || "0";
+        const rawDescription = columns[5] || ""; // Opis transakcji
+        const rawCounterpartyCol = columns[6] || "";
+        const rawTitleCol = columns[7] || "";
+
+        // REGEX EXTRACTION (Normalization Layer)
+        // rachunek_nadawcy_odbiorcy: 26 digits after "Rachunek:"
+        const ibanMatch = rawDescription.match(/Rachunek:\s?([0-9\s]{26,32})/);
+        const rawIban = ibanMatch ? ibanMatch[1].replace(/\s/g, '') : "";
+
+        // kontrahent: after "Odbiorca:" or "Nadawca:"
+        const contractorMatch = rawDescription.match(/(?:Odbiorca|Nadawca):\s?([^:]+?)(?=\s(?:Rachunek|Lokalizacja|Tytuł|NIP):|$)/i);
+        const extractedCounterparty = contractorMatch ? contractorMatch[1].trim() : "";
+
+        // lokalizacja: after "Lokalizacja: Adres:"
+        const locationMatch = rawDescription.match(/Lokalizacja:\s?Adres:\s?([^:]+?)(?=\s(?:Rachunek|Odbiorca|Nadawca|Tytuł|NIP):|$)/i);
+        const rawAddress = locationMatch ? locationMatch[1].trim() : "";
+
+        // nip: 10 digits after "NIP:"
+        const nipMatch = rawDescription.match(/NIP:\s?([0-9]{10})/);
+        const rawNip = nipMatch ? nipMatch[1] : "";
 
         return {
-            rawDate: columns[0] || "",
-            rawAmount: columns[3] || "0",
-            rawType: columns[2] || "",
-            rawDescription: col5,
-            rawCounterparty: col6,
-            rawTitle: columns[7] || "",
-            rawReference: `PKO-CSV-${index}-${columns[0]}-${columns[3]}`,
-            rawAccountNumber: extractNrb(col5 + " " + col6)
+            rawDate,
+            rawAmount,
+            rawType: rawTypeDescription,
+            rawDescription,
+            rawCounterparty: extractedCounterparty || rawCounterpartyCol || "Nieznany",
+            rawTitle: rawTitleCol,
+            rawReference: `PKO-CSV-${index}-${rawDate}-${rawAmount.replace(/[^\d]/g, '')}`,
+            rawAccountNumber: rawIban || extractNrb(rawDescription + " " + rawCounterpartyCol),
+            rawIban,
+            rawNip,
+            rawAddress
         };
     });
 }
@@ -101,16 +131,19 @@ export function parseMT940(buffer: Buffer): RawTransaction[] {
     return transactions;
 }
 
-function splitCsvLine(line: string): string[] {
+function splitCsvLine(line: string, separator: string = ';'): string[] {
+    // Sanitization: Remove outer quotes from the whole line if present
+    const cleanLine = line.replace(/^"|"$/g, '');
+    
     const results = [];
     let current = "";
     let inQuotes = false;
     
-    for (let i = 0; i < line.length; i++) {
-        const char = line[i];
+    for (let i = 0; i < cleanLine.length; i++) {
+        const char = cleanLine[i];
         if (char === '"') {
             inQuotes = !inQuotes;
-        } else if ((char === ',' || char === ';') && !inQuotes) {
+        } else if (char === separator && !inQuotes) {
             results.push(current.trim().replace(/^"|"$/g, ''));
             current = "";
         } else {

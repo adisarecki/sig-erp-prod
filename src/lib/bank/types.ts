@@ -7,6 +7,9 @@ export interface RawTransaction {
     rawTitle: string;
     rawReference: string;
     rawAccountNumber: string;
+    rawNip?: string;
+    rawAddress?: string;
+    rawIban?: string;
 }
 
 export interface NormalizedTx {
@@ -18,4 +21,7 @@ export interface NormalizedTx {
     description: string;
     reference: string;
     accountNumber: string | null;
+    nip?: string;
+    address?: string;
+    iban?: string;
 }

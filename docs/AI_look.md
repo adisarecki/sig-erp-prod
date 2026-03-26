@@ -147,6 +147,8 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 048 | Database / Sync  | FIXED | HOTFIX: Resolved Sync: error after purge. | Wdrożono "Deep Purge" (czyszczenie dual-source), poprawiono obsługę błędów w `/health` i wymuszono odświeżanie cache w UI. |
 | Vector 049 | Finance / Parser | FIXED | Phase 12: PKO BP CSV Standard & Sync Reset. | Implementacja dedykowanego parsera PKO BP (kolumny 0,3,5,6,7), sanitacja prefiksów i auto-routing ZUS/Zarząd. Wdrożono `/api/finance/sync` do resetu stanu. |
 | Vector 050 | Finance / Engine | FIXED | Phase 13: 3-Layer Bank Import Pipeline. | Refaktoryzacja potoku importu (Parser -> Normalizer -> Mapper). Obsługa `win1250` przez `iconv-lite` oraz wydajny batch saving (`createMany`). |
+| Vector 051 | Finance / Engine | FIXED | Phase 14: PKO BP CSV & Regex Entity Engine. | Wdrożono zaawansowany parser Regex dla PKO BP CSV. Obsługa extraction layer dla NIP, IBAN i Adresu z opisów transakcji. |
+| Vector 052 | Finance / Engine | FIXED | Phase 14b: Self-Learning Contractor matching. | Wdrożono kaskadowe dopasowanie (NIP > IBAN > Nazwa) i automatyczne uczenie się numerów kont kontrahentów z wyciągów. |
 
 ---
 
@@ -161,17 +163,22 @@ System został zintegrowany z KSeF (Krajowy System e-Faktur) w trybie **Tylko Od
 
 ---
 
-## 🏦 8. Bank Reconciliation (MT940)
+## 🏦 8. Bank Reconciliation (MT940 & CSV)
 
-System integruje standard SWIFT MT940 w celu automatyzacji rozliczeń:
-1. **Parser (`src/lib/mt940-parser.ts`)**: Autorska implementacja wyciągająca tagi `:20:`, `:61:` i `:86:`.
-2. **Matching Strategy**:
-    - **Primary**: Regex `(FV|FS|FAKTURA)[\s\/]?\d+` w tytule przelewu.
-    - **Secondary**: Kwota Brutto dla faktur o statusie `ACTIVE`.
-3. **Partial Payments**: Jeśli kwota przelewu < kwota faktury, status zmienia się na `PARTIALLY_PAID` i system wysyła powiadomienie `WARNING` (Red Light Alert).
-4. **General Cost Routing**: Transakcje z wybranymi słowami kluczowymi (ZUS, Żabka, Prowizja, Paliwo, Orlen, BP, Shell, Circle K, Moya, Stacja) są automatycznie klasyfikowane jako `GENERAL_COST` bez przypisania do projektu.
-5. **Chart Data**: Zielona linia profitu na wykresach (`ProjectBurnChart`) bazuje na rzeczywistej gotówce (`transactions`), podczas gdy żółta linia przychodów opiera się na wystawionych dokumentach (`invoices`).
-6. **PKO BP Specifics**: System obsługuje separator `~` w tagu `:86:`, wyciągając tytuł z `~20` i kontrahenta z `~32`/`~22`.
+System integruje standardy SWIFT MT940 oraz PKO BP CSV w celu automatyzacji rozliczeń:
+1. **Parsery (`src/lib/bank/parsers.ts`)**: 
+    - **MT940**: Autorska implementacja wyciągająca tagi `:20:`, `:61:` i `:86:`.
+    - **PKO BP CSV**: Zaawansowany silnik Regex (V.051) wyciągający NIP, IBAN i Adres z pól semi-strukturalnych (`Opis transakcji`).
+2. **Matching Strategy (Cascading)**:
+    - **Tier 1 (NIP)**: Najwyższy priorytet dopasowania (dokładny match w bazie).
+    - **Tier 2 (IBAN)**: Dopasowanie po numerze konta w profilu kontrahenta.
+    - **Tier 3 (Fuzzy Name)**: Wykorzystuje `normalizeName` (usuwa Sp. z o.o. itp.) i szuka podobieństwa.
+3. **Self-Learning Logic**: 
+    - Jeśli kontrahent zostanie dopasowany po nazwie/NIP, a system wykryje nowy numer IBAN w wyciągu, automatycznie aktualizuje on kolekcję `bankAccounts` w Firestore i tabelę `Contractor` w Prisma (Dual-Sync).
+4. **Partial Payments**: Jeśli kwota przelewu < kwota faktury, status zmienia się na `PARTIALLY_PAID` i system wysyła powiadomienie `WARNING` (Red Light Alert).
+5. **General Cost Routing**: Transakcje z wybranymi słowami kluczowymi (ZUS, Żabka, Prowizja, Paliwo, Orlen, BP, Shell, Circle K, Moya, Stacja, Biedronka, LIDL) są automatycznie klasyfikowane jako `GENERAL_COST`.
+6. **Chart Data**: Zielona linia profitu na wykresach bazuje na rzeczywistej gotówce (`transactions`).
+7. **PKO BP CSV Specifics**: Separator `;`, kodowanie `win1250`. Sanitacja cudzysłowów na poziomie całych linii i kolumn.
 
 ---
 

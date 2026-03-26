@@ -67,11 +67,26 @@ export async function POST(request: NextRequest) {
                 const operationDate = t.date.toISOString();
                 const isIncome = t.type === 'INCOME';
                 
-                // 1. Entity Resolution (Cascading: Account -> Name)
+                // 1. Entity Resolution (Cascading: NIP -> Account -> Name)
                 let matchedContractorId: string | null = null;
-                
-                // STEP 1: Match by Bank Account (IBAN/NRB)
-                if (t.accountNumber) {
+                let matchingContractorDoc: any = null;
+
+                // STEP 1: Match by NIP
+                if (t.nip) {
+                    const contractor = await adminDb.collection("contractors")
+                        .where("tenantId", "==", tenantId)
+                        .where("nip", "==", t.nip)
+                        .limit(1)
+                        .get();
+                    
+                    if (!contractor.empty) {
+                        matchingContractorDoc = contractor.docs[0];
+                        matchedContractorId = matchingContractorDoc.id;
+                    }
+                }
+
+                // STEP 2: Match by Bank Account (IBAN/NRB)
+                if (!matchedContractorId && t.accountNumber) {
                     const contractor = await adminDb.collection("contractors")
                         .where("tenantId", "==", tenantId)
                         .where("bankAccounts", "array-contains", t.accountNumber)
@@ -79,11 +94,12 @@ export async function POST(request: NextRequest) {
                         .get();
                     
                     if (!contractor.empty) {
-                        matchedContractorId = contractor.docs[0].id;
+                        matchingContractorDoc = contractor.docs[0];
+                        matchedContractorId = matchingContractorDoc.id;
                     }
                 }
 
-                // STEP 2: Fallback to Name (Fuzzy)
+                // STEP 3: Fallback to Name (Fuzzy)
                 if (!matchedContractorId && t.counterparty && t.counterparty !== "Nieznany") {
                     const contractorsQuery = await adminDb.collection("contractors")
                         .where("tenantId", "==", tenantId)
@@ -101,26 +117,27 @@ export async function POST(request: NextRequest) {
                     });
                     
                     if (match) {
+                        matchingContractorDoc = match;
                         matchedContractorId = match.id;
+                    }
+                }
 
-                        // --- SCENARIO 1: ENRICHMENT (Learning) ---
-                        if (t.accountNumber) {
-                            const currentAccounts = match.data().bankAccounts || [];
-                            if (!currentAccounts.includes(t.accountNumber)) {
-                                // 1. Update Firestore
-                                await match.ref.update({
-                                    bankAccounts: [...currentAccounts, t.accountNumber]
-                                });
+                // --- SELF-LEARNING (Enrichment) ---
+                if (matchedContractorId && matchingContractorDoc && t.accountNumber) {
+                    const currentAccounts = matchingContractorDoc.data().bankAccounts || [];
+                    if (!currentAccounts.includes(t.accountNumber)) {
+                        // 1. Update Firestore
+                        await matchingContractorDoc.ref.update({
+                            bankAccounts: [...currentAccounts, t.accountNumber]
+                        });
 
-                                // 2. Update Prisma (Dual-Sync)
-                                await prisma.contractor.update({
-                                    where: { id: match.id },
-                                    data: { bankAccounts: { push: t.accountNumber } } as any
-                                }).catch(err => console.error("[ENRICHMENT_ERROR_PRISMA]", err));
-                                
-                                console.log(`[ENRICHMENT] Learned new account ${t.accountNumber} for contractor ${match.data().name}`);
-                            }
-                        }
+                        // 2. Update Prisma (Dual-Sync)
+                        await prisma.contractor.update({
+                            where: { id: matchingContractorDoc.id },
+                            data: { bankAccounts: { push: t.accountNumber } } as any
+                        }).catch(err => console.error("[ENRICHMENT_ERROR_PRISMA]", err));
+                        
+                        console.log(`[ENRICHMENT] Learned new account ${t.accountNumber} for contractor ${matchingContractorDoc.data().name}`);
                     }
                 }
 
@@ -186,7 +203,7 @@ export async function POST(request: NextRequest) {
                 }
 
                 // Collect for Final Batch
-                const finalTx = {
+                const finalTx: any = {
                     tenantId,
                     projectId,
                     amount: amount.toNumber(),
@@ -197,6 +214,9 @@ export async function POST(request: NextRequest) {
                     title: t.title,
                     counterpartyRaw: t.counterparty,
                     matchedContractorId,
+                    nip: t.nip,
+                    iban: t.iban || t.accountNumber,
+                    address: t.address,
                     tags: t.tags.length > 0 ? t.tags.join(", ") : null,
                     status: "ACTIVE",
                     source: "BANK_IMPORT",
@@ -251,6 +271,16 @@ export async function POST(request: NextRequest) {
             success: true,
             message: `Pipeline ukończony. Zaimportowano: ${results.imported}, Pominięto: ${results.skipped}`,
             report: results,
+            transactions: finalImportBatch.map(tx => ({
+                data: tx.transactionDate,
+                kwota: tx.amount,
+                typ: tx.type,
+                kontrahent_clean: tx.counterpartyRaw,
+                nip: tx.nip,
+                iban: tx.iban,
+                adres_clean: tx.address,
+                tytul: tx.title
+            }))
         });
 
     } catch (err: any) {

@@ -8,10 +8,12 @@ import { RawTransaction, NormalizedTx } from "./types";
 export function normalizeTransaction(raw: RawTransaction): NormalizedTx {
     // 1. Clean Amount (Crucial for PKO BP)
     // Remove spaces, replace commas with dots, handles 1 000,00 -> 1000.00
+    // Spec: "Usuń spacje, zamień , na . -> konwertuj na Float"
     const cleanAmountStr = raw.rawAmount
         .replace(/\s/g, '')
         .replace(',', '.')
-        .replace('+', '');
+        .replace('+', '')
+        .replace(/[^\d.-]/g, ''); // Remove any other non-numeric chars except . and -
     
     const amount = parseFloat(cleanAmountStr);
     const type: 'INCOME' | 'EXPENSE' = amount >= 0 ? 'INCOME' : 'EXPENSE';
@@ -39,6 +41,9 @@ export function normalizeTransaction(raw: RawTransaction): NormalizedTx {
         title: (raw.rawTitle || "Transakcja Bankowa").trim(),
         description: (raw.rawDescription || "").trim(),
         reference: raw.rawReference || `REF-${dateObj.getTime()}-${Math.abs(amount)}`,
-        accountNumber: raw.rawAccountNumber ? raw.rawAccountNumber.replace(/\s/g, '') : null
+        accountNumber: raw.rawAccountNumber ? raw.rawAccountNumber.replace(/\s/g, '') : null,
+        nip: raw.rawNip,
+        address: raw.rawAddress,
+        iban: raw.rawIban
     };
 }
