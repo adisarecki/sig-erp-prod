@@ -43,6 +43,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 068 | KSeF / Architecture| FIXED | Official 4-Step Handshake v2.0. | Wdrożono 4-stopniowy proces autoryzacji (Challenge -> X509/Encryption -> KSeF-Token -> Redeem). Obsługa X509Certificate (Node 18+), 3x retry dla kluczy i 55-minutowy cache dla Access Tokena. |
 | Vector 069 | KSeF / Architecture| FIXED | KSeF Query V2 Fix (404/Step 5). | Zmieniono endpoint zapytania na poprawny `/v2/invoice/query/query` oraz skorygowano payload kryteriów (`subject2`, `incremental`). Przywrócono widoczność metadanych faktur kosztowych. |
 | Vector 070 | KSeF / Architecture| FIXED | KSeF Sync Query Refinement. | Przejście na oficjalny protokół nagłówka `SessionToken` (bez Bearer) oraz endpoint `/v2/online/Query/Invoice/Sync` z kryterium `acquisitionTimestampThreshold`. Pełna zgodność z modelem synchronicznym MF. |
+| Vector 071 | KSeF / Architecture| FIXED | KSeF Sync Query Casing & Range Fix. | Skorygowano URL na małe litery `/v2/online/query/invoice/sync` oraz zmieniono typ zapytania na `range` (invoicingDate). Rozwiązano problem 404 w Kroku 5. |
 
 ---
 *Ostatnia aktywność techniczna: 2026-03-27. Build Verified (TSC: OK).*

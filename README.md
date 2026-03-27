@@ -63,7 +63,7 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 
 **Narzędzia:**
 - **Synchronizacja**: `/api/ksef/sync` – pełne pobranie faktur z MF do bazy Sig i Firestore.
-- **Paginacja**: Pobieranie do 50 faktur na stronę przez endpoint `/v2/online/Query/Invoice/Sync` (Metadane) przy użyciu nagłówka `SessionToken`.
+- **Paginacja**: Pobieranie do 50 faktur na stronę przez endpoint `/v2/online/query/invoice/sync` (Metadane) przy użyciu nagłówka `SessionToken`.
 
 
 
