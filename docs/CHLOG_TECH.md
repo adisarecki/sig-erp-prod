@@ -51,6 +51,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 076 | KSeF / Diagnostics| FIXED | Inwentor Step 6 Diagnostic & Step 7 Auth Fix. | Dodano hardcoded test XML (Poczta Polska) do suity /verify-all. Uszczelniono logikę 404/401 dla Step 7 (Auth-Fix). |
 | Vector 077 | KSeF / Parser| FIXED | Inwentor Step 6 Mapping Fix. | Naprawiono mapowanie pól dla podmiotów zwolnionych (P_13_7) oraz skorygowano namespace w diagnostyce na `crd.gov.pl`. |
 | Vector 078 | KSeF / Parser| FIXED | KSeF FA (3) Final Refinement. | Zaimplementowano pełną obsługę stawek zwolnionych (P_13_7) dla schematu FA (3) oraz priorytetyzację pola P_15. |
+| Vector 079 | KSeF / Parser| FIXED | KSeF FA (3) Polymorphic Mapping. | Wdrożono obsługę faktur zaliczkowych (ZAL) oraz ekstrakcję pozycji z sekcji `ZamowienieWiersz`. Podwójny test diagnostyczny w suicie `/verify-all`. |
 
 ---
 *Ostatnia aktywność techniczna: 2026-03-27. Build Verified (TSC: OK).*

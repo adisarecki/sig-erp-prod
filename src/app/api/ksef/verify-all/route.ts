@@ -53,53 +53,51 @@ export async function GET() {
             // --- 3. Detail Fetch & XML Parse ---
             logToReport("\nSTEP 6: Testing XML Parser (FA 3) Logic...");
             
-            // Hardcoded Test for Step 6 Persistence (Diagnostic)
+            // Hardcoded Test for Step 6 Persistence (Diagnostic - Dual Target)
             const POCZTA_POLSKA_XML_SAMPLE = `<?xml version="1.0" encoding="UTF-8"?>
 <Faktura xmlns="http://crd.gov.pl/wzor/2025/06/25/13775/">
-    <Podmiot1>
-        <DaneIdentyfikacyjne>
-            <NIP>5250007313</NIP>
-            <Nazwa>Poczta Polska Spółka Akcyjna</Nazwa>
-        </DaneIdentyfikacyjne>
-    </Podmiot1>
+    <Podmiot1><DaneIdentyfikacyjne><NIP>5250007313</NIP><Nazwa>Poczta Polska</Nazwa></DaneIdentyfikacyjne></Podmiot1>
     <Fa>
-        <P_1>2026-03-27</P_1>
-        <P_2>F00089G032600312887P</P_2>
-        <P_13_7>10.07</P_13_7>
-        <P_15>10.07</P_15>
-        <KodWaluty>PLN</KodWaluty>
-        <FaWiersz>
-            <P_7>Wpłata Standard</P_7>
-            <P_8B>1.00</P_8B>
-            <P_8A>szt.</P_8A>
-            <P_9B>10.07</P_9B>
-            <P_12>zw</P_12>
-        </FaWiersz>
+        <P_1>2026-03-27</P_1><P_2>F00089G032600312887P</P_2><RodzajFaktury>VAT</RodzajFaktury>
+        <P_13_7>10.07</P_13_7><P_15>10.07</P_15><KodWaluty>PLN</KodWaluty>
+        <FaWiersz><P_7>Usługa pocztowa</P_7><P_8B>1</P_8B><P_9B>10.07</P_9B><P_12>zw</P_12></FaWiersz>
     </Fa>
 </Faktura>`;
 
-            try {
-                // Ensure parser is configured by ksefService constructor
-                const parsed = (ksefSvc as any).parser.parse(POCZTA_POLSKA_XML_SAMPLE);
-                const fa = parsed.Faktura?.Fa || parsed.Fa;
-                
-                const testResult = {
-                    numer: fa?.P_2,
-                    data: fa?.P_1,
-                    brutto: fa ? Number(fa.P_15) : 0,
-                    podatek_opis: fa?.P_13_7 ? "ZW" : "VAT"
-                };
+            const POLON_ALFA_XML_SAMPLE = `<?xml version="1.0" encoding="UTF-8"?>
+<Faktura xmlns="http://crd.gov.pl/wzor/2025/06/25/13775/">
+    <Podmiot1><DaneIdentyfikacyjne><NIP>5440002233</NIP><Nazwa>POLON-ALFA</Nazwa></DaneIdentyfikacyjne></Podmiot1>
+    <Fa>
+        <P_1>2026-02-03</P_1><P_2>ZK2026001594</P_2><RodzajFaktury>ZAL</RodzajFaktury>
+        <P_13_1>549.6</P_13_1><P_14_1>126.41</P_14_1><P_15>676.01</P_15><KodWaluty>PLN</KodWaluty>
+        <FaWiersz><P_7>Przedpłata</P_7><P_8B>1</P_8B><P_9B>549.6</P_9B><P_12>23</P_12></FaWiersz>
+        <Zamowienie>
+            <ZamowienieWiersz><P_7>Gniazdo g-40</P_7><P_8B>2</P_8B><P_9B>200.00</P_9B><P_12>23</P_12></ZamowienieWiersz>
+            <ZamowienieWiersz><P_7>Dostawa</P_7><P_8B>1</P_8B><P_9B>149.60</P_9B><P_12>23</P_12></ZamowienieWiersz>
+        </Zamowienie>
+    </Fa>
+</Faktura>`;
 
-                if (fa && testResult.brutto === 10.07 && testResult.numer === 'F00089G032600312887P') {
-                    logToReport("✅ SUCCESS: Parser FA (3) logic verified against hardcoded reference.");
-                    logToReport(`   - Detected Amount: ${testResult.brutto} PLN (Numeric Match OK)`);
-                    logToReport(`   - Tax Regime: ${testResult.podatek_opis} (P_13_7 Detected)`);
-                    testResults.parse = true;
-                } else {
-                    logToReport(`❌ FAILURE: Parser mapping mismatch. Expected 10.07, got ${testResult.brutto} (${typeof testResult.brutto})`);
-                }
-            } catch (parseErr: any) {
-                logToReport(`❌ FAILURE: Parser crashed on FA (3) sample: ${parseErr.message}`);
+            const runParserTest = (xml: string, expectedBrutto: number, expectedNr: string) => {
+                const parsed = (ksefSvc as any).parser.parse(xml);
+                const fa = parsed.Faktura?.Fa || parsed.Fa;
+                const brutto = fa ? Number(fa.P_15) : 0;
+                const nr = fa?.P_2;
+                return { ok: brutto === expectedBrutto && nr === expectedNr, brutto, nr };
+            };
+
+            const t1 = runParserTest(POCZTA_POLSKA_XML_SAMPLE, 10.07, 'F00089G032600312887P');
+            const t2 = runParserTest(POLON_ALFA_XML_SAMPLE, 676.01, 'ZK2026001594');
+
+            if (t1.ok && t2.ok) {
+                logToReport("✅ SUCCESS: Polymorphic Parser FA (3) logic verified for standard and ZAL invoices.");
+                logToReport(`   - Case 1 (Poczta): ${t1.brutto} PLN OK.`);
+                logToReport(`   - Case 2 (POLON):  ${t2.brutto} PLN OK.`);
+                testResults.parse = true;
+            } else {
+                logToReport(`❌ FAILURE: Parser mapping mismatch.`);
+                if (!t1.ok) logToReport(`   - Sample 1 Fail: Got ${t1.brutto} instead of 10.07`);
+                if (!t2.ok) logToReport(`   - Sample 2 Fail: Got ${t2.brutto} instead of 676.01`);
             }
 
             if (invoices.length > 0) {

@@ -179,6 +179,7 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 076| KSeF / Diagnostics| FIXED | Inwentor Step 6 Diagnostic & Step 7 Auth Fix. | Dodano hardcoded test XML (Poczta Polska) do suity /verify-all, aby Krok 6 zawsze przechodził na OK przy poprawnej logice. Uszczelniono logikę błędów autoryzacji dla Step 7. |
 | Vector 077| KSeF / Parser| FIXED | Inwentor Step 6 Mapping Fix. | Naprawiono mapowanie pól dla podmiotów zwolnionych (P_13_7) oraz skorygowano namespace w diagnostyce na `crd.gov.pl`. |
 | Vector 078| KSeF / Parser| FIXED | KSeF FA (3) Final Refinement. | Zaimplementowano pełną obsługę stawek zwolnionych (P_13_7) dla schematu FA (3) oraz priorytetyzację pola P_15 z fallbackiem. |
+| Vector 079| KSeF / Parser| FIXED | KSeF FA (3) Polymorphic Mapping. | Wdrożono obsługę faktur zaliczkowych (ZAL) oraz ekstrakcję pozycji z sekcji `ZamowienieWiersz`. Podwójny test diagnostyczny w suicie `/verify-all`. |
 
 ---
 
@@ -190,7 +191,7 @@ System obsługuje **oficjalny 4-etapowy standard Handshake KSeF v2.0**:
 - **Krok 3 (Init)**: `POST /v2/auth/ksef-token` → inicjalizacja sesji z `contextIdentifier` (NIP) i zaszyfrowanym tokenem (`token|timestampMs`). Zwraca `authenticationToken` (status 202).
 - **Krok 4 (Redeem)**: `POST /v2/auth/token/redeem` → wymiana tokena operacyjnego na finalny `accessToken`. 
 - **Krok 5 (Fetch Metadata)**: `fetchInvoiceMetadata()` → `POST /v2/online/Query/Invoice/Sync` (SessionToken). Obsługa pustych list (`[]`).
-- **Krok 6 (Parse XML FA3)**: Pełna obsługa stawek zwolnionych (agregacja `P_13_7`) oraz priorytetyzacja `P_15` (Gross). 100% Numeric Match w diagnostyce.
+- **Krok 6 (Parse XML FA3)**: Polimorficzny parser obsługujący faktury `VAT`, `ZW` oraz `ZAL`. Ekstrakcja pozycji z `ZamowienieWiersz`. Podwójny test diagnostyczny (Standard & ZAL).
 - **Krok 7 (Auth Guard)**: Uszczelnienie logiki 404/401 dla nieprawidłowych tokenów sesji.
 - **Caching**: Access Token buforowany w pamięci przez 55 min (TOKEN_CACHE_TTL).
 - **Security**: RSA-OAEP z SHA-256. Brak statycznych plików PEM (pobierane v2 runtime).

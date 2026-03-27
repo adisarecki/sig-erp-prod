@@ -127,8 +127,8 @@ export class KSeFService {
             removeNSPrefix: true, // FA (3) standard
             attributeNamePrefix: '@_',
             isArray: (name) => {
-                // Force array for line items even if single entry exists
-                return name === 'FaWiersz';
+                // Force array for line items and order lines even if single entry exists (Standard FA 3)
+                return ['FaWiersz', 'ZamowienieWiersz'].includes(name);
             }
         });
     }
@@ -335,7 +335,7 @@ export class KSeFService {
         const rawXml = await res.text();
         const parsed = this.parser.parse(rawXml);
 
-        // Map FA (3) Schema (xmlns Poczta Polska spec: .../2025/06/25/13775/)
+        // Map FA (3) Schema (Standard FA 3 polymorphic support)
         const faktura = parsed.Faktura;
         if (!faktura) throw new Error('Invalid KSeF XML: Missing <Faktura> root element');
 
@@ -345,15 +345,31 @@ export class KSeFService {
 
         if (!fa || !sprzedawca) throw new Error('Invalid KSeF XML: Missing <Fa> or <Podmiot1> identification');
 
-        // Line Items mapping (forced array by parser config)
+        // Polymorphic Line Items mapping
+        const rodzajFaktury = fa.RodzajFaktury; // 'ZAL' or others
+        let lineItems: any[] = [];
+
+        // 1. Standard lines
         const rawWiersze = fa.FaWiersz || [];
-        const lineItems = rawWiersze.map((item: any) => ({
+        lineItems = rawWiersze.map((item: any) => ({
             name: item.P_7 || 'Pozycja bez nazwy',
             quantity: parseFloat(item.P_8B || '0'),
             unit: item.P_8A || 'szt.',
             netPrice: parseFloat(item.P_9B || '0'),
             vatRate: item.P_12 || 'zw',
         }));
+
+        // 2. Advance Invoice (ZAL) specialized lines (ZamowienieWiersz)
+        if (rodzajFaktury === 'ZAL' && fa.Zamowienie?.ZamowienieWiersz) {
+            const extraLines = fa.Zamowienie.ZamowienieWiersz.map((item: any) => ({
+                name: `[ZAM] ${item.P_7 || 'Pozycja zamówienia'}`,
+                quantity: parseFloat(item.P_8B || '0'),
+                unit: item.P_8A || 'szt.',
+                netPrice: parseFloat(item.P_9B || '0'),
+                vatRate: item.P_12 || 'zw',
+            }));
+            lineItems = [...lineItems, ...extraLines];
+        }
 
         const netAmountDecimal = new Decimal(fa.P_13_1 || 0)
             .plus(fa.P_13_2 || 0)
