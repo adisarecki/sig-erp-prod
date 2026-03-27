@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
         const sessionToken = await ksefSvc.getSessionToken();
 
         // 3. Query Invoices with filters
-        const invoiceList = await ksefSvc.queryLatestInvoices({ 
+        const invoiceList = await ksefSvc.fetchInvoiceMetadata({ 
             sessionToken,
             dateFrom,
             dateTo,

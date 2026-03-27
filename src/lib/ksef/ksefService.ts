@@ -234,16 +234,16 @@ export class KSeFService {
 
     /**
      * Query for received invoices (Subject2 = EXPENSE)
-     * v2.0 Synchronous Query
+     * v2.0 Synchronous Query (Step 5 Metadata)
      */
-    async queryLatestInvoices(options?: {
+    async fetchInvoiceMetadata(options?: {
         sessionToken?: string;
         testToken?: string;
         dateFrom?: string;
         dateTo?: string;
         pageSize?: number;
     }): Promise<any[]> {
-        console.log('[KSeF_SERVICE] Step 5: Querying invoices (Sync Incremental, limit 50)...');
+        console.log('[KSeF_SERVICE] Step 5: Fetching invoice metadata (Sync Incremental)...');
 
         const from = options?.dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const to = options?.dateTo || new Date().toISOString();
@@ -253,11 +253,10 @@ export class KSeFService {
             customToken: options?.testToken,
         });
 
-        // Use cased URL based on latest mentor diagnostics
         const url = `${KSEF_BASE_URL}/v2/online/Query/Invoice/Sync`;
-        console.log(`[KSeF_SERVICE] Querying via ${url}...`);
+        console.log(`[KSeF_SERVICE] POST ${url}...`);
 
-        const queryRes = await fetch(url, {
+        const res = await fetch(url, {
             method: 'POST',
             headers,
             body: JSON.stringify({
@@ -272,15 +271,25 @@ export class KSeFService {
             }),
         });
 
-        if (!queryRes.ok) {
-            const errorDetails = await queryRes.text();
-            throw new Error(`KSeF Step 5 Sync Query Failed (${queryRes.status}): ${errorDetails}`);
+        if (res.status === 404) {
+            console.warn(`[KSeF_SERVICE] Step 5: Received 404 from Sync Query. (Possible no new data or environment mismatch). returning []`);
+            return [];
         }
 
-        const data = await queryRes.json();
+        if (!res.ok) {
+            const errorDetails = await res.text();
+            throw new Error(`KSeF Step 5 Sync Query Failed (${res.status}): ${errorDetails}`);
+        }
+
+        const data = await res.json();
         const invoiceHeaders = data.invoiceHeaderList || [];
 
-        console.log(`[KSeF_SERVICE] Step 5 OK: Found ${invoiceHeaders.length} invoice headers.`);
+        if (invoiceHeaders.length === 0) {
+            console.log('[KSeF_SERVICE] Step 5: Success but no invoices found in this range.');
+        } else {
+            console.log(`[KSeF_SERVICE] Step 5 OK: Found ${invoiceHeaders.length} invoice headers.`);
+        }
+
         return invoiceHeaders;
     }
 

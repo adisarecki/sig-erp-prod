@@ -46,7 +46,7 @@ export async function GET() {
         // --- 2. Query Metadata using AccessToken ---
         logToReport("\nSTEP 5: Querying Metadata (Sync)...");
         try {
-            const invoices = await ksefSvc.queryLatestInvoices();
+            const invoices = await ksefSvc.fetchInvoiceMetadata();
             logToReport(`✅ SUCCESS: Found ${invoices.length} invoices in recent metadata.`);
             testResults.query = true;
 
@@ -76,7 +76,7 @@ export async function GET() {
         // 4a. Invalid Token (401)
         try {
             logToReport("   Testing 401 Unauthorized (Invalid Token)...");
-            await ksefSvc.queryLatestInvoices({ sessionToken: "INVALID_TOKEN_123" });
+            await ksefSvc.fetchInvoiceMetadata({ sessionToken: "INVALID_TOKEN_123" });
             logToReport("   ❌ FAILURE: API accepted an invalid token! (Security Risk)");
         } catch (err: any) {
             if (err.message.includes("401") || err.message.includes("403")) {

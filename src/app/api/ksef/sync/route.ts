@@ -28,7 +28,7 @@ export async function GET() {
         }
 
         // 3. Use sessionToken for further requests (fetch invoices)
-        const invoiceList = await ksefService.queryLatestInvoices({ sessionToken });
+        const invoiceList = await ksefService.fetchInvoiceMetadata({ sessionToken });
         
         // 4. Batch Fetch Detail XML & Save to Databases
         const results = [];
