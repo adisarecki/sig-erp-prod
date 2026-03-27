@@ -43,9 +43,23 @@ async function fetchKSeFPublicKey(): Promise<crypto.KeyObject> {
         throw new Error('No valid encryption certificate found in KSeF response');
     }
 
-    // Certificate is DER encoded in Base64 – convert to KeyObject
-    const derBuffer = Buffer.from(encCert.certificate, 'base64');
-    const keyObject = crypto.createPublicKey({ key: derBuffer, format: 'der' });
+    const rawCert = encCert.certificate.trim();
+    console.log(`[KSeF_SERVICE] Parsing certificate (length: ${rawCert.length}, startsWith: ${rawCert.substring(0, 30)}...)`);
+
+    let keyObject: crypto.KeyObject;
+    try {
+        if (rawCert.includes('-----BEGIN')) {
+            // It's a PEM string
+            keyObject = crypto.createPublicKey({ key: rawCert, format: 'pem' });
+        } else {
+            // Assume it's a Base64 encoded DER certificate
+            const derBuffer = Buffer.from(rawCert, 'base64');
+            keyObject = crypto.createPublicKey({ key: derBuffer, format: 'der' });
+        }
+    } catch (err: any) {
+        console.error(`[KSeF_SERVICE] ❌ Failed to read asymmetric key: ${err.message}`);
+        throw new Error(`Failed to read asymmetric key: ${err.message}`);
+    }
 
     cachedPublicKey = keyObject;
     keyFetchTime = now;
@@ -161,7 +175,7 @@ export class KSeFService {
         console.log('[KSeF_SERVICE] Token encrypted OK.');
 
         // ── Step 3: Exchange for sessionToken ───────────────
-        const tokenUrl = `${KSEF_BASE_URL}/v2/auth/ksef-token`;
+        const tokenUrl = `${KSEF_BASE_URL}/v2/auth/token`;
         const sessionRes = await fetch(tokenUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
