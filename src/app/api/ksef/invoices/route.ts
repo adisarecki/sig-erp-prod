@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { KSeFService } from '@/lib/ksef/ksefService';
 
-const OWNER_NIP = '9542751368';
-
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
@@ -16,7 +14,6 @@ export async function GET(request: NextRequest) {
         const ksefSvc = new KSeFService();
         
         // 2. Session Handshake (v2.0)
-        // Uses NIP/Token from env automatically in the new service refactor
         const sessionToken = await ksefSvc.getSessionToken();
 
         // 3. Query Invoices with filters
@@ -32,9 +29,9 @@ export async function GET(request: NextRequest) {
             ksefReferenceNumber: item.invoiceReferenceNumber,
             invoiceNumber: item.invoiceNumber || "N/A",
             issueDate: item.invoicingDate,
-            sellerNIP: item.sellerNip,
+            sellerNIP: item.sellerNip || "Nieznany",
             sellerName: item.sellerName || "Nieznany",
-            buyerNIP: item.buyerNip,
+            buyerNIP: item.buyerNip || "Mój Tenant",
             buyerName: item.buyerName || "Mój Tenant",
             netAmount: item.netAmount || 0,
             vatAmount: item.vatAmount || 0,
