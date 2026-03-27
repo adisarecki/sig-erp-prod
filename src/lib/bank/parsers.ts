@@ -19,9 +19,15 @@ export function parseCSV(buffer: Buffer): RawTransaction[] {
         .map(line => line.trim())
         .filter(line => line.length > 0);
     
+    if (lines.length < 2) return [];
+
+    // Auto-detect separator: ; or ,
+    const firstLine = lines[0];
+    const separator = firstLine.includes(';') ? ';' : ',';
+
     let startIndex = 0;
     for (let i = 0; i < lines.length; i++) {
-        // Find header row (Zestawienie operacji ...)
+        // Find header row (Data operacji, Kwota, etc.)
         if (lines[i].includes('Data operacji') || lines[i].includes('Kwota')) {
             startIndex = i + 1;
             break;
@@ -29,10 +35,22 @@ export function parseCSV(buffer: Buffer): RawTransaction[] {
     }
 
     const dataLines = lines.slice(startIndex);
+    // Regex for CSV split handling quotes: (?:^|sep)("(?:[^"]|"")*"|[^sep]*)
+    const regexPattern = new RegExp(`(?:^|${separator})("(?:[^"]|"")*"|[^${separator}]*)`, 'g');
 
     return dataLines.map((line, index) => {
-        // PKO BP Spec: separator: ;
-        const columns = splitCsvLine(line, ';');
+        const columns: string[] = [];
+        let match;
+        
+        // Reset regex index for each line
+        regexPattern.lastIndex = 0;
+        while ((match = regexPattern.exec(line)) !== null) {
+            let val = match[1];
+            if (val && val.startsWith('"') && val.endsWith('"')) {
+                val = val.slice(1, -1).replace(/""/g, '"');
+            }
+            columns.push((val || "").trim());
+        }
         
         // HOTFIX: Payload Consolidation — PKO BP splits description across many columns.
         // Grab column[5] (Opis transakcji) + all subsequent overflow columns and join them.
@@ -45,10 +63,10 @@ export function parseCSV(buffer: Buffer): RawTransaction[] {
             rawAmount: columns[3] || "0",
             rawType: columns[2] || "UNKNOWN",
             rawDescription: fullRawDescription,   // Consolidated: Opis transakcji + Column1, _1, _2 …
-            rawCounterparty: columns[6] || "",   // Nazwa odbiorcy/nadawcy (kept for quick access)
+            rawCounterparty: columns[6] || "",   // Nazwa odbiorcy/nadawcy
             rawTitle: columns[7] || "",           // Tytuł
             rawReference: `CSV-PKO-${index}-${columns[0]}-${(columns[3] || "").replace(/[^\d]/g, '')}`,
-            rawAccountNumber: "", // Will be extracted by Layer 2 Regex
+            rawAccountNumber: "", 
         };
     });
 }

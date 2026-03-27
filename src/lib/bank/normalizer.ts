@@ -50,46 +50,37 @@ export function normalizeTransaction(raw: RawTransaction): NormalizedTx {
     }
 
     // --- PATTERN 2: VENDOR NAME (with lookahead stop at next keyword) ---
-    // Szukamy nazwy po 'Nazwa nadawcy/odbiorcy' LUB po 'Adres:' (dla kart)
     const vendorMatch = fullDesc.match(
         /(?:Nazwa nadawcy|Nazwa odbiorcy|Adres):\s*(.*?)(?=\s*(?:Adres nadawcy|Adres odbiorcy|Tytuł|Lokalizacja|Miasto|Data wykonania|$))/i
     );
     if (vendorMatch && vendorMatch[1].trim()) {
-        // Czyścimy nazwę z ewentualnych pozostałości technicznych
         counterparty = vendorMatch[1].trim().replace(/^(Z\d{4,}\s*K\.\d+|000\d+\s*)/i, '');
-    } else if (raw.rawCounterparty && raw.rawCounterparty.trim() && raw.rawCounterparty !== "Nieznany") {
-        // Fallback: use the dedicated Nazwa column if regex found nothing
-        counterparty = raw.rawCounterparty.trim();
+    } else {
+        // Pattern 2b: Card payment vendor from "Lokalizacja: Adres: <name> Miasto:"
+        const cardMatch = fullDesc.match(/Lokalizacja:\s*Adres:\s*(.*?)\s*Miasto:/i);
+        if (cardMatch && cardMatch[1].trim()) {
+            counterparty = cardMatch[1].trim().replace(/^(Z\d{4,}\s*K\.\d+|000\d+\s*)/i, '');
+        }
     }
 
     // --- PATTERN 3: TYTUŁ (transaction title, with lookahead stop) ---
-    const titleMatch = fullDesc.match(/Tytuł:\s*(.*?)(?=\s*(?:Lokalizacja|Data wykonania|Adres|$))/i);
+    const titleMatch = fullDesc.match(/Tytuł:\s*(.*?)(?=\s*(?:Lokalizacja|Data wykonania|Adres|Numer karty|$))/i);
     if (titleMatch && titleMatch[1].trim()) {
         extractedTitle = titleMatch[1].trim();
     }
 
-    // --- PATTERN 4: LOKALIZACJA / ADRES (Card Payments) ---
-    // Handles the pattern: "Lokalizacja: Adres: <addr> Miasto:"
-    if (raw.rawType === 'Płatność kartą' || raw.rawType === 'Wypłata z bankomatu') {
-        const cardLocationMatch = fullDesc.match(/Lokalizacja:\s*Adres:\s*(.*?)\s*Miasto:/i);
-        if (cardLocationMatch && cardLocationMatch[1].trim()) {
-            address = cardLocationMatch[1].trim();
-            // For card payments, vendor name is the address if no Nazwa match succeeded
-            if (!vendorMatch) {
-                counterparty = address;
-            }
-        } else {
-            // Fallback: old regex for "Adres: ... Miasto:"
-            const cardVendorMatch = fullDesc.match(/(?:Adres:|Lokalizacja:)\s?([^:]+?)(?=\sMiasto:|$)/i);
-            if (cardVendorMatch) {
-                counterparty = cardVendorMatch[1].trim();
-            }
+    // --- PATTERN 4: NIP EXTRACTION ---
+    const cleanedForNip = fullDesc.replace(/-/g, '');
+    const nipMatch = cleanedForNip.match(/(?:NIP|nip)[,:\s]+([0-9]{10})|\b([0-9]{10})\b/i);
+    let extractedNip = raw.rawNip || null;
+    if (nipMatch) {
+        const candidate = nipMatch[1] || nipMatch[2];
+        if (candidate && !cleanedForNip.includes(candidate.repeat(2))) {
+            extractedNip = candidate;
         }
     }
 
     // 3. Złota Reguła "Pustej Nazwy"
-    // Jeśli po wszystkich operacjach counterparty jest puste lub "Nieznany", 
-    // robimy fallback na pierwsze 30 znaków z pola Tytuł.
     const cleanCounterparty = counterparty.trim();
     const finalCounterparty = (cleanCounterparty && cleanCounterparty !== "Nieznany") 
         ? cleanCounterparty 
@@ -106,7 +97,7 @@ export function normalizeTransaction(raw: RawTransaction): NormalizedTx {
         reference: raw.rawReference || `REF-${dateObj.getTime()}-${Math.abs(amount)}`,
         accountNumber: accountNumber ? accountNumber.replace(/\s/g, '') : null,
         address: address.trim() || null,
-        nip: raw.rawNip || null,
+        nip: extractedNip,
         iban: raw.rawIban || (accountNumber ? accountNumber.replace(/\s/g, '') : null)
     };
 }

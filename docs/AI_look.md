@@ -93,11 +93,14 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 ## 🚩 6. Wytyczne dla AI (Coding Standards)
 
 - **Zero Mutation**: Nigdy nie modyfikuj bezpośrednio obiektów systemowych (np. `File`), używaj stanów Reacta.
-- **Server Action Contract**: Zawsze zwracaj `{ success: boolean, error?: string, data?: any }`. **Zasada Serializable Actions**: Server Actions MUSZĄ zwracać serylizowalne obiekty, aby uniknąć błędów 500 na Vercelu (V.058).
+- **Server Action Contract**: Zawsze zwracaj `{ success: boolean, error?: string, data?: any }`.
+- **Zasada Serializable Actions**: Server Actions MUSZĄ zwracać obiekty `{ success, results?, error? }` zamiast rzucać błędy, aby uniknąć błędów 500 na Vercelu. (V.058)
 - **Decimal Precision**: Do obliczeń finansowych używaj wyłącznie `Decimal`. Prisma przechowuje `Decimal(12,2)`.
 - **Dual-Sync Guard**: Każdy CRUD zmieniający stan musi operować na obu bazach danych.
-- **Firestore Strict Nulls**: Nigdy nie wysyłaj `undefined` do Firestore. Wszystkie opcjonalne pola muszą być jawnie ustawione na `null` (V.059).
-- **Format Importu Bankowego**: Używaj WYŁĄCZNIE formatu CSV. Format MT940 jest wycofany ze względu na błędy parsowania (V.060).
+- **Zasada Firestore Strict Nulls**: Nigdy nie wysyłaj `undefined` do Firestore. Wszystkie opcjonalne pola muszą być jawnie ustawione na `null` (V.059).
+- **Zasada Bank Import (Always CSV)**: Do importu wyciągów bankowych używaj WYŁĄCZNIE formatu CSV. Format MT940 jest wycofany ze względu na błędy parsowania (Vector 060).
+- **Zasada Robust Bank Extraction (Separacja i Kodowanie)**: System bankowy automatycznie wykrywa separator (`,` vs `;`) i wymusza kodowanie `win1250` dla wyciągów PKO BP. Każda nowa reguła wyciągania danych (NIP/Nazwa) musi być testowana na obu separatorach (Vector 061).
+- **Metadata Vault**: Wszystkie transakcje bankowe muszą posiadać unikalny `externalId` oparty na dacie, kwocie i referencji, aby zapobiec duplikatom.
 
 ---
 

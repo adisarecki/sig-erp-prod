@@ -49,9 +49,10 @@ Najbardziej zaawansowany moduł systemu.
 ## 5. Jak pracować z projektem (Dla kolejnych AI)
 - **Zasada ZERO Mutation**: Nie modyfikuj obiektów systemowych (np. File).
 - **Zasada AI-First**: Wszystkie nowe faktury powinny przechodzić przez `InvoiceScanner`.
-- **Zasada Serializable Actions**: Server Actions MUSZĄ zwracać obiekty `{ success, results?, error? }` zamiast rzucać błędy, aby uniknąć błędów 500 na Vercelu.
-- **Zasada Firestore Strict Nulls**: Nigdy nie wysyłaj `undefined` do Firestore. Każde opcjonalne pole musi być jawnie ustawione na `null`, jeśli jest puste.
+- **Zasada Serializable Actions**: Server Actions MUSZĄ zwracać obiekty `{ success, results?, error? }` zamiast rzucać błędy, aby uniknąć błędów 500 na Vercelu. (V.058)
+- **Zasada Firestore Strict Nulls**: Nigdy nie wysyłaj `undefined` do Firestore. Wszystkie opcjonalne pola muszą być jawnie ustawione na `null` (V.059).
 - **Zasada Bank Import (Always CSV)**: Do importu wyciągów bankowych używaj WYŁĄCZNIE formatu CSV. Format MT940 jest wycofany ze względu na błędy parsowania (Vector 060).
+- **Zasada Robust Bank Extraction (Separacja i Kodowanie)**: System bankowy automatycznie wykrywa separator (`,` vs `;`) i wymusza kodowanie `win1250` dla wyciągów PKO BP. Każda nowa reguła wyciągania danych (NIP/Nazwa) musi być testowana na obu separatorach (Vector 061).
 - **API Key**: Gemini API Key znajduje się w `.env` jako `GEMINI_API_KEY`.
 - **Prisma**: Po zmianach w schemacie zawsze uruchamiaj `npx prisma generate` oraz `npx prisma db push` dla synchronizacji z bazą danych.
 - **Firebase Admin**: Inicjalizacja przez `@/lib/firebaseAdmin.ts` (singleton z `getApps()`). Używaj getterów `getAdminDb()`, `getAdminAuth()`, `getAdminStorage()`. Nie importuj `firebase-admin/firestore` itd. na poziomie top-level — spowoduje to crash buildu na Vercelu.

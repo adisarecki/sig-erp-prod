@@ -30,8 +30,8 @@ Witaj w **Sig ERP** – nowoczesnym systemie finansowo-zarządczym, zaprojektowa
 ## 🛠️ 2. Nad czym aktualnie pracujemy? (Stan obecny)
 
 Obecnie skupiamy się na **maksymalnej niezawodności** i "docieraniu" silnika finansowego:
-- **Stabilność Wyciągów**: Przeszliśmy w 100% na format **CSV** dla wyciągów bankowych, ponieważ jest on najdokładniejszy i najmniej awaryjny.
-- **Niezawodność Serwera**: Wdrożyliśmy nowe zabezpieczenia (Zasada Serializable), dzięki czemu system działa stabilnie nawet przy dużych importach danych na Vercelu.
+- **Precyzyjny Import Bankowy (V.061)**: Naprawiliśmy błąd "0.00 PLN" i problemy z polskimi znakami. System teraz inteligentnie rozpoznaje każdy rodzaj pliku CSV z PKO BP, niezależnie od użytego separatora.
+- **Pewniak & NIP**: Ulepszyliśmy automatyczne wyciąganie numerów NIP i nazw kontrahentów bezpośrednio z opisów bankowych.
 - **Porządkowanie Wiedzy**: Skonsolidowaliśmy dokumentację techniczną, aby AI pracujące nad systemem zawsze podejmowało decyzje zgodne z Twoją wizją biznesową.
 
 ---

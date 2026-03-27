@@ -5,6 +5,7 @@ import { getAdminDb } from "@/lib/firebaseAdmin";
 import Decimal from "decimal.js";
 import { getCurrentTenantId } from "@/lib/tenant";
 import prisma from "@/lib/prisma";
+import iconv from "iconv-lite";
 import { parseCSV, parseMT940 } from "@/lib/bank/parsers";
 import { normalizeTransaction } from "@/lib/bank/normalizer";
 import { mapToERP, ERPTransaction } from "@/lib/bank/mapper";
@@ -25,11 +26,13 @@ export async function POST(request: NextRequest) {
         // -- LAYER 1: EXTRACT & PARSE --
         const arrayBuffer = await request.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const rawContent = buffer.toString("utf-8"); // For quick detection
+        
+        // Use iconv to decode for detection and parsing to keep encoding consistent
+        const contentForDetection = iconv.decode(buffer, "win1250");
 
         let rawTransactions: RawTransaction[] = [];
 
-        if (contentType.includes("text/csv") || contentType.includes("application/vnd.ms-excel") || rawContent.includes("Data operacji") || rawContent.includes(";")) {
+        if (contentType.includes("text/csv") || contentType.includes("application/vnd.ms-excel") || contentForDetection.includes("Data operacji") || contentForDetection.includes(";") || contentForDetection.includes(",")) {
             rawTransactions = parseCSV(buffer);
         } else {
             console.warn("[IMPORT_WARNING] Fallback to MT940 detected. CSV is preferred.");
@@ -37,7 +40,9 @@ export async function POST(request: NextRequest) {
         }
 
         if (!rawTransactions.length) {
-            return NextResponse.json({ error: "Brak danych transakcji. Upewnij się, że przesyłasz plik CSV (MT940 nie jest już wspierany)." }, { status: 400 });
+            return NextResponse.json({ 
+                error: "Nie wykryto transakcji. Upewnij się, że przesyłasz prawidłowy plik CSV z PKO BP." 
+            }, { status: 400 });
         }
 
         // -- LAYER 2: NORMALIZE --

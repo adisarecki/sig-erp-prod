@@ -34,6 +34,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 058 | Finance / Engine | FIXED | Production Reliability (Serializable). | Server Actions zwracają `{ success, results, error }`. |
 | Vector 059 | Finance / Engine | FIXED | Firestore Strict Nulls. | Jawne rzutowanie na `null` dla pól nip/address/iban. |
 | Vector 060 | Finance / Architecture | PIVOT | Always CSV, Never MT940. | Usunięcie MT940 z UI i potoków ze względu na błędy. |
+| Vector 061 | Finance / Pipeline     | FIXED | High-Precision Bank Import (CSV). | Wdrożono auto-detekcję separatorów (`,`/`;`), zaawansowany silnik wyciągania NIP/Nazw i poprawiono obsługę kodowania znaków. Rozwiązano błąd 0,00 PLN i braków danych. |
 
 ---
 *Ostatnia aktywność techniczna: 2026-03-27. Build Verified on Vercel.*
