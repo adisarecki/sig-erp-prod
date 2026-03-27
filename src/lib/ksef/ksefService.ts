@@ -250,7 +250,7 @@ export class KSeFService {
         dateTo?: string;
         pageSize?: number;
     }): Promise<any[]> {
-        console.log('[KSeF_SERVICE] Querying invoices (limit 50)...');
+        console.log('[KSeF_SERVICE] Step 5: Querying invoices (limit 50)...');
 
         const from = options?.dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const to = options?.dateTo || new Date().toISOString();
@@ -260,15 +260,18 @@ export class KSeFService {
             customToken: options?.testToken,
         });
 
-        const queryRes = await fetch(`${KSEF_BASE_URL}/v2/online/Query/Invoice/Sync`, {
+        const url = `${KSEF_BASE_URL}/v2/invoice/query/query`;
+        console.log(`[KSeF_SERVICE] Querying via ${url}...`);
+
+        const queryRes = await fetch(url, {
             method: 'POST',
             headers,
             body: JSON.stringify({
                 queryCriteria: {
-                    subjectType: 'Subject2', // Received (EXPENSE)
-                    type: 'All',
-                    invoicingDateFrom: from,
-                    invoicingDateTo: to,
+                    subjectType: 'subject2', // Buyer (EXPENSE)
+                    type: 'incremental',
+                    dateFrom: from,
+                    dateTo: to,
                 },
                 pageSize: options?.pageSize || 50,
                 pageOffset: 0,
@@ -277,11 +280,14 @@ export class KSeFService {
 
         if (!queryRes.ok) {
             const errorDetails = await queryRes.text();
-            throw new Error(`KSeF Query Failed (${queryRes.status}): ${errorDetails}`);
+            throw new Error(`KSeF Step 5 Query Failed (${queryRes.status}): ${errorDetails}`);
         }
 
         const data = await queryRes.json();
-        return data.invoiceList || [];
+        const invoiceList = data.invoiceQueryResultList || data.invoiceList || [];
+
+        console.log(`[KSeF_SERVICE] Step 5 OK: Found ${invoiceList.length} invoices.`);
+        return invoiceList;
     }
 
     /**

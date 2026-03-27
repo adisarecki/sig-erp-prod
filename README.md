@@ -58,12 +58,12 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 **Główne Atuty Rozwiązania:**
 - **Dynamiczne Zarządzanie Kluczami**: Certyfikaty są pobierane w runtime i trzymane w bezpiecznym cache'u w pamięci (brak plików PEM w repozytorium).
 - **Stabilny Cache**: Access Token jest buforowany przez 55 minut, co minimalizuje obciążenie serwerów MF i zapewnia stabilność sesji.
-- **Pełna Diagnostyka**: Endpoint `/api/ksef/verify-all` raportuje status każdego z 4 kroków autoryzacji.
+- **Pełna Diagnostyka**: Endpoint `/api/ksef/verify-all` raportuje status każdego z 4 kroków autoryzacji oraz Kroku 5 (Metadane).
 - **Dual-Sync**: Każdą pobraną fakturę zapisujemy jednocześnie w Prisma (SQL) i Firestore.
 
 **Narzędzia:**
 - **Synchronizacja**: `/api/ksef/sync` – pełne pobranie faktur z MF do bazy Sig i Firestore.
-- **Paginacja**: Pobieranie do 50 faktur na stronę (limit MF) z filtrami dat.
+- **Paginacja**: Pobieranie do 50 faktur na stronę (limit MF) przez endpoint `/v2/invoice/query/query` (Metadane) z filtrami dat.
 
 
 
