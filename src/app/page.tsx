@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic"
 import Decimal from 'decimal.js'
+import prisma from "@/lib/prisma"
+import { KSeFSyncButton } from "@/components/finance/KSeFSyncButton"
 import { AlertCircle, ArrowDownRight, ArrowUpRight, CalendarDays, Wallet, BadgeDollarSign, TrendingUp, TrendingDown, Lock, History } from 'lucide-react'
 import { TooltipHelp } from '@/components/ui/TooltipHelp'
 import { MoneyPieChart } from '@/components/dashboard/MoneyPieChart'
@@ -46,6 +48,7 @@ export default async function DashboardPage({
   const period = params.period || 'ALL'
   const selectedYear = parseInt(params.year || '2026')
   const tenantId = await getCurrentTenantId()
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } }) as any
   const leakageAlerts = await scanForLeaks(tenantId)
 
   const thirtyDaysFromNow = new Date()
@@ -404,9 +407,17 @@ export default async function DashboardPage({
           <BadgeDollarSign className="w-48 h-48 text-indigo-300" />
         </div>
         <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-medium text-slate-300 tracking-wide uppercase">Czysta Gotówka (Safe to Spend)</h2>
-            <TooltipHelp content="Pieniądze na koncie, które możesz bezpiecznie wydać po odliczeniu przyszłych podatków i VAT." />
+          <div className="flex justify-between items-start">
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-medium text-slate-300 tracking-wide uppercase">Czysta Gotówka (Safe to Spend)</h2>
+              <TooltipHelp content="Pieniądze na koncie, które możesz bezpiecznie wydać po odliczeniu przyszłych podatków i VAT." />
+            </div>
+            {/* KSeF SYNC - VECTOR 059 */}
+            <KSeFSyncButton 
+                hasToken={!!tenant?.ksefToken} 
+                variant="outline" 
+                className="bg-white/10 border-white/20 hover:bg-white/20 text-white" 
+            />
           </div>
           <p className="text-6xl font-black tracking-tighter mt-4 text-emerald-400 drop-shadow-sm">
             {formattedCleanCash}

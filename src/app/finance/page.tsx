@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic"
 import { TooltipHelp } from "@/components/ui/TooltipHelp"
+import prisma from "@/lib/prisma"
+import { KSeFSyncButton } from "@/components/finance/KSeFSyncButton"
 import { QuickActionsBar } from "@/components/finance/QuickActionsBar"
 import { ArrowDownRight, ArrowUpRight, FileText } from "lucide-react"
 import Link from "next/link"
@@ -32,6 +34,7 @@ export default async function FinancePage({
     const activeYear = params.year ? parseInt(params.year) : null
 
     const tenantId = await getCurrentTenantId()
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } }) as any
     let transactions: any[] = []
     let projectsMap: { id: string, name: string }[] = []
     let contractorsMap: { id: string, name: string }[] = []
@@ -195,8 +198,13 @@ export default async function FinancePage({
                     <h1 className="text-3xl font-bold tracking-tight">Finanse i Cash Flow</h1>
                     <p className="text-slate-500 mt-1">Wszystkie transakcje, faktury i zaciągnięte wyciągi z banku.</p>
                 </div>
-                <div className="inline-flex items-center">
+                <div className="flex items-center gap-3">
                     <TooltipHelp content="Moduł Łowca Kontrahentów - importuje historię z banku PKO BP do budowania bazy kontrahentów." />
+                    <KSeFSyncButton 
+                        hasToken={!!tenant?.ksefToken} 
+                        variant="outline"
+                        className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                    />
                     <Link href="/finance/import" className="bg-white border text-blue-600 hover:bg-blue-50 hover:border-blue-200 border-slate-200 px-4 py-2 rounded-md font-medium transition cursor-pointer shadow-sm">
                         Import PKO BP
                     </Link>
