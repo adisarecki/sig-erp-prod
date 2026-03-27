@@ -103,6 +103,16 @@ export interface KsefParsedInvoice {
     netAmount: Decimal;
     vatAmount: Decimal;
     grossAmount: Decimal;
+    currency: string;
+    sellerNip: string;
+    paymentStatus: 'PAID' | 'UNPAID';
+    lineItems: Array<{
+        name: string;
+        quantity: number;
+        unit: string;
+        netPrice: number;
+        vatRate: string;
+    }>;
     rawXml: string;
 }
 
@@ -114,7 +124,12 @@ export class KSeFService {
     constructor() {
         this.parser = new XMLParser({
             ignoreAttributes: false,
-            attributeNamePrefix: '@_'
+            removeNSPrefix: true, // FA (3) standard
+            attributeNamePrefix: '@_',
+            isArray: (name) => {
+                // Force array for line items even if single entry exists
+                return name === 'FaWiersz';
+            }
         });
     }
 
@@ -315,19 +330,41 @@ export class KSeFService {
         }
 
         const rawXml = await res.text();
-        const jsonObj = this.parser.parse(rawXml);
+        const parsed = this.parser.parse(rawXml);
 
-        const invoiceData = jsonObj.Faktura?.Fa || jsonObj.Fa || {};
+        // Map FA (3) Schema
+        const faktura = parsed.Faktura;
+        if (!faktura) throw new Error('Invalid KSeF XML: Missing <Faktura> root element');
+
+        const fa = faktura.Fa;
+        const sprzedawca = faktura.Podmiot1?.DaneIdentyfikacyjne;
+        const nabywca = faktura.Podmiot2?.DaneIdentyfikacyjne;
+
+        if (!fa || !sprzedawca) throw new Error('Invalid KSeF XML: Missing <Fa> or <Podmiot1> identification');
+
+        // Line Items mapping (forced array by parser config)
+        const rawWiersze = fa.FaWiersz || [];
+        const lineItems = rawWiersze.map((item: any) => ({
+            name: item.P_7 || 'Pozycja bez nazwy',
+            quantity: parseFloat(item.P_8B || '0'),
+            unit: item.P_8A || 'szt.',
+            netPrice: parseFloat(item.P_9B || '0'),
+            vatRate: item.P_12 || 'zw',
+        }));
 
         return {
             ksefNumber,
-            invoiceNumber: invoiceData.P_2 || 'Unknown',
-            issueDate: new Date(invoiceData.P_1),
-            counterpartyNip: invoiceData.Podmiot2?.DaneIdentyfikacyjne?.NIP || 'Brak',
-            counterpartyName: invoiceData.Podmiot2?.DaneIdentyfikacyjne?.Nazwa || 'Brak',
-            netAmount: new Decimal(invoiceData.P_13_1 || 0),
-            vatAmount: new Decimal(invoiceData.P_14_1 || 0),
-            grossAmount: new Decimal(invoiceData.P_15 || 0),
+            invoiceNumber: fa.P_2 || 'Unknown',
+            issueDate: new Date(fa.P_1),
+            counterpartyNip: nabywca?.NIP || 'Brak',
+            counterpartyName: nabywca?.Nazwa || 'Brak',
+            sellerNip: sprzedawca.NIP || 'Brak',
+            netAmount: new Decimal(fa.P_13_1 || 0),
+            vatAmount: new Decimal(fa.P_14_1 || 0),
+            grossAmount: new Decimal(fa.P_15 || 0),
+            currency: fa.KodWaluty || 'PLN',
+            paymentStatus: fa.Platnosc?.Zaplacono === 1 ? 'PAID' : 'UNPAID',
+            lineItems,
             rawXml,
         };
     }
