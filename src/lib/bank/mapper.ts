@@ -24,7 +24,7 @@ export function mapToERP(normalized: NormalizedTx): ERPTransaction {
     let classification: 'PROJECT_COST' | 'GENERAL_COST' = "PROJECT_COST";
     const tags: string[] = [];
 
-    const isManagementCostVendor = /(ZABKA|ORLEN|CIRCLE K|ARKADIA|BULECKA|BIEDRONKA|STOKROTKA|LIDL|SHELL|BP|MOYA)/i.test(counterparty);
+    const isManagementCostVendor = /(ZABKA|ORLEN|CIRCLE K|ARKADIA|BULECKA|BIEDRONKA|STOKROTKA|LIDL|SHELL|BP|MOYA|SHELLE|AUCHAN|BIEDRONK)/i.test(counterparty);
     const isTaxOrZusVendor = /(ZUS|URZĄD SKARBOWY|US\s)/i.test(counterparty);
 
     if (!isIncome) {

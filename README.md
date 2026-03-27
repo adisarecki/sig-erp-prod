@@ -131,8 +131,9 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 | Vector 053 | System / UX | FIXED | HOTFIX: V.053 - RESCUE (Charts, CORS, 500 Errors). | Naprawiono błąd renderowania wykresów (min-h-[400px]), wdrożono Proxy dla API Net-Pocket (CORS Fix) oraz utwardzono Master Reset i Pipeline'y (Stability Fix). |
 | Vector 054 | Finance / Engine | FIXED | Master Parser & Self-Learning Engine. | Wdrożono 3-warstwowy potok (Pipeline) dla PKO BP CSV. Regex Normalizer (Condition A/B), Bi-directional Enrichment (IBAN learning) i Auto-Routing (ZABKA/ZUS). [ACTIVE] 🟢 |
 | Vector 055 | Finance / Engine | FIXED | HOTFIX: Aggressive Regex Engine & Column Consolidation. | Wdrożono konsolidację kolumn opisowych PKO BP (slice od kolumny 5, join). Zastąpiono słabe Condition A/B pełnym silnikiem Regex z Lookaheadami: IBAN, Nazwa, Tytuł, Lokalizacja. UI wyświetla teraz czyste dane (brak "Rachunek nadawcy:" w Rejestrze Transakcji). |
+| Vector 056 | Finance / Engine | FIXED | HOTFIX: Refined Regex & Golden Rule Fallback. | Doprecyzowano Regex dla Nazwy (obsługa 'Adres:' dla kart), wdrożono czyszczenie technicznych przedrostków (Z/K/000) oraz 'Złotą Regułę' (fallback na Tytuł przy pustej nazwie). Rozszerzono auto-routing o Auchan/Biedronkę. |
 
-- **HOTFIX: Poprawiono silnik Regex dla PKO BP.** Wdrożono konsolidację kolumn opisowych i agresywne wycinanie Nazwy, IBANu i Tytułu za pomocą Lookaheadów. UI wyświetla teraz czyste dane.
+- **HOTFIX: Poprawiono silnik Regex dla PKO BP (V.056).** Wdrożono czyszczenie przedrostków i inteligentny fallback na tytuł transakcji.
 - **Build Verified**: Projekt przeszedł testy statyczne (`tsc`) i jest gotowy do wdrożenia na Vercel.
 
 *Vercel & Firestore Ready 🚀*

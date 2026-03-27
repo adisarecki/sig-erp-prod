@@ -149,7 +149,8 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 050 | Finance / Engine | FIXED | Phase 13: 3-Layer Bank Import Pipeline. | Refaktoryzacja potoku importu (Parser -> Normalizer -> Mapper). Obsługa `win1250` przez `iconv-lite` oraz wydajny batch saving (`createMany`). |
 | Vector 051 | Finance / Engine | FIXED | Phase 14: PKO BP CSV & Regex Entity Engine. | Wdrożono zaawansowany parser Regex dla PKO BP CSV. Obsługa extraction layer dla NIP, IBAN i Adresu zopisów transakcji. |
 | Vector 052 | Finance / Engine | FIXED | Phase 14b: Self-Learning Contractor matching. | Wdrożono kaskadowe dopasowanie (NIP > IBAN > Nazwa) i automatyczne uczenie się numerów kont kontrahentów z wyciągów. |
-| Vector 055 | Finance / Engine | FIXED | HOTFIX: Aggressive Regex Engine (Lookahead). | **PARSERS**: Konsolidacja kolumn PKO BP — `columns.slice(5).join(' ')` jako `fullRawDescription`. **NORMALIZER**: Zastąpiono słabe Condition A/B 4 wzorcami Regex z lookahead: IBAN (`[\d\s]{26,35}`), Nazwa (stop at `Adres|Tytuł|Lokalizacja`), Tytuł (stop at `Lokalizacja|Adres`), Lokalizacja (Adres:...Miasto:). **UI**: Poprawiono logikę title w `finance/page.tsx` – brak "Rachunek nadawcy:" w Rejestrze Transakcji. |
+| Vector 055 | Finance / Engine | FIXED | HOTFIX: Aggressive Regex Engine (Lookahead). | Konsolidacja kolumn PKO BP i silnik Regex z Lookaheadami. |
+| Vector 056 | Finance / Engine | FIXED | HOTFIX: Refined Regex & Golden Rule Fallback. | Doprecyzowano Regex dla Nazwy (obsługa 'Adres:' dla kart), czyszczenie technicznych prefixów (Z/K/000) oraz Złota Reguła (fallback na Tytuł przy braku nazwy). |
 
 ---
 
@@ -177,8 +178,11 @@ System integruje standardy SWIFT MT940 oraz PKO BP CSV w celu automatyzacji rozl
     - **Tier 3 (Fuzzy Name)**: Wykorzystuje `normalizeName` (usuwa Sp. z o.o. itp.) i szuka podobieństwa.
 3. **Self-Learning Logic**: 
     - Jeśli kontrahent zostanie dopasowany po nazwie/NIP, a system wykryje nowy numer IBAN w wyciągu, automatycznie aktualizuje on kolekcję `bankAccounts` w Firestore i tabelę `Contractor` w Prisma (Dual-Sync).
-4. **Partial Payments**: Jeśli kwota przelewu < kwota faktury, status zmienia się na `PARTIALLY_PAID` i system wysyła powiadomienie `WARNING` (Red Light Alert).
-5. **General Cost Routing**: Transakcje z wybranymi słowami kluczowymi (ZUS, Żabka, Prowizja, Paliwo, Orlen, BP, Shell, Circle K, Moya, Stacja, Biedronka, LIDL) są automatycznie klasyfikowane jako `GENERAL_COST`.
+4. **Contractor Name Strategy (Vector 056)**: 
+    - **Layer 1 (Regex)**: Wyciąganie nazwy po słowach kluczowych (Nazwa, Adres) z lookahead stop na (Tytuł, Lokalizacja, Miasto).
+    - **Layer 2 (Cleaning)**: Automatyczne usuwanie technicznych prefixów PKO BP (np. `Z0123 K.01`, `0001`).
+    - **Layer 3 (Golden Rule Fallback)**: Jeśli nazwa jest pusta, system przyjmuje pierwsze 30 znaków pola `Tytuł`.
+5. **General Cost Routing**: Transakcje z wybranymi słowami kluczowymi (ZUS, Żabka, Prowizja, Paliwo, Orlen, BP, Shell, Circle K, Moya, Stacja, Biedronka, LIDL, AUCHAN) są automatycznie klasyfikowane jako `GENERAL_COST`.
 6. **Chart Data**: Zielona linia profitu na wykresach bazuje na rzeczywistej gotówce (`transactions`).
 7. **PKO BP CSV Specifics**: Separator `;`, kodowanie `win1250`. Sanitacja cudzysłowów na poziomie całych linii i kolumn.
 

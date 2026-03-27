@@ -50,12 +50,13 @@ export function normalizeTransaction(raw: RawTransaction): NormalizedTx {
     }
 
     // --- PATTERN 2: VENDOR NAME (with lookahead stop at next keyword) ---
-    // Covers both nadawcy and odbiorcy; stops at Adres|Tytuł|Lokalizacja|Data wykonania
+    // Szukamy nazwy po 'Nazwa nadawcy/odbiorcy' LUB po 'Adres:' (dla kart)
     const vendorMatch = fullDesc.match(
-        /(?:Nazwa nadawcy|Nazwa odbiorcy):\s*(.*?)(?=\s*(?:Adres nadawcy|Adres odbiorcy|Tytuł|Lokalizacja|Data wykonania|$))/i
+        /(?:Nazwa nadawcy|Nazwa odbiorcy|Adres):\s*(.*?)(?=\s*(?:Adres nadawcy|Adres odbiorcy|Tytuł|Lokalizacja|Miasto|Data wykonania|$))/i
     );
     if (vendorMatch && vendorMatch[1].trim()) {
-        counterparty = vendorMatch[1].trim();
+        // Czyścimy nazwę z ewentualnych pozostałości technicznych
+        counterparty = vendorMatch[1].trim().replace(/^(Z\d{4,}\s*K\.\d+|000\d+\s*)/i, '');
     } else if (raw.rawCounterparty && raw.rawCounterparty.trim() && raw.rawCounterparty !== "Nieznany") {
         // Fallback: use the dedicated Nazwa column if regex found nothing
         counterparty = raw.rawCounterparty.trim();
@@ -86,12 +87,20 @@ export function normalizeTransaction(raw: RawTransaction): NormalizedTx {
         }
     }
 
-    // 3. Metadata Assemble
+    // 3. Złota Reguła "Pustej Nazwy"
+    // Jeśli po wszystkich operacjach counterparty jest puste lub "Nieznany", 
+    // robimy fallback na pierwsze 30 znaków z pola Tytuł.
+    const cleanCounterparty = counterparty.trim();
+    const finalCounterparty = (cleanCounterparty && cleanCounterparty !== "Nieznany") 
+        ? cleanCounterparty 
+        : (extractedTitle || raw.rawTitle || "Transakcja").substring(0, 30).trim();
+
+    // 4. Metadata Assemble
     return {
         date: dateObj,
         amount: Math.abs(amount),
         type,
-        counterparty: counterparty.trim(),
+        counterparty: finalCounterparty,
         title: (extractedTitle || raw.rawTitle || "Transakcja Bankowa").trim(),
         description: fullDesc.trim(),
         reference: raw.rawReference || `REF-${dateObj.getTime()}-${Math.abs(amount)}`,
