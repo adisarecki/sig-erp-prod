@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import crypto from 'crypto';
 
-const KSEF_BASE_URL = (process.env.KSEF_BASE_URL || 'https://api.ksef.mf.gov.pl/v2').replace(/\/$/, '');
+const KSEF_BASE_URL = (process.env.KSEF_BASE_URL || 'https://api.ksef.mf.gov.pl/api').replace(/\/$/, '');
 const KSEF_TOKEN = process.env.KSEF_TOKEN;
 const DEFAULT_NIP = '9542751368';
 
@@ -25,15 +25,15 @@ async function fetchKSeFPublicKey(): Promise<string> {
     }
 
     console.log("[KSeF_SERVICE] Fetching dynamic public key from MF...");
-    const url = `${KSEF_BASE_URL}/ksefPublicKey`;
+    const url = `${KSEF_BASE_URL}/v2/ksefPublicKey`;
     const res = await fetch(url);
-    
+
     if (!res.ok) {
         throw new Error(`Failed to fetch KSeF public key from ${url}: ${res.status}`);
     }
 
     const data = await res.text();
-    
+
     // Robust parsing: key might be raw PEM or wrapped in JSON
     let publicKey = data;
     try {
@@ -121,19 +121,19 @@ export class KSeFService {
         if (!targetToken) throw new Error("KSEF_TOKEN missiong in environment.");
 
         console.log(`[KSeF_SERVICE] Initializing session (v2.0) for NIP: ${targetNip}...`);
-        
+
         // 1. Get challenge (timestamp)
-        const challengeRes = await fetch(`${KSEF_BASE_URL}/auth/challenge`, {
+        const challengeRes = await fetch(`${KSEF_BASE_URL}/v2/auth/challenge`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ nip: targetNip }),
         });
-        
+
         if (!challengeRes.ok) {
             const errorText = await challengeRes.text();
             throw new Error(`Challenge failed (${challengeRes.status}): ${errorText}`);
         }
-        
+
         const { timestamp } = await challengeRes.json();
         if (!timestamp) throw new Error("No timestamp in challenge response");
 
@@ -141,20 +141,20 @@ export class KSeFService {
         const encryptedToken = await encryptTokenWithTimestamp(targetToken, timestamp);
 
         // 3. Exchange for sessionToken
-        const sessionRes = await fetch(`${KSEF_BASE_URL}/auth/ksef-token`, {
+        const sessionRes = await fetch(`${KSEF_BASE_URL}/v2/auth/token`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ nip: targetNip, encryptedToken }),
         });
-        
+
         if (!sessionRes.ok) {
             const errorText = await sessionRes.text();
             throw new Error(`Session establishment failed (${sessionRes.status}): ${errorText}`);
         }
-        
+
         const { sessionToken } = await sessionRes.json();
         if (!sessionToken) throw new Error("No sessionToken in response");
-        
+
         console.log("[KSeF_SERVICE] v2.0 Session established.");
         return sessionToken;
     }
@@ -165,8 +165,8 @@ export class KSeFService {
      * @param options.dateTo End date (ISO)
      * @param options.pageSize Limit (Default 50)
      */
-    async queryLatestInvoices(options?: { 
-        sessionToken?: string; 
+    async queryLatestInvoices(options?: {
+        sessionToken?: string;
         testToken?: string;
         dateFrom?: string;
         dateTo?: string;
@@ -178,11 +178,11 @@ export class KSeFService {
         const from = options?.dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const to = options?.dateTo || new Date().toISOString();
 
-        const queryRes = await fetch(`${KSEF_BASE_URL}/online/Query/Invoice/Sync`, {
+        const queryRes = await fetch(`${KSEF_BASE_URL}/v2/online/Query/Invoice/Sync`, {
             method: "POST",
-            headers: this.getHeaders("application/json", { 
-                sessionToken: options?.sessionToken, 
-                customToken: options?.testToken 
+            headers: this.getHeaders("application/json", {
+                sessionToken: options?.sessionToken,
+                customToken: options?.testToken
             }),
             body: JSON.stringify({
                 queryCriteria: {
@@ -211,11 +211,11 @@ export class KSeFService {
     async fetchAndParse(ksefNumber: string, options?: { sessionToken?: string; testToken?: string }): Promise<KsefParsedInvoice> {
         console.log(`[KSeF_SERVICE] Fetching detail XML for ${ksefNumber}...`);
 
-        const res = await fetch(`${KSEF_BASE_URL}/online/Invoice/Get/${ksefNumber}`, {
+        const res = await fetch(`${KSEF_BASE_URL}/v2/online/Invoice/Get/${ksefNumber}`, {
             method: "GET",
-            headers: this.getHeaders("application/xml", { 
-                sessionToken: options?.sessionToken, 
-                customToken: options?.testToken 
+            headers: this.getHeaders("application/xml", {
+                sessionToken: options?.sessionToken,
+                customToken: options?.testToken
             })
         });
 
@@ -230,7 +230,7 @@ export class KSeFService {
         const jsonObj = this.parser.parse(rawXml);
 
         const invoiceData = jsonObj.Faktura?.Fa || jsonObj.Fa || {};
-        
+
         return {
             ksefNumber,
             invoiceNumber: invoiceData.P_2 || "Unknown",
