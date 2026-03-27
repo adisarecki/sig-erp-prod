@@ -7,7 +7,7 @@ import crypto from 'crypto';
 
 const KSEF_BASE_URL = (process.env.KSEF_BASE_URL || 'https://api.ksef.mf.gov.pl/v2').replace(/\/$/, '');
 const KSEF_TOKEN = process.env.KSEF_TOKEN;
-const DEFAULT_NIP = '9542761368';
+const DEFAULT_NIP = '9542751368';
 
 // In-memory cache for the MF Public Key
 let cachedPublicKey: string | null = null;
