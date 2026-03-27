@@ -45,7 +45,7 @@ async function fetchKSeFPublicKey(): Promise<crypto.KeyObject> {
 
     // Certificate is DER encoded in Base64 – convert to KeyObject
     const derBuffer = Buffer.from(encCert.certificate, 'base64');
-    const keyObject = crypto.createPublicKey({ key: derBuffer, format: 'der', type: 'spki' });
+    const keyObject = crypto.createPublicKey({ key: derBuffer, format: 'der' });
 
     cachedPublicKey = keyObject;
     keyFetchTime = now;
