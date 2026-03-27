@@ -58,7 +58,7 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 **Główne Atuty Rozwiązania:**
 - **Dynamiczne Zarządzanie Kluczami**: Certyfikaty są pobierane w runtime i trzymane w bezpiecznym cache'u w pamięci (brak plików PEM w repozytorium).
 - **Stabilny Cache**: Access Token jest buforowany przez 55 minut, co minimalizuje obciążenie serwerów MF i zapewnia stabilność sesji.
-- **Obsługa FA(3)**: Step 6: Wdrożono parser FA (3) z obsługą namespace 2025/06/25. Testy zaliczone na rzeczywistym XML.
+- **Obsługa FA(3)**: Step 6: Wdrożono parser FA (3) z obsługą namespace 2025/06/25. Naprawiono mapowanie pól dla podmiotów zwolnionych z VAT (P_13_7).
 - **Odporność na Błędy**: Bezpieczna obsługa pustych wyników zapytania oraz precyzyjna diagnostyka błędów sesji (Step 7 Auth-Fix).
 **Narzędzia:**
 - **Synchronizacja**: `/api/ksef/sync` – pełne pobranie faktur z MF do bazy Sig i Firestore.

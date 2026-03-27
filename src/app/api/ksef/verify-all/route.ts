@@ -55,7 +55,7 @@ export async function GET() {
             
             // Hardcoded Test for Step 6 Persistence (Diagnostic)
             const POCZTA_POLSKA_XML_SAMPLE = `<?xml version="1.0" encoding="UTF-8"?>
-<Faktura xmlns="http://ksef.mf.gov.pl/schema/gtw/svc/online/types/2025/06/25/13775/">
+<Faktura xmlns="http://crd.gov.pl/wzor/2025/06/25/13775/">
     <Podmiot1>
         <DaneIdentyfikacyjne>
             <NIP>5250007313</NIP>
@@ -65,6 +65,7 @@ export async function GET() {
     <Fa>
         <P_1>2026-03-27</P_1>
         <P_2>F00089G032600312887P</P_2>
+        <P_13_7>10.07</P_13_7>
         <P_15>10.07</P_15>
         <KodWaluty>PLN</KodWaluty>
         <FaWiersz>
@@ -82,12 +83,20 @@ export async function GET() {
                 const parsed = (ksefSvc as any).parser.parse(POCZTA_POLSKA_XML_SAMPLE);
                 const fa = parsed.Faktura?.Fa || parsed.Fa;
                 
-                if (fa && fa.P_15 === '10.07' && fa.P_2 === 'F00089G032600312887P') {
+                const testResult = {
+                    numer: fa?.P_2,
+                    data: fa?.P_1,
+                    brutto: fa ? parseFloat(fa.P_15) : 0,
+                    podatek_opis: fa?.P_13_7 ? "ZW" : "VAT"
+                };
+
+                if (fa && testResult.brutto === 10.07 && testResult.numer === 'F00089G032600312887P') {
                     logToReport("✅ SUCCESS: Parser FA (3) logic verified against hardcoded reference.");
-                    logToReport(`   - Detected Amount: ${fa.P_15} PLN (Schema-Match OK)`);
+                    logToReport(`   - Detected Amount: ${testResult.brutto} PLN (Schema-Match OK)`);
+                    logToReport(`   - Tax Regime: ${testResult.podatek_opis} (P_13_7 Detected)`);
                     testResults.parse = true;
                 } else {
-                    logToReport("❌ FAILURE: Parser mapping mismatch with FA (3) reference.");
+                    logToReport(`❌ FAILURE: Parser mapping mismatch. Expected 10.07, got ${testResult.brutto}`);
                 }
             } catch (parseErr: any) {
                 logToReport(`❌ FAILURE: Parser crashed on FA (3) sample: ${parseErr.message}`);

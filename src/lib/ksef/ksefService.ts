@@ -364,7 +364,13 @@ export class KSeFService {
             counterpartyNip: nabywca?.NIP || 'Brak',
             counterpartyName: nabywca?.Nazwa || 'Brak',
             sellerNip: sprzedawca.NIP || 'Brak',
-            netAmount: new Decimal(fa.P_13_1 || 0),
+            netAmount: new Decimal(fa.P_13_1 || 0)
+                .plus(fa.P_13_2 || 0)
+                .plus(fa.P_13_3 || 0)
+                .plus(fa.P_13_4 || 0)
+                .plus(fa.P_13_5 || 0)
+                .plus(fa.P_13_6 || 0)
+                .plus(fa.P_13_7 || 0),
             vatAmount: new Decimal(fa.P_14_1 || 0),
             grossAmount: new Decimal(grossAmountNum),
             currency: fa.KodWaluty || 'PLN',
