@@ -34,31 +34,55 @@ export function normalizeTransaction(raw: RawTransaction): NormalizedTx {
     let counterparty = raw.rawCounterparty || "Nieznany";
     let accountNumber = raw.rawAccountNumber || null;
     let address = raw.rawAddress || "";
+    let extractedTitle = raw.rawTitle || "";
 
-    // --- CONDITION A: CARD PAYMENTS ---
+    // =======================================================================
+    // HOTFIX: AGGRESSIVE REGEX ENGINE
+    // All patterns operate on fullDesc (the consolidated, joined Description).
+    // =======================================================================
+    const fullDesc = raw.rawDescription || "";
+
+    // --- PATTERN 1: IBAN / NRB (26 digits, ignoring spaces) ---
+    // Matches either "Rachunek nadawcy:" or "Rachunek odbiorcy:"
+    const ibanMatch = fullDesc.match(/(?:Rachunek nadawcy|Rachunek odbiorcy):\s*([\d\s]{26,35})/);
+    if (ibanMatch) {
+        accountNumber = ibanMatch[1].replace(/\s/g, ''); // Strip spaces
+    }
+
+    // --- PATTERN 2: VENDOR NAME (with lookahead stop at next keyword) ---
+    // Covers both nadawcy and odbiorcy; stops at Adres|Tytuł|Lokalizacja|Data wykonania
+    const vendorMatch = fullDesc.match(
+        /(?:Nazwa nadawcy|Nazwa odbiorcy):\s*(.*?)(?=\s*(?:Adres nadawcy|Adres odbiorcy|Tytuł|Lokalizacja|Data wykonania|$))/i
+    );
+    if (vendorMatch && vendorMatch[1].trim()) {
+        counterparty = vendorMatch[1].trim();
+    } else if (raw.rawCounterparty && raw.rawCounterparty.trim() && raw.rawCounterparty !== "Nieznany") {
+        // Fallback: use the dedicated Nazwa column if regex found nothing
+        counterparty = raw.rawCounterparty.trim();
+    }
+
+    // --- PATTERN 3: TYTUŁ (transaction title, with lookahead stop) ---
+    const titleMatch = fullDesc.match(/Tytuł:\s*(.*?)(?=\s*(?:Lokalizacja|Data wykonania|Adres|$))/i);
+    if (titleMatch && titleMatch[1].trim()) {
+        extractedTitle = titleMatch[1].trim();
+    }
+
+    // --- PATTERN 4: LOKALIZACJA / ADRES (Card Payments) ---
+    // Handles the pattern: "Lokalizacja: Adres: <addr> Miasto:"
     if (raw.rawType === 'Płatność kartą' || raw.rawType === 'Wypłata z bankomatu') {
-        // Target columns 6 (rawCounterparty) or 5 (rawDescription) containing "Lokalizacja:"
-        const targetString = `${raw.rawCounterparty} ${raw.rawDescription}`;
-        // Regex to extract strictly between Adres: (or Lokalizacja: ) and Miasto:
-        const cardVendorMatch = targetString.match(/(?:Adres:|Lokalizacja:)\s?([^:]+?)(?=\sMiasto:|$)/i);
-        if (cardVendorMatch) {
-            counterparty = cardVendorMatch[1].trim();
-        }
-    } 
-    // --- CONDITION B: BANK TRANSFERS ---
-    else if (['Przelew na konto', 'Przelew z konta', 'Przelew do ZUS', 'Przelew podatkowy'].includes(raw.rawType)) {
-        // 1. IBAN Extraction (26 digits) from rawDescription (Opis transakcji)
-        const ibanMatch = raw.rawDescription.replace(/\s/g, '').match(/(?:Rachunekodbiorcy:|Rachuneknadawcy:)([0-9]{26})/i);
-        if (ibanMatch) {
-            accountNumber = ibanMatch[1];
-        }
-
-        // 2. Vendor Extraction from rawCounterparty (Nazwa odbiorcy/nadawcy)
-        // Usually, the rawCounterparty column in PKO for transfers contains strictly the name if not prefixed.
-        // But the user specifies: "Extract the string after the prefix Nazwa odbiorcy/nadawcy:"
-        const vendorMatch = raw.rawCounterparty.match(/(?:Nazwa odbiorcy\/nadawcy:)\s?(.+)$/i);
-        if (vendorMatch) {
-            counterparty = vendorMatch[1].trim();
+        const cardLocationMatch = fullDesc.match(/Lokalizacja:\s*Adres:\s*(.*?)\s*Miasto:/i);
+        if (cardLocationMatch && cardLocationMatch[1].trim()) {
+            address = cardLocationMatch[1].trim();
+            // For card payments, vendor name is the address if no Nazwa match succeeded
+            if (!vendorMatch) {
+                counterparty = address;
+            }
+        } else {
+            // Fallback: old regex for "Adres: ... Miasto:"
+            const cardVendorMatch = fullDesc.match(/(?:Adres:|Lokalizacja:)\s?([^:]+?)(?=\sMiasto:|$)/i);
+            if (cardVendorMatch) {
+                counterparty = cardVendorMatch[1].trim();
+            }
         }
     }
 
@@ -68,8 +92,8 @@ export function normalizeTransaction(raw: RawTransaction): NormalizedTx {
         amount: Math.abs(amount),
         type,
         counterparty: counterparty.trim(),
-        title: (raw.rawTitle || "Transakcja Bankowa").trim(),
-        description: (raw.rawDescription || "").trim(),
+        title: (extractedTitle || raw.rawTitle || "Transakcja Bankowa").trim(),
+        description: fullDesc.trim(),
         reference: raw.rawReference || `REF-${dateObj.getTime()}-${Math.abs(amount)}`,
         accountNumber: accountNumber ? accountNumber.replace(/\s/g, '') : null,
         address: address.trim() || undefined

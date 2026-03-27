@@ -130,8 +130,9 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 | Vector 052 | Finance / Engine | FIXED | Phase 14b: Bi-directional Contractor Enrichment. | Wdrożono system bi-directional enrichment dla Kontrahentów. System automatycznie uczy się numerów kont z wyciągów bankowych (Scenario 1) i łączy je z profilami firm na podstawie nazw i numerów NIP (Scenario 2). |
 | Vector 053 | System / UX | FIXED | HOTFIX: V.053 - RESCUE (Charts, CORS, 500 Errors). | Naprawiono błąd renderowania wykresów (min-h-[400px]), wdrożono Proxy dla API Net-Pocket (CORS Fix) oraz utwardzono Master Reset i Pipeline'y (Stability Fix). |
 | Vector 054 | Finance / Engine | FIXED | Master Parser & Self-Learning Engine. | Wdrożono 3-warstwowy potok (Pipeline) dla PKO BP CSV. Regex Normalizer (Condition A/B), Bi-directional Enrichment (IBAN learning) i Auto-Routing (ZABKA/ZUS). [ACTIVE] 🟢 |
+| Vector 055 | Finance / Engine | FIXED | HOTFIX: Aggressive Regex Engine & Column Consolidation. | Wdrożono konsolidację kolumn opisowych PKO BP (slice od kolumny 5, join). Zastąpiono słabe Condition A/B pełnym silnikiem Regex z Lookaheadami: IBAN, Nazwa, Tytuł, Lokalizacja. UI wyświetla teraz czyste dane (brak "Rachunek nadawcy:" w Rejestrze Transakcji). |
 
-- **Wdrożono zaawansowany parser Regex dla PKO BP CSV. System automatycznie mapuje i uczy się numerów kont kontrahentów.**
+- **HOTFIX: Poprawiono silnik Regex dla PKO BP.** Wdrożono konsolidację kolumn opisowych i agresywne wycinanie Nazwy, IBANu i Tytułu za pomocą Lookaheadów. UI wyświetla teraz czyste dane.
 - **Build Verified**: Projekt przeszedł testy statyczne (`tsc`) i jest gotowy do wdrożenia na Vercel.
 
 *Vercel & Firestore Ready 🚀*

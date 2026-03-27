@@ -34,13 +34,18 @@ export function parseCSV(buffer: Buffer): RawTransaction[] {
         // PKO BP Spec: separator: ;
         const columns = splitCsvLine(line, ';');
         
+        // HOTFIX: Payload Consolidation — PKO BP splits description across many columns.
+        // Grab column[5] (Opis transakcji) + all subsequent overflow columns and join them.
+        const descriptionParts = columns.slice(5).filter(c => c.length > 0);
+        const fullRawDescription = descriptionParts.join(' ').trim();
+
         // Layer 1: Strictly Raw Extraction (No mutations)
         return {
             rawDate: columns[0] || "",
             rawAmount: columns[3] || "0",
             rawType: columns[2] || "UNKNOWN",
-            rawDescription: columns[5] || "",     // Opis transakcji
-            rawCounterparty: columns[6] || "",   // Nazwa odbiorcy/nadawcy
+            rawDescription: fullRawDescription,   // Consolidated: Opis transakcji + Column1, _1, _2 …
+            rawCounterparty: columns[6] || "",   // Nazwa odbiorcy/nadawcy (kept for quick access)
             rawTitle: columns[7] || "",           // Tytuł
             rawReference: `CSV-PKO-${index}-${columns[0]}-${(columns[3] || "").replace(/[^\d]/g, '')}`,
             rawAccountNumber: "", // Will be extracted by Layer 2 Regex

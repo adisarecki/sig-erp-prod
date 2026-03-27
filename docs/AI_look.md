@@ -147,8 +147,9 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 048 | Database / Sync  | FIXED | HOTFIX: Resolved Sync: error after purge. | Wdrożono "Deep Purge" (czyszczenie dual-source), poprawiono obsługę błędów w `/health` i wymuszono odświeżanie cache w UI. |
 | Vector 049 | Finance / Parser | FIXED | Phase 12: PKO BP CSV Standard & Sync Reset. | Implementacja dedykowanego parsera PKO BP (kolumny 0,3,5,6,7), sanitacja prefiksów i auto-routing ZUS/Zarząd. Wdrożono `/api/finance/sync` do resetu stanu. |
 | Vector 050 | Finance / Engine | FIXED | Phase 13: 3-Layer Bank Import Pipeline. | Refaktoryzacja potoku importu (Parser -> Normalizer -> Mapper). Obsługa `win1250` przez `iconv-lite` oraz wydajny batch saving (`createMany`). |
-| Vector 051 | Finance / Engine | FIXED | Phase 14: PKO BP CSV & Regex Entity Engine. | Wdrożono zaawansowany parser Regex dla PKO BP CSV. Obsługa extraction layer dla NIP, IBAN i Adresu z opisów transakcji. |
+| Vector 051 | Finance / Engine | FIXED | Phase 14: PKO BP CSV & Regex Entity Engine. | Wdrożono zaawansowany parser Regex dla PKO BP CSV. Obsługa extraction layer dla NIP, IBAN i Adresu zopisów transakcji. |
 | Vector 052 | Finance / Engine | FIXED | Phase 14b: Self-Learning Contractor matching. | Wdrożono kaskadowe dopasowanie (NIP > IBAN > Nazwa) i automatyczne uczenie się numerów kont kontrahentów z wyciągów. |
+| Vector 055 | Finance / Engine | FIXED | HOTFIX: Aggressive Regex Engine (Lookahead). | **PARSERS**: Konsolidacja kolumn PKO BP — `columns.slice(5).join(' ')` jako `fullRawDescription`. **NORMALIZER**: Zastąpiono słabe Condition A/B 4 wzorcami Regex z lookahead: IBAN (`[\d\s]{26,35}`), Nazwa (stop at `Adres|Tytuł|Lokalizacja`), Tytuł (stop at `Lokalizacja|Adres`), Lokalizacja (Adres:...Miasto:). **UI**: Poprawiono logikę title w `finance/page.tsx` – brak "Rachunek nadawcy:" w Rejestrze Transakcji. |
 
 ---
 
@@ -167,8 +168,8 @@ System został zintegrowany z KSeF (Krajowy System e-Faktur) w trybie **Tylko Od
 
 System integruje standardy SWIFT MT940 oraz PKO BP CSV w celu automatyzacji rozliczeń:
 1. **3-Layer Pipeline (`src/lib/bank/`)**: 
-    - **Layer 1 (Parser)**: Czysta ekstrakcja danych z PKO BP CSV (win1250, separator `;`).
-    - **Layer 2 (Normalizer)**: Silnik Regex - Condition A (Karty) vs Condition B (Przelewy).
+    - **Layer 1 (Parser)**: Konsolidacja kolumn — PKO BP CSV (win1250, separator `;`). Wszystkie kolumny od indeksu 5 (Opis transakcji + Column1, _1, _2…) są joinowane do jednego `fullRawDescription`.
+    - **Layer 2 (Normalizer) – Aggressive Regex Engine**: 4 wzorce Regex z lookaheadami operujące na `fullRawDescription`: IBAN/NRB (`[\d\s]{26,35}`), Nazwa nadawcy/odbiorcy (stop at `Adres|Tytuł|Lokalizacja|Data wykonania`), Tytuł (stop at `Lokalizacja|Data wykonania|Adres`), Lokalizacja/Adres karty (`Lokalizacja: Adres: ... Miasto:`).
     - **Layer 3 (Mapper)**: Auto-routing (ZABKA, ZUS, itp.) i wzbogacanie danych.
 2. **Matching Strategy (Cascading)**:
     - **Tier 1 (NIP)**: Najwyższy priorytet dopasowania (dokładny match w bazie).

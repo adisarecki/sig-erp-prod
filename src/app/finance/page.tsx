@@ -73,23 +73,39 @@ export default async function FinancePage({
             // 1. Transakcje wolne (bez powiązania z fakturą)
             ...rawTransactions
                 .filter(tx => !tx.invoiceId)
-                .map(t => ({
-                    id: t.id,
-                    isInvoice: false,
-                    type: t.type,
-                    title: t.title || t.description || t.category || "Inny wydatek",
-                    documentNumber: t.externalId || null,
-                    date: t.transactionDate,
-                    amount: Number(t.amount),
-                    amountNet: Number(t.amount),
-                    projectId: t.projectId || null,
-                    classification: t.classification || (t.projectId ? 'PROJECT_COST' : 'GENERAL_COST'),
-                    statusBadge: 'OPŁACONA',
-                    statusColor: 'bg-emerald-100 text-emerald-700',
-                    counterpartyRaw: t.counterpartyRaw,
-                    matchedContractorId: t.matchedContractorId,
-                    tags: t.tags
-                })),
+                .map(t => {
+                    // Enrich contractorName from matched contractor in DB
+                    const matchedContractor = t.matchedContractorId
+                        ? rawContractors.find((c: any) => c.id === t.matchedContractorId)
+                        : null;
+
+                    // UI Rendering Correction: NEVER show raw description as title.
+                    // Priority: DB Name > clean extracted title > clean counterpartyRaw > category
+                    const cleanTitle = (t.title && !t.title.startsWith('[Pipeline Import]') && !t.title.includes('Rachunek') && !t.title.includes('Nazwa'))
+                        ? t.title
+                        : (t.counterpartyRaw && !t.counterpartyRaw.includes('Rachunek') && !t.counterpartyRaw.includes('Nazwa'))
+                            ? t.counterpartyRaw
+                            : t.category || 'Transakcja Bankowa';
+
+                    return ({
+                        id: t.id,
+                        isInvoice: false,
+                        type: t.type,
+                        title: matchedContractor?.name || cleanTitle,
+                        documentNumber: t.externalId || null,
+                        date: t.transactionDate,
+                        amount: Number(t.amount),
+                        amountNet: Number(t.amount),
+                        projectId: t.projectId || null,
+                        classification: t.classification || (t.projectId ? 'PROJECT_COST' : 'GENERAL_COST'),
+                        statusBadge: 'OPŁACONA',
+                        statusColor: 'bg-emerald-100 text-emerald-700',
+                        counterpartyRaw: t.counterpartyRaw,
+                        contractorName: matchedContractor?.name || null,
+                        matchedContractorId: t.matchedContractorId,
+                        tags: t.tags
+                    });
+                }),
             // 2. Faktury (z ewentualnie wstrzykniętym statusem płatności)
             ...rawInvoices.map(inv => {
                 const isIncome = inv.type === 'SPRZEDAŻ'
