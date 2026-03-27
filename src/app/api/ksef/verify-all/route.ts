@@ -66,42 +66,50 @@ export async function GET() {
 
             const POLON_ALFA_XML_SAMPLE = `<?xml version="1.0" encoding="UTF-8"?>
 <Faktura xmlns="http://crd.gov.pl/wzor/2025/06/25/13775/">
-    <Podmiot1><DaneIdentyfikacyjne><NIP>5440002233</NIP><Nazwa>POLON-ALFA</Nazwa></DaneIdentyfikacyjne><Adres><AdresL1>ul. Glinki 155</AdresL1></Adres></Podmiot1>
+    <Podmiot1><DaneIdentyfikacyjne><NIP>5540311901</NIP><Nazwa>POLON-ALFA S.A.</Nazwa></DaneIdentyfikacyjne><Adres><AdresL1>UL.GLINKI 155, 85-861 BYDGOSZCZ</AdresL1></Adres></Podmiot1>
     <Fa>
         <P_1>2026-02-03</P_1><P_2>ZK2026001594</P_2><RodzajFaktury>ZAL</RodzajFaktury>
         <P_13_1>549.6</P_13_1><P_14_1>126.41</P_14_1><P_15>676.01</P_15><KodWaluty>PLN</KodWaluty>
         <FaWiersz><P_7>Przedpłata</P_7><P_8B>1</P_8B><P_9B>549.6</P_9B><P_12>23</P_12></FaWiersz>
         <Zamowienie>
-            <ZamowienieWiersz><P_7>Gniazdo g-40</P_7><P_8B>2</P_8B><P_9B>200.00</P_9B><P_12>23</P_12></ZamowienieWiersz>
-            <ZamowienieWiersz><P_7>Dostawa</P_7><P_8B>1</P_8B><P_9B>149.60</P_9B><P_12>23</P_12></ZamowienieWiersz>
+            <ZamowienieWiersz><P_7>G-40 GNIAZDO</P_7><P_8B>22</P_8B><P_9B>523.60</P_9B><P_12>23</P_12></ZamowienieWiersz>
+            <ZamowienieWiersz><P_7>Dostawa zamówienia</P_7><P_8B>1</P_8B><P_9B>26.00</P_9B><P_12>23</P_12></ZamowienieWiersz>
         </Zamowienie>
     </Fa>
 </Faktura>`;
 
-            const runParserTest = (xml: string, expectedBrutto: number, expectedNr: string, expectedSeller: string) => {
+            const runParserTest = (xml: string, expectedBrutto: number, expectedNr: string, expectedSeller: string, expectedItems: number) => {
                 const parsed = (ksefSvc as any).parser.parse(xml);
                 const fa = parsed.Faktura?.Fa || parsed.Fa;
                 const podmiot1 = parsed.Faktura?.Podmiot1 || parsed.Podmiot1;
+                
+                // Mimic fetchAndParse line item logic for diagnostic
+                const rodzaj = fa?.RodzajFaktury;
+                const useZamowienie = rodzaj === 'ZAL' && fa?.Zamowienie?.ZamowienieWiersz;
+                const rawWiersze = useZamowienie ? fa.Zamowienie.ZamowienieWiersz : (fa?.FaWiersz || []);
+                const itemsList = Array.isArray(rawWiersze) ? rawWiersze : [rawWiersze];
+                const itemCount = itemsList.length;
+
                 const brutto = fa ? Number(fa.P_15) : 0;
                 const nr = fa?.P_2;
                 const seller = podmiot1?.DaneIdentyfikacyjne?.Nazwa;
                 const address = podmiot1?.Adres?.AdresL1;
-                const ok = brutto === expectedBrutto && nr === expectedNr && seller === expectedSeller && !!address;
-                return { ok, brutto, nr, seller, address };
+                const ok = brutto === expectedBrutto && nr === expectedNr && seller === expectedSeller && !!address && itemCount === expectedItems;
+                return { ok, brutto, nr, seller, address, itemCount };
             };
 
-            const t1 = runParserTest(POCZTA_POLSKA_XML_SAMPLE, 10.07, 'F00089G032600312887P', 'Poczta Polska');
-            const t2 = runParserTest(POLON_ALFA_XML_SAMPLE, 676.01, 'ZK2026001594', 'POLON-ALFA');
+            const t1 = runParserTest(POCZTA_POLSKA_XML_SAMPLE, 10.07, 'F00089G032600312887P', 'Poczta Polska', 1);
+            const t2 = runParserTest(POLON_ALFA_XML_SAMPLE, 676.01, 'ZK2026001594', 'POLON-ALFA S.A.', 2);
 
             if (t1.ok && t2.ok) {
                 logToReport("✅ SUCCESS: Polymorphic Parser FA (3) logic verified for standard and ZAL invoices.");
-                logToReport(`   - Case 1 (Poczta): ${t1.brutto} PLN OK. Seller Identified: ${t1.seller}.`);
-                logToReport(`   - Case 2 (POLON):  ${t2.brutto} PLN OK. Seller Identified: ${t2.seller}.`);
+                logToReport(`   - Case 1 (Poczta): ${t1.brutto} PLN OK. Seller: ${t1.seller}. Items: ${t1.itemCount}.`);
+                logToReport(`   - Case 2 (POLON):  ${t2.brutto} PLN OK. Seller: ${t2.seller}. Items: ${t2.itemCount}.`);
                 testResults.parse = true;
             } else {
                 logToReport(`❌ FAILURE: Parser mapping mismatch.`);
-                if (!t1.ok) logToReport(`   - Sample 1 Fail: Got ${t1.brutto} / ${t1.seller} instead of 10.07 / Poczta Polska`);
-                if (!t2.ok) logToReport(`   - Sample 2 Fail: Got ${t2.brutto} / ${t2.seller} instead of 676.01 / POLON-ALFA`);
+                if (!t1.ok) logToReport(`   - Sample 1 Fail: Got Brutto=${t1.brutto}, Seller=${t1.seller}, Items=${t1.itemCount}`);
+                if (!t2.ok) logToReport(`   - Sample 2 Fail: Got Brutto=${t2.brutto}, Seller=${t2.seller}, Items=${t2.itemCount}`);
             }
 
             if (invoices.length > 0) {

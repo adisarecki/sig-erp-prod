@@ -351,27 +351,17 @@ export class KSeFService {
         const rodzajFaktury = fa.RodzajFaktury; // 'ZAL' or others
         let lineItems: any[] = [];
 
-        // 1. Standard lines
-        const rawWiersze = fa.FaWiersz || [];
-        lineItems = rawWiersze.map((item: any) => ({
-            name: item.P_7 || 'Pozycja bez nazwy',
+        // Logical Switch: If ZAL and matching detail exists, use it exclusively. Otherwise fallback to standard lines.
+        const useZamowienie = rodzajFaktury === 'ZAL' && fa.Zamowienie?.ZamowienieWiersz;
+        const sourceWiersze = useZamowienie ? fa.Zamowienie.ZamowienieWiersz : (fa.FaWiersz || []);
+
+        lineItems = sourceWiersze.map((item: any) => ({
+            name: (useZamowienie ? `[ZAM] ` : "") + (item.P_7 || 'Pozycja bez nazwy'),
             quantity: parseFloat(item.P_8B || '0'),
             unit: item.P_8A || 'szt.',
             netPrice: parseFloat(item.P_9B || '0'),
             vatRate: item.P_12 || 'zw',
         }));
-
-        // 2. Advance Invoice (ZAL) specialized lines (ZamowienieWiersz)
-        if (rodzajFaktury === 'ZAL' && fa.Zamowienie?.ZamowienieWiersz) {
-            const extraLines = fa.Zamowienie.ZamowienieWiersz.map((item: any) => ({
-                name: `[ZAM] ${item.P_7 || 'Pozycja zamówienia'}`,
-                quantity: parseFloat(item.P_8B || '0'),
-                unit: item.P_8A || 'szt.',
-                netPrice: parseFloat(item.P_9B || '0'),
-                vatRate: item.P_12 || 'zw',
-            }));
-            lineItems = [...lineItems, ...extraLines];
-        }
 
         const netAmountDecimal = new Decimal(fa.P_13_1 || 0)
             .plus(fa.P_13_2 || 0)
