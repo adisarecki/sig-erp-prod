@@ -37,6 +37,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 061 | Finance / Pipeline     | FIXED | High-Precision Bank Import (CSV). | Wdrożono auto-detekcję separatorów (`,`/`;`), zaawansowany silnik wyciągania NIP/Nazw i poprawiono obsługę kodowania znaków. Rozwiązano błąd 0,00 PLN i braków danych. |
 | Vector 062 | Finance / CRM | FIXED | Smart Import Hub. | Wdrożono `Smart Import Hub` (Ledger/CRM) z `analyzeImportMatches`. |
 | Vector 063 | KSeF / Core | FIXED | Sprint 1: KSeF Read-Only. | Wdrożono `ksefService.ts` (Auth -> Query -> Fetch -> Parse). Model `KsefInvoice` (Prisma) z obsługą Raw XML Fa(2). Zweryfikowano `tsc --noEmit`. |
+| Vector 064 | KSeF / Prod | FIXED | Production Direct Token. | Wdrożenie API produkcyjnego MF, autoryzacja Direct Token (Bearer), usunięcie RSA i diagnostyka `/verify-all`. |
 
 ---
 *Ostatnia aktywność techniczna: 2026-03-27. Build Verified (TSC: OK).*
