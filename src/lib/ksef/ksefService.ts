@@ -105,6 +105,8 @@ export interface KsefParsedInvoice {
     grossAmount: Decimal;
     currency: string;
     sellerNip: string;
+    sellerName: string;
+    sellerAddress: string;
     paymentStatus: 'PAID' | 'UNPAID';
     lineItems: Array<{
         name: string;
@@ -397,6 +399,8 @@ export class KSeFService {
             counterpartyNip: nabywca?.NIP || 'Brak',
             counterpartyName: nabywca?.Nazwa || 'Brak',
             sellerNip: sprzedawca.NIP || 'Brak',
+            sellerName: sprzedawca.Nazwa || 'Brak',
+            sellerAddress: faktura.Podmiot1?.Adres?.AdresL1 || 'Brak adresu',
             netAmount: netAmountDecimal,
             vatAmount: vatAmountDecimal,
             grossAmount: grossAmountDecimal,

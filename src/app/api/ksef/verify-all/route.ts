@@ -56,7 +56,7 @@ export async function GET() {
             // Hardcoded Test for Step 6 Persistence (Diagnostic - Dual Target)
             const POCZTA_POLSKA_XML_SAMPLE = `<?xml version="1.0" encoding="UTF-8"?>
 <Faktura xmlns="http://crd.gov.pl/wzor/2025/06/25/13775/">
-    <Podmiot1><DaneIdentyfikacyjne><NIP>5250007313</NIP><Nazwa>Poczta Polska</Nazwa></DaneIdentyfikacyjne></Podmiot1>
+    <Podmiot1><DaneIdentyfikacyjne><NIP>5250007313</NIP><Nazwa>Poczta Polska</Nazwa></DaneIdentyfikacyjne><Adres><AdresL1>ul. Rodziny Hiszpańskich 8</AdresL1></Adres></Podmiot1>
     <Fa>
         <P_1>2026-03-27</P_1><P_2>F00089G032600312887P</P_2><RodzajFaktury>VAT</RodzajFaktury>
         <P_13_7>10.07</P_13_7><P_15>10.07</P_15><KodWaluty>PLN</KodWaluty>
@@ -66,7 +66,7 @@ export async function GET() {
 
             const POLON_ALFA_XML_SAMPLE = `<?xml version="1.0" encoding="UTF-8"?>
 <Faktura xmlns="http://crd.gov.pl/wzor/2025/06/25/13775/">
-    <Podmiot1><DaneIdentyfikacyjne><NIP>5440002233</NIP><Nazwa>POLON-ALFA</Nazwa></DaneIdentyfikacyjne></Podmiot1>
+    <Podmiot1><DaneIdentyfikacyjne><NIP>5440002233</NIP><Nazwa>POLON-ALFA</Nazwa></DaneIdentyfikacyjne><Adres><AdresL1>ul. Glinki 155</AdresL1></Adres></Podmiot1>
     <Fa>
         <P_1>2026-02-03</P_1><P_2>ZK2026001594</P_2><RodzajFaktury>ZAL</RodzajFaktury>
         <P_13_1>549.6</P_13_1><P_14_1>126.41</P_14_1><P_15>676.01</P_15><KodWaluty>PLN</KodWaluty>
@@ -78,26 +78,30 @@ export async function GET() {
     </Fa>
 </Faktura>`;
 
-            const runParserTest = (xml: string, expectedBrutto: number, expectedNr: string) => {
+            const runParserTest = (xml: string, expectedBrutto: number, expectedNr: string, expectedSeller: string) => {
                 const parsed = (ksefSvc as any).parser.parse(xml);
                 const fa = parsed.Faktura?.Fa || parsed.Fa;
+                const podmiot1 = parsed.Faktura?.Podmiot1 || parsed.Podmiot1;
                 const brutto = fa ? Number(fa.P_15) : 0;
                 const nr = fa?.P_2;
-                return { ok: brutto === expectedBrutto && nr === expectedNr, brutto, nr };
+                const seller = podmiot1?.DaneIdentyfikacyjne?.Nazwa;
+                const address = podmiot1?.Adres?.AdresL1;
+                const ok = brutto === expectedBrutto && nr === expectedNr && seller === expectedSeller && !!address;
+                return { ok, brutto, nr, seller, address };
             };
 
-            const t1 = runParserTest(POCZTA_POLSKA_XML_SAMPLE, 10.07, 'F00089G032600312887P');
-            const t2 = runParserTest(POLON_ALFA_XML_SAMPLE, 676.01, 'ZK2026001594');
+            const t1 = runParserTest(POCZTA_POLSKA_XML_SAMPLE, 10.07, 'F00089G032600312887P', 'Poczta Polska');
+            const t2 = runParserTest(POLON_ALFA_XML_SAMPLE, 676.01, 'ZK2026001594', 'POLON-ALFA');
 
             if (t1.ok && t2.ok) {
                 logToReport("✅ SUCCESS: Polymorphic Parser FA (3) logic verified for standard and ZAL invoices.");
-                logToReport(`   - Case 1 (Poczta): ${t1.brutto} PLN OK.`);
-                logToReport(`   - Case 2 (POLON):  ${t2.brutto} PLN OK.`);
+                logToReport(`   - Case 1 (Poczta): ${t1.brutto} PLN OK. Seller Identified: ${t1.seller}.`);
+                logToReport(`   - Case 2 (POLON):  ${t2.brutto} PLN OK. Seller Identified: ${t2.seller}.`);
                 testResults.parse = true;
             } else {
                 logToReport(`❌ FAILURE: Parser mapping mismatch.`);
-                if (!t1.ok) logToReport(`   - Sample 1 Fail: Got ${t1.brutto} instead of 10.07`);
-                if (!t2.ok) logToReport(`   - Sample 2 Fail: Got ${t2.brutto} instead of 676.01`);
+                if (!t1.ok) logToReport(`   - Sample 1 Fail: Got ${t1.brutto} / ${t1.seller} instead of 10.07 / Poczta Polska`);
+                if (!t2.ok) logToReport(`   - Sample 2 Fail: Got ${t2.brutto} / ${t2.seller} instead of 676.01 / POLON-ALFA`);
             }
 
             if (invoices.length > 0) {
