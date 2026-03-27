@@ -332,7 +332,7 @@ export class KSeFService {
         const rawXml = await res.text();
         const parsed = this.parser.parse(rawXml);
 
-        // Map FA (3) Schema
+        // Map FA (3) Schema (xmlns Poczta Polska spec: .../2025/06/25/13775/)
         const faktura = parsed.Faktura;
         if (!faktura) throw new Error('Invalid KSeF XML: Missing <Faktura> root element');
 
@@ -352,6 +352,8 @@ export class KSeFService {
             vatRate: item.P_12 || 'zw',
         }));
 
+        const grossAmountNum = parseFloat(fa.P_15 || '0');
+
         return {
             ksefNumber,
             invoiceNumber: fa.P_2 || 'Unknown',
@@ -361,7 +363,7 @@ export class KSeFService {
             sellerNip: sprzedawca.NIP || 'Brak',
             netAmount: new Decimal(fa.P_13_1 || 0),
             vatAmount: new Decimal(fa.P_14_1 || 0),
-            grossAmount: new Decimal(fa.P_15 || 0),
+            grossAmount: new Decimal(grossAmountNum),
             currency: fa.KodWaluty || 'PLN',
             paymentStatus: fa.Platnosc?.Zaplacono === 1 ? 'PAID' : 'UNPAID',
             lineItems,

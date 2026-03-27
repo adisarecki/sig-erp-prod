@@ -30,6 +30,16 @@ export async function GET() {
         // 3. Use sessionToken for further requests (fetch invoices)
         const invoiceList = await ksefService.fetchInvoiceMetadata({ sessionToken });
         
+        if (!invoiceList || invoiceList.length === 0) {
+            console.log("[KSeF_SYNC] No new invoices found in the current period.");
+            return NextResponse.json({
+                success: true,
+                count: 0,
+                invoices: [],
+                message: "Brak nowych faktur w KSeF w wybranym okresie."
+            });
+        }
+
         // 4. Batch Fetch Detail XML & Save to Databases
         const results = [];
         const db = getAdminDb();

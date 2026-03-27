@@ -47,6 +47,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 072 | KSeF / Architecture| FIXED | KSeF Sync Query Cased & Incremental Fix. | Skorygowano URL na wielkie litery `/v2/online/Query/Invoice/Sync` oraz zmieniono typ zapytania na `incremental` (acquisitionTimestamp). Rozwiązano bloker Step 5/6. |
 | Vector 073 | KSeF / Architecture| FIXED | Inwentor KSeF v2.0 Step 5 Fix. | Wdrożono funkcję `fetchInvoiceMetadata` z precyzyjną obsługą błędów 404, mapowaniem `invoiceHeaderList` i ujednoliconym nazewnictwem w całym projekcie (Vector 073). |
 | Vector 074 | KSeF / Parser| FIXED | KSeF FA (3) XML Parser. | Uaktualniono parser XML (`fast-xml-parser`) do obsługi schematu FA (3). Wdrożono `removeNSPrefix`, wymuszenie tablicy dla `FaWiersz` oraz mapowanie pozycji liniowych faktury. |
+| Vector 075 | KSeF / Parser| FIXED | Inwentor Step 6 Finalization. | Wdrożono bezpieczną obsługę pustych wyników zapytania oraz zaktualizowano mapowanie dla schematu FA (3) (Poczta Polska spec). Walidacja kwot brutto (`P_15`) przez parseFloat. |
 
 ---
 *Ostatnia aktywność techniczna: 2026-03-27. Build Verified (TSC: OK).*

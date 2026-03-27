@@ -175,6 +175,7 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 072| KSeF / Architecture| FIXED | KSeF Sync Query Cased & Incremental Fix. | Skorygowano URL na wielkie litery `/v2/online/Query/Invoice/Sync` oraz zmieniono typ zapytania na `incremental` (acquisitionTimestamp). Rozwiązano bloker Step 5/6. |
 | Vector 073| KSeF / Architecture| FIXED | Inwentor KSeF v2.0 Step 5 Fix. | Wdrożono funkcję `fetchInvoiceMetadata` z precyzyjną obsługą błędów 404, mapowaniem `invoiceHeaderList` i ujednoliconym nazewnictwem w całym projekcie (Vector 073). Pełna zgodność z specyfikacją Inwentora. |
 | Vector 074| KSeF / Parser| FIXED | KSeF FA (3) XML Parser. | Uaktualniono parser XML (`fast-xml-parser`) do obsługi schematu FA (3). Wdrożono `removeNSPrefix`, wymuszenie tablicy dla `FaWiersz` oraz mapowanie pozycji liniowych faktury. |
+| Vector 075| KSeF / Parser| FIXED | Inwentor Step 6 Finalization. | Wdrożono bezpieczną obsługę pustych wyników zapytania oraz zablokowano mapowanie dla schematu FA (3) (xmlns 2025/06/25/13775/). Walidacja kwot brutto (`P_15`). |
 
 ---
 
@@ -185,7 +186,7 @@ System obsługuje **oficjalny 4-etapowy standard Handshake KSeF v2.0**:
 - **Krok 2 (Security)**: `GET /v2/security/public-key-certificates` → pobranie certyfikatu i wyciągnięcie publicznego klucza RSA przez `new crypto.X509Certificate(der).publicKey`.
 - **Krok 3 (Init)**: `POST /v2/auth/ksef-token` → inicjalizacja sesji z `contextIdentifier` (NIP) i zaszyfrowanym tokenem (`token|timestampMs`). Zwraca `authenticationToken` (status 202).
 - **Krok 4 (Redeem)**: `POST /v2/auth/token/redeem` → wymiana tokena operacyjnego na finalny `accessToken`. 
-- **Krok 5 (Fetch Metadata)**: `fetchInvoiceMetadata()` → `POST /v2/online/Query/Invoice/Sync` (SessionToken).
+- **Krok 5 (Fetch Metadata)**: `fetchInvoiceMetadata()` → `POST /v2/online/Query/Invoice/Sync` (SessionToken). Obsługa pustych list (`[]`).
 - **Krok 6 (Parse XML FA3)**: Implementacja zaawansowanego parsera dla schematu FA(3). Mapowanie `FaWiersz` (line items), `Podmiot1` (sprzedawca), `KodWaluty` i `Platnosc`.
 - **Persistence**: Dual-Sync do Prisma (`KsefInvoice`) i Firestore (`ksefInvoices`).
 - **Caching**: Access Token buforowany w pamięci przez 55 min (TOKEN_CACHE_TTL).
