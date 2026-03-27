@@ -100,6 +100,13 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 - **Zasada Firestore Strict Nulls**: Nigdy nie wysyłaj `undefined` do Firestore. Wszystkie opcjonalne pola muszą być jawnie ustawione na `null` (V.059).
 - **Zasada Bank Import (Always CSV)**: Do importu wyciągów bankowych używaj WYŁĄCZNIE formatu CSV. Format MT940 jest wycofany ze względu na błędy parsowania (Vector 060).
 - **Zasada Robust Bank Extraction (Separacja i Kodowanie)**: System bankowy automatycznie wykrywa separator (`,` vs `;`) i wymusza kodowanie `win1250` dla wyciągów PKO BP. Każda nowa reguła wyciągania danych (NIP/Nazwa) musi być testowana na obu separatorach (Vector 061).
+### 🚀 Vector 062: Smart Import Hub (Technical)
+- **Engine:** `importBankStatementV2` w `src/app/actions/import.ts`.
+- **Analysis:** `analyzeImportMatches` w `reconciliation.ts` – performuje dry-run dopasowania przed zapisem w bazie.
+- **Dual-Mode Logic:** Rozdzielone ścieżki zapisu dla CRM (Contractor Sync) i Finance (Ledger + Payment).
+- **Auto-Learning:** Wykryty IBAN w przelewie jest automatycznie dopisywany do tablicy `bankAccounts` w tabeli `Contractor` (Dual-Sync PostgreSQL + Firestore).
+- **Match Strategy:** NIP (Strong) > IBAN (Strong) > Fuzzy Name (Moderate) > Title Match (Weak).
+- **Invoice Settling:** Jeśli znaleziono fakturę o tym samym kontrahencie i kwocie, system flaguje jako `IMPORT_AND_PAY` i tworzy rekord `InvoicePayment`.
 - **Metadata Vault**: Wszystkie transakcje bankowe muszą posiadać unikalny `externalId` oparty na dacie, kwocie i referencji, aby zapobiec duplikatom.
 
 ---
@@ -170,6 +177,13 @@ System został zintegrowany z KSeF (Krajowy System e-Faktur) w trybie **Tylko Od
 3. **Owner Context**: NIP `9542751368` jest używany jako punkt odniesienia dla logicznej segregacji faktur na **Przychody** (INCOME) i **Koszty** (EXPENSE).
 4. **Data Lifecycle**: Faktury KSeF trafiają na start do statusu `UNVERIFIED` (Draft). Użytkownik musi ręcznie zatwierdzić i przypisać projekt, aby faktura wpłynęła na P&L.
 5. **Deployment**: Gotowość produkcyjna potwierdzona (`tsc --noEmit`).
+
+### 🚀 Sprint 1: KSeF Core (Read-Only)
+- **Engine:** `ksefService.ts` w `src/lib/ksef/`.
+- **Model:** `KsefInvoice` (Prisma) – przechowuje `rawXml`, `ksefNumber`, `invoiceNumber` (P_2) i kwoty.
+- **Pipeline:** 3-etapowy proces (Auth Challenge/Token -> Sync Query -> Fetch XML -> XML Parser).
+- **Parser:** `fast-xml-parser` mapujący pola Fa(2) na ustandaryzowany obiekt.
+- **Status:** `UNVERIFIED` (nowe faktury trafiają do Inboxa jako drafty).
 
 ---
 

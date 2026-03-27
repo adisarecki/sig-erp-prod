@@ -30,6 +30,7 @@ model Tenant {
   auditLogs          AuditLog[]
   retentions         Retention[]
   notifications      Notification[]
+  ksefInvoices       KsefInvoice[]
 }
 
 model Role {
@@ -77,6 +78,7 @@ model Contractor {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   retentions   Retention[]
+  transactions Transaction[]
 
   @@index([tenantId])
   @@unique([tenantId, nip])
@@ -258,13 +260,15 @@ model Transaction {
   classification          String                @default("PROJECT_COST") // PROJECT_COST, GENERAL_COST
   title                   String?
   counterpartyRaw         String?
-  matchedContractorId     String?
-  tags                    String?               // Comma-separated tags
-  createdAt               DateTime              @default(now())
-  updatedAt               DateTime              @updatedAt
+  matchedContractorId   String?
+  contractor            Contractor?           @relation(fields: [matchedContractorId], references: [id])
+  tags                  String?               // Comma-separated tags
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
 
   @@index([tenantId])
   @@index([tenantId, transactionDate])
+  @@index([matchedContractorId])
 }
 
 model Liability {
@@ -380,6 +384,32 @@ model Notification {
   link      String?  // Optional URL to navigate to
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+enum KsefInvoiceStatus {
+  UNVERIFIED
+  IMPORTED
+  REJECTED
+}
+
+model KsefInvoice {
+  id              String             @id @default(uuid())
+  tenantId        String
+  tenant          Tenant             @relation(fields: [tenantId], references: [id])
+  ksefNumber      String             @unique
+  invoiceNumber   String             // P_2
+  issueDate       DateTime           // P_1
+  counterpartyNip String
+  counterpartyName String
+  netAmount       Decimal            @db.Decimal(12, 2)
+  vatAmount       Decimal            @db.Decimal(12, 2)
+  grossAmount     Decimal            @db.Decimal(12, 2)
+  rawXml          String             @db.Text
+  status          KsefInvoiceStatus  @default(UNVERIFIED)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
   @@index([tenantId])
 }

@@ -8,7 +8,8 @@ export interface ParsedBankTransaction {
         name: string;
         nip: string | null;
         address: string | null;
-    }
+    };
+    iban?: string | null;
 }
 
 export interface ParsedContractor {
@@ -217,7 +218,8 @@ export function parsePkoCsv(csvContent: string): ParsedBankTransaction[] {
                 name: toTitleCase(vendorName),
                 nip,
                 address
-            }
+            },
+            iban
         });
     }
 

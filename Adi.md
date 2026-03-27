@@ -44,6 +44,12 @@ Najbardziej zaawansowany moduł systemu.
 2. **Crash `Object.defineProperty`**: Próba mutacji obiektu `File` w uploaderze. Naprawione przez użycie `useState<File | null>` i brak modyfikacji obiektu systemowego.
 5. **Błąd 500 (Server Components render) w Importach**: Rzucanie surowych wyjątków (`throw Error`) w akcjach Next.js na Vercelu powodowało błędy 500 bez opisu. Naprawione przez wdrożenie standardu zwracania serylizowalnych obiektów `{ success, results, error }`.
 6. **Brak ID Konta Bankowego w transakcjach**: Importy bez jawnie wybranego konta bankowego blokowały się lub tworzyły osierocone rekordy. Wdrożono mandatoryjny selektor konta bankowego w UI (`finance/import`) z obsługą flagi `isDefault`.
+- **Vector 062: Smart Import Hub**: Wdrożono inteligentny system importu wyciągów (CRM + Finanse). System sam uczy się numerów kont kontrahentów i sugeruje rozliczenie faktur. (2026-03-27)
+- **Sprint 1: KSeF Core (Read-Only)**: Uruchomiono fundament integracji z Krajowym Systemem e-Faktur. System potrafi autoryzować sesję, pobierać listę faktur i parsować ich surowy XML (Fa/2) bezpośrednio z serwerów Ministerstwa Finansów. (2026-03-27)
+
+---
+
+## 📈 Tablica Postępu (Roadmap)
 7. **Błąd Firestore (Value for argument "data" is not a valid Firestore document)**: Próba zapisu wartości `undefined` w polach takich jak `nip` lub `address`. Naprawione przez wymuszenie jawnego rzutowania na `null` w całym potoku (types -> normalizer -> route).
 
 ## 5. Jak pracować z projektem (Dla kolejnych AI)

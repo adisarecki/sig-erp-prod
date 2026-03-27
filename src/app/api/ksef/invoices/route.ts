@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { KSeFClient } from '@/lib/ksef/ksef-client';
-import { KSeFMapper } from '@/lib/ksef/ksef-mapper';
+import { KSeFService } from '@/lib/ksef/ksefService';
 
 const OWNER_NIP = '9542751368';
 
@@ -12,20 +11,27 @@ export async function GET(request: NextRequest) {
         const page = parseInt(searchParams.get('page') || '1');
         const pageSize = parseInt(searchParams.get('pageSize') || '20');
 
-        const client = new KSeFClient();
-        const mapper = new KSeFMapper();
-
-        // 1. Authenticate
-        const sessionId = await client.authenticate(OWNER_NIP);
-
-        // 2. Query Invoices
-        const result = await client.queryInvoices(sessionId, { dateFrom, dateTo });
+        const ksefSvc = new KSeFService();
         
-        // 3. Map Results
-        const invoiceList = result.invoiceList || [];
-        const mappedInvoices = invoiceList.map((item: any) => mapper.mapSearchResult(item));
+        // 1. Query Invoices
+        const invoiceList = await ksefSvc.queryLatestInvoices();
+        
+        // 2. Map Results to include requested fields
+        const mappedInvoices = invoiceList.map((item: any) => ({
+            ksefReferenceNumber: item.invoiceReferenceNumber,
+            invoiceNumber: item.invoiceNumber,
+            issueDate: item.invoicingDate,
+            sellerNIP: item.sellerNip,
+            sellerName: item.sellerName,
+            buyerNIP: item.buyerNip,
+            buyerName: item.buyerName,
+            netAmount: item.netAmount,
+            vatAmount: item.vatAmount,
+            grossAmount: item.grossAmount,
+            status: "RECEIVED" // Standard for Subject2 query
+        }));
 
-        // 4. Basic Client-side Pagination for the API response
+        // 3. Simple Pagination
         const totalCount = mappedInvoices.length;
         const pagedInvoices = mappedInvoices.slice((page - 1) * pageSize, page * pageSize);
 

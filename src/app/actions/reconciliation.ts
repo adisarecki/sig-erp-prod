@@ -218,31 +218,96 @@ export async function getSuggestedReconciliations() {
 }
 
 /**
- * Searches for unpaid invoices by contractor name or number.
+ * Analyzes a batch of newly parsed bank transactions BEFORE import.
+ * Detects existing contractors (by NIP, Name, IBAN) and matching invoices.
+ */
+export async function analyzeImportMatches(transactions: any[]) {
+    const tenantId = await getCurrentTenantId()
+
+    // 1. Fetch current context
+    const [contractors, openInvoices] = await Promise.all([
+        prisma.contractor.findMany({ where: { tenantId } }),
+        prisma.invoice.findMany({
+            where: { tenantId, status: { in: ["ACTIVE", "PARTIALLY_PAID"] } },
+            include: { contractor: true }
+        })
+    ])
+
+    return transactions.map(tx => {
+        const amount = new Decimal(tx.amount || 0).abs()
+        const isIncome = new Decimal(tx.amount || 0).gt(0)
+        
+        // --- A. Contractor Match ---
+        let matchedContractor = null;
+        
+        // 1. By NIP
+        if (tx.contractor?.nip) {
+            matchedContractor = contractors.find(c => c.nip === tx.contractor.nip)
+        }
+        
+        // 2. By IBAN (if available in contractor data)
+        if (!matchedContractor && tx.iban) {
+            matchedContractor = contractors.find(c => (c.bankAccounts as string[] || []).includes(tx.iban))
+        }
+
+        // 3. By Name (Fuzzy)
+        if (!matchedContractor && tx.contractor?.name) {
+            const tName = tx.contractor.name.toLowerCase().replace(/\s+/g, '')
+            matchedContractor = contractors.find(c => {
+                const cName = c.name.toLowerCase().replace(/\s+/g, '')
+                return tName.includes(cName) || cName.includes(tName)
+            })
+        }
+
+        // --- B. Invoice Match (Reconciliation) ---
+        let matchedInvoice = null;
+        const suggestions = ReconciliationEngine.suggestMatches(
+            { description: tx.description, amount: new Decimal(tx.amount) },
+            openInvoices
+        )
+
+        // If high confidence (> 0.90), auto-propose
+        if (suggestions.length > 0 && suggestions[0].confidence >= 0.90) {
+            matchedInvoice = suggestions[0]
+        }
+
+        return {
+            id: tx.id,
+            contractor: {
+                found: !!matchedContractor,
+                id: matchedContractor?.id || null,
+                name: matchedContractor?.name || null,
+                nip: matchedContractor?.nip || null
+            },
+            reconciliation: {
+                found: !!matchedInvoice,
+                invoiceId: matchedInvoice?.invoiceId || null,
+                invoiceNumber: matchedInvoice?.invoiceNumber || null,
+                confidence: matchedInvoice?.confidence || 0
+            },
+            isNew: !matchedContractor,
+            defaultAction: matchedInvoice ? 'IMPORT_AND_PAY' : matchedContractor ? 'IMPORT_ONLY' : 'CREATE_AND_IMPORT'
+        }
+    })
+}
+
+/**
+ * Searches for unpaid invoices by invoice number or contractor name.
  */
 export async function searchUnpaidInvoices(query: string) {
     const tenantId = await getCurrentTenantId()
-    const invoices = await prisma.invoice.findMany({
+    const cleanQuery = query.toLowerCase()
+    
+    return prisma.invoice.findMany({
         where: {
             tenantId,
             status: { in: ["ACTIVE", "PARTIALLY_PAID"] },
             OR: [
-                { externalId: { contains: query, mode: 'insensitive' } },
-                { contractor: { name: { contains: query, mode: 'insensitive' } } }
+                { externalId: { contains: cleanQuery, mode: 'insensitive' } },
+                { contractor: { name: { contains: cleanQuery, mode: 'insensitive' } } }
             ]
         },
         include: { contractor: true },
         take: 10
     })
-
-    return invoices.map(inv => ({
-        id: inv.id,
-        externalId: inv.externalId,
-        amountGross: inv.amountGross.toString(),
-        amountNet: inv.amountNet.toString(),
-        taxRate: inv.taxRate.toString(),
-        contractor: {
-            name: inv.contractor.name
-        }
-    }))
 }

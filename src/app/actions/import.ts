@@ -8,53 +8,29 @@ import type { ParsedBankTransaction } from "@/lib/pko-parser"
 import Decimal from "decimal.js"
 
 /**
- * Imports bank transactions and AUTO-CREATES missing contractors.
- * "Silent Import" strategy: no modals, just efficient data ingestion.
- * Follows Dual-Sync protocol (Firestore + Prisma).
+ * V2: Smart Import with Decisions & Reconciliation
  */
-export async function importBankStatement(transactions: ParsedBankTransaction[], bankAccountId: string): Promise<{ success: boolean, results?: any, error?: string }> {
+export async function importBankStatementV2(
+    decisions: any[], 
+    bankAccountId: string
+): Promise<{ success: boolean, results?: any, error?: string }> {
     try {
         const adminDb = getAdminDb()
         const tenantId = await getCurrentTenantId()
-        const results = { added: 0, skipped: 0, errors: 0, newContractors: 0 }
+        const results = { added: 0, skipped: 0, matched: 0, newContractors: 0 }
 
-        if (!bankAccountId) {
-            return { success: false, error: "Brak wybranego konta bankowego. Wybierz konto przed importem." }
-        }
+        for (const data of decisions) {
+            const { action, tx } = data
+            if (action === 'SKIP') {
+                results.skipped++
+                continue
+            }
 
-        // Verify bank account exists for this tenant
-        const bankAccount = await prisma.bankAccount.findFirst({
-            where: { id: bankAccountId, tenantId }
-        })
-        
-        if (!bankAccount) {
-            return { success: false, error: "Wybrane konto bankowe jest nieprawidłowe lub nie należy do Twojej firmy." }
-        }
-
-        for (const tx of transactions) {
             try {
-                // 1. Resolve Contractor (Auto-Create if missing)
-                let contractorId: string | null = null
+                // 1. Resolve/Create Contractor
+                let contractorId = data.contractorId || null
 
-                // Find by NIP first (strongest match)
-                if (tx.contractor.nip) {
-                    const found = await prisma.contractor.findFirst({
-                        where: { tenantId, nip: tx.contractor.nip }
-                    })
-                    if (found) contractorId = found.id
-                }
-
-                // Find by exact Name match if NIP didn't work or was missing
-                if (!contractorId) {
-                    const found = await prisma.contractor.findFirst({
-                        where: { tenantId, name: { equals: tx.contractor.name, mode: 'insensitive' } }
-                    })
-                    if (found) contractorId = found.id
-                }
-
-                // --- Dual-Sync Auto-Create if still missing ---
-                if (!contractorId) {
-                    // a. Create Firestore Record for ID consistency
+                if (action === 'CREATE_AND_IMPORT' && !contractorId) {
                     const ctrRef = adminDb.collection("contractors").doc()
                     const objRef = adminDb.collection("objects").doc()
                     
@@ -63,6 +39,7 @@ export async function importBankStatement(transactions: ParsedBankTransaction[],
                         name: tx.contractor.name,
                         nip: tx.contractor.nip || null,
                         address: tx.contractor.address || null,
+                        bankAccounts: tx.iban ? [tx.iban] : [],
                         type: "DOSTAWCA",
                         status: "ACTIVE",
                         createdAt: new Date().toISOString(),
@@ -76,21 +53,17 @@ export async function importBankStatement(transactions: ParsedBankTransaction[],
                         createdAt: new Date().toISOString()
                     })
 
-                    // b. Sync to Prisma with exact doc IDs
                     const newCtr = await prisma.contractor.create({
                         data: {
-                            id: ctrRef.id, // ID from Firestore
+                            id: ctrRef.id,
                             tenantId,
                             name: tx.contractor.name,
                             nip: tx.contractor.nip,
                             address: tx.contractor.address,
+                            bankAccounts: tx.iban ? [tx.iban] : [],
                             status: "ACTIVE",
                             objects: {
-                                create: {
-                                    id: objRef.id,
-                                    name: "Siedziba Główna",
-                                    address: tx.contractor.address || null
-                                }
+                                create: { id: objRef.id, name: "Siedziba Główna", address: tx.contractor.address || null }
                             }
                         }
                     })
@@ -98,60 +71,90 @@ export async function importBankStatement(transactions: ParsedBankTransaction[],
                     results.newContractors++
                 }
 
-                // 2. Create BankTransactionRaw
-                // Prevent duplicates by checking if transaction with same date/amount/desc exists
-                const existing = await prisma.bankTransactionRaw.findFirst({
-                    where: {
-                        tenantId,
-                        bankAccountId: bankAccount.id,
-                        bookingDate: tx.date,
-                        rawAmount: new Decimal(tx.amount),
-                        description: { equals: tx.description, mode: 'insensitive' }
+                // 2. IBAN Auto-Learning (If IBAN exists but not in DB)
+                if (contractorId && tx.iban) {
+                    const contractor = await prisma.contractor.findUnique({ where: { id: contractorId } })
+                    if (contractor) {
+                        const currentAccounts = contractor.bankAccounts as string[] || []
+                        if (!currentAccounts.includes(tx.iban)) {
+                            await prisma.contractor.update({
+                                where: { id: contractorId },
+                                data: { bankAccounts: { push: tx.iban } } as any
+                            })
+                            await adminDb.collection("contractors").doc(contractorId).update({
+                                bankAccounts: [...currentAccounts, tx.iban],
+                                updatedAt: new Date().toISOString()
+                            })
+                        }
                     }
-                })
-
-                if (existing) {
-                    results.skipped++
-                    continue
                 }
 
-                // Raw transactions only go to Prisma (matching Reconciliation logic)
-                await prisma.bankTransactionRaw.create({
+                // 3. Create Transaction record
+                const amount = new Decimal(tx.amount)
+                const isIncome = amount.gt(0)
+
+                const transaction = await prisma.transaction.create({
                     data: {
                         tenantId,
-                        bankAccountId: bankAccount.id,
-                        bookingDate: tx.date,
-                        rawAmount: new Decimal(tx.amount),
+                        amount: amount.abs(),
+                        type: isIncome ? "PRZYCHÓD" : "KOSZT",
+                        transactionDate: new Date(tx.date),
+                        category: tx.category || "INNE",
                         description: tx.description,
-                        senderName: tx.contractor.name,
-                        status: "UNPAIRED"
+                        status: "ACTIVE",
+                        source: "BANK_IMPORT",
+                        title: tx.title,
+                        counterpartyRaw: tx.contractor.name,
+                        matchedContractorId: contractorId,
+                        externalId: `SMART-${tx.id}-${Date.now()}`
                     }
                 })
 
+                // 4. Reconciliation: Link & Mark PAID
+                if (action === 'IMPORT_AND_PAY' && data.invoiceId) {
+                    await prisma.invoicePayment.create({
+                        data: {
+                            invoiceId: data.invoiceId,
+                            transactionId: transaction.id,
+                            amountApplied: amount.abs()
+                        }
+                    })
+
+                    const inv = await prisma.invoice.findUnique({
+                        where: { id: data.invoiceId },
+                        include: { payments: true }
+                    })
+
+                    if (inv) {
+                        const totalPaid = inv.payments.reduce((acc, p) => acc.plus(p.amountApplied), new Decimal(0))
+                        const status = totalPaid.gte(inv.amountGross) ? "PAID" : "PARTIALLY_PAID"
+                        
+                        // Update SQL
+                        await prisma.invoice.update({ where: { id: inv.id }, data: { status } })
+                        
+                        // Update Firestore (Consistency)
+                        await adminDb.collection("invoices").doc(inv.id).update({
+                            status,
+                            updatedAt: new Date().toISOString()
+                        }).catch(() => {}); // Optional fail if not in FS
+                    }
+                    results.matched++
+                }
+
                 results.added++
-            } catch (e: any) {
-                console.error("[IMPORT_TX_ERROR] Failed to save transaction:", e.message)
-                results.errors++
+            } catch (err: any) {
+                console.error("[IMPORT_V2_ROW_ERROR]", err.message)
             }
         }
 
-        revalidatePath("/finance/reconciliation")
         revalidatePath("/")
+        revalidatePath("/finance")
         revalidatePath("/crm")
 
-        // Return plain result object (primitives) to avoid serialization issues
-        return {
-            success: true,
-            results: {
-                added: Number(results.added),
-                skipped: Number(results.skipped),
-                errors: Number(results.errors),
-                newContractors: Number(results.newContractors)
-            }
-        }
+        return { success: true, results }
     } catch (error: any) {
-        console.error("[IMPORT_ACTION_FATAL]", error)
-        return { success: false, error: error.message || "Krytyczny błąd podczas procesu importu." }
+        console.error("[IMPORT_V2_FATAL]", error)
+        return { success: false, error: error.message }
     }
 }
 

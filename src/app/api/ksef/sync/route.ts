@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentTenantId } from '@/lib/tenant';
 import prisma from '@/lib/prisma';
-import { KSeFService } from '@/lib/ksef/ksef-service';
+import { KSeFService } from '@/lib/ksef/ksefService';
 
 /**
  * GET /api/ksef/sync
@@ -23,23 +23,19 @@ export async function GET() {
             );
         }
 
-        // 2. Initialize Service and Sync
+        // 1. Initialize Service and Sync
         const ksefService = new KSeFService();
         
-        // Default sync range: last 30 days
-        const now = new Date();
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(now.getDate() - 30);
-
-        const dateFrom = thirtyDaysAgo.toISOString();
-        const dateTo = now.toISOString();
-
-        const syncedInvoices = await ksefService.syncInvoices(dateFrom, dateTo);
+        // 2. Query latest invoices
+        const latestInvoices = await ksefService.queryLatestInvoices();
+        
+        // For Sprint 1, we just log and return the count
+        console.log(`[KSeF_SYNC] Found ${latestInvoices.length} invoices to sync.`);
 
         return NextResponse.json({
             success: true,
-            count: syncedInvoices.length,
-            message: `Pobrano ${syncedInvoices.length} nowych faktur z KSeF.`
+            count: latestInvoices.length,
+            message: `Pobrano ${latestInvoices.length} nowych faktur z KSeF (Metadane).`
         });
 
     } catch (error: any) {

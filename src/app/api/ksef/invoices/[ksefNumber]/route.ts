@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { KSeFClient } from '@/lib/ksef/ksef-client';
-import { KSeFMapper } from '@/lib/ksef/ksef-mapper';
+import { KSeFService } from '@/lib/ksef/ksefService';
 
 const OWNER_NIP = '9542751368';
 
@@ -10,23 +9,14 @@ export async function GET(
 ) {
     try {
         const ksefNumber = params.ksefNumber;
-        if (!ksefNumber) throw new Error('ksefNumber jest wymagany.');
+        const ksefSvc = new KSeFService();
 
-        const client = new KSeFClient();
-        const mapper = new KSeFMapper();
-
-        // 1. Authenticate
-        await client.authenticate(OWNER_NIP);
-
-        // 2. Download XML
-        const xml = await client.downloadInvoice(ksefNumber);
-
-        // 3. Parse XML
-        const parsedData = mapper.parseXml(xml, ksefNumber);
+        // 1. Fetch & Parse
+        const parsedData = await ksefSvc.fetchAndParse(ksefNumber);
 
         return NextResponse.json({
             ksefNumber,
-            rawXml: xml,
+            rawXml: parsedData.rawXml,
             parsed: parsedData
         });
 
