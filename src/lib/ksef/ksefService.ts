@@ -13,58 +13,62 @@ let cachedPublicKey: crypto.KeyObject | null = null;
 let keyFetchTime: number = 0;
 const KEY_CACHE_TTL = 1000 * 60 * 60; // 1 hour
 
-/**
- * Fetch KSeF Public Key dynamically from MF API.
- * Endpoint: GET /api/v2/security/public-key-certificates
- * Returns array: [{ certificate: base64DER, usage: ["AsymmetricKeyEncryption"] }]
- */
-async function fetchKSeFPublicKey(): Promise<crypto.KeyObject> {
+async function fetchKSeFPublicKey(retryCount: number = 3): Promise<crypto.KeyObject> {
     const now = Date.now();
     if (cachedPublicKey && (now - keyFetchTime < KEY_CACHE_TTL)) {
         return cachedPublicKey;
     }
 
     const url = `${KSEF_BASE_URL}/v2/security/public-key-certificates`;
-    console.log(`[KSeF_SERVICE] Fetching dynamic public key from: ${url}`);
+    let lastError: Error | null = null;
 
-    const res = await fetch(url);
-    if (!res.ok) {
-        throw new Error(`Failed to fetch KSeF public key (${res.status}): ${await res.text()}`);
-    }
+    for (let i = 0; i < retryCount; i++) {
+        try {
+            console.log(`[KSeF_SERVICE] Fetching dynamic public key from: ${url} (Attempt ${i + 1}/${retryCount})`);
+            const res = await fetch(url);
+            if (!res.ok) {
+                throw new Error(`Failed to fetch KSeF public key (${res.status}): ${await res.text()}`);
+            }
 
-    const certs: Array<{ certificate: string; usage: string[] }> = await res.json();
+            const certs: Array<{ certificate: string; usage: string[] }> = await res.json();
+            const encCert = certs.find(c =>
+                c.usage.some(u => u.toLowerCase().includes('asymmetric') || u.toLowerCase().includes('encryption'))
+            ) || certs[0];
 
-    // Find the cert used for asymmetric key encryption
-    const encCert = certs.find(c =>
-        c.usage.some(u => u.toLowerCase().includes('asymmetric') || u.toLowerCase().includes('encryption'))
-    ) || certs[0];
+            if (!encCert?.certificate) {
+                throw new Error('No valid encryption certificate found in KSeF response');
+            }
 
-    if (!encCert?.certificate) {
-        throw new Error('No valid encryption certificate found in KSeF response');
-    }
+            const rawCert = encCert.certificate.trim();
+            console.log(`[KSeF_SERVICE] Parsing certificate with X509 (length: ${rawCert.length})`);
 
-    const rawCert = encCert.certificate.trim();
-    console.log(`[KSeF_SERVICE] Parsing certificate (length: ${rawCert.length}, startsWith: ${rawCert.substring(0, 30)}...)`);
+            let derBuffer: Buffer;
+            if (rawCert.includes('-----BEGIN')) {
+                // If it's already PEM, we can just use it, but X509Certificate handles buffers (DER) too
+                derBuffer = Buffer.from(rawCert.replace(/-----(BEGIN|END) CERTIFICATE-----/g, '').replace(/\s+/g, ''), 'base64');
+            } else {
+                derBuffer = Buffer.from(rawCert, 'base64');
+            }
 
-    let keyObject: crypto.KeyObject;
-    try {
-        if (rawCert.includes('-----BEGIN')) {
-            // It's a PEM string
-            keyObject = crypto.createPublicKey({ key: rawCert, format: 'pem' });
-        } else {
-            // Assume it's a Base64 encoded DER certificate
-            const derBuffer = Buffer.from(rawCert, 'base64');
-            keyObject = crypto.createPublicKey({ key: derBuffer, format: 'der' });
+            // Using modern Node.js 18+ X509Certificate API for robust parsing
+            const x509 = new crypto.X509Certificate(derBuffer);
+            const keyObject = x509.publicKey;
+
+            cachedPublicKey = keyObject;
+            keyFetchTime = now;
+            console.log('[KSeF_SERVICE] Dynamic key fetched and parsed.');
+            return keyObject;
+
+        } catch (err: any) {
+            console.error(`[KSeF_SERVICE] Attempt ${i + 1} failed: ${err.message}`);
+            lastError = err;
+            if (i < retryCount - 1) {
+                await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential-ish backoff
+            }
         }
-    } catch (err: any) {
-        console.error(`[KSeF_SERVICE] ❌ Failed to read asymmetric key: ${err.message}`);
-        throw new Error(`Failed to read asymmetric key: ${err.message}`);
     }
 
-    cachedPublicKey = keyObject;
-    keyFetchTime = now;
-    console.log('[KSeF_SERVICE] Dynamic public key fetched and cached.');
-    return keyObject;
+    throw new Error(`Failed to read asymmetric key after ${retryCount} attempts: ${lastError?.message}`);
 }
 
 /**
