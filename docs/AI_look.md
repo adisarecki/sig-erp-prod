@@ -151,6 +151,7 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 052 | Finance / Engine | FIXED | Phase 14b: Self-Learning Contractor matching. | Wdrożono kaskadowe dopasowanie (NIP > IBAN > Nazwa) i automatyczne uczenie się numerów kont kontrahentów z wyciągów. |
 | Vector 055 | Finance / Engine | FIXED | HOTFIX: Aggressive Regex Engine (Lookahead). | Konsolidacja kolumn PKO BP i silnik Regex z Lookaheadami. |
 | Vector 056 | Finance / Engine | FIXED | HOTFIX: Refined Regex & Golden Rule Fallback. | Doprecyzowano Regex dla Nazwy (obsługa 'Adres:' dla kart), czyszczenie technicznych prefixów (Z/K/000) oraz Złota Reguła (fallback na Tytuł przy braku nazwy). |
+| Vector 058| Finance / Engine | FIXED | HOTFIX: Dual-Sync for Bank Import (Firestore + Prisma). | Wdrożono brakujący Dual-Sync w `importBankStatement`. ID z Firestore (20-char) jako PK w Prisma. Dodano mandatory 'Siedziba Główna' dla nowych firm. Naprawiono błąd 500. |
 
 ---
 
@@ -182,6 +183,7 @@ System integruje standardy SWIFT MT940 oraz PKO BP CSV w celu automatyzacji rozl
     - **Layer 1 (Regex)**: Wyciąganie nazwy po słowach kluczowych (Nazwa, Adres) z lookahead stop na (Tytuł, Lokalizacja, Miasto).
     - **Layer 2 (Cleaning)**: Automatyczne usuwanie technicznych prefixów PKO BP (np. `Z0123 K.01`, `0001`).
     - **Layer 3 (Golden Rule Fallback)**: Jeśli nazwa jest pusta, system przyjmuje pierwsze 30 znaków pola `Tytuł`.
+    - **Layer 4 (Dual-Sync & Integrity)**: Import bankowy wymusza teraz synchronizację do Firestore przed zapisem w Prisma. Każdy kontrahent otrzymuje ID z Firestore oraz obowiązkowy obiekt (Object).
 5. **General Cost Routing**: Transakcje z wybranymi słowami kluczowymi (ZUS, Żabka, Prowizja, Paliwo, Orlen, BP, Shell, Circle K, Moya, Stacja, Biedronka, LIDL, AUCHAN) są automatycznie klasyfikowane jako `GENERAL_COST`.
 6. **Chart Data**: Zielona linia profitu na wykresach bazuje na rzeczywistej gotówce (`transactions`).
 7. **PKO BP CSV Specifics**: Separator `;`, kodowanie `win1250`. Sanitacja cudzysłowów na poziomie całych linii i kolumn.

@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
+import { getAdminDb } from "@/lib/firebaseAdmin"
 import { getCurrentTenantId } from "@/lib/tenant"
 import type { ParsedBankTransaction } from "@/lib/pko-parser"
 import Decimal from "decimal.js"
@@ -9,8 +10,10 @@ import Decimal from "decimal.js"
 /**
  * Imports bank transactions and AUTO-CREATES missing contractors.
  * "Silent Import" strategy: no modals, just efficient data ingestion.
+ * Follows Dual-Sync protocol (Firestore + Prisma).
  */
 export async function importBankStatement(transactions: ParsedBankTransaction[]) {
+    const adminDb = getAdminDb()
     const tenantId = await getCurrentTenantId()
     const results = { added: 0, skipped: 0, errors: 0, newContractors: 0 }
 
@@ -44,15 +47,46 @@ export async function importBankStatement(transactions: ParsedBankTransaction[])
                 if (found) contractorId = found.id
             }
 
-            // Auto-Create if still missing
+            // --- Dual-Sync Auto-Create if still missing ---
             if (!contractorId) {
+                // a. Create Firestore Record for ID consistency
+                const ctrRef = adminDb.collection("contractors").doc()
+                const objRef = adminDb.collection("objects").doc()
+                
+                await ctrRef.set({
+                    tenantId,
+                    name: tx.contractor.name,
+                    nip: tx.contractor.nip || null,
+                    address: tx.contractor.address || null,
+                    type: "DOSTAWCA",
+                    status: "ACTIVE",
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                })
+
+                await objRef.set({
+                    contractorId: ctrRef.id,
+                    name: "Siedziba Główna",
+                    address: tx.contractor.address || null,
+                    createdAt: new Date().toISOString()
+                })
+
+                // b. Sync to Prisma with exact doc IDs
                 const newCtr = await prisma.contractor.create({
                     data: {
+                        id: ctrRef.id, // ID from Firestore
                         tenantId,
                         name: tx.contractor.name,
                         nip: tx.contractor.nip,
                         address: tx.contractor.address,
-                        status: "ACTIVE"
+                        status: "ACTIVE",
+                        objects: {
+                            create: {
+                                id: objRef.id,
+                                name: "Siedziba Główna",
+                                address: tx.contractor.address || null
+                            }
+                        }
                     }
                 })
                 contractorId = newCtr.id
@@ -76,6 +110,7 @@ export async function importBankStatement(transactions: ParsedBankTransaction[])
                 continue
             }
 
+            // Raw transactions only go to Prisma (matching Reconciliation logic)
             await prisma.bankTransactionRaw.create({
                 data: {
                     tenantId,
@@ -89,8 +124,8 @@ export async function importBankStatement(transactions: ParsedBankTransaction[])
             })
 
             results.added++
-        } catch (e) {
-            console.error("Błąd importu pojedynczej transakcji:", e)
+        } catch (e: any) {
+            console.error("[IMPORT_TX_ERROR] Failed to save transaction:", e.message)
             results.errors++
         }
     }
@@ -99,7 +134,13 @@ export async function importBankStatement(transactions: ParsedBankTransaction[])
     revalidatePath("/")
     revalidatePath("/crm")
 
-    return results
+    // Return plain result object (primitives) to avoid serialization issues
+    return {
+        added: Number(results.added),
+        skipped: Number(results.skipped),
+        errors: Number(results.errors),
+        newContractors: Number(results.newContractors)
+    }
 }
 
 export async function importContractors(contractorsToImport: { name: string, nip: string | null, address: string | null }[]) {
