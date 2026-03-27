@@ -185,7 +185,7 @@ export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps)
                         <DownloadCloud className="w-4 h-4" />
                     </div>
                     <div className="text-xs text-slate-400 leading-tight hidden lg:block">
-                        Import<br />Bankowy (MT940)
+                        Import<br />Bankowy (CSV)
                     </div>
                 </div>
                 <input

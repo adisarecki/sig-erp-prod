@@ -32,11 +32,12 @@ export async function POST(request: NextRequest) {
         if (contentType.includes("text/csv") || contentType.includes("application/vnd.ms-excel") || rawContent.includes("Data operacji") || rawContent.includes(";")) {
             rawTransactions = parseCSV(buffer);
         } else {
+            console.warn("[IMPORT_WARNING] Fallback to MT940 detected. CSV is preferred.");
             rawTransactions = parseMT940(buffer);
         }
 
         if (!rawTransactions.length) {
-            return NextResponse.json({ error: "Brak danych transakcji lub nieznany format." }, { status: 400 });
+            return NextResponse.json({ error: "Brak danych transakcji. Upewnij się, że przesyłasz plik CSV (MT940 nie jest już wspierany)." }, { status: 400 });
         }
 
         // -- LAYER 2: NORMALIZE --

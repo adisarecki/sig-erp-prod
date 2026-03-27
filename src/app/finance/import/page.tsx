@@ -220,9 +220,9 @@ function ImportPreviewPageInner() {
                         </p>
                         <div className="mt-8 px-8 py-4 bg-slate-900 hover:bg-black text-white font-bold rounded-2xl transition-all shadow-lg active:scale-95 flex items-center gap-3">
                             <UploadCloud className="w-5 h-5" />
-                            Wybierz plik XML / CSV
+                            Wybierz plik CSV (Zalecany)
                         </div>
-                        <p className="text-sm text-slate-400 mt-6">Obsługiwane formaty: camt.053 (XML) oraz natywny CSV z PKO BP.</p>
+                        <p className="text-sm text-slate-400 mt-6">Obsługiwane formaty: Natywny CSV z PKO BP (Zawsze CSV, Nigdy MT940).</p>
                     </label>
                 </div>
             )}

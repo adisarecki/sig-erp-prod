@@ -135,6 +135,7 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 | Vector 057 | Finance / UI     | FIXED | Mandatory Bank Account Selection. | Wdrożono selektor konta bankowego w widoku importu. System automatycznie pre-selektuje konto domyślne (`isDefault`) i blokuje import bez przypisanego ID konta SQL. |
 | Vector 058 | Finance / Engine | FIXED | Production Reliability & Dual-Sync. | Wdrożono serylizowalne obiekty odpowiedzi `{ success, results, error }` dla akcji serwerowych, eliminując błędy 500 na Vercelu. Poprawiono Dual-Sync dla kontrahentów. |
 | Vector 059 | Finance / Engine | FIXED | MT940 Firestore Fix (Strict Nulls). | Naprawiono błąd krytyczny `Cannot use "undefined" as a Firestore value` w potoku MT940 poprzez wymuszenie jawnych wartości `null` dla opcjonalnych pól (NIP, Adres). |
+| Vector 060 | Finance / Architecture | PIVOT | Always CSV, Never MT940. | Oficjalne wycofanie wsparcia dla formatu MT940 na rzecz CSV. Zaktualizowano UI (QuickActions, Import Page) i Route Handlery, aby wymusić i promować stabilniejszy format wyciągów. |
 
 - **HOTFIX: Wdrożono Dual-Sync i serylizację wyników (V.058).** 
 - **Build Verified**: Projekt przeszedł testy statyczne (`tsc`) i jest gotowy do wdrożenia na Vercel.
