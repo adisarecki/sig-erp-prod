@@ -286,8 +286,11 @@ export class KSeFService {
             }),
         });
 
-        if (res.status === 404) {
-            console.warn(`[KSeF_SERVICE] Step 5: Received 404 from Sync Query. (Possible no new data or environment mismatch). returning []`);
+        // Refined Error Handling: 
+        // If we explicitly passed a sessionToken (e.g. for testing valid/invalid sessions),
+        // we should NOT mask errors as empty results.
+        if (res.status === 404 && !options?.sessionToken) {
+            console.warn(`[KSeF_SERVICE] Step 5: Received 404 from Sync Query. (Possible no new data). returning []`);
             return [];
         }
 
