@@ -170,6 +170,7 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 066| KSeF / Production  | FIXED | HOTFIX: Handshake 404 & DER Parsing. | Naprawiono błąd 404 poprzez korektę endpointów na `/v2/` oraz wdrożenie binarnego parsowania certyfikatu SPKI/DER. Pełna zgodność z produkcją MF. |
 | Vector 068| KSeF / Architecture| FIXED | Official 4-Step Handshake v2.0. | Wdrożono 4-stopniowy proces autoryzacji (Challenge -> X509/Encryption -> KSeF-Token -> Redeem). Obsługa X509Certificate (Node 18+), 3x retry dla kluczy i 55-minutowy cache dla Access Tokena. |
 | Vector 069| KSeF / Architecture| FIXED | KSeF Query V2 Fix (404/Step 5). | Zmieniono endpoint zapytania na poprawny `/v2/invoice/query/query` oraz skorygowano payload kryteriów (`subject2`, `incremental`). Przywrócono widoczność metadanych faktur kosztowych. |
+| Vector 070| KSeF / Architecture| FIXED | KSeF Sync Query Refinement. | Przejście na oficjalny protokół nagłówka `SessionToken` (bez Bearer) oraz endpoint `/v2/online/Query/Invoice/Sync` z kryterium `acquisitionTimestampThreshold`. Pełna zgodność z modelem synchronicznym MF. |
 
 ---
 
@@ -180,7 +181,7 @@ System obsługuje **oficjalny 4-etapowy standard Handshake KSeF v2.0**:
 - **Krok 2 (Security)**: `GET /v2/security/public-key-certificates` → pobranie certyfikatu i wyciągnięcie publicznego klucza RSA przez `new crypto.X509Certificate(der).publicKey`.
 - **Krok 3 (Init)**: `POST /v2/auth/ksef-token` → inicjalizacja sesji z `contextIdentifier` (NIP) i zaszyfrowanym tokenem (`token|timestampMs`). Zwraca `authenticationToken` (status 202).
 - **Krok 4 (Redeem)**: `POST /v2/auth/token/redeem` → wymiana tokena operacyjnego na finalny `accessToken`. 
-- **Krok 5 (Query)**: `POST /v2/invoice/query/query` → pobieranie metadanych (subject2, incremental).
+- **Krok 5 (Query Sync)**: `POST /v2/online/Query/Invoice/Sync` → metadane przez nagłówek `SessionToken`.
 - **Persistence**: Dual-Sync do Prisma (`KsefInvoice`) i Firestore (`ksefInvoices`).
 - **Caching**: Access Token buforowany w pamięci przez 55 min (TOKEN_CACHE_TTL).
 - **Security**: RSA-OAEP z SHA-256. Brak statycznych plików PEM (pobierane w runtime).
@@ -190,7 +191,7 @@ System obsługuje **oficjalny 4-etapowy standard Handshake KSeF v2.0**:
 2. RSA-OAEP SHA-256 Encryption of `{env.KSEF_TOKEN}|{timestampMs}`
 3. Initialize via `/v2/auth/ksef-token` (Context: NIP)
 4. Redeem via `/v2/auth/token/redeem` using Bearer AuthorizationToken
-5. Query via `/v2/invoice/query/query` (Criteria: subject2, incremental)
+5. Query via `/v2/online/Query/Invoice/Sync` using SessionToken header
 
 ---
 

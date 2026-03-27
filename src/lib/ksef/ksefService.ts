@@ -119,8 +119,7 @@ export class KSeFService {
     }
 
     /**
-     * Get Authorization Headers
-     * Uses Access Token (v2.0 4-step) if available or starts handshake.
+     * Post-handshake authorized requests in v2.0 use SessionToken header
      */
     private async getHeaders(contentType: string = 'application/json', options?: { sessionToken?: string; customToken?: string }) {
         const headers: Record<string, string> = {
@@ -128,15 +127,8 @@ export class KSeFService {
             'Accept': contentType === 'application/xml' ? 'application/xml' : 'application/json',
         };
 
-        // If a direct token is provided (manual override), use it
-        if (options?.sessionToken) {
-            headers['Authorization'] = `Bearer ${options.sessionToken}`;
-            return headers;
-        }
-
-        // Check cache for production access token
-        const accessToken = await this.getAccessToken();
-        headers['Authorization'] = `Bearer ${accessToken}`;
+        const token = options?.sessionToken || options?.customToken || await this.getAccessToken();
+        headers['SessionToken'] = token;
 
         return headers;
     }
@@ -242,6 +234,7 @@ export class KSeFService {
 
     /**
      * Query for received invoices (Subject2 = EXPENSE)
+     * v2.0 Synchronous Query
      */
     async queryLatestInvoices(options?: {
         sessionToken?: string;
@@ -250,7 +243,7 @@ export class KSeFService {
         dateTo?: string;
         pageSize?: number;
     }): Promise<any[]> {
-        console.log('[KSeF_SERVICE] Step 5: Querying invoices (limit 50)...');
+        console.log('[KSeF_SERVICE] Step 5: Querying invoices (Sync, limit 50)...');
 
         const from = options?.dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const to = options?.dateTo || new Date().toISOString();
@@ -260,7 +253,7 @@ export class KSeFService {
             customToken: options?.testToken,
         });
 
-        const url = `${KSEF_BASE_URL}/v2/invoice/query/query`;
+        const url = `${KSEF_BASE_URL}/v2/online/Query/Invoice/Sync`;
         console.log(`[KSeF_SERVICE] Querying via ${url}...`);
 
         const queryRes = await fetch(url, {
@@ -270,8 +263,8 @@ export class KSeFService {
                 queryCriteria: {
                     subjectType: 'subject2', // Buyer (EXPENSE)
                     type: 'incremental',
-                    dateFrom: from,
-                    dateTo: to,
+                    acquisitionTimestampThresholdFrom: from,
+                    acquisitionTimestampThresholdTo: to,
                 },
                 pageSize: options?.pageSize || 50,
                 pageOffset: 0,
@@ -280,21 +273,21 @@ export class KSeFService {
 
         if (!queryRes.ok) {
             const errorDetails = await queryRes.text();
-            throw new Error(`KSeF Step 5 Query Failed (${queryRes.status}): ${errorDetails}`);
+            throw new Error(`KSeF Step 5 Sync Query Failed (${queryRes.status}): ${errorDetails}`);
         }
 
         const data = await queryRes.json();
-        const invoiceList = data.invoiceQueryResultList || data.invoiceList || [];
+        const invoiceHeaders = data.invoiceHeaderList || [];
 
-        console.log(`[KSeF_SERVICE] Step 5 OK: Found ${invoiceList.length} invoices.`);
-        return invoiceList;
+        console.log(`[KSeF_SERVICE] Step 5 OK: Found ${invoiceHeaders.length} invoice headers.`);
+        return invoiceHeaders;
     }
 
     /**
      * Fetch & Parse XML for a given KSeF reference number
      */
     async fetchAndParse(ksefNumber: string, options?: { sessionToken?: string; testToken?: string }): Promise<KsefParsedInvoice> {
-        console.log(`[KSeF_SERVICE] Fetching detail XML for ${ksefNumber}...`);
+        console.log(`[KSeF_SERVICE] Step 6: Fetching detail XML for ${ksefNumber}...`);
 
         const headers = await this.getHeaders('application/xml', {
             sessionToken: options?.sessionToken,
