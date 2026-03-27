@@ -134,6 +134,7 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 | Vector 056 | Finance / Engine | FIXED | HOTFIX: Refined Regex & Golden Rule Fallback. | Doprecyzowano Regex dla Nazwy (obsługa 'Adres:' dla kart), wdrożono czyszczenie technicznych przedrostków (Z/K/000) oraz 'Złotą Regułę' (fallback na Tytuł przy pustej nazwie). Rozszerzono auto-routing o Auchan/Biedronkę. |
 | Vector 057 | Finance / UI     | FIXED | Mandatory Bank Account Selection. | Wdrożono selektor konta bankowego w widoku importu. System automatycznie pre-selektuje konto domyślne (`isDefault`) i blokuje import bez przypisanego ID konta SQL. |
 | Vector 058 | Finance / Engine | FIXED | Production Reliability & Dual-Sync. | Wdrożono serylizowalne obiekty odpowiedzi `{ success, results, error }` dla akcji serwerowych, eliminując błędy 500 na Vercelu. Poprawiono Dual-Sync dla kontrahentów. |
+| Vector 059 | Finance / Engine | FIXED | MT940 Firestore Fix (Strict Nulls). | Naprawiono błąd krytyczny `Cannot use "undefined" as a Firestore value` w potoku MT940 poprzez wymuszenie jawnych wartości `null` dla opcjonalnych pól (NIP, Adres). |
 
 - **HOTFIX: Wdrożono Dual-Sync i serylizację wyników (V.058).** 
 - **Build Verified**: Projekt przeszedł testy statyczne (`tsc`) i jest gotowy do wdrożenia na Vercel.

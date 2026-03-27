@@ -21,7 +21,7 @@ export interface NormalizedTx {
     description: string;
     reference: string;
     accountNumber: string | null;
-    nip?: string;
-    address?: string;
-    iban?: string;
+    nip: string | null;
+    address: string | null;
+    iban: string | null;
 }

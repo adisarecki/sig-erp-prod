@@ -44,11 +44,13 @@ Najbardziej zaawansowany moduł systemu.
 2. **Crash `Object.defineProperty`**: Próba mutacji obiektu `File` w uploaderze. Naprawione przez użycie `useState<File | null>` i brak modyfikacji obiektu systemowego.
 5. **Błąd 500 (Server Components render) w Importach**: Rzucanie surowych wyjątków (`throw Error`) w akcjach Next.js na Vercelu powodowało błędy 500 bez opisu. Naprawione przez wdrożenie standardu zwracania serylizowalnych obiektów `{ success, results, error }`.
 6. **Brak ID Konta Bankowego w transakcjach**: Importy bez jawnie wybranego konta bankowego blokowały się lub tworzyły osierocone rekordy. Wdrożono mandatoryjny selektor konta bankowego w UI (`finance/import`) z obsługą flagi `isDefault`.
+7. **Błąd Firestore (Value for argument "data" is not a valid Firestore document)**: Próba zapisu wartości `undefined` w polach takich jak `nip` lub `address`. Naprawione przez wymuszenie jawnego rzutowania na `null` w całym potoku (types -> normalizer -> route).
 
 ## 5. Jak pracować z projektem (Dla kolejnych AI)
 - **Zasada ZERO Mutation**: Nie modyfikuj obiektów systemowych (np. File).
 - **Zasada AI-First**: Wszystkie nowe faktury powinny przechodzić przez `InvoiceScanner`.
 - **Zasada Serializable Actions**: Server Actions MUSZĄ zwracać obiekty `{ success, results?, error? }` zamiast rzucać błędy, aby uniknąć błędów 500 na Vercelu.
+- **Zasada Firestore Strict Nulls**: Nigdy nie wysyłaj `undefined` do Firestore. Każde opcjonalne pole musi być jawnie ustawione na `null`, jeśli jest puste.
 - **API Key**: Gemini API Key znajduje się w `.env` jako `GEMINI_API_KEY`.
 - **Prisma**: Po zmianach w schemacie zawsze uruchamiaj `npx prisma generate` oraz `npx prisma db push` dla synchronizacji z bazą danych.
 - **Firebase Admin**: Inicjalizacja przez `@/lib/firebaseAdmin.ts` (singleton z `getApps()`). Używaj getterów `getAdminDb()`, `getAdminAuth()`, `getAdminStorage()`. Nie importuj `firebase-admin/firestore` itd. na poziomie top-level — spowoduje to crash buildu na Vercelu.

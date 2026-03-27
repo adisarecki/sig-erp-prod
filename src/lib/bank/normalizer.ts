@@ -105,6 +105,8 @@ export function normalizeTransaction(raw: RawTransaction): NormalizedTx {
         description: fullDesc.trim(),
         reference: raw.rawReference || `REF-${dateObj.getTime()}-${Math.abs(amount)}`,
         accountNumber: accountNumber ? accountNumber.replace(/\s/g, '') : null,
-        address: address.trim() || undefined
+        address: address.trim() || null,
+        nip: raw.rawNip || null,
+        iban: raw.rawIban || (accountNumber ? accountNumber.replace(/\s/g, '') : null)
     };
 }
