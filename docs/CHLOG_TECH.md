@@ -1,0 +1,39 @@
+# Sig ERP – Historia Techniczna (Technical Changelog)
+
+Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla programistów i audytorów AI.
+
+---
+
+### 🛠️ Wykaz Wektorów (Zatwierdzone Zmiany)
+
+| ID | Moduł | Status | Opis | Szczegóły Techniczne |
+|:---|:---|:---|:---|:---|
+| Vector 001 | Finanse | FIXED | Błąd serializacji Decimal w RSC. | Konwersja na String/Number przed wysyłką. |
+| Vector 007 | Project Drift | FIXED | Projekty widoczne tylko w Firestore. | Poprawiono `projects.ts`, dodano tryb Healer dla synchronizacji. |
+| Vector 009 | Fetcher Error | FIXED | NoSQL limit `in` (max 30 id). | Wdrożono Chunking zapytań w `crm.ts`. |
+| Vector 011 | Dashboard | FIXED | Błędna matematyka marży (Gross vs Net). | Obliczenia zysku oparte teraz wyłącznie o wartości Netto. |
+| Vector 012 | RegisterIncomeModal | FIXED | Brak kategorii "INWESTYCJA". | Dodano kategorię do słowników w `lib/categories`. |
+| Vector 013 | Build / Vercel | FIXED | Null constraint violation (projectId). | Wymuszono `db push` w `package.json`. |
+| Vector 014 | UI/UX Drift | FIXED | Kaucja widoczna dla kosztów paliwa. | Warunkowy rendering kaucji (tylko dla INWESTYCJA). |
+| Vector 015 | Data Integrity | FIXED | Śmieciowe rekordy "Orlen" bez NIP. | Wdrożono `contractorHealer.ts` i walidację unikalności nazw. |
+| Vector 016 | UI/UX | FIXED | Dropdowny uciekają poza modal. | `max-h-60` i `overflow-y-auto` dla Select. |
+| Vector 017 | Architecture | FIXED | Drift danych Firestore vs Prisma. | Ujednolicono źródło danych na Prisma-First. |
+| Vector 018 | Logic Error | FIXED | Błędne saldo kontrahenta. | Formuła `SUM(...) WHERE status NOT IN ('PAID', 'REVERSED')`. |
+| Vector 019 | Logic / Compliance | FIXED | CIT Rate mismatch (19% vs 9%). | Zmieniono stawkę CIT na 9% (Mały Podatnik). |
+| Vector 020 | AI / Automation | FIXED | Manual data entry for invoices. | Wdrożono `scanInvoiceAction` (Gemini Flash). |
+| Vector 025 | AI / Batch OCR | FIXED | Multi-document OCR & Batch Mode. | Obsługa wielu dokumentów na jednym zdjęciu. |
+| Vector 029 | AI / Finance / Logic | FIXED | Brak Skarbca Kaucji. | Wdrożono moduł Retention Vault. |
+| Vector 031 | Project Health / Logic | FIXED | Dynamic Budget Aggregation. | Obliczenia oparte o faktury EXPENSE (Brutto). |
+| Vector 035 | Project Closure | FIXED | Closure Protocol (Archive Lock). | Modal zamknięcia inwestycji blokujący koszty. |
+| Vector 041 | Finance / Bank | FIXED | Bank Reconciliation Engine. | Wdrożono parser MT940 i algorytm uzgadniania. |
+| Vector 042 | KSeF / Integration | FIXED | KSeF 2.0 Integration. | Zaimplementowano `ksef-service` (Read-only). |
+| Vector 046 | Finance / Engine | FIXED | Transition from MT940 to CSV. | Pivot na format CSV dla wyciągów PKO BP. |
+| Vector 050 | Finance / Engine | FIXED | 3-Layer Bank Import Pipeline. | Parser -> Normalizer -> Mapper (iconv-lite). |
+| Vector 054 | Finance / Engine | FIXED | Master Parser & Self-Learning. | Regex Normalizer i Bi-directional IBAN learning. |
+| Vector 057 | Finance / UI | FIXED | Mandatory Bank Account Selection. | Selektor konta w UI + pre-selekcja `isDefault`. |
+| Vector 058 | Finance / Engine | FIXED | Production Reliability (Serializable). | Server Actions zwracają `{ success, results, error }`. |
+| Vector 059 | Finance / Engine | FIXED | Firestore Strict Nulls. | Jawne rzutowanie na `null` dla pól nip/address/iban. |
+| Vector 060 | Finance / Architecture | PIVOT | Always CSV, Never MT940. | Usunięcie MT940 z UI i potoków ze względu na błędy. |
+
+---
+*Ostatnia aktywność techniczna: 2026-03-27. Build Verified on Vercel.*
