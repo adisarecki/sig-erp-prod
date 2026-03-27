@@ -49,16 +49,21 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 
 ## 🧾 4. Integracja KSeF (v2.0, Produkcyjna, 2026)
 
-**Pełny standard KSeF v2.0 (Produkcja, Dynamiczne Klucze):**
-- **Dynamiczna Autoryzacja**: System pobiera klucz publiczny MF prosto do pamięci (Runtime) – brak statycznych plików kluczy w repozytorium.
-- **Pełna Sesja**: proces handshake: challenge → szyfrowanie dynamicznym kluczem (RSA-OAEP, SHA-256) → `sessionToken`.
-- **Natywna Paginacja**: Pobieranie do 50 faktur na stronę (limit MF) z obsługą filtrów `dateFrom` i `dateTo`.
-- **Dostęp po ID**: Możliwość błyskawicznego podglądu detali konkretnej faktury po numerze KSeF.
-- **Bezpieczeństwo**: Tokeny i NIP przechowywane bezpiecznie w zmiennych środowiskowych Vercel.
+**Pełny, 4-etapowy standard Handshake KSeF v2.0 (Zgodność OpenAPI):**
+1.  **Challenge (Wyzwanie)**: Pobranie unikalnego `challenge` oraz `timestampMs` z serwerów MF (`POST /v2/auth/challenge`).
+2.  **Encryption (Szyfrowanie)**: Dynamiczne pobranie certyfikatu publicznego oraz zaszyfrowanie ciągu `{KSEF_TOKEN}|{timestampMs}` algorytmem **RSA-OAEP (SHA-256)**.
+3.  **KSeF-Token (Inicjalizacja)**: Przesłanie zaszyfrowanego tokena wraz z identyfikatorem NIP (`POST /v2/auth/ksef-token`). System otrzymuje status **202 Accepted** oraz token operacyjny.
+4.  **Redeem (Finalizacja)**: Wymiana tokena operacyjnego na ostateczny `accessToken` (`POST /v2/auth/token/redeem`).
 
-**Weryfikacja i Narzędzia:**
-- **Diagnostyka**: Endpoint `/api/ksef/verify-all` raportuje stan połączenia i poprawność handshake.
-- **Szybki Test**: `/api/ksef/test-sync` dla błyskawicznej weryfikacji sesji.
+**Główne Atuty Rozwiązania:**
+- **Dynamiczne Zarządzanie Kluczami**: Certyfikaty są pobierane w runtime i trzymane w bezpiecznym cache'u w pamięci (brak plików PEM w repozytorium).
+- **Stabilny Cache**: Access Token jest buforowany przez 55 minut, co minimalizuje obciążenie serwerów MF i zapewnia stabilność sesji.
+- **Pełna Diagnostyka**: Endpoint `/api/ksef/verify-all` raportuje status każdego z 4 kroków autoryzacji.
+- **Dual-Sync**: Każdą pobraną fakturę zapisujemy jednocześnie w Prisma (SQL) i Firestore.
+
+**Narzędzia:**
+- **Synchronizacja**: `/api/ksef/sync` – pełne pobranie faktur z MF do bazy Sig i Firestore.
+- **Paginacja**: Pobieranie do 50 faktur na stronę (limit MF) z filtrami dat.
 
 
 

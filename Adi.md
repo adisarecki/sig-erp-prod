@@ -10,7 +10,7 @@
 - **Baza Danych**: PostgreSQL (via Prisma ORM)
   - Kluczowe modele: `Transaction` (rejestr operacji), `Project` (budżet i burn rate), `Tenant` (wsparcie multi-tenant).
   - Schema: Każda transakcja ma typ `INCOME`/`COST` i status `PENDING`/`COMPLETED`. Transakcje i Faktury posiadają pole `bankTransactionId` dla uniknięcia duplikatów przy imporcie.
-- **AI**: Google Gemini 2.0 Flash (OCR & Analiza)
+- **AI**: Google Gemini 3.0 Flash (OCR & Analiza)
 - **Standardy Finansowe**:
   - Kwoty przechowywane jako liczby całkowite (grosze) w bazie (INT/BigInt).
   - Wykorzystanie `decimal.js` do precyzyjnych obliczeń na frontendzie/backendzie (np. `new Decimal(amount).div(100)` dla wyświetlania).

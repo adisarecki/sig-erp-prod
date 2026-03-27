@@ -3,15 +3,21 @@ import Decimal from 'decimal.js';
 import crypto from 'crypto';
 
 // Base URL: https://api.ksef.mf.gov.pl/api
-// All KSeF v2 paths are prepended with /v2
 const KSEF_BASE_URL = (process.env.KSEF_BASE_URL || 'https://api.ksef.mf.gov.pl/api').replace(/\/$/, '');
 const KSEF_TOKEN = process.env.KSEF_TOKEN;
 const DEFAULT_NIP = '9542751368';
 
-// In-memory cache for the MF Public Key
+// ─── Module-Level Cache ────────────────────────────────────────────────────────
+
+// Public Key Cache
 let cachedPublicKey: crypto.KeyObject | null = null;
 let keyFetchTime: number = 0;
 const KEY_CACHE_TTL = 1000 * 60 * 60; // 1 hour
+
+// Access Token Cache (Final Handshake Token)
+let cachedAccessToken: string | null = null;
+let tokenFetchTime: number = 0;
+const TOKEN_CACHE_TTL = 1000 * 60 * 55; // 55 mins (approx 1h)
 
 async function fetchKSeFPublicKey(retryCount: number = 3): Promise<crypto.KeyObject> {
     const now = Date.now();
@@ -24,7 +30,7 @@ async function fetchKSeFPublicKey(retryCount: number = 3): Promise<crypto.KeyObj
 
     for (let i = 0; i < retryCount; i++) {
         try {
-            console.log(`[KSeF_SERVICE] Fetching dynamic public key from: ${url} (Attempt ${i + 1}/${retryCount})`);
+            console.log(`[KSeF_SERVICE] Step 2a: Fetching dynamic public key from: ${url} (Attempt ${i + 1}/${retryCount})`);
             const res = await fetch(url);
             if (!res.ok) {
                 throw new Error(`Failed to fetch KSeF public key (${res.status}): ${await res.text()}`);
@@ -44,26 +50,24 @@ async function fetchKSeFPublicKey(retryCount: number = 3): Promise<crypto.KeyObj
 
             let derBuffer: Buffer;
             if (rawCert.includes('-----BEGIN')) {
-                // If it's already PEM, we can just use it, but X509Certificate handles buffers (DER) too
                 derBuffer = Buffer.from(rawCert.replace(/-----(BEGIN|END) CERTIFICATE-----/g, '').replace(/\s+/g, ''), 'base64');
             } else {
                 derBuffer = Buffer.from(rawCert, 'base64');
             }
 
-            // Using modern Node.js 18+ X509Certificate API for robust parsing
             const x509 = new crypto.X509Certificate(derBuffer);
             const keyObject = x509.publicKey;
 
             cachedPublicKey = keyObject;
             keyFetchTime = now;
-            console.log('[KSeF_SERVICE] Dynamic key fetched and parsed.');
+            console.log('[KSeF_SERVICE] Step 2a OK: Dynamic key fetched and parsed.');
             return keyObject;
 
         } catch (err: any) {
-            console.error(`[KSeF_SERVICE] Attempt ${i + 1} failed: ${err.message}`);
+            console.error(`[KSeF_SERVICE] Public key attempt ${i + 1} failed: ${err.message}`);
             lastError = err;
             if (i < retryCount - 1) {
-                await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential-ish backoff
+                await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
             }
         }
     }
@@ -72,10 +76,9 @@ async function fetchKSeFPublicKey(retryCount: number = 3): Promise<crypto.KeyObj
 }
 
 /**
- * Encrypt `token|timestampMs` with the MF public key (RSA-OAEP, SHA-256).
- * timestampMs is the Unix timestamp in milliseconds from the challenge response.
+ * Step 2b: Encrypt `token|timestampMs` with RSA-OAEP SHA-256.
  */
-async function encryptToken(token: string, timestampMs: number): Promise<string> {
+async function encryptKSeFToken(token: string, timestampMs: number): Promise<string> {
     const publicKey = await fetchKSeFPublicKey();
     const payload = `${token}|${timestampMs}`;
     const encrypted = crypto.publicEncrypt(
@@ -117,43 +120,50 @@ export class KSeFService {
 
     /**
      * Get Authorization Headers
-     * Priority: sessionToken (v2.0) -> customToken (Bearer) -> env.KSEF_TOKEN (Bearer)
+     * Uses Access Token (v2.0 4-step) if available or starts handshake.
      */
-    private getHeaders(contentType: string = 'application/json', options?: { sessionToken?: string; customToken?: string }) {
+    private async getHeaders(contentType: string = 'application/json', options?: { sessionToken?: string; customToken?: string }) {
         const headers: Record<string, string> = {
             'Content-Type': contentType,
             'Accept': contentType === 'application/xml' ? 'application/xml' : 'application/json',
         };
 
+        // If a direct token is provided (manual override), use it
         if (options?.sessionToken) {
-            headers['SessionToken'] = options.sessionToken;
-        } else {
-            const token = options?.customToken || KSEF_TOKEN;
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
+            headers['Authorization'] = `Bearer ${options.sessionToken}`;
+            return headers;
         }
+
+        // Check cache for production access token
+        const accessToken = await this.getAccessToken();
+        headers['Authorization'] = `Bearer ${accessToken}`;
 
         return headers;
     }
 
     /**
-     * KSeF v2.0 Session Handshake
-     *
-     * Flow:
-     *   1. POST /v2/auth/challenge  →  { challenge, timestamp, timestampMs }
-     *   2. Encrypt `token|timestampMs` with MF public key (RSA-OAEP SHA-256)
-     *   3. POST /v2/auth/ksef-token { challenge, encryptedToken }  →  { sessionToken }
+     * KSeF v2.0 4-Step Handshake (Unified)
+     * 1. POST /v2/auth/challenge
+     * 2. Key Fetch & RSA-OAEP Encryption
+     * 3. POST /v2/auth/ksef-token (Init)
+     * 4. POST /v2/auth/token/redeem (Final)
      */
-    async getSessionToken(nip?: string, token?: string): Promise<string> {
+    async getAccessToken(nip?: string, token?: string): Promise<string> {
+        const now = Date.now();
+
+        // 0. Use cache if valid
+        if (cachedAccessToken && (now - tokenFetchTime < TOKEN_CACHE_TTL)) {
+            return cachedAccessToken;
+        }
+
         const targetNip = nip || process.env.KSEF_NIP || DEFAULT_NIP;
         const targetToken = token || KSEF_TOKEN;
 
         if (!targetToken) throw new Error('KSEF_TOKEN missing in environment.');
 
-        console.log(`[KSeF_SERVICE] Initializing session (v2.0) for NIP: ${targetNip}...`);
+        console.log(`[KSeF_SERVICE] Starting v2.0 4-step Handshake for NIP: ${targetNip}...`);
 
-        // ── Step 1: Challenge ────────────────────────────────
+        // ── KROK 1: Wyzwanie (Challenge) ─────────────────────
         const challengeUrl = `${KSEF_BASE_URL}/v2/auth/challenge`;
         const challengeRes = await fetch(challengeUrl, {
             method: 'POST',
@@ -162,48 +172,76 @@ export class KSeFService {
         });
 
         if (!challengeRes.ok) {
-            const errorText = await challengeRes.text();
-            throw new Error(`Challenge failed (${challengeRes.status}): ${errorText}`);
+            throw new Error(`Step 1 Challenge failed (${challengeRes.status}): ${await challengeRes.text()}`);
         }
 
-        const challengeData = await challengeRes.json();
-        const { challenge, timestampMs } = challengeData;
+        const { challenge, timestampMs } = await challengeRes.json();
+        if (!challenge || !timestampMs) throw new Error('Invalid Challenge response');
+        console.log('[KSeF_SERVICE] Step 1 OK: Challenge verified.');
 
-        if (!challenge) throw new Error('No challenge in response');
-        if (!timestampMs) throw new Error('No timestampMs in challenge response');
+        // ── KROK 2: Klucz i Szyfrowanie (Handled by helpers) ──────
+        const encryptedToken = await encryptKSeFToken(targetToken, timestampMs);
+        console.log('[KSeF_SERVICE] Step 2 OK: Token encrypted (RSA-OAEP SHA-256).');
 
-        console.log(`[KSeF_SERVICE] Challenge OK: ${challenge}`);
-
-        // ── Step 2: Encrypt token|timestampMs ───────────────
-        const encryptedToken = await encryptToken(targetToken, timestampMs);
-        console.log('[KSeF_SERVICE] Token encrypted OK.');
-
-        // ── Step 3: Exchange for sessionToken ───────────────
-        const tokenUrl = `${KSEF_BASE_URL}/v2/auth/token`;
-        const sessionRes = await fetch(tokenUrl, {
+        // ── KROK 3: Inicjalizacja Tokena ──────────────────────
+        const initUrl = `${KSEF_BASE_URL}/v2/auth/ksef-token`;
+        const initRes = await fetch(initUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ challenge, encryptedToken }),
+            body: JSON.stringify({
+                challenge,
+                contextIdentifier: {
+                    type: "Nip",
+                    value: targetNip
+                },
+                encryptedToken
+            }),
         });
 
-        if (!sessionRes.ok) {
-            const errorText = await sessionRes.text();
-            throw new Error(`Session establishment failed (${sessionRes.status}): ${errorText}`);
+        if (!initRes.ok && initRes.status !== 202) {
+            throw new Error(`Step 3 Initialization failed (${initRes.status}): ${await initRes.text()}`);
         }
 
-        const sessionData = await sessionRes.json();
-        const sessionToken = sessionData.sessionToken || sessionData.token;
-        if (!sessionToken) throw new Error(`No sessionToken in response: ${JSON.stringify(sessionData)}`);
+        const initData = await initRes.json();
+        const authenticationToken = initData.authenticationToken?.token;
+        if (!authenticationToken) throw new Error('No authenticationToken in Step 3 response');
+        console.log('[KSeF_SERVICE] Step 3 OK: KSeF-Token initialized (202 Accepted).');
 
-        console.log('[KSeF_SERVICE] v2.0 Session established.');
-        return sessionToken;
+        // ── KROK 4: Pobranie Access Tokena (Redeem) ──────────
+        const redeemUrl = `${KSEF_BASE_URL}/v2/auth/token/redeem`;
+        const redeemRes = await fetch(redeemUrl, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authenticationToken}`
+            }
+        });
+
+        if (!redeemRes.ok) {
+            throw new Error(`Step 4 Redeem failed (${redeemRes.status}): ${await redeemRes.text()}`);
+        }
+
+        const redeemData = await redeemRes.json();
+        const accessToken = redeemData.accessToken?.token;
+        if (!accessToken) throw new Error('No accessToken in Step 4 response');
+
+        // 5. Update Cache
+        cachedAccessToken = accessToken;
+        tokenFetchTime = Date.now();
+
+        console.log('[KSeF_SERVICE] Step 4 OK: Handshake v2.0 Complete. Access Token Redeemed.');
+        return accessToken;
+    }
+
+    /**
+     * Legacy wrapper to maintain compatibility with existing controllers
+     */
+    async getSessionToken(nip?: string, token?: string): Promise<string> {
+        return this.getAccessToken(nip, token);
     }
 
     /**
      * Query for received invoices (Subject2 = EXPENSE)
-     * @param options.dateFrom  ISO date string
-     * @param options.dateTo    ISO date string
-     * @param options.pageSize  Max 50 (KSeF native limit)
      */
     async queryLatestInvoices(options?: {
         sessionToken?: string;
@@ -217,12 +255,14 @@ export class KSeFService {
         const from = options?.dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const to = options?.dateTo || new Date().toISOString();
 
+        const headers = await this.getHeaders('application/json', {
+            sessionToken: options?.sessionToken,
+            customToken: options?.testToken,
+        });
+
         const queryRes = await fetch(`${KSEF_BASE_URL}/v2/online/Query/Invoice/Sync`, {
             method: 'POST',
-            headers: this.getHeaders('application/json', {
-                sessionToken: options?.sessionToken,
-                customToken: options?.testToken,
-            }),
+            headers,
             body: JSON.stringify({
                 queryCriteria: {
                     subjectType: 'Subject2', // Received (EXPENSE)
@@ -250,12 +290,14 @@ export class KSeFService {
     async fetchAndParse(ksefNumber: string, options?: { sessionToken?: string; testToken?: string }): Promise<KsefParsedInvoice> {
         console.log(`[KSeF_SERVICE] Fetching detail XML for ${ksefNumber}...`);
 
+        const headers = await this.getHeaders('application/xml', {
+            sessionToken: options?.sessionToken,
+            customToken: options?.testToken,
+        });
+
         const res = await fetch(`${KSEF_BASE_URL}/v2/online/Invoice/Get/${ksefNumber}`, {
             method: 'GET',
-            headers: this.getHeaders('application/xml', {
-                sessionToken: options?.sessionToken,
-                customToken: options?.testToken,
-            }),
+            headers,
         });
 
         if (!res.ok) {

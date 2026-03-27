@@ -166,27 +166,28 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 058| Finance / Engine | FIXED | HOTFIX: Serializable Responses & Dual-Sync. | Wdrożono serylizowalne obiekty odpowiedzi dla akcji serwerowych. Naprawiono błąd 500 na Vercelu. Poprawiono Dual-Sync dla kontrahentów. |
 | Vector 059| Finance / Data   | FIXED | Firestore Strict Nulls. | Naprawiono błąd `Cannot use "undefined" as a Firestore value` poprzez wymuszenie jawnego rzutowania na `null` w potoku importu. |
 | Vector 060| Finance / Logic  | PIVOT | Always CSV, Never MT940. | Oficjalne wycofanie wsparcia dla formatu MT940 na rzecz CSV ze względu na błędy parsowania. Zaktualizowano UI i dokumentację. |
-| Vector 063| KSeF / Architecture| FIXED | Dynamic Public Key & Native Paging. | Wdrożono dynamiczne pobieranie klucza publicznego KSeF do pamięci (Runtime) oraz natywną paginację (limit 50) i filtrowanie dat. |
+| Vector 063| KSeF / Architecture| FIXED | Dynamic Public Key & Handshake v2.0. | Wdrozono dynamiczne pobieranie klucza publicznego KSeF (DER/Base64), szyfrowanie `token|timestampMs` (Unix MS) oraz natywną paginację (limit 50). |
+| Vector 066| KSeF / Production  | FIXED | HOTFIX: Handshake 404 & DER Parsing. | Naprawiono błąd 404 poprzez korektę endpointów na `/v2/` oraz wdrożenie binarnego parsowania certyfikatu SPKI/DER. Pełna zgodność z produkcją MF. |
+| Vector 068| KSeF / Architecture| FIXED | Official 4-Step Handshake v2.0. | Wdrożono 4-stopniowy proces autoryzacji (Challenge -> X509/Encryption -> KSeF-Token -> Redeem). Obsługa X509Certificate (Node 18+), 3x retry dla kluczy i 55-minutowy cache dla Access Tokena. |
 
 ---
 
 ## 🏗️ 9. KSeF 2.0 Integration (2026, Produkcyjna)
 
-System obsługuje **pełny standard KSeF v2.0**:
-- Autoryzacja przez sesję (challenge, szyfrowanie dynamicznym kluczem MF, sessionToken)
-- Klucz publiczny MF: Pobierany dynamicznie (Runtime) z `${KSEF_BASE_URL}/ksefPublicKey` do pamięci.
-- Paginacja: Natywna KSeF (pageSize: 50). Filtrowanie po `invoicingDateFrom/To`.
-- Endpointy: `/auth/challenge`, `/auth/ksef-token`, `/invoices/{ksefNumber}` (XML)
-- Brak Bearer tokena – tylko `SessionToken` w nagłówkach
-- NIP i token pobierane z zmiennych środowiskowych (KSEF_NIP, KSEF_TOKEN)
-- Logi handshake/testów: `/api/ksef/sync`, `/api/ksef/test-sync`, `/api/ksef/verify-all`
-- Weryfikacja: Brak 401/404, widoczny `sessionToken`, poprawne pobieranie faktur.
+System obsługuje **oficjalny 4-etapowy standard Handshake KSeF v2.0**:
+- **Krok 1 (Challenge)**: `POST /v2/auth/challenge` → pobranie `challenge` i `timestampMs`.
+- **Krok 2 (Security)**: `GET /v2/security/public-key-certificates` → pobranie certyfikatu i wyciągnięcie publicznego klucza RSA przez `new crypto.X509Certificate(der).publicKey`.
+- **Krok 3 (Init)**: `POST /v2/auth/ksef-token` → inicjalizacja sesji z `contextIdentifier` (NIP) i zaszyfrowanym tokenem (`token|timestampMs`). Zwraca `authenticationToken` (status 202).
+- **Krok 4 (Redeem)**: `POST /v2/auth/token/redeem` → wymiana tokena operacyjnego na finalny `accessToken`. 
+- **Persistence**: Dual-Sync do Prisma (`KsefInvoice`) i Firestore (`ksefInvoices`).
+- **Caching**: Access Token buforowany w pamięci przez 55 min (TOKEN_CACHE_TTL).
+- **Security**: RSA-OAEP z SHA-256. Brak statycznych plików PEM (pobierane w runtime).
 
-**Przykład handshake:**
-1. POST `/auth/challenge` → timestamp
-2. Szyfruj `token|timestamp` kluczem MF
-3. POST `/auth/ksef-token` → `sessionToken`
-4. GET `/invoices/{ksefNumber}` z nagłówkiem `SessionToken`
+**Przykład handshake (v2.0 Production):**
+1. Challenge + TimestampMs (MF API)
+2. RSA-OAEP SHA-256 Encryption of `{env.KSEF_TOKEN}|{timestampMs}`
+3. Initialize via `/v2/auth/ksef-token` (Context: NIP)
+4. Redeem via `/v2/auth/token/redeem` using Bearer AuthorizationToken
 
 ---
 

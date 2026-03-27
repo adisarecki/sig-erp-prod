@@ -39,6 +39,8 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 063 | KSeF / Core | FIXED | Sprint 1: KSeF Read-Only. | Wdrożono `ksefService.ts` (Auth -> Query -> Fetch -> Parse). Model `KsefInvoice` (Prisma) z obsługą Raw XML Fa(2). Zweryfikowano `tsc --noEmit`. |
 | Vector 064 | KSeF / Prod | FIXED | Production Direct Token. | Wdrożenie API produkcyjnego MF, autoryzacja Direct Token (Bearer), usunięcie RSA i diagnostyka `/verify-all`. |
 | Vector 065 | KSeF / Architecture| FIXED | Dynamic Public Key & Native Paging. | Wdrożono dynamiczne pobieranie klucza publicznego KSeF do pamięci (Runtime) oraz rygorystyczną paginację (limit 50) i filtrowanie dat. Usunięto zależność od plików PEM. |
+| Vector 066 | KSeF / Production  | FIXED | HOTFIX: Handshake 404 & DER Parsing. | Naprawiono błąd 404 poprzez korektę endpointów na `/v2/` oraz wdrożenie binarnego parsowania certyfikatu SPKI/DER. Pełna zgodność z produkcją MF (timestampMs). |
+| Vector 068 | KSeF / Architecture| FIXED | Official 4-Step Handshake v2.0. | Wdrożono 4-stopniowy proces autoryzacji (Challenge -> X509/Encryption -> KSeF-Token -> Redeem). Obsługa X509Certificate (Node 18+), 3x retry dla kluczy i 55-minutowy cache dla Access Tokena. |
 
 ---
 *Ostatnia aktywność techniczna: 2026-03-27. Build Verified (TSC: OK).*

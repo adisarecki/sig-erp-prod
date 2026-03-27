@@ -24,35 +24,39 @@ export async function GET() {
     };
 
     try {
-        // --- 1. Authenticaton Check (v2.0 Handshake with Dynamic Key) ---
-        logToReport("\nSTEP 1: Starting KSeF v2.0 Session Handshake (Dynamic Key)...");
+        // --- 1. Authenticaton Check (v2.0 4-Step Handshake) ---
+        logToReport("\nSTEP 1-4: Starting KSeF v2.0 4-step Handshake...");
         
-        let sessionToken: string;
+        let accessToken: string;
         try {
-            // Uses KSEF_NIP and KSEF_TOKEN from env automatically
-            sessionToken = await ksefSvc.getSessionToken();
-            logToReport("✅ SUCCESS: Dynamic handshake completed.");
-            logToReport(`🔑 SessionToken: ${sessionToken.substring(0, 10)}...`);
+            // Internally logs Step 1, 2, 3, 4
+            accessToken = await ksefSvc.getAccessToken();
+            
+            logToReport("✅ KROK 1: Wyzwanie (Challenge) OK.");
+            logToReport("✅ KROK 2: Klucz i Szyfrowanie (RSA-OAEP) OK.");
+            logToReport("✅ KROK 3: Inicjalizacja Tokena (202 Accepted) OK.");
+            logToReport("✅ KROK 4: Pobranie Access Tokena (Redeem) OK.");
+            logToReport(`🔑 Final AccessToken: ${accessToken.substring(0, 10)}...`);
             testResults.auth = true;
         } catch (err: any) {
             logToReport(`❌ FAILURE: Handshake failed: ${err.message}`);
             throw err;
         }
 
-        // --- 2. Query Metadata using SessionToken ---
-        logToReport("\nSTEP 2: Querying Metadata (Sync)...");
+        // --- 2. Query Metadata using AccessToken ---
+        logToReport("\nSTEP 5: Querying Metadata (Sync)...");
         try {
-            const invoices = await ksefSvc.queryLatestInvoices({ sessionToken });
+            const invoices = await ksefSvc.queryLatestInvoices();
             logToReport(`✅ SUCCESS: Found ${invoices.length} invoices in recent metadata.`);
             testResults.query = true;
 
             // --- 3. Detail Fetch & XML Parse ---
             if (invoices.length > 0) {
-                logToReport("\nSTEP 3: Testing XML Fetch & Parse...");
+                logToReport("\nSTEP 6: Testing XML Fetch & Parse...");
                 const sample = invoices[0];
                 const ksefRef = sample.invoiceReferenceNumber;
                 
-                const parsed = await ksefSvc.fetchAndParse(ksefRef, { sessionToken });
+                const parsed = await ksefSvc.fetchAndParse(ksefRef);
                 
                 logToReport(`✅ SUCCESS: Fetched and parsed invoice ${ksefRef}.`);
                 logToReport(`   - Nr: ${parsed.invoiceNumber}`);
@@ -60,21 +64,19 @@ export async function GET() {
                 logToReport(`   - Buyer: ${parsed.counterpartyName}`);
                 testResults.parse = true;
             } else {
-                logToReport("\nSTEP 3: INFO: Found 0 invoices. (Simulation: Empty List OK).");
+                logToReport("\nSTEP 6: INFO: Found 0 invoices. (Simulation: Empty List OK).");
             }
         } catch (err: any) {
             logToReport(`❌ FAILURE: API Communication error: ${err.message}`);
         }
 
-
-
         // --- 4. Edge Case Simulations ---
-        logToReport("\nSTEP 4: Simulating Edge Cases...");
+        logToReport("\nSTEP 7: Simulating Edge Cases...");
         
         // 4a. Invalid Token (401)
         try {
             logToReport("   Testing 401 Unauthorized (Invalid Token)...");
-            await ksefSvc.queryLatestInvoices({ testToken: "INVALID_TOKEN_123" });
+            await ksefSvc.queryLatestInvoices({ sessionToken: "INVALID_TOKEN_123" });
             logToReport("   ❌ FAILURE: API accepted an invalid token! (Security Risk)");
         } catch (err: any) {
             if (err.message.includes("401") || err.message.includes("403")) {
@@ -104,7 +106,7 @@ export async function GET() {
 
     logToReport("\n================================================================");
     logToReport("🏁 VERIFICATION SUMMARY");
-    logToReport(`- Auth/Connectivity:  ${testResults.auth ? "OK" : "FAILED"}`);
+    logToReport(`- Handshake 1-4:      ${testResults.auth ? "OK" : "FAILED"}`);
     logToReport(`- Metadata Mapping:   ${testResults.query ? "OK" : "FAILED"}`);
     logToReport(`- XML Parse Logic:    ${testResults.parse ? "OK" : "FAILED"}`);
     logToReport(`- Edge Cases/Error:   ${testResults.edgeCases ? "OK" : "FAILED"}`);
