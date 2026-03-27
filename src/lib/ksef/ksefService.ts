@@ -243,7 +243,7 @@ export class KSeFService {
         dateTo?: string;
         pageSize?: number;
     }): Promise<any[]> {
-        console.log('[KSeF_SERVICE] Step 5: Querying invoices (Sync Range, limit 50)...');
+        console.log('[KSeF_SERVICE] Step 5: Querying invoices (Sync Incremental, limit 50)...');
 
         const from = options?.dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const to = options?.dateTo || new Date().toISOString();
@@ -253,8 +253,8 @@ export class KSeFService {
             customToken: options?.testToken,
         });
 
-        // Use lowercase URL for case-sensitive production environments
-        const url = `${KSEF_BASE_URL}/v2/online/query/invoice/sync`;
+        // Use cased URL based on latest mentor diagnostics
+        const url = `${KSEF_BASE_URL}/v2/online/Query/Invoice/Sync`;
         console.log(`[KSeF_SERVICE] Querying via ${url}...`);
 
         const queryRes = await fetch(url, {
@@ -263,9 +263,9 @@ export class KSeFService {
             body: JSON.stringify({
                 queryCriteria: {
                     subjectType: 'subject2', // Buyer (EXPENSE)
-                    type: 'range',
-                    invoicingDateFrom: from,
-                    invoicingDateTo: to,
+                    type: 'incremental',
+                    acquisitionTimestampThresholdFrom: from,
+                    acquisitionTimestampThresholdTo: to,
                 },
                 pageSize: options?.pageSize || 50,
                 pageOffset: 0,
