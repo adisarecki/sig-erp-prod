@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { KSeFService } from '@/lib/ksef/ksefService';
+import prisma from '@/lib/prisma';
 
 export async function GET() {
     const report: string[] = [];
@@ -23,36 +24,35 @@ export async function GET() {
     };
 
     try {
-        // --- 1. Authenticaton Check (Connectivity) ---
-        logToReport("\nSTEP 1: Testing Production Connectivity...");
+        // --- 1. Authenticaton Check (v2.0 Handshake with Dynamic Key) ---
+        logToReport("\nSTEP 1: Starting KSeF v2.0 Session Handshake (Dynamic Key)...");
+        
+        let sessionToken: string;
         try {
-            const invoices = await ksefSvc.queryLatestInvoices();
-            logToReport("✅ SUCCESS: Connected to MF API using Direct Token.");
-            logToReport(`📊 Found ${invoices.length} invoices in recent metadata.`);
+            // Uses KSEF_NIP and KSEF_TOKEN from env automatically
+            sessionToken = await ksefSvc.getSessionToken();
+            logToReport("✅ SUCCESS: Dynamic handshake completed.");
+            logToReport(`🔑 SessionToken: ${sessionToken.substring(0, 10)}...`);
             testResults.auth = true;
+        } catch (err: any) {
+            logToReport(`❌ FAILURE: Handshake failed: ${err.message}`);
+            throw err;
+        }
+
+        // --- 2. Query Metadata using SessionToken ---
+        logToReport("\nSTEP 2: Querying Metadata (Sync)...");
+        try {
+            const invoices = await ksefSvc.queryLatestInvoices({ sessionToken });
+            logToReport(`✅ SUCCESS: Found ${invoices.length} invoices in recent metadata.`);
             testResults.query = true;
 
-            // --- 2. Data Mapping Integrity Check ---
+            // --- 3. Detail Fetch & XML Parse ---
             if (invoices.length > 0) {
-                logToReport("\nSTEP 2: Validating Key Metadata Mapping...");
+                logToReport("\nSTEP 3: Testing XML Fetch & Parse...");
                 const sample = invoices[0];
-                
-                // Fields KSeF uses in raw metadata may differ from our API output, 
-                // but here we check for the availability of data to MAP.
-                const requiredData = ['invoiceReferenceNumber', 'invoicingDate', 'buyerNip', 'sellerNip'];
-                const missing = requiredData.filter(f => !sample[f]);
-                
-                if (missing.length === 0) {
-                    logToReport("✅ SUCCESS: Found data for buyerNIP, sellerNIP, issueDate (invoicingDate).");
-                    logToReport(`🔍 Sample: REF=${sample.invoiceReferenceNumber}, Seller=${sample.sellerNip}`);
-                } else {
-                    logToReport(`⚠️ WARNING: Missing or different field names: ${missing.join(', ')}`);
-                }
-
-                // --- 3. Detail Fetch & XML Parse ---
-                logToReport("\nSTEP 3: Testing XML Fetch & Parse (Fa/2)...");
                 const ksefRef = sample.invoiceReferenceNumber;
-                const parsed = await ksefSvc.fetchAndParse(ksefRef);
+                
+                const parsed = await ksefSvc.fetchAndParse(ksefRef, { sessionToken });
                 
                 logToReport(`✅ SUCCESS: Fetched and parsed invoice ${ksefRef}.`);
                 logToReport(`   - Nr: ${parsed.invoiceNumber}`);
@@ -60,11 +60,13 @@ export async function GET() {
                 logToReport(`   - Buyer: ${parsed.counterpartyName}`);
                 testResults.parse = true;
             } else {
-                logToReport("\nSTEP 2/3: INFO: Found 0 invoices. (Simulation: Empty List OK).");
+                logToReport("\nSTEP 3: INFO: Found 0 invoices. (Simulation: Empty List OK).");
             }
         } catch (err: any) {
             logToReport(`❌ FAILURE: API Communication error: ${err.message}`);
         }
+
+
 
         // --- 4. Edge Case Simulations ---
         logToReport("\nSTEP 4: Simulating Edge Cases...");

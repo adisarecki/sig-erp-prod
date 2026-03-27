@@ -166,24 +166,27 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 058| Finance / Engine | FIXED | HOTFIX: Serializable Responses & Dual-Sync. | Wdrożono serylizowalne obiekty odpowiedzi dla akcji serwerowych. Naprawiono błąd 500 na Vercelu. Poprawiono Dual-Sync dla kontrahentów. |
 | Vector 059| Finance / Data   | FIXED | Firestore Strict Nulls. | Naprawiono błąd `Cannot use "undefined" as a Firestore value` poprzez wymuszenie jawnego rzutowania na `null` w potoku importu. |
 | Vector 060| Finance / Logic  | PIVOT | Always CSV, Never MT940. | Oficjalne wycofanie wsparcia dla formatu MT940 na rzecz CSV ze względu na błędy parsowania. Zaktualizowano UI i dokumentację. |
+| Vector 063| KSeF / Architecture| FIXED | Dynamic Public Key & Native Paging. | Wdrożono dynamiczne pobieranie klucza publicznego KSeF do pamięci (Runtime) oraz natywną paginację (limit 50) i filtrowanie dat. |
 
 ---
 
-## 🏗️ 9. KSeF 2.0 Integration (Phase 12)
+## 🏗️ 9. KSeF 2.0 Integration (2026, Produkcyjna)
 
-System został zintegrowany z KSeF (Krajowy System e-Faktur) w trybie **Tylko Odczyt**:
-1. **SSoT**: System pobiera faktury bezpośrednio z Portalu Podatnika z użyciem Tokena.
-2. **Read-Only Enforced**: Brak endpointów wysyłkowych gwarantuje bezpieczeństwo – system SIG ERP służy wyłącznie jako agregator i Inbox faktur.
-3. **Owner Context**: NIP `9542751368` jest używany jako punkt odniesienia dla logicznej segregacji faktur na **Przychody** (INCOME) i **Koszty** (EXPENSE).
-4. **Data Lifecycle**: Faktury KSeF trafiają na start do statusu `UNVERIFIED` (Draft). Użytkownik musi ręcznie zatwierdzić i przypisać projekt, aby faktura wpłynęła na P&L.
-5. **Deployment**: Gotowość produkcyjna potwierdzona (`tsc --noEmit`).
+System obsługuje **pełny standard KSeF v2.0**:
+- Autoryzacja przez sesję (challenge, szyfrowanie dynamicznym kluczem MF, sessionToken)
+- Klucz publiczny MF: Pobierany dynamicznie (Runtime) z `${KSEF_BASE_URL}/ksefPublicKey` do pamięci.
+- Paginacja: Natywna KSeF (pageSize: 50). Filtrowanie po `invoicingDateFrom/To`.
+- Endpointy: `/auth/challenge`, `/auth/ksef-token`, `/invoices/{ksefNumber}` (XML)
+- Brak Bearer tokena – tylko `SessionToken` w nagłówkach
+- NIP i token pobierane z zmiennych środowiskowych (KSEF_NIP, KSEF_TOKEN)
+- Logi handshake/testów: `/api/ksef/sync`, `/api/ksef/test-sync`, `/api/ksef/verify-all`
+- Weryfikacja: Brak 401/404, widoczny `sessionToken`, poprawne pobieranie faktur.
 
-### 🚀 Sprint 1: KSeF Core (Read-Only)
-- **Engine:** `ksefService.ts` w `src/lib/ksef/`.
-- **Model:** `KsefInvoice` (Prisma) – przechowuje `rawXml`, `ksefNumber`, `invoiceNumber` (P_2) i kwoty.
-- **Pipeline:** 3-etapowy proces (Auth Challenge/Token -> Sync Query -> Fetch XML -> XML Parser).
-- **Parser:** `fast-xml-parser` mapujący pola Fa(2) na ustandaryzowany obiekt.
-- **Status:** `UNVERIFIED` (nowe faktury trafiają do Inboxa jako drafty).
+**Przykład handshake:**
+1. POST `/auth/challenge` → timestamp
+2. Szyfruj `token|timestamp` kluczem MF
+3. POST `/auth/ksef-token` → `sessionToken`
+4. GET `/invoices/{ksefNumber}` z nagłówkiem `SessionToken`
 
 ---
 

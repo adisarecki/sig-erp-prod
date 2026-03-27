@@ -38,6 +38,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 062 | Finance / CRM | FIXED | Smart Import Hub. | Wdrożono `Smart Import Hub` (Ledger/CRM) z `analyzeImportMatches`. |
 | Vector 063 | KSeF / Core | FIXED | Sprint 1: KSeF Read-Only. | Wdrożono `ksefService.ts` (Auth -> Query -> Fetch -> Parse). Model `KsefInvoice` (Prisma) z obsługą Raw XML Fa(2). Zweryfikowano `tsc --noEmit`. |
 | Vector 064 | KSeF / Prod | FIXED | Production Direct Token. | Wdrożenie API produkcyjnego MF, autoryzacja Direct Token (Bearer), usunięcie RSA i diagnostyka `/verify-all`. |
+| Vector 065 | KSeF / Architecture| FIXED | Dynamic Public Key & Native Paging. | Wdrożono dynamiczne pobieranie klucza publicznego KSeF do pamięci (Runtime) oraz rygorystyczną paginację (limit 50) i filtrowanie dat. Usunięto zależność od plików PEM. |
 
 ---
 *Ostatnia aktywność techniczna: 2026-03-27. Build Verified (TSC: OK).*

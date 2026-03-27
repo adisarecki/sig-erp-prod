@@ -11,14 +11,19 @@ export async function GET(
         const ksefNumber = params.ksefNumber;
         const ksefSvc = new KSeFService();
 
-        // 1. Fetch & Parse
-        const parsedData = await ksefSvc.fetchAndParse(ksefNumber);
+        // 1. Session Handshake (v2.0)
+        const sessionToken = await ksefSvc.getSessionToken();
+
+        // 2. Fetch & Parse using SessionToken
+        const parsedData = await ksefSvc.fetchAndParse(ksefNumber, { sessionToken });
 
         return NextResponse.json({
+            success: true,
             ksefNumber,
             rawXml: parsedData.rawXml,
             parsed: parsedData
         });
+
 
     } catch (error: any) {
         console.error(`[KSeF_API_DETAILS] Error for ${params.ksefNumber}:`, error);

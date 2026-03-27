@@ -9,34 +9,49 @@ import { KSeFService } from '@/lib/ksef/ksefService';
  */
 export async function GET() {
     try {
-        const tenantId = await getCurrentTenantId();
-        
-        // 1. Security Guard - Check if Tenant has KSeF Token
-        const tenant = await prisma.tenant.findUnique({
-            where: { id: tenantId }
-        }) as any
+        // 1. Initialize Service
+        // Uses KSEF_NIP and KSEF_TOKEN from environment automatically
+        const ksefService = new KSeFService();
 
-        if (!tenant || !tenant.ksefToken) {
+        // 2. Get sessionToken (v2.0 handshake with dynamic key)
+        let sessionToken: string;
+        try {
+            sessionToken = await ksefService.getSessionToken();
+        } catch (err: any) {
+            console.error("[KSeF_SYNC_AUTH_ERROR]", err.message);
             return NextResponse.json(
-                { success: false, error: "Brak skonfigurowanego tokenu KSeF w ustawieniach firmy." },
-                { status: 403 }
+                { success: false, error: `Błąd autoryzacji KSeF (v2.0): ${err.message}` },
+                { status: 401 }
             );
         }
 
-        // 1. Initialize Service and Sync
-        const ksefService = new KSeFService();
+        // 3. Use sessionToken for further requests (fetch invoices)
+        const invoiceList = await ksefService.queryLatestInvoices({ sessionToken });
         
-        // 2. Query latest invoices
-        const latestInvoices = await ksefService.queryLatestInvoices();
-        
-        // For Sprint 1, we just log and return the count
-        console.log(`[KSeF_SYNC] Found ${latestInvoices.length} invoices to sync.`);
+        // 4. Batch Fetch Detail XML for everything found
+        const results = [];
+        for (const item of invoiceList) {
+            try {
+                const details = await ksefService.fetchAndParse(item.invoiceReferenceNumber, { sessionToken });
+                results.push({
+                    ksefNumber: details.ksefNumber,
+                    invoiceNumber: details.invoiceNumber,
+                    seller: details.counterpartyName,
+                    amount: details.grossAmount.toString(),
+                    status: "UNVERIFIED"
+                });
+            } catch (err: any) {
+                console.error(`[KSeF_SYNC_DETAIL_ERROR] ${item.invoiceReferenceNumber}:`, err.message);
+            }
+        }
 
         return NextResponse.json({
             success: true,
-            count: latestInvoices.length,
-            message: `Pobrano ${latestInvoices.length} nowych faktur z KSeF (Metadane).`
+            count: results.length,
+            invoices: results,
+            message: `Pomyślnie zsynchronizowano ${results.length} faktur z KSeF.`
         });
+
 
     } catch (error: any) {
         console.error("[KSeF_API_SYNC_ERROR]", error);

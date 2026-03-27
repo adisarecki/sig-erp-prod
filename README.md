@@ -47,15 +47,20 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 
 ---
 
-## 🧾 4. Integracja KSeF (Nowość - Sprint 1)
+## 🧾 4. Integracja KSeF (v2.0, Produkcyjna, 2026)
 
-Rozpoczęliśmy wdrażanie modułu **KSeF Core (Tryb Read-Only)**. System potrafi teraz:
-- **Bezpieczna Autoryzacja**: Automatyczne pobieranie tokenów sesyjnych z Ministerstwa Finansów.
-- **Synchronizacja Metadanych**: Pobieranie listy najnowszych faktur kosztowych wystawionych na Twoją firmę.
-- **Parser XML (Fa/2)**: Inteligentne wyciąganie danych (NIP, kwoty, daty) bezpośrednio z surowych plików XML z KSeF.
+**Pełny standard KSeF v2.0 (Produkcja, Dynamiczne Klucze):**
+- **Dynamiczna Autoryzacja**: System pobiera klucz publiczny MF prosto do pamięci (Runtime) – brak statycznych plików kluczy w repozytorium.
+- **Pełna Sesja**: proces handshake: challenge → szyfrowanie dynamicznym kluczem (RSA-OAEP, SHA-256) → `sessionToken`.
+- **Natywna Paginacja**: Pobieranie do 50 faktur na stronę (limit MF) z obsługą filtrów `dateFrom` i `dateTo`.
+- **Dostęp po ID**: Możliwość błyskawicznego podglądu detali konkretnej faktury po numerze KSeF.
+- **Bezpieczeństwo**: Tokeny i NIP przechowywane bezpiecznie w zmiennych środowiskowych Vercel.
 
-**Weryfikacja:**
-Możesz sprawdzić poprawność połączenia pod adresem: `/api/ksef/test-sync`. Wynik parsowania zostanie zalogowany w konsoli Vercela.
+**Weryfikacja i Narzędzia:**
+- **Diagnostyka**: Endpoint `/api/ksef/verify-all` raportuje stan połączenia i poprawność handshake.
+- **Szybki Test**: `/api/ksef/test-sync` dla błyskawicznej weryfikacji sesji.
+
+
 
 ---
 

@@ -4,41 +4,27 @@ import { KSeFService } from '@/lib/ksef/ksefService';
 export async function GET() {
     try {
         const ksefSvc = new KSeFService();
+        console.log("[KSEF_TEST] Starting handshake verification (v2.0)...");
         
-        console.log("[KSEF_TEST] Starting test sync...");
-        
-        // 1. Query for latest invoices
-        const latestInvoices = await ksefSvc.queryLatestInvoices();
-        
-        if (!latestInvoices || latestInvoices.length === 0) {
+        // Handshake
+        let sessionToken: string;
+        try {
+            // Uses KSEF_NIP and KSEF_TOKEN from env
+            sessionToken = await ksefSvc.getSessionToken();
+        } catch (err: any) {
+            console.error("[KSEF_TEST] Handshake failed:", err.message);
             return NextResponse.json({ 
-                success: true, 
-                message: "Authentication successful, but found 0 invoices in metadata sync." 
-            });
+                success: false, 
+                error: `Błąd uścisku dłoni: ${err.message}` 
+            }, { status: 401 });
         }
-
-        // 3. Fetch & Parse the very first one for test
-        const firstRow = latestInvoices[0];
-        const ksefNumber = firstRow.ksefReferenceNumber || firstRow.ksefNumber;
-        
-        const parsedData = await ksefSvc.fetchAndParse(ksefNumber);
-        
-        // Log results to console as requested
-        console.log("[KSEF_TEST] Successfully fetched and parsed one invoice:");
-        console.log(`- KSeF ID: ${parsedData.ksefNumber}`);
-        console.log(`- Invoice Nr: ${parsedData.invoiceNumber}`);
-        console.log(`- Gross Amount: ${parsedData.grossAmount.toString()}`);
-        console.log(`- Counterparty: ${parsedData.counterpartyName} (${parsedData.counterpartyNip})`);
 
         return NextResponse.json({
             success: true,
-            summary: {
-                ksefNumber: parsedData.ksefNumber,
-                invoiceNumber: parsedData.invoiceNumber,
-                grossAmount: parsedData.grossAmount.toString(),
-                counterparty: parsedData.counterpartyName
-            }
+            sessionToken: `${sessionToken.substring(0, 10)}...`,
+            message: "Połączenie z KSeF (v2.0) zestawione pomyślnie."
         });
+
 
     } catch (error: any) {
         console.error("[KSEF_TEST] Fatal Error during test sync:", error.message);
