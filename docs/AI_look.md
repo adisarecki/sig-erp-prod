@@ -93,9 +93,11 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 ## 🚩 6. Wytyczne dla AI (Coding Standards)
 
 - **Zero Mutation**: Nigdy nie modyfikuj bezpośrednio obiektów systemowych (np. `File`), używaj stanów Reacta.
-- **Server Action Contract**: Zawsze zwracaj `{ success: boolean, error?: string, data?: any }`.
+- **Server Action Contract**: Zawsze zwracaj `{ success: boolean, error?: string, data?: any }`. **Zasada Serializable Actions**: Server Actions MUSZĄ zwracać serylizowalne obiekty, aby uniknąć błędów 500 na Vercelu (V.058).
 - **Decimal Precision**: Do obliczeń finansowych używaj wyłącznie `Decimal`. Prisma przechowuje `Decimal(12,2)`.
 - **Dual-Sync Guard**: Każdy CRUD zmieniający stan musi operować na obu bazach danych.
+- **Firestore Strict Nulls**: Nigdy nie wysyłaj `undefined` do Firestore. Wszystkie opcjonalne pola muszą być jawnie ustawione na `null` (V.059).
+- **Format Importu Bankowego**: Używaj WYŁĄCZNIE formatu CSV. Format MT940 jest wycofany ze względu na błędy parsowania (V.060).
 
 ---
 
@@ -151,7 +153,9 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 052 | Finance / Engine | FIXED | Phase 14b: Self-Learning Contractor matching. | Wdrożono kaskadowe dopasowanie (NIP > IBAN > Nazwa) i automatyczne uczenie się numerów kont kontrahentów z wyciągów. |
 | Vector 055 | Finance / Engine | FIXED | HOTFIX: Aggressive Regex Engine (Lookahead). | Konsolidacja kolumn PKO BP i silnik Regex z Lookaheadami. |
 | Vector 056 | Finance / Engine | FIXED | HOTFIX: Refined Regex & Golden Rule Fallback. | Doprecyzowano Regex dla Nazwy (obsługa 'Adres:' dla kart), czyszczenie technicznych prefixów (Z/K/000) oraz Złota Reguła (fallback na Tytuł przy braku nazwy). |
-| Vector 058| Finance / Engine | FIXED | HOTFIX: Dual-Sync for Bank Import (Firestore + Prisma). | Wdrożono brakujący Dual-Sync w `importBankStatement`. ID z Firestore (20-char) jako PK w Prisma. Dodano mandatory 'Siedziba Główna' dla nowych firm. Naprawiono błąd 500. |
+| Vector 058| Finance / Engine | FIXED | HOTFIX: Serializable Responses & Dual-Sync. | Wdrożono serylizowalne obiekty odpowiedzi dla akcji serwerowych. Naprawiono błąd 500 na Vercelu. Poprawiono Dual-Sync dla kontrahentów. |
+| Vector 059| Finance / Data   | FIXED | Firestore Strict Nulls. | Naprawiono błąd `Cannot use "undefined" as a Firestore value` poprzez wymuszenie jawnego rzutowania na `null` w potoku importu. |
+| Vector 060| Finance / Logic  | PIVOT | Always CSV, Never MT940. | Oficjalne wycofanie wsparcia dla formatu MT940 na rzecz CSV ze względu na błędy parsowania. Zaktualizowano UI i dokumentację. |
 
 ---
 
@@ -168,7 +172,7 @@ System został zintegrowany z KSeF (Krajowy System e-Faktur) w trybie **Tylko Od
 
 ## 🏦 8. Bank Reconciliation (MT940 & CSV)
 
-System integruje standardy SWIFT MT940 oraz PKO BP CSV w celu automatyzacji rozliczeń:
+System integruje standard PKO BP CSV (Zalecany) w celu automatyzacji rozliczeń (MT940 wycofany):
 1. **3-Layer Pipeline (`src/lib/bank/`)**: 
     - **Layer 1 (Parser)**: Konsolidacja kolumn — PKO BP CSV (win1250, separator `;`). Wszystkie kolumny od indeksu 5 (Opis transakcji + Column1, _1, _2…) są joinowane do jednego `fullRawDescription`.
     - **Layer 2 (Normalizer) – Aggressive Regex Engine**: 4 wzorce Regex z lookaheadami operujące na `fullRawDescription`: IBAN/NRB (`[\d\s]{26,35}`), Nazwa nadawcy/odbiorcy (stop at `Adres|Tytuł|Lokalizacja|Data wykonania`), Tytuł (stop at `Lokalizacja|Data wykonania|Adres`), Lokalizacja/Adres karty (`Lokalizacja: Adres: ... Miasto:`).
