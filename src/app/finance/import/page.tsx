@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, Suspense } from "react"
+import { useState, Suspense, useEffect } from "react"
 import { parsePkoCsv, ParsedBankTransaction } from "@/lib/pko-parser"
 import { parsePkoXml } from "@/lib/pko-xml-parser"
 import { importBankStatement } from "@/app/actions/import"
+import { getBankAccounts } from "@/app/actions/bankAccounts"
 import { UploadCloud, CheckCircle2, ChevronLeft, AlertCircle, Loader2, X, Wallet, Building2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -58,6 +59,8 @@ function ImportPreviewPageInner() {
     const [isSaving, setIsSaving] = useState(false)
     const [toast, setToast] = useState<Toast | null>(null)
     const [fileName, setFileName] = useState("")
+    const [bankAccounts, setBankAccounts] = useState<any[]>([])
+    const [selectedBankAccountId, setSelectedBankAccountId] = useState<string>("")
 
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -67,6 +70,26 @@ function ImportPreviewPageInner() {
         setToast({ message, type })
         setTimeout(() => setToast(null), 5000)
     }
+
+    useEffect(() => {
+        const fetchAccounts = async () => {
+            const res = await getBankAccounts();
+            if (res.success && res.data) {
+                setBankAccounts(res.data);
+                // Pre-select default account if exists
+                const def = res.data.find(a => a.isDefault);
+                if (def) {
+                    setSelectedBankAccountId(def.id);
+                } else if (res.data.length > 0) {
+                    // Fallback to first one if no default and we have accounts
+                    setSelectedBankAccountId(res.data[0].id);
+                }
+            } else {
+                showToast(res.error || "Błąd pobierania kont bankowych.", "error");
+            }
+        };
+        fetchAccounts();
+    }, []);
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -137,13 +160,22 @@ function ImportPreviewPageInner() {
                 return
             }
 
-            const res = await importBankStatement(toImport)
-            showToast(`Dopisano: ${res.added} | Nowi Kontrahenci: ${res.newContractors} | Pominęto: ${res.skipped}`, "success")
+            if (!selectedBankAccountId) {
+                showToast("Proszę wybrać konto bankowe przed importem.", "error")
+                return
+            }
 
-            setTimeout(() => router.push(returnTo), 2500)
+            const res = await importBankStatement(toImport, selectedBankAccountId)
+            
+            if (res.success && res.results) {
+                showToast(`Dopisano: ${res.results.added} | Nowi Kontrahenci: ${res.results.newContractors} | Pominęto: ${res.results.skipped}`, "success")
+                setTimeout(() => router.push(returnTo), 2500)
+            } else {
+                showToast(res.error || "Błąd podczas importu.", "error")
+            }
         } catch (error: any) {
             console.error(error)
-            showToast(error.message || "Krytyczny błąd podczas importu.", "error")
+            showToast("Krytyczny błąd połączenia z serwerem.", "error")
         } finally {
             setIsSaving(false)
         }
@@ -209,6 +241,21 @@ function ImportPreviewPageInner() {
                             <p className="text-sm text-slate-500 mt-1">Zweryfikuj poprawność danych przed importem. Nowi kontrahenci zostaną utworzeni automatycznie.</p>
                         </div>
                         <div className="flex items-center gap-4 w-full lg:w-auto">
+                            <div className="flex flex-col gap-1 min-w-[220px]">
+                                <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Konto Bankowe</label>
+                                <select
+                                    value={selectedBankAccountId}
+                                    onChange={(e) => setSelectedBankAccountId(e.target.value)}
+                                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer"
+                                >
+                                    <option value="" disabled>Wybierz konto...</option>
+                                    {bankAccounts.map(account => (
+                                        <option key={account.id} value={account.id}>
+                                            {account.bankName} ({account.iban.slice(-4)})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                             <button
                                 onClick={() => { setTransactions([]); setSelectedIds(new Set()) }}
                                 className="flex-1 lg:flex-none px-6 py-3 text-sm font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-white transition-all shadow-sm"
@@ -217,7 +264,7 @@ function ImportPreviewPageInner() {
                             </button>
                             <button
                                 onClick={handleImport}
-                                disabled={isSaving || selectedIds.size === 0}
+                                disabled={isSaving || selectedIds.size === 0 || !selectedBankAccountId}
                                 className="flex-1 lg:flex-none bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold transition-all disabled:opacity-50 shadow-lg shadow-blue-200 flex items-center justify-center gap-2 min-w-[200px]"
                             >
                                 {isSaving

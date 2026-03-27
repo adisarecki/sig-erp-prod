@@ -16,10 +16,10 @@ export async function GET(
         const mapper = new KSeFMapper();
 
         // 1. Authenticate
-        const sessionId = await client.authenticate(OWNER_NIP);
+        await client.authenticate(OWNER_NIP);
 
         // 2. Download XML
-        const xml = await client.downloadInvoice(sessionId, ksefNumber);
+        const xml = await client.downloadInvoice(ksefNumber);
 
         // 3. Parse XML
         const parsedData = mapper.parseXml(xml, ksefNumber);

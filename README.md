@@ -132,9 +132,10 @@ Funkcja "Wyczyść wszystkie dane" usuwa absolutnie wszystko powiązane z Twoją
 | Vector 054 | Finance / Engine | FIXED | Master Parser & Self-Learning Engine. | Wdrożono 3-warstwowy potok (Pipeline) dla PKO BP CSV. Regex Normalizer (Condition A/B), Bi-directional Enrichment (IBAN learning) i Auto-Routing (ZABKA/ZUS). [ACTIVE] 🟢 |
 | Vector 055 | Finance / Engine | FIXED | HOTFIX: Aggressive Regex Engine & Column Consolidation. | Wdrożono konsolidację kolumn opisowych PKO BP (slice od kolumny 5, join). Zastąpiono słabe Condition A/B pełnym silnikiem Regex z Lookaheadami: IBAN, Nazwa, Tytuł, Lokalizacja. UI wyświetla teraz czyste dane (brak "Rachunek nadawcy:" w Rejestrze Transakcji). |
 | Vector 056 | Finance / Engine | FIXED | HOTFIX: Refined Regex & Golden Rule Fallback. | Doprecyzowano Regex dla Nazwy (obsługa 'Adres:' dla kart), wdrożono czyszczenie technicznych przedrostków (Z/K/000) oraz 'Złotą Regułę' (fallback na Tytuł przy pustej nazwie). Rozszerzono auto-routing o Auchan/Biedronkę. |
-| Vector 058 | Finance / Engine | FIXED | HOTFIX: Dual-Sync for Bank Import (Firestore + Prisma). | Wdrożono brakujący Dual-Sync w `importBankStatement`. Nowi kontrahenci otrzymują ID z Firestore, mandatory Object oraz są synchronizowani do obu baz. Naprawiono błąd 500 (digest) poprzez ujednolicenie ID i serializację wyników. |
+| Vector 057 | Finance / UI     | FIXED | Mandatory Bank Account Selection. | Wdrożono selektor konta bankowego w widoku importu. System automatycznie pre-selektuje konto domyślne (`isDefault`) i blokuje import bez przypisanego ID konta SQL. |
+| Vector 058 | Finance / Engine | FIXED | Production Reliability & Dual-Sync. | Wdrożono serylizowalne obiekty odpowiedzi `{ success, results, error }` dla akcji serwerowych, eliminując błędy 500 na Vercelu. Poprawiono Dual-Sync dla kontrahentów. |
 
-- **HOTFIX: Wdrożono Dual-Sync dla Importu Bankowego (V.058).** Naprawiono błąd 500 poprzez synchronizację kontrahentów do Firestore i wymuszenie spójności ID.
+- **HOTFIX: Wdrożono Dual-Sync i serylizację wyników (V.058).** 
 - **Build Verified**: Projekt przeszedł testy statyczne (`tsc`) i jest gotowy do wdrożenia na Vercel.
 
 *Vercel & Firestore Ready 🚀*

@@ -1,30 +1,27 @@
 /**
- * KSeF 2.0 Web API Client (Read-Only)
- * Implementation of the authentication and retrieval logic for Polish National e-Invoice System.
+ * KSeF v2 Web API Client (Read-Only / Pobieranie)
+ * 
+ * Official API Docs: https://api.ksef.mf.gov.pl/docs/v2/index.html
+ * 
+ * Flow:
+ *   1. POST /v2/auth/challenge → { challenge, timestamp }
+ *   2. POST /v2/auth/ksef-token → { authenticationToken.token } (Bearer)
+ *   3. POST /v2/invoices/query/metadata → invoice list (Subject1=INCOME, Subject2=EXPENSE)
+ *   4. GET  /v2/invoices/ksef/{ksefNumber} → raw XML
+ *   5. DELETE /v2/auth/sessions/current → session cleanup
+ * 
+ * IMPORTANT: This client ONLY reads from KSeF. It NEVER sends invoices.
  */
 
-import { Decimal } from 'decimal.js';
-
-const KSEF_BASE_URL = process.env.KSEF_BASE_URL || 'https://api-demo.ksef.mf.gov.pl';
+// Production: https://api.ksef.mf.gov.pl
+// Test:       https://api-test.ksef.mf.gov.pl
+const KSEF_BASE_URL = process.env.KSEF_BASE_URL || 'https://api-test.ksef.mf.gov.pl';
 const KSEF_TOKEN = process.env.KSEF_TOKEN;
 
-/**
- * KSeF Session State
- */
-interface KSeFSession {
-    sessionId: string;
-    token: string;
-    expiresAt: number;
-}
-
-let currentSession: KSeFSession | null = null;
-
-/**
- * Low-level KSeF Client
- */
 export class KSeFClient {
     private baseUrl: string;
     private token: string | undefined;
+    private bearerToken: string | null = null;
 
     constructor() {
         this.baseUrl = KSEF_BASE_URL.replace(/\/$/, '');
@@ -32,21 +29,25 @@ export class KSeFClient {
     }
 
     /**
-     * Authenticate and get a session ID
+     * Full authentication flow (2 steps):
+     * Step 1: POST /v2/auth/challenge
+     * Step 2: POST /v2/auth/ksef-token
+     * Returns: Bearer token string for subsequent API calls.
      */
     async authenticate(nip: string): Promise<string> {
         if (!this.token) {
             throw new Error('KSEF_TOKEN is not configured in environment variables.');
         }
 
-        // 1. Get Challenge
-        const challengeResponse = await fetch(`${this.baseUrl}/online/Session/AuthorisationChallenge`, {
+        // --- Step 1: Get Challenge ---
+        console.log('[KSeF_CLIENT] Step 1: Requesting challenge...');
+        const challengeResponse = await fetch(`${this.baseUrl}/v2/auth/challenge`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({
                 contextIdentifier: {
-                    type: 'on',
-                    identifier: nip
+                    type: 'Nip',
+                    value: nip
                 }
             })
         });
@@ -57,76 +58,96 @@ export class KSeFClient {
         }
 
         const { challenge, timestamp } = await challengeResponse.json();
+        console.log('[KSeF_CLIENT] Challenge received.');
 
-        // 2. Initialize Session with Token
-        // NOTE: In a real production scenario, we would need to generate a signed XML (InitSessionTokenRequest) 
-        // with the token encrypted using the KSeF Public Key.
-        // For the purpose of this implementation, we assume a simplified authentication or helper 
-        // that handles the XML wrapping.
-        
-        // Mocking the XML InitSessionTokenRequest logic
-        const initResponse = await fetch(`${this.baseUrl}/online/Session/InitToken`, {
+        // --- Step 2: Authenticate with Token ---
+        // The token must be concatenated with timestamp: "token|timestamp"
+        // Then encrypted with RSA-OAEP using KSeF public key and Base64 encoded.
+        // NOTE: For test environment, KSeF may accept a simplified token flow.
+        // In production, you MUST use the RSA-OAEP encryption.
+        const encryptedToken = this.encryptToken(this.token, timestamp);
+
+        console.log('[KSeF_CLIENT] Step 2: Authenticating with token...');
+        const authResponse = await fetch(`${this.baseUrl}/v2/auth/ksef-token`, {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/octet-stream', // KSeF often uses binary/xml for init
-                'Accept': 'application/json'
-            },
-            body: this.generateInitTokenXml(nip, this.token, challenge, timestamp)
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+                challenge: challenge,
+                contextIdentifier: {
+                    type: 'Nip',
+                    value: nip
+                },
+                encryptedToken: encryptedToken
+            })
         });
 
-        if (!initResponse.ok) {
-            const error = await initResponse.text();
-            throw new Error(`KSeF Session Init Failed: ${initResponse.status} - ${error}`);
+        if (!authResponse.ok) {
+            const error = await authResponse.text();
+            throw new Error(`KSeF Auth Failed: ${authResponse.status} - ${error}`);
         }
 
-        const sessionData = await initResponse.json();
-        const sessionId = sessionData.sessionToken.token;
+        const authData = await authResponse.json();
+        this.bearerToken = authData.authenticationToken?.token;
 
-        currentSession = {
-            sessionId: sessionId,
-            token: this.token,
-            expiresAt: Date.now() + 3600000 // Assume 1 hour session
-        };
+        if (!this.bearerToken) {
+            throw new Error('KSeF Auth: No authentication token in response.');
+        }
 
-        return sessionId;
+        console.log('[KSeF_CLIENT] Authentication successful. Bearer token acquired.');
+        return this.bearerToken;
     }
 
     /**
-     * Search for invoices
+     * Query invoice metadata.
+     * subjectType: 'Subject1' = issued (INCOME), 'Subject2' = received (EXPENSE)
+     * 
+     * POST /v2/invoices/query/metadata?pageOffset=0&pageSize=100&sortOrder=Descending
      */
-    async queryInvoices(sessionId: string, params: { dateFrom: string, dateTo: string }) {
-        const response = await fetch(`${this.baseUrl}/online/Query/Invoice/Sync?PageSize=100&PageOffset=0`, {
+    async queryInvoices(
+        subjectType: 'Subject1' | 'Subject2',
+        params: { dateFrom: string; dateTo: string }
+    ) {
+        this.ensureAuthenticated();
+
+        const url = `${this.baseUrl}/v2/invoices/query/metadata?pageOffset=0&pageSize=100&sortOrder=Descending`;
+        
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'SessionToken': sessionId
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${this.bearerToken}`
             },
             body: JSON.stringify({
-                queryCriteria: {
-                    type: 'incremental',
-                    acquisitionTimestampThresholdFrom: params.dateFrom,
-                    acquisitionTimestampThresholdTo: params.dateTo
+                subjectType: subjectType,
+                dateRange: {
+                    dateType: 'PermanentStorage',
+                    from: params.dateFrom,
+                    to: params.dateTo
                 }
             })
         });
 
         if (!response.ok) {
             const error = await response.text();
-            throw new Error(`KSeF Query Failed: ${response.status} - ${error}`);
+            throw new Error(`KSeF Query (${subjectType}) Failed: ${response.status} - ${error}`);
         }
 
         return await response.json();
     }
 
     /**
-     * Download specific invoice XML
+     * Download specific invoice XML by its KSeF number.
+     * GET /v2/invoices/ksef/{ksefNumber}
      */
-    async downloadInvoice(sessionId: string, ksefNumber: string): Promise<string> {
-        const response = await fetch(`${this.baseUrl}/online/Query/Invoice/Get/${ksefNumber}`, {
+    async downloadInvoice(ksefNumber: string): Promise<string> {
+        this.ensureAuthenticated();
+
+        const response = await fetch(`${this.baseUrl}/v2/invoices/ksef/${ksefNumber}`, {
             method: 'GET',
             headers: {
-                'SessionToken': sessionId,
-                'Accept': 'application/octet-stream'
+                'Authorization': `Bearer ${this.bearerToken}`,
+                'Accept': 'application/xml'
             }
         });
 
@@ -134,24 +155,53 @@ export class KSeFClient {
             throw new Error(`KSeF Download Failed for ${ksefNumber}: ${response.status}`);
         }
 
-        return await response.text(); // Raw XML (FA(3))
+        return await response.text();
     }
 
     /**
-     * Generate the XML needed for InitToken
-     * This is a simplified placeholder. Real KSeF requires a binary signed/encrypted XML.
+     * Terminate the current session.
+     * DELETE /v2/auth/sessions/current
      */
-    private generateInitTokenXml(nip: string, token: string, challenge: string, timestamp: string): string {
-        // In real FA(3) integration, this would use a library to build the signed XML.
-        // For the sake of this service structure:
-        return `<?xml version="1.0" encoding="UTF-8"?>
-<InitSessionTokenRequest xmlns="http://ksef.mf.gov.pl/schema/gtw/svc/online/types/2021/10/01/0001">
-    <Context>
-        <Identifier xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="IdentifierNIPType">${nip}</Identifier>
-        <Token>${token}</Token>
-        <Challenge>${challenge}</Challenge>
-        <Timestamp>${timestamp}</Timestamp>
-    </Context>
-</InitSessionTokenRequest>`;
+    async terminateSession(): Promise<void> {
+        if (!this.bearerToken) return;
+
+        try {
+            await fetch(`${this.baseUrl}/v2/auth/sessions/current`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${this.bearerToken}`
+                }
+            });
+            console.log('[KSeF_CLIENT] Session terminated.');
+        } catch (err) {
+            console.warn('[KSeF_CLIENT] Failed to terminate session:', err);
+        } finally {
+            this.bearerToken = null;
+        }
+    }
+
+    /**
+     * Encrypt token for KSeF authentication.
+     * Format: "token|timestamp" → RSA-OAEP encrypt → Base64
+     * 
+     * NOTE: In test environment, this may use a simplified flow.
+     * For production, implement proper RSA-OAEP encryption with:
+     *   - KSeF's public key (fetched from /v2/auth/public-key)
+     *   - OAEP with SHA-256 padding
+     */
+    private encryptToken(token: string, timestamp: string): string {
+        // Simplified: Base64 encode "token|timestamp"
+        // TODO PRODUCTION: Replace with actual RSA-OAEP encryption
+        const payload = `${token}|${timestamp}`;
+        return Buffer.from(payload).toString('base64');
+    }
+
+    /**
+     * Guard: ensure we have a valid bearer token before making API calls.
+     */
+    private ensureAuthenticated(): void {
+        if (!this.bearerToken) {
+            throw new Error('KSeF Client: Not authenticated. Call authenticate() first.');
+        }
     }
 }

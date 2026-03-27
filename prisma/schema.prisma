@@ -295,6 +295,7 @@ model BankAccount {
   currency           String               @default("PLN")
   providerAccountId  String?              // Zewnętrzny ID konta (np. z Plaid / Nordigen)
   rawTransactions    BankTransactionRaw[]
+  isDefault          Boolean              @default(false)
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 

@@ -42,11 +42,13 @@ Najbardziej zaawansowany moduł systemu.
 ## 4. Ostatnie Problemy i Rozwiązania
 1. **Błąd Hydracji i 404 Chunks**: Spowodowany konfliktami procesów `node.exe` i uszkodzonym cache `.next`. Rozwiązany przez `taskkill` i czyszczenie `.next`.
 2. **Crash `Object.defineProperty`**: Próba mutacji obiektu `File` w uploaderze. Naprawione przez użycie `useState<File | null>` i brak modyfikacji obiektu systemowego.
-3. **Gemini 404 (Model not found)**: Użycie nieaktualnych identyfikatorów modelu. Aktualnie ustawiony na `gemini-2.0-flash`.
+5. **Błąd 500 (Server Components render) w Importach**: Rzucanie surowych wyjątków (`throw Error`) w akcjach Next.js na Vercelu powodowało błędy 500 bez opisu. Naprawione przez wdrożenie standardu zwracania serylizowalnych obiektów `{ success, results, error }`.
+6. **Brak ID Konta Bankowego w transakcjach**: Importy bez jawnie wybranego konta bankowego blokowały się lub tworzyły osierocone rekordy. Wdrożono mandatoryjny selektor konta bankowego w UI (`finance/import`) z obsługą flagi `isDefault`.
 
 ## 5. Jak pracować z projektem (Dla kolejnych AI)
 - **Zasada ZERO Mutation**: Nie modyfikuj obiektów systemowych (np. File).
 - **Zasada AI-First**: Wszystkie nowe faktury powinny przechodzić przez `InvoiceScanner`.
+- **Zasada Serializable Actions**: Server Actions MUSZĄ zwracać obiekty `{ success, results?, error? }` zamiast rzucać błędy, aby uniknąć błędów 500 na Vercelu.
 - **API Key**: Gemini API Key znajduje się w `.env` jako `GEMINI_API_KEY`.
 - **Prisma**: Po zmianach w schemacie zawsze uruchamiaj `npx prisma generate` oraz `npx prisma db push` dla synchronizacji z bazą danych.
 - **Firebase Admin**: Inicjalizacja przez `@/lib/firebaseAdmin.ts` (singleton z `getApps()`). Używaj getterów `getAdminDb()`, `getAdminAuth()`, `getAdminStorage()`. Nie importuj `firebase-admin/firestore` itd. na poziomie top-level — spowoduje to crash buildu na Vercelu.
