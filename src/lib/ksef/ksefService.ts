@@ -355,7 +355,24 @@ export class KSeFService {
             vatRate: item.P_12 || 'zw',
         }));
 
-        const grossAmountNum = parseFloat(fa.P_15 || '0');
+        const netAmountDecimal = new Decimal(fa.P_13_1 || 0)
+            .plus(fa.P_13_2 || 0)
+            .plus(fa.P_13_3 || 0)
+            .plus(fa.P_13_4 || 0)
+            .plus(fa.P_13_5 || 0)
+            .plus(fa.P_13_6 || 0)
+            .plus(fa.P_13_7 || 0);
+
+        const vatAmountDecimal = new Decimal(fa.P_14_1 || 0)
+            .plus(fa.P_14_2 || 0)
+            .plus(fa.P_14_3 || 0);
+
+        let grossAmountDecimal = new Decimal(fa.P_15 || 0);
+        
+        // Fallback if P_15 is missing or zero (requested for robustness)
+        if (grossAmountDecimal.isZero()) {
+            grossAmountDecimal = netAmountDecimal.plus(vatAmountDecimal);
+        }
 
         return {
             ksefNumber,
@@ -364,15 +381,9 @@ export class KSeFService {
             counterpartyNip: nabywca?.NIP || 'Brak',
             counterpartyName: nabywca?.Nazwa || 'Brak',
             sellerNip: sprzedawca.NIP || 'Brak',
-            netAmount: new Decimal(fa.P_13_1 || 0)
-                .plus(fa.P_13_2 || 0)
-                .plus(fa.P_13_3 || 0)
-                .plus(fa.P_13_4 || 0)
-                .plus(fa.P_13_5 || 0)
-                .plus(fa.P_13_6 || 0)
-                .plus(fa.P_13_7 || 0),
-            vatAmount: new Decimal(fa.P_14_1 || 0),
-            grossAmount: new Decimal(grossAmountNum),
+            netAmount: netAmountDecimal,
+            vatAmount: vatAmountDecimal,
+            grossAmount: grossAmountDecimal,
             currency: fa.KodWaluty || 'PLN',
             paymentStatus: fa.Platnosc?.Zaplacono === 1 ? 'PAID' : 'UNPAID',
             lineItems,

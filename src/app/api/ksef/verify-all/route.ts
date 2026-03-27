@@ -86,17 +86,17 @@ export async function GET() {
                 const testResult = {
                     numer: fa?.P_2,
                     data: fa?.P_1,
-                    brutto: fa ? parseFloat(fa.P_15) : 0,
+                    brutto: fa ? Number(fa.P_15) : 0,
                     podatek_opis: fa?.P_13_7 ? "ZW" : "VAT"
                 };
 
                 if (fa && testResult.brutto === 10.07 && testResult.numer === 'F00089G032600312887P') {
                     logToReport("✅ SUCCESS: Parser FA (3) logic verified against hardcoded reference.");
-                    logToReport(`   - Detected Amount: ${testResult.brutto} PLN (Schema-Match OK)`);
+                    logToReport(`   - Detected Amount: ${testResult.brutto} PLN (Numeric Match OK)`);
                     logToReport(`   - Tax Regime: ${testResult.podatek_opis} (P_13_7 Detected)`);
                     testResults.parse = true;
                 } else {
-                    logToReport(`❌ FAILURE: Parser mapping mismatch. Expected 10.07, got ${testResult.brutto}`);
+                    logToReport(`❌ FAILURE: Parser mapping mismatch. Expected 10.07, got ${testResult.brutto} (${typeof testResult.brutto})`);
                 }
             } catch (parseErr: any) {
                 logToReport(`❌ FAILURE: Parser crashed on FA (3) sample: ${parseErr.message}`);
