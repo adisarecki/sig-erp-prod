@@ -21,17 +21,18 @@ export interface ParsedContractor {
 }
 
 /**
- * PKO BP CSV column layout (0-indexed):
+ * PKO BP CSV column layout (0-indexed) – ACTUAL FORMAT:
  * 0: Data operacji
  * 1: Data waluty
  * 2: Typ transakcji
  * 3: Kwota
  * 4: Waluta
- * 5: Saldo po operacji
- * 6: Rachunek nadawcy/odbiorcy (IBAN)
- * 7: Nazwa nadawcy/odbiorcy       ← SOURCE OF TRUTH for contractor name + address
- * 8: Adres nadawcy/odbiorcy       ← Fallback / secondary address
- * 9: Tytuł                        ← Contains NIP clues
+ * 5..N: Opis transakcji (variable columns – overflow across multiple cells)
+ *
+ * CRITICAL: Columns 5+ must be concatenated into one fullDesc string.
+ * The content then varies by transaction type:
+ *  - Card payment:  col5="Tytuł: <code>", col6="Lokalizacja: Adres: <vendor> Miasto: ..."
+ *  - Bank transfer: col5="Rachunek odbiory: <iban>", col6="Nazwa odbiorcy: <name>", col7="Tytuł: ..."
  */
 
 // Phrases that indicate internal/ATM/card transactions that should be filtered out
@@ -92,6 +93,60 @@ function isTrashRecord(col7: string): boolean {
     );
 }
 
+// ─── Regex extraction helpers (mirrors normalizer.ts logic) ──────────────────
+
+function extractVendorName(fullDesc: string): string {
+    // Pattern 1: Explicit name keyword (transfers)
+    const nameMatch = fullDesc.match(
+        /(?:Nazwa nadawcy|Nazwa odbiorcy):\s*(.*?)(?=\s*(?:Adres nadawcy|Adres odbiorcy|Tytuł|Lokalizacja|Miasto|Data wykonania|$))/i
+    );
+    if (nameMatch && nameMatch[1].trim()) {
+        return nameMatch[1].trim().replace(/^(Z\d{4,}\s*K\.\d+|000\d+\s*)/i, '');
+    }
+    // Pattern 2: Card payment vendor from "Lokalizacja: Adres: <name> Miasto:"
+    const cardMatch = fullDesc.match(/Lokalizacja:\s*Adres:\s*(.*?)\s*Miasto:/i);
+    if (cardMatch && cardMatch[1].trim()) {
+        return cardMatch[1].trim().replace(/^(Z\d{4,}\s*K\.\d+|000\d+\s*)/i, '');
+    }
+    // Pattern 3: Plain "Adres:" (fallback for card)
+    const adresMatch = fullDesc.match(/Adres:\s*(.*?)(?=\s*(?:Tytuł|Lokalizacja|Miasto|Data wykonania|$))/i);
+    if (adresMatch && adresMatch[1].trim()) {
+        return adresMatch[1].trim().replace(/^(Z\d{4,}\s*K\.\d+|000\d+\s*)/i, '');
+    }
+    return "";
+}
+
+function extractTitle(fullDesc: string): string {
+    const match = fullDesc.match(/Tytuł:\s*(.*?)(?=\s*(?:Lokalizacja|Data wykonania|Adres|Numer karty|$))/i);
+    return match ? match[1].trim() : "";
+}
+
+function extractIban(fullDesc: string): string {
+    const match = fullDesc.match(/(?:Rachunek nadawcy|Rachunek odbiorcy):\s*([\d\s]{26,35})/);
+    return match ? match[1].replace(/\s/g, '') : "";
+}
+
+function extractAddress(fullDesc: string): string | null {
+    // From "Adres nadawcy/odbiorcy:"
+    const match = fullDesc.match(/Adres (?:nadawcy|odbiorcy):\s*(.*?)(?=\s*(?:Tytuł|Nazwa|Numer|$))/i);
+    if (match && match[1].trim()) return match[1].trim();
+    // From "Lokalizacja: ... Miasto: <city> Kraj:"
+    const cityMatch = fullDesc.match(/Miasto:\s*(.*?)(?=\s*(?:Kraj:|$))/i);
+    if (cityMatch && cityMatch[1].trim()) return cityMatch[1].trim();
+    return null;
+}
+
+function extractNip(fullDesc: string): string | null {
+    const cleaned = fullDesc.replace(/-/g, '');
+    const nipMatch = cleaned.match(/(?:NIP|nip)[,:\s]+([0-9]{10})|\b([0-9]{10})\b/);
+    if (nipMatch) {
+        const candidate = nipMatch[1] || nipMatch[2];
+        // Exclude obvious IBAN fragments (26+ digit sequences)
+        if (candidate && !cleaned.includes(candidate.repeat(2))) return candidate;
+    }
+    return null;
+}
+
 /**
  * Parses a PKO BP CSV export and extracts entries as ParsedBankTransaction.
  */
@@ -102,7 +157,16 @@ export function parsePkoCsv(csvContent: string): ParsedBankTransaction[] {
     const separator = lines[0].includes(';') ? ';' : ',';
     const results: ParsedBankTransaction[] = [];
 
-    for (let i = 1; i < lines.length; i++) {
+    // Find header/data start
+    let dataStart = 1;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes('Data operacji') || lines[i].includes('Kwota')) {
+            dataStart = i + 1;
+            break;
+        }
+    }
+
+    for (let i = dataStart; i < lines.length; i++) {
         const regexPattern = new RegExp(`(?:^|${separator})("(?:[^"]|"")*"|[^${separator}]*)`, 'g');
         const rowData: string[] = [];
         let match;
@@ -115,36 +179,44 @@ export function parsePkoCsv(csvContent: string): ParsedBankTransaction[] {
             rowData.push(val.trim());
         }
 
-        if (rowData.length < 9) continue;
+        if (rowData.length < 5) continue;
 
-        const dateStr = rowData[0]; // Data operacji
+        const dateStr   = rowData[0]; // Data operacji
+        const txType    = rowData[2]; // Typ transakcji
         const amountStr = rowData[3].replace(',', '.'); // Kwota
-        const col7 = rowData[7] || ""; // Nazwa nadawcy/odbiorcy
 
-        if (isTrashRecord(col7)) continue;
+        // Consolidate ALL description columns from index 5 onwards
+        const fullDesc = rowData.slice(5).filter(c => c.length > 0).join(' ').trim();
+        if (!fullDesc) continue;
 
-        const { name, address: addressFromCol7 } = splitNameAndAddress(col7);
-        if (name.trim().length < 2) continue;
+        // --- Extract entities from fullDesc ---
+        let vendorName = extractVendorName(fullDesc);
+        const title    = extractTitle(fullDesc);
+        const iban     = extractIban(fullDesc);
+        const address  = extractAddress(fullDesc);
+        const nip      = extractNip(fullDesc);
 
-        const col8 = rowData[8] || "";
-        const addressFallback = col8.trim().length > 2 ? col8.trim() : null;
+        // Golden Rule: if no vendor found, fall back to first 30 chars of title
+        if (!vendorName && title) {
+            vendorName = title.substring(0, 30).trim();
+        }
 
-        const fullRowText = rowData.join(" ");
-        const nipMatch = fullRowText.replace(/-/g, '').match(/\b\d{10}\b/);
-        const nip = nipMatch ? nipMatch[0] : null;
+        // Skip rows with less than 2 meaningful chars in vendor name
+        if (vendorName.trim().length < 2) continue;
 
-        const finalAddress = addressFromCol7 ?? addressFallback;
+        // Clean up title: remove technical transaction codes (pure numbers/spaces)
+        const cleanTitle = /^[\d\s]+$/.test(title) ? (txType || 'Przelew') : (title || txType || 'Przelew');
 
         results.push({
             id: `pko_csv_${i}`,
             date: new Date(dateStr),
             amount: amountStr,
-            description: rowData[9] || "Przelew", // Tytuł
-            senderName: name,
+            description: cleanTitle,
+            senderName: vendorName,
             contractor: {
-                name: toTitleCase(name),
-                nip: nip,
-                address: finalAddress
+                name: toTitleCase(vendorName),
+                nip,
+                address
             }
         });
     }
