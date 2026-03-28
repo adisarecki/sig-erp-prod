@@ -315,11 +315,17 @@ export class KSeFService {
             }
         };
 
+        const tokenUsed = headers['SessionToken'];
+        console.log(`[KSeF_DEBUG] Using Token (last 4 chars): ${tokenUsed ? tokenUsed.slice(-4) : 'NULL'}`);
         console.log(`[KSeF_DEBUG] Sending ${options?.subjectType || 'subject2'} Query:`, JSON.stringify(bodyPayload));
 
         const res = await fetch(url, {
             method: 'POST',
-            headers,
+            headers: {
+                'SessionToken': tokenUsed,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify(bodyPayload),
         });
 
