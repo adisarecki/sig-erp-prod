@@ -219,23 +219,43 @@ export class KSeFService {
         if (!authenticationToken) throw new Error('No authenticationToken in Step 3 response');
         console.log('[KSeF_SERVICE] Step 3 OK: KSeF-Token initialized (202 Accepted).');
 
-        // ── KROK 4: Pobranie Access Tokena (Redeem) ──────────
+        // ── KROK 4: Pobranie Access Tokena (Redeem) z Pollingiem ──────
         const redeemUrl = `${KSEF_BASE_URL}/v2/auth/token/redeem`;
-        const redeemRes = await fetch(redeemUrl, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authenticationToken}`
-            }
-        });
+        let redeemRes;
+        let accessToken;
+        let attempts = 0;
+        const maxAttempts = 5;
 
-        if (!redeemRes.ok) {
-            throw new Error(`Step 4 Redeem failed (${redeemRes.status}): ${await redeemRes.text()}`);
+        // Wstępne oczekiwanie na przetworzenie przez serwery Ministerstwa (2 sekundy)
+        await new Promise(r => setTimeout(r, 2000));
+
+        while (attempts < maxAttempts) {
+            attempts++;
+            redeemRes = await fetch(redeemUrl, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authenticationToken}`
+                }
+            });
+
+            if (redeemRes.ok) {
+                const redeemData = await redeemRes.json();
+                accessToken = redeemData.accessToken?.token;
+                break;
+            } else {
+                const errText = await redeemRes.text();
+                // 21301 "Brak autoryzacji" i status "100" oznaczają, że sesja procesuje się asynchronicznie
+                if (errText.includes('21301') && attempts < maxAttempts) {
+                    console.log(`[KSeF_SERVICE] Step 4: Token not ready yet (21301). Retrying in 3s... (${attempts}/${maxAttempts})`);
+                    await new Promise(r => setTimeout(r, 3000));
+                } else {
+                    throw new Error(`Step 4 Redeem failed (${redeemRes.status}): ${errText}`);
+                }
+            }
         }
 
-        const redeemData = await redeemRes.json();
-        const accessToken = redeemData.accessToken?.token;
-        if (!accessToken) throw new Error('No accessToken in Step 4 response');
+        if (!accessToken) throw new Error('No accessToken in Step 4 response after retries');
 
         // 5. Update Cache
         cachedAccessToken = accessToken;
