@@ -27,6 +27,14 @@ export async function POST(request: NextRequest) {
             body.vatRate = String(body.vatRate);
         }
 
+        // Zod przy ".optional()" akceptuje "undefined", ale odrzuca "null". 
+        // Usuwamy wszystkie wartośći "null", żeby schema bezpiecznie je zignorowała.
+        Object.keys(body).forEach(key => {
+            if (body[key] === null) {
+                delete body[key];
+            }
+        });
+
     } catch {
         return NextResponse.json({ error: "Nieprawidłowy format JSON." }, { status: 400 })
     }
