@@ -296,15 +296,15 @@ export class KSeFService {
 
         const pageSize = options?.pageSize || 50;
         const pageOffset = 0;
-        const url = `${KSEF_BASE_URL}/v2/invoices/query/metadata?PageSize=${pageSize}&PageOffset=${pageOffset}`;
+        const url = `${KSEF_BASE_URL}/v2/invoices/query/metadata?pageSize=${pageSize}&pageOffset=${pageOffset}`;
         console.log(`[KSeF_SERVICE] POST ${url}...`);
         console.log(`[KSeF_SERVICE_ENV] Current API Environment: ${KSEF_BASE_URL}`);
 
         const isSales = (options?.subjectType === 'subject1');
         
-        // KSeF API /invoices/query/metadata wymaga strefy Z
-        const fromIso = new Date(from).toISOString();
-        const toIso = new Date(to).toISOString();
+        // KSeF API /invoices/query/metadata wymaga strefy Z i najlepiej formatu bez milisekund: YYYY-MM-DDTHH:mm:ssZ
+        const fromIso = new Date(from).toISOString().replace(/\.\d{3}Z$/, 'Z');
+        const toIso = new Date(to).toISOString().replace(/\.\d{3}Z$/, 'Z');
 
         const bodyPayload = {
             subjectType: options?.subjectType || 'subject2', // Domyślnie Nabywca (Koszt)
@@ -323,8 +323,8 @@ export class KSeFService {
             method: 'POST',
             headers: {
                 'SessionToken': tokenUsed,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify(bodyPayload),
         });
