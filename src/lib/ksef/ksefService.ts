@@ -216,6 +216,8 @@ export class KSeFService {
 
         const initData = await initRes.json();
         const referenceNumber = initData.referenceNumber;
+        const authenticationToken = initData.authenticationToken?.token;
+        
         if (!referenceNumber) throw new Error('No referenceNumber in Step 3 response');
         console.log('[KSeF_SERVICE] Step 3 OK: KSeF-Token initialized (202 Accepted). Reference:', referenceNumber);
 
@@ -234,7 +236,10 @@ export class KSeFService {
             redeemRes = await fetch(redeemUrl, {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    // Autoryzacja dla Redeem (V2 wymaga przekazania tokena z Kroku 3 w nagłówku)
+                    ...(authenticationToken ? { 'Authorization': `Bearer ${authenticationToken}` } : {})
                 },
                 body: JSON.stringify({ referenceNumber })
             });
@@ -245,6 +250,12 @@ export class KSeFService {
                 break;
             } else {
                 const errText = await redeemRes.text();
+                
+                // Zadanie: Logowanie body przy błędzie (audytor tego potrzebuje)
+                if (redeemRes.status === 401) {
+                    console.error('[KSeF_DEBUG] Step 4 Redeem failed (401):', errText);
+                }
+
                 // 21301 "Brak autoryzacji" i status "100" oznaczają, że sesja procesuje się asynchronicznie
                 if (errText.includes('21301') && attempts < maxAttempts) {
                     console.log(`[KSeF_SERVICE] Step 4: Token not ready yet (21301). Retrying in 3s... (${attempts}/${maxAttempts})`);
@@ -301,7 +312,7 @@ export class KSeFService {
         console.log(`[KSeF_SERVICE_ENV] Current API Environment: ${KSEF_BASE_URL}`);
 
         const isSales = (options?.subjectType === 'subject1');
-        
+
         // KSeF API /invoices/query/metadata wymaga strefy Z i najlepiej formatu bez milisekund: YYYY-MM-DDTHH:mm:ssZ
         const fromIso = new Date(from).toISOString().replace(/\.\d{3}Z$/, 'Z');
         const toIso = new Date(to).toISOString().replace(/\.\d{3}Z$/, 'Z');
@@ -415,7 +426,7 @@ export class KSeFService {
             .plus(fa.P_14_3 || 0);
 
         let grossAmountDecimal = new Decimal(fa.P_15 || 0);
-        
+
         // Fallback if P_15 is missing or zero (requested for robustness)
         if (grossAmountDecimal.isZero()) {
             grossAmountDecimal = netAmountDecimal.plus(vatAmountDecimal);
@@ -432,12 +443,12 @@ export class KSeFService {
         // Extract Due Date
         let dueDate = new Date(fa.P_1);
         dueDate.setDate(dueDate.getDate() + 14); // 14 days fallback
-        
+
         if (fa.Platnosc?.TerminyPlatnosci?.Termin) {
             dueDate = new Date(fa.Platnosc.TerminyPlatnosci.Termin);
         } else if (fa.Platnosc?.TerminyPlatnosci?.TerminPlatnosci && fa.Platnosc.TerminyPlatnosci.TerminPlatnosci.length > 0) {
-            const firstTermin = Array.isArray(fa.Platnosc.TerminyPlatnosci.TerminPlatnosci) 
-                ? fa.Platnosc.TerminyPlatnosci.TerminPlatnosci[0] 
+            const firstTermin = Array.isArray(fa.Platnosc.TerminyPlatnosci.TerminPlatnosci)
+                ? fa.Platnosc.TerminyPlatnosci.TerminPlatnosci[0]
                 : fa.Platnosc.TerminyPlatnosci.TerminPlatnosci;
             if (firstTermin.Termin) {
                 dueDate = new Date(firstTermin.Termin);
