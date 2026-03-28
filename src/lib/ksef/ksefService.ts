@@ -301,6 +301,13 @@ export class KSeFService {
         const fromYMD = new Date(from).toISOString().split('T')[0];
         const toYMD = new Date(to).toISOString().split('T')[0];
 
+        const isSales = (options?.subjectType === 'subject1');
+        const dateFields = isSales 
+            ? { fromKey: 'invoicingDateFrom', toKey: 'invoicingDateTo' }
+            : { fromKey: 'acquisitionDateFrom', toKey: 'acquisitionDateTo' };
+
+        console.log(`[KSeF_SERVICE] Query for ${options?.subjectType || 'subject2'} using ${dateFields.fromKey}/${dateFields.toKey}...`);
+
         const res = await fetch(url, {
             method: 'POST',
             headers,
@@ -308,8 +315,8 @@ export class KSeFService {
                 queryCriteria: {
                     subjectType: options?.subjectType || 'subject2', // Domyślnie Nabywca (Koszt)
                     type: 'range',
-                    invoicingDateFrom: fromYMD,
-                    invoicingDateTo: toYMD,
+                    [dateFields.fromKey]: fromYMD,
+                    [dateFields.toKey]: toYMD,
                 },
                 pageSize: options?.pageSize || 50,
                 pageOffset: 0,

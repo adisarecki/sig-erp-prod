@@ -34,10 +34,10 @@ export async function GET(request: NextRequest) {
                   return []; // Fallback empty array on specific failure
               }),
               
-            // EXPENSE (Koszty)
+            // EXPENSE (Koszty) - TEST 1 Bypass: Wide date range (from 2026-01-01)
             ksefSvc.fetchInvoiceMetadata({ 
                 sessionToken,
-                dateFrom,
+                dateFrom: "2026-01-01T00:00:00.000Z", // Wide range bypass (Requested by Wizjoner)
                 dateTo,
                 pageSize,
                 subjectType: 'subject2'
