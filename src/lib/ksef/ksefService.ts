@@ -424,7 +424,7 @@ export class KSeFService {
             vatAmount: vatAmountDecimal,
             grossAmount: grossAmountDecimal,
             currency: fa.KodWaluty || 'PLN',
-            paymentStatus: fa.Platnosc?.Zaplacono === 1 ? 'PAID' : 'UNPAID',
+            paymentStatus: (fa.Platnosc?.Zaplacono === 1 || new Date(fa.P_1).getTime() === dueDate.getTime()) ? 'PAID' : 'UNPAID',
             lineItems,
             rawXml,
         };
