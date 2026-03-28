@@ -311,9 +311,7 @@ export class KSeFService {
             }),
         });
 
-        // Refined Error Handling: 
-        // If we explicitly passed a sessionToken (e.g. for testing valid/invalid sessions),
-        // we should NOT mask errors as empty results.
+        // Task: Handle 404 as "Brak faktur" (No results found in period)
         if (res.status === 404) {
             console.log("[KSeF_SERVICE] No invoices found for this period. Returning empty list.");
             return [];

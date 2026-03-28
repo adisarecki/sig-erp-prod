@@ -59,7 +59,7 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 - **Dynamiczne Zarządzanie Kluczami**: Certyfikaty są pobierane w runtime i trzymane w bezpiecznym cache'u w pamięci (brak plików PEM w repozytorium).
 - **Stabilny Cache**: Access Token jest buforowany przez 55 minut, co minimalizuje obciążenie serwerów MF i zapewnia stabilność sesji.
 - **Obsługa FA(3)**: Step 6: Dodano obsługę faktur zaliczkowych (ZAL) oraz ekstrakcję szczegółowych pozycji zamówienia ze schematu FA (3).
-- **Odporność na Błędy**: Bezpieczna obsługa pustych wyników zapytania (status 404 traktowany jako sukces z pustą listą) oraz precyzyjna diagnostyka błędów sesji (Step 7 Auth-Fix). Zoptymalizowano obsługę okresów bezfakturowych (eliminacja błędów 500).
+- **Odporność na Błędy**: Bezpieczna obsługa pustych wyników zapytania (status 404 traktowany jako sukces z pustą listą) oraz precyzyjna diagnostyka błędów sesji (Step 7 Auth-Fix). Zoptymalizowano obsługę okresów bezfakturowych (fix błędu 404/500).
 - **Integracja Bazy Danych (Upsert & Duplicate Guard)**: Pobieranie i zapis faktur z zabezpieczeniem przed duplikatami (`ksefId`). Automatyczne budowanie profilu kontrahenta (weryfikacja NIP) oraz wyciąganie przypisanych do faktur kont bankowych. Monitorowanie statusu (`paymentStatus`), typów KSeF (`ksefType` dla zaliczek) oraz terminów płatności (`dueDate`).
 - **Dashboard i Powiadomienia (UI Integration)**: Tabela naglących płatności zasila się automatycznie z bazy Prisma. Wskaźnik Safe to Spend odlicza niezapłacone KSeF od czystej gotówki. Panel na `/finanse/ksef` umożliwiający synchronizację z konkretnego Date-Range, przeglądanie faktur KSeF oraz zarządzanie i akceptację Oczekujących Dostawców, którzy trafili ze świeżych zestawień XML.
 

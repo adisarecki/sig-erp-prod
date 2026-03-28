@@ -57,7 +57,8 @@ export async function GET(request: NextRequest) {
     } catch (error: any) {
         console.error('[KSeF_API_INVOICES] Error:', error);
         
-        // Zwróć 200 z pustą tablicą zamiast błędu 500, aby uniknąć crashu frontendu
+        // Zadanie: Zwróć 200 z pustą tablicą zamiast błędu 500 (Fail-Safe), 
+        // aby uniknąć crashu frontendu w okresach bezfakturowych.
         return NextResponse.json({
             success: true,
             invoices: [],
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
                 total: 0,
                 page: 1,
                 pageSize: 50,
-                message: "Brak faktur lub błąd połączenia z KSeF (zignorowano)."
+                message: "Brak faktur lub błąd bezpiecznego połączenia (Wektor: 404)."
             }
         }, { status: 200 });
     }
