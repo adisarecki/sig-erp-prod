@@ -141,22 +141,32 @@ export async function updateContractor(formData: FormData): Promise<{ success: b
 
         const tenantId = await getCurrentTenantId()
 
-        // 1. Firestore Update
+        // 1. Firestore Update (z Auto-Healingiem)
         const contractorRef = adminDb.collection("contractors").doc(id)
         const contractorDoc = await contractorRef.get()
         
         if (!contractorDoc.exists) {
-            throw new Error("Kontrahent nie istnieje w bazie Firestore.")
+            console.warn("[CRM_SYNC] Kontrahent uciekł z Firestore. Auto-heal dla ID:", id)
+            await contractorRef.set({
+                tenantId,
+                name,
+                nip: nip || null,
+                address: address || null,
+                type,
+                status: status || "ACTIVE",
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            })
+        } else {
+            await contractorRef.update({
+                name,
+                nip: nip || null,
+                address: address || null,
+                type,
+                status: status || "ACTIVE",
+                updatedAt: new Date().toISOString()
+            })
         }
-
-        await contractorRef.update({
-            name,
-            nip: nip || null,
-            address: address || null,
-            type,
-            status: status || "ACTIVE",
-            updatedAt: new Date().toISOString()
-        })
 
         // 2. Prisma Sync (z Auto-Healingiem)
         try {
