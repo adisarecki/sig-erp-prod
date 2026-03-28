@@ -254,7 +254,7 @@ export async function addIncomeInvoice(formData: FormData) {
         const issueDate = new Date(dateStr)
         const dueDate = new Date(dueDateStr)
 
-        const isPaidImmediately = formData.get("isPaidImmediately") === "true"
+        const isPaidImmediately = (formData.get("isPaidImmediately") === "true") || (dateStr === dueDateStr)
 
         // retention
         const retainedAmountStr = formData.get("retainedAmount") as string
@@ -627,7 +627,7 @@ export async function addCostInvoice(formData: FormData) {
         const dueDate = new Date(dueDateStr)
 
 
-        const isPaidImmediately = formData.get("isPaidImmediately") === "true"
+        const isPaidImmediately = (formData.get("isPaidImmediately") === "true") || (dateStr === dueDateStr)
 
         // --- TARCZA ANTY-DUBEL (Anti-Double Shield) ---
         // Shield aktywuje się tylko jeśli podano nr faktury (externalId).

@@ -77,16 +77,20 @@ export async function POST(req: NextRequest) {
             // NIP Wizjonera: 9542751368
             const OWNER_NIP = "9542751368";
             
-            parsedData = parsedData.map((item: { nip?: string, type?: string }) => {
+            parsedData = parsedData.map((item: any) => {
                 const itemNip = (item.nip || "").replace(/\D/g, "");
                 // Jeśli Sprzedawca (nip z dokumentu) to My -> INCOME
                 // W przeciwnym razie -> EXPENSE (Kupujemy coś)
                 const type = itemNip === OWNER_NIP ? "INCOME" : "EXPENSE";
+
+                // --- Business Rule: issueDate == dueDate => PAID ---
+                const autoPaid = item.issueDate && item.dueDate && (item.issueDate === item.dueDate);
                 
                 return {
                     ...item,
                     type,
-                    nip: itemNip // Sanitize NIP to digits only
+                    nip: itemNip, // Sanitize NIP to digits only
+                    isPaid: item.isPaid || autoPaid
                 };
             });
 
