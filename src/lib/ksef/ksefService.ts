@@ -246,7 +246,9 @@ export class KSeFService {
 
             if (redeemRes.ok) {
                 const redeemData = await redeemRes.json();
-                finalSessionToken = redeemData.sessionToken?.token;
+                console.log('[KSeF_DEBUG] Step 4 Redeem Success Response:', JSON.stringify(redeemData));
+                // W specyfikacji V2 pole to nazywa się accessToken, choć niektóre wersje Swaggera pokazują sessionToken
+                finalSessionToken = redeemData.accessToken?.token || redeemData.sessionToken?.token;
                 break;
             } else {
                 const errText = await redeemRes.text();
@@ -266,7 +268,9 @@ export class KSeFService {
             }
         }
 
-        if (!finalSessionToken) throw new Error('No sessionToken in Step 4 response after retries');
+        if (!finalSessionToken) {
+            throw new Error('No final token (accessToken or sessionToken) found in Step 4 response after retries');
+        }
 
         // 5. Update Cache
         cachedAccessToken = finalSessionToken;
