@@ -19,16 +19,39 @@ export async function GET(request: NextRequest) {
         // 2. Session Handshake (v2.0)
         const sessionToken = await ksefSvc.getSessionToken();
 
-        // 3. Query Invoices with filters
-        const invoiceList = await ksefSvc.fetchInvoiceMetadata({ 
-            sessionToken,
-            dateFrom,
-            dateTo,
-            pageSize
-        });
+        // 3. Double-Fetch: Query Sales (subject1) & Expenses (subject2) concurrently
+        const [salesResponse, expensesResponse] = await Promise.all([
+            // REVENUE (Sprzedaż)
+            ksefSvc.fetchInvoiceMetadata({ 
+                sessionToken,
+                dateFrom,
+                dateTo,
+                pageSize,
+                subjectType: 'subject1'
+            }).then(res => res.map((item: any) => ({ ...item, _apiDirection: 'REVENUE' })))
+              .catch(err => {
+                  console.error('[KSeF_API_INVOICES] Sales fetch error:', err);
+                  return []; // Fallback empty array on specific failure
+              }),
+              
+            // EXPENSE (Koszty)
+            ksefSvc.fetchInvoiceMetadata({ 
+                sessionToken,
+                dateFrom,
+                dateTo,
+                pageSize,
+                subjectType: 'subject2'
+            }).then(res => res.map((item: any) => ({ ...item, _apiDirection: 'EXPENSE' })))
+              .catch(err => {
+                  console.error('[KSeF_API_INVOICES] Expenses fetch error:', err);
+                  return []; // Fallback empty array on specific failure
+              })
+        ]);
+        
+        const combinedList = [...salesResponse, ...expensesResponse];
         
         // 4. Map Results
-        const mappedInvoices = invoiceList.map((item: any) => ({
+        const mappedInvoices = combinedList.map((item: any) => ({
             ksefReferenceNumber: item.invoiceReferenceNumber,
             invoiceNumber: item.invoiceNumber || "N/A",
             issueDate: item.invoicingDate,
@@ -39,6 +62,7 @@ export async function GET(request: NextRequest) {
             netAmount: item.netAmount || 0,
             vatAmount: item.vatAmount || 0,
             grossAmount: item.grossAmount || 0,
+            direction: item._apiDirection, // Added for UI badge
             status: "RECEIVED"
         }));
 

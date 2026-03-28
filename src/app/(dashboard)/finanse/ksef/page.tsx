@@ -39,7 +39,8 @@ export default async function KSeFInboxPage() {
         issueDate: inv.issueDate,
         dueDate: inv.dueDate,
         paymentStatus: inv.paymentStatus,
-        ksefType: inv.ksefType || "Faktura"
+        ksefType: inv.ksefType || "Faktura",
+        type: inv.type
     }))
 
     const mappedContractors = pendingContractors.map(c => ({

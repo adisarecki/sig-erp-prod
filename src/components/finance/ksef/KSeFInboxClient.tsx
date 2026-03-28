@@ -185,10 +185,26 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
                                         </td>
                                         <td className="p-4">
                                             <p className="text-sm font-medium text-slate-700">{new Date(inv.issueDate).toLocaleDateString('pl-PL')}</p>
-                                            <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wide bg-indigo-50 px-1.5 py-0.5 rounded">{inv.ksefType}</span>
+                                            <div className="flex gap-1 mt-1">
+                                                <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wide bg-indigo-50 px-1.5 py-0.5 rounded">{inv.ksefType}</span>
+                                                {inv.type && (
+                                                    <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                                                        inv.type === 'REVENUE' || inv.type === 'INCOME' 
+                                                            ? 'bg-emerald-100 text-emerald-700' 
+                                                            : 'bg-rose-100 text-rose-700'
+                                                    }`}>
+                                                        {inv.type === 'REVENUE' || inv.type === 'INCOME' ? 'Sprzedaż' : 'Zakup'}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="p-4 text-right">
-                                            <CurrencyDisplay gross={inv.amountGross} net={Number(inv.amountGross) / 1.23} isIncome={false} className="font-black text-slate-800" />
+                                            <CurrencyDisplay 
+                                                gross={inv.amountGross} 
+                                                net={Number(inv.amountGross) / 1.23} 
+                                                isIncome={inv.type === 'REVENUE' || inv.type === 'INCOME'} 
+                                                className="font-black text-slate-800" 
+                                            />
                                         </td>
                                         <td className="p-4 text-right">
                                             <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${

@@ -37,28 +37,39 @@ export async function POST(request: NextRequest) {
 
                 // KROK A.2: Brak duplikatu, więc pobieramy pełnego XML'a z KSeF
                 const parsed = await ksefSvc.fetchAndParse(ksefId, { sessionToken });
-                const nip = parsed.sellerNip;
+                
+                // AUTO-KATEGORYZACJA: Sprzedaż czy Koszt?
+                const myNip = process.env.KSEF_NIP || "";
+                // Jeśli mój NIP to Sprzedawca, to jest to dla mnie REVENUE (Przychód)
+                const isRevenue = parsed.sellerNip === myNip;
+                const dbType = isRevenue ? "REVENUE" : "EXPENSE";
 
-                // KROK B: Logika Auto-Contractor (Wyszukiwanie dostawcy)
+                // Ustalenie kto jest Drugą Stroną Transakcji
+                const counterpartyNip = isRevenue ? parsed.counterpartyNip : parsed.sellerNip;
+                const counterpartyName = isRevenue ? parsed.counterpartyName : parsed.sellerName;
+                const counterpartyAddress = isRevenue ? "" : parsed.sellerAddress; // Adresy zazwyczaj bierzemy od sprzedawców w KSeF, ale można to rozbudować
+
+                // KROK B: Logika Auto-Contractor (Wyszukiwanie dostawcy/klienta)
                 let contractor = await prisma.contractor.findUnique({
-                    where: { tenantId_nip: { tenantId, nip } }
+                    where: { tenantId_nip: { tenantId, nip: counterpartyNip } }
                 });
 
                 if (!contractor) {
-                    // Generuj dostawcę w stanie PENDING i podepnij mu znalezione konto bankowe
-                    const accountsArr = parsed.sellerBankAccount ? [parsed.sellerBankAccount] : [];
+                    // Generuj kontrahenta w stanie PENDING i podepnij mu znalezione konto bankowe (tylko dla kosztów Nabywca płaci na konto Sprzedawcy)
+                    const accountsArr = (!isRevenue && parsed.sellerBankAccount) ? [parsed.sellerBankAccount] : [];
                     contractor = await prisma.contractor.create({
                         data: {
                             tenantId,
-                            nip,
-                            name: parsed.sellerName,
-                            address: parsed.sellerAddress,
+                            nip: counterpartyNip,
+                            name: counterpartyName,
+                            address: counterpartyAddress,
                             status: "PENDING",
+                            type: isRevenue ? "KLIENT" : "DOSTAWCA",
                             bankAccounts: accountsArr
                         }
                     });
-                    console.log(`[KSEF_PROCESS] Wygenerowano kontrahenta: ${nip}`);
-                } else if (parsed.sellerBankAccount && !contractor.bankAccounts.includes(parsed.sellerBankAccount)) {
+                    console.log(`[KSEF_PROCESS] Wygenerowano kontrahenta: ${counterpartyNip}`);
+                } else if (!isRevenue && parsed.sellerBankAccount && !contractor.bankAccounts.includes(parsed.sellerBankAccount)) {
                     // Jeśli istnieje dostawca, dołączamy mu konto bankowe do tablicy, jeśli nie było
                     await prisma.contractor.update({
                         where: { id: contractor.id },
@@ -72,14 +83,14 @@ export async function POST(request: NextRequest) {
                     taxRateValue = parsed.vatAmount.dividedBy(parsed.netAmount).toNumber();
                 }
 
-                // KROK C: Zapis faktury i powiązanie z dostawcą
+                // KROK C: Zapis faktury i powiązanie z Mądrym Kontrahentem
                 await prisma.invoice.create({
                     data: {
                         tenantId,
                         contractorId: contractor.id,
                         ksefId: parsed.ksefNumber,
                         invoiceNumber: parsed.invoiceNumber,
-                        type: "EXPENSE", // Domyślny typ wprowadzany do systemu
+                        type: dbType, // REVENUE lub EXPENSE wyliczony z XML
                         ksefType: parsed.ksefType, // Oddzielenie faktur ZAL / ZW
                         amountNet: parsed.netAmount.toNumber(),
                         amountGross: parsed.grossAmount.toNumber(),

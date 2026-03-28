@@ -282,6 +282,7 @@ export class KSeFService {
         dateFrom?: string;
         dateTo?: string;
         pageSize?: number;
+        subjectType?: 'subject1' | 'subject2' | 'subject3';
     }): Promise<any[]> {
         console.log('[KSeF_SERVICE] Step 5: Fetching invoice metadata (Sync Incremental)...');
 
@@ -301,7 +302,7 @@ export class KSeFService {
             headers,
             body: JSON.stringify({
                 queryCriteria: {
-                    subjectType: 'subject2', // Buyer (EXPENSE)
+                    subjectType: options?.subjectType || 'subject2', // Domyślnie Nabywca (Koszt)
                     type: 'incremental',
                     acquisitionTimestampThresholdFrom: from,
                     acquisitionTimestampThresholdTo: to,
