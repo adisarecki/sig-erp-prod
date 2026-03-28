@@ -298,15 +298,13 @@ export class KSeFService {
         console.log(`[KSeF_SERVICE] POST ${url}...`);
         console.log(`[KSeF_SERVICE_ENV] Current API Environment: ${KSEF_BASE_URL}`);
 
+        const isSales = (options?.subjectType === 'subject1');
+        
+        // Anti: Wywalamy rozróżnienie. Od teraz pytamy o wszystko tak samo (invoicingDate).
         const fromYMD = new Date(from).toISOString().split('T')[0];
         const toYMD = new Date(to).toISOString().split('T')[0];
 
-        const isSales = (options?.subjectType === 'subject1');
-        const dateFields = isSales 
-            ? { fromKey: 'invoicingDateFrom', toKey: 'invoicingDateTo' }
-            : { fromKey: 'acquisitionDateFrom', toKey: 'acquisitionDateTo' };
-
-        console.log(`[KSeF_SERVICE] Query for ${options?.subjectType || 'subject2'} using ${dateFields.fromKey}/${dateFields.toKey}...`);
+        console.log(`[KSeF_DEBUG] Sending ${options?.subjectType || 'subject2'} Query: { invoicingDateFrom: "${fromYMD}", invoicingDateTo: "${toYMD}" }`);
 
         const res = await fetch(url, {
             method: 'POST',
@@ -315,8 +313,8 @@ export class KSeFService {
                 queryCriteria: {
                     subjectType: options?.subjectType || 'subject2', // Domyślnie Nabywca (Koszt)
                     type: 'range',
-                    [dateFields.fromKey]: fromYMD,
-                    [dateFields.toKey]: toYMD,
+                    invoicingDateFrom: fromYMD,
+                    invoicingDateTo: toYMD,
                 },
                 pageSize: options?.pageSize || 50,
                 pageOffset: 0,
