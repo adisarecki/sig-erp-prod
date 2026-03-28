@@ -80,8 +80,8 @@ export async function POST(req: NextRequest) {
             parsedData = parsedData.map((item: any) => {
                 const itemNip = (item.nip || "").replace(/\D/g, "");
                 // Jeśli Sprzedawca (nip z dokumentu) to My -> INCOME
-                // W przeciwnym razie -> EXPENSE (Kupujemy coś)
-                const type = itemNip === OWNER_NIP ? "INCOME" : "EXPENSE";
+                // W przeciwnym razie -> COST (Kupujemy coś)
+                const type = itemNip === OWNER_NIP ? "INCOME" : "COST";
 
                 // --- Business Rule: issueDate == dueDate => PAID ---
                 const autoPaid = item.issueDate && item.dueDate && (item.issueDate === item.dueDate);
