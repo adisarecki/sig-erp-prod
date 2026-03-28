@@ -11,6 +11,17 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
     const [isSyncing, setIsSyncing] = useState(false)
     const [syncMessage, setSyncMessage] = useState("")
     const [actionId, setActionId] = useState<string | null>(null)
+    
+    // Zmienne stanu dla Date Range z domyślnym okresem 7 dni
+    const [dateFrom, setDateFrom] = useState(() => {
+        const d = new Date()
+        d.setDate(d.getDate() - 7)
+        return d.toISOString().split('T')[0]
+    })
+    
+    const [dateTo, setDateTo] = useState(() => {
+        return new Date().toISOString().split('T')[0]
+    })
 
     const handleSync = async () => {
         setIsSyncing(true)
@@ -24,12 +35,14 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
             // let's assume we do a full query for the last 3 days here, call API, then push IDs to process.
 
             // Request logic:
-            const toDate = new Date()
-            const fromDate = new Date()
-            fromDate.setDate(toDate.getDate() - 7) // Ostatnie 7 dni domyślnie
+            const fromDateObj = new Date(dateFrom)
+            const toDateObj = new Date(dateTo)
+            
+            // Koniec dnia roboczego dla daty do
+            toDateObj.setHours(23, 59, 59, 999)
 
-            const dateFromStr = fromDate.toISOString()
-            const dateToStr = toDate.toISOString()
+            const dateFromStr = fromDateObj.toISOString()
+            const dateToStr = toDateObj.toISOString()
 
             // 1. Get IDs
             const queryRes = await fetch(`/api/ksef/invoices?dateFrom=${encodeURIComponent(dateFromStr)}&dateTo=${encodeURIComponent(dateToStr)}`)
@@ -84,11 +97,32 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
     return (
         <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start gap-4 p-6 bg-slate-50 border border-slate-100 rounded-2xl">
-                <div>
+                <div className="flex-1 w-full md:w-auto mt-4 md:mt-0">
                     <h2 className="text-xl font-bold text-slate-900 tracking-tight">Oś Szybkiej Synchronizacji</h2>
-                    <p className="text-sm font-medium text-slate-500 mt-1">Sprawdź ostatnie 7 dni w państwowym systemie e-Faktur i zabezpiecz system centralny.</p>
+                    <p className="text-sm font-medium text-slate-500 mt-1">Pobierz dokumenty z państwowego systemu e-Faktur z wybranego okresu.</p>
                 </div>
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex flex-col md:flex-row items-end gap-3 w-full md:w-auto">
+                    <div className="flex items-center gap-2">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Data Od</label>
+                            <input 
+                                type="date" 
+                                value={dateFrom}
+                                onChange={(e) => setDateFrom(e.target.value)}
+                                className="h-12 px-3 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Data Do</label>
+                            <input 
+                                type="date" 
+                                value={dateTo}
+                                onChange={(e) => setDateTo(e.target.value)}
+                                className="h-12 px-3 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex flex-col items-end w-full md:w-auto">
                     <Button 
                         onClick={handleSync} 
                         disabled={isSyncing}
@@ -97,7 +131,7 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
                         {isSyncing ? (
                             <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Pobieranie ZK KSeF...</>
                         ) : (
-                            <><DownloadCloud className="w-5 h-5 mr-2" /> Synchronizuj 7 Dni (Odbierz Invoices)</>
+                            <><DownloadCloud className="w-5 h-5 mr-2" /> Pobierz KSeF</>
                         )}
                     </Button>
                     {syncMessage && (
@@ -105,6 +139,7 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
                             {syncMessage}
                         </p>
                     )}
+                    </div>
                 </div>
             </div>
 
