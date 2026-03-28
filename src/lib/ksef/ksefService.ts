@@ -107,6 +107,9 @@ export interface KsefParsedInvoice {
     sellerNip: string;
     sellerName: string;
     sellerAddress: string;
+    sellerBankAccount: string | null;
+    ksefType: string;
+    dueDate: Date;
     paymentStatus: 'PAID' | 'UNPAID';
     lineItems: Array<{
         name: string;
@@ -382,15 +385,41 @@ export class KSeFService {
             grossAmountDecimal = netAmountDecimal.plus(vatAmountDecimal);
         }
 
+        // Extract Bank Account
+        let bankAccount = null;
+        if (fa.Platnosc?.RachunekBankowy?.NrRB) {
+            bankAccount = fa.Platnosc.RachunekBankowy.NrRB;
+        } else if (fa.Platnosc?.AdnotacjaOPlatnosci?.RachunekBankowy?.NrRB) {
+            bankAccount = fa.Platnosc.AdnotacjaOPlatnosci.RachunekBankowy.NrRB;
+        }
+
+        // Extract Due Date
+        let dueDate = new Date(fa.P_1);
+        dueDate.setDate(dueDate.getDate() + 14); // 14 days fallback
+        
+        if (fa.Platnosc?.TerminyPlatnosci?.Termin) {
+            dueDate = new Date(fa.Platnosc.TerminyPlatnosci.Termin);
+        } else if (fa.Platnosc?.TerminyPlatnosci?.TerminPlatnosci && fa.Platnosc.TerminyPlatnosci.TerminPlatnosci.length > 0) {
+            const firstTermin = Array.isArray(fa.Platnosc.TerminyPlatnosci.TerminPlatnosci) 
+                ? fa.Platnosc.TerminyPlatnosci.TerminPlatnosci[0] 
+                : fa.Platnosc.TerminyPlatnosci.TerminPlatnosci;
+            if (firstTermin.Termin) {
+                dueDate = new Date(firstTermin.Termin);
+            }
+        }
+
         return {
             ksefNumber,
             invoiceNumber: fa.P_2 || 'Unknown',
             issueDate: new Date(fa.P_1),
+            dueDate,
             counterpartyNip: nabywca?.NIP || 'Brak',
             counterpartyName: nabywca?.Nazwa || 'Brak',
             sellerNip: sprzedawca.NIP || 'Brak',
             sellerName: sprzedawca.Nazwa || 'Brak',
             sellerAddress: faktura.Podmiot1?.Adres?.AdresL1 || 'Brak adresu',
+            sellerBankAccount: bankAccount,
+            ksefType: rodzajFaktury || 'VAT',
             netAmount: netAmountDecimal,
             vatAmount: vatAmountDecimal,
             grossAmount: grossAmountDecimal,

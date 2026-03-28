@@ -169,6 +169,10 @@ model Invoice {
   issueDate    DateTime
   dueDate      DateTime
   status       String        @default("ACTIVE") // DRAFT, ACTIVE, PAID, PARTIALLY_PAID, REVERSED
+  paymentStatus String       @default("UNPAID")
+  ksefId       String?       @unique
+  ksefType     String?
+  invoiceNumber String?
   externalId   String?
   bankTransactionId String?    @unique // Link do wyciągu bankowego (zapobiega dublowaniu)
   scanUrl      String?       // OCR: Link do skanu/zasobu zewnętrznego
