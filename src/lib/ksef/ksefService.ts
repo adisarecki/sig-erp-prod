@@ -294,40 +294,33 @@ export class KSeFService {
             customToken: options?.testToken,
         });
 
-        const url = `${KSEF_BASE_URL}/v2/online/Query/Invoice/Sync`;
+        const pageSize = options?.pageSize || 50;
+        const pageOffset = 0;
+        const url = `${KSEF_BASE_URL}/v2/invoices/query/metadata?PageSize=${pageSize}&PageOffset=${pageOffset}`;
         console.log(`[KSeF_SERVICE] POST ${url}...`);
         console.log(`[KSeF_SERVICE_ENV] Current API Environment: ${KSEF_BASE_URL}`);
 
         const isSales = (options?.subjectType === 'subject1');
         
-        // KSeF API requires simple YYYY-MM-DD dates for these specific range queries.
-        const fromYMD = new Date(from).toISOString().split('T')[0];
-        const toYMD = new Date(to).toISOString().split('T')[0];
+        // KSeF API /invoices/query/metadata wymaga strefy Z
+        const fromIso = new Date(from).toISOString();
+        const toIso = new Date(to).toISOString();
 
-        const queryCriteria: any = {
+        const bodyPayload = {
             subjectType: options?.subjectType || 'subject2', // Domyślnie Nabywca (Koszt)
-            type: 'range',
+            dateRange: {
+                dateType: isSales ? "issue" : "acquisition",
+                from: fromIso,
+                to: toIso
+            }
         };
 
-        if (isSales) {
-            queryCriteria.invoicingDateFrom = fromYMD;
-            queryCriteria.invoicingDateTo = toYMD;
-        } else {
-            // Zakupy / Koszty wymagają acquisitionDate! To blokowało pobieranie faktur Nabywcy.
-            queryCriteria.acquisitionDateFrom = fromYMD;
-            queryCriteria.acquisitionDateTo = toYMD;
-        }
-
-        console.log(`[KSeF_DEBUG] Sending ${options?.subjectType || 'subject2'} Query:`, JSON.stringify(queryCriteria));
+        console.log(`[KSeF_DEBUG] Sending ${options?.subjectType || 'subject2'} Query:`, JSON.stringify(bodyPayload));
 
         const res = await fetch(url, {
             method: 'POST',
             headers,
-            body: JSON.stringify({
-                queryCriteria,
-                pageSize: options?.pageSize || 50,
-                pageOffset: 0,
-            }),
+            body: JSON.stringify(bodyPayload),
         });
 
         // Task: Handle 404 as "Brak faktur" (No results found in period)
