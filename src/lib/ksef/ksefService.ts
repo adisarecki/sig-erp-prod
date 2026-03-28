@@ -224,10 +224,10 @@ export class KSeFService {
         let redeemRes;
         let accessToken;
         let attempts = 0;
-        const maxAttempts = 5;
+        const maxAttempts = 12;
 
-        // Wstępne oczekiwanie na przetworzenie przez serwery Ministerstwa (2 sekundy)
-        await new Promise(r => setTimeout(r, 2000));
+        // Wstępne oczekiwanie na przetworzenie przez serwery Ministerstwa (3 sekundy)
+        await new Promise(r => setTimeout(r, 3000));
 
         while (attempts < maxAttempts) {
             attempts++;

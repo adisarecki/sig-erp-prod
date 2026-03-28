@@ -3,6 +3,8 @@ import prisma from "@/lib/prisma";
 import { KSeFService } from "@/lib/ksef/ksefService";
 import { getCurrentTenantId } from "@/lib/tenant";
 
+export const maxDuration = 60; // Długie zapytania KSeF (v2.0 Timeout Guard)
+
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();

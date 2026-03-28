@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { KSeFService } from '@/lib/ksef/ksefService';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // Długie zapytania KSeF (v2.0 Timeout Guard)
+
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);

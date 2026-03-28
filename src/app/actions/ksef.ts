@@ -9,20 +9,20 @@ export async function approvePendingContractor(id: string): Promise<{ success: b
     try {
         const tenantId = await getCurrentTenantId()
         const adminDb = getAdminDb()
-        
+
         // 1. Get Prisma Contractor (z naszymi kontami bankowymi itp)
         const contractor = await prisma.contractor.findUnique({
             where: { id, tenantId }
         })
-        
+
         if (!contractor) throw new Error("Kontrahent nie istnieje.")
-            
+
         // 2. Set as ACTIVE in Prisma
         await prisma.contractor.update({
             where: { id },
             data: { status: "ACTIVE" }
         })
-        
+
         // 3. Update or Create in Firestore (Dual Sync Auto-healer like before)
         const contractorRef = adminDb.collection("contractors").doc(id)
         const docSnap = await contractorRef.get()
@@ -44,7 +44,7 @@ export async function approvePendingContractor(id: string): Promise<{ success: b
                 updatedAt: new Date().toISOString()
             })
         }
-        
+
         revalidatePath("/finanse/ksef")
         revalidatePath("/crm")
         return { success: true }
