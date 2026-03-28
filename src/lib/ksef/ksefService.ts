@@ -215,14 +215,14 @@ export class KSeFService {
         }
 
         const initData = await initRes.json();
-        const authenticationToken = initData.authenticationToken?.token;
-        if (!authenticationToken) throw new Error('No authenticationToken in Step 3 response');
-        console.log('[KSeF_SERVICE] Step 3 OK: KSeF-Token initialized (202 Accepted).');
+        const referenceNumber = initData.referenceNumber;
+        if (!referenceNumber) throw new Error('No referenceNumber in Step 3 response');
+        console.log('[KSeF_SERVICE] Step 3 OK: KSeF-Token initialized (202 Accepted). Reference:', referenceNumber);
 
         // ── KROK 4: Pobranie Access Tokena (Redeem) z Pollingiem ──────
         const redeemUrl = `${KSEF_BASE_URL}/v2/auth/token/redeem`;
         let redeemRes;
-        let accessToken;
+        let finalSessionToken;
         let attempts = 0;
         const maxAttempts = 12;
 
@@ -234,14 +234,14 @@ export class KSeFService {
             redeemRes = await fetch(redeemUrl, {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authenticationToken}`
-                }
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ referenceNumber })
             });
 
             if (redeemRes.ok) {
                 const redeemData = await redeemRes.json();
-                accessToken = redeemData.accessToken?.token;
+                finalSessionToken = redeemData.sessionToken?.token;
                 break;
             } else {
                 const errText = await redeemRes.text();
@@ -255,14 +255,14 @@ export class KSeFService {
             }
         }
 
-        if (!accessToken) throw new Error('No accessToken in Step 4 response after retries');
+        if (!finalSessionToken) throw new Error('No sessionToken in Step 4 response after retries');
 
         // 5. Update Cache
-        cachedAccessToken = accessToken;
+        cachedAccessToken = finalSessionToken;
         tokenFetchTime = Date.now();
 
-        console.log('[KSeF_SERVICE] Step 4 OK: Handshake v2.0 Complete. Access Token Redeemed.');
-        return accessToken;
+        console.log('[KSeF_SERVICE] Step 4: Token Redeemed Successfully.');
+        return finalSessionToken;
     }
 
     /**
