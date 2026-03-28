@@ -296,6 +296,10 @@ export class KSeFService {
 
         const url = `${KSEF_BASE_URL}/v2/online/Query/Invoice/Sync`;
         console.log(`[KSeF_SERVICE] POST ${url}...`);
+        console.log(`[KSeF_SERVICE_ENV] Current API Environment: ${KSEF_BASE_URL}`);
+
+        const fromYMD = new Date(from).toISOString().split('T')[0];
+        const toYMD = new Date(to).toISOString().split('T')[0];
 
         const res = await fetch(url, {
             method: 'POST',
@@ -303,9 +307,9 @@ export class KSeFService {
             body: JSON.stringify({
                 queryCriteria: {
                     subjectType: options?.subjectType || 'subject2', // Domyślnie Nabywca (Koszt)
-                    type: 'incremental',
-                    acquisitionTimestampThresholdFrom: from,
-                    acquisitionTimestampThresholdTo: to,
+                    type: 'range',
+                    invoicingDateFrom: fromYMD,
+                    invoicingDateTo: toYMD,
                 },
                 pageSize: options?.pageSize || 50,
                 pageOffset: 0,

@@ -192,11 +192,14 @@ System obsługuje **oficjalny 4-etapowy standard Handshake KSeF v2.0**:
 - **Krok 2 (Security)**: `GET /v2/security/public-key-certificates` → pobranie certyfikatu i wyciągnięcie publicznego klucza RSA przez `new crypto.X509Certificate(der).publicKey`.
 - **Krok 3 (Init)**: `POST /v2/auth/ksef-token` → inicjalizacja sesji z `contextIdentifier` (NIP) i zaszyfrowanym tokenem (`token|timestampMs`). Zwraca `authenticationToken` (status 202).
 - **Krok 4 (Redeem)**: `POST /v2/auth/token/redeem` → wymiana tokena operacyjnego na finalny `accessToken`. 
-- **Krok 5 (Fetch Metadata)**: `fetchInvoiceMetadata()` → `POST /v2/online/Query/Invoice/Sync` (SessionToken). Obsługa pustych list (`[]`).
+- **Krok 5 (Fetch Metadata)**: `fetchInvoiceMetadata()` → `POST /v2/online/Query/Invoice/Sync` (SessionToken). Wdrożono **Double-Fetch** w trybie **range** (invoicingDate). Równoległe pobieranie `subject1` (Sprzedaż) i `subject2` (Koszty) przez `Promise.all`.
 - **Krok 6 (Parse XML FA3)**: Refinement ZAL. Priorytetyzacja `ZamowienieWiersz` dla faktur zaliczkowych (exclusive mapping). Weryfikacja liczby pozycji w diagnostyce.
-- **Krok 7 (Auth Guard)**: Uszczelnienie logiki 404/401 dla nieprawidłowych tokenów sesji.
-- **Krok 8 (UI & Dashboard Integration)**: Nowa widokówka `src/app/(dashboard)/finanse/ksef/page.tsx` wraz z modułem "Zatwierdź Dostawców". Dashboard zaktualizowany o integrację bazy Prisma do prezentacji zaległości i obliczania kapitału `Safe To Spend`.
-- **Caching**: Access Token buforowany w pamięci przez 55 min (TOKEN_CACHE_TTL).
+- **Krok 7 (Auto-Categorization Logic)**: 
+    - System porównuje `parsed.sellerNip` z `process.env.KSEF_NIP`. 
+    - Jeśli NIP-y są zgodne → faktura jest oznaczana jako **REVENUE**, a kontrahentem staje się Nabywca (`Podmiot2`). 
+    - Jeśli NIP-y są różne → faktura to **EXPENSE**, a kontrahentem pozostaje Sprzedawca (`Podmiot1`).
+- **Krok 8 (Auth Guard)**: Uszczelnienie logiki 404/401 dla nieprawidłowych tokenów sesji.
+- **Krok 9 (UI & Dashboard Integration)**: Nowa widokówka `src/app/(dashboard)/finanse/ksef/page.tsx` wraz z modułem "Zatwierdź Dostawców". Dashboard zaktualizowany o integrację bazy Prisma do prezentacji zaległości i obliczania kapitału `Safe To Spend`. Wyświetlanie odznak [Sprzedaż] / [Zakup] w Inboxie.- **Caching**: Access Token buforowany w pamięci przez 55 min (TOKEN_CACHE_TTL).
 - **Security**: RSA-OAEP z SHA-256. Brak statycznych plików PEM (pobierane v2 runtime).
 
 **Przykład handshake & Query (v2.0 Inwentor):**
@@ -204,8 +207,7 @@ System obsługuje **oficjalny 4-etapowy standard Handshake KSeF v2.0**:
 2. RSA-OAEP SHA-256 Encryption of `{env.KSEF_TOKEN}|{timestampMs}`
 3. Initialize via `/v2/auth/ksef-token` (Context: NIP)
 4. Redeem via `/v2/auth/token/redeem` using Bearer AuthorizationToken
-5. Metadata via `fetchInvoiceMetadata()` using SessionToken header
-6. Sync to Postgres (Prisma) and present in UI (`/finanse/ksef`)
+5. Metadata via `fetchInvoiceMetadata()` using SessionToken header (type: range, invoicingDateFrom/To) and present in UI (`/finanse/ksef`)
 
 ---
 
