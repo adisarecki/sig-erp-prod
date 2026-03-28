@@ -104,6 +104,19 @@ export default async function DashboardPage({
   const contractors = contractorsSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
   const retentions = retentionsSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
 
+  // POBRANIE WPROWADZONYCH FAKTUR Z ZALEDGŁOŚCIAMI Z PRISMA (KSeF + Sync)
+  const prismaUnpaidInvoices = await prisma.invoice.findMany({
+    where: {
+        tenantId,
+        paymentStatus: "UNPAID",
+        status: "ACTIVE"
+    },
+    include: { contractor: true }
+  })
+  
+  const unpaidTotalAmountGross = prismaUnpaidInvoices.reduce((sum, inv) => sum.plus(new Decimal(inv.amountGross || 0)), new Decimal(0));
+  const unpaidKsefAmountGross = prismaUnpaidInvoices.filter(inv => inv.ksefId).reduce((sum, inv) => sum.plus(new Decimal(inv.amountGross || 0)), new Decimal(0));
+
   // Filtrowanie i Mapy (In-Memory Processing)
   const debtIds = legacyDebts.map(d => d.id)
   const tenantDebtInstallments = allDebtInstallments.filter(di => debtIds.includes(di.debtId))
@@ -221,7 +234,7 @@ export default async function DashboardPage({
   // Rezerwa dochodowa CIT liczona od Net Profit (DNA Vector 011/013)
   const incomeTaxReserve = netProfit.gt(0) ? netProfit.times(TAX_RESERVE_PERCENT) : new Decimal(0)
   
-  const totalReserve = incomeTaxReserve.plus(netVat)
+  const totalReserve = incomeTaxReserve.plus(netVat).plus(unpaidTotalAmountGross) // Wliczając zaległe faktury do rezerwy "Safe to Spend"
   const cleanCash = globalBilans.minus(totalReserve)
   
   const totalDebtRemaining = legacyDebts.reduce((sum, d) => sum.plus(new Decimal(d.remainingAmount || 0)), new Decimal(0))
@@ -259,20 +272,24 @@ export default async function DashboardPage({
     }
   })
 
-  unpaidCosts.forEach(inv => {
-    const invDueDate = new Date(inv.dueDate)
-    if (invDueDate < now) overdueAmount = overdueAmount.plus(new Decimal(inv.amountGross))
+  // Używamy bazy Prisma (KSeF Integration) do zasilenia Kosztów
+  prismaUnpaidInvoices.forEach(inv => {
+    // Uwzględnij tylko faktury kosztowe
+    if (inv.type === 'INCOME' || inv.type === 'SPRZEDAŻ') return;
+
+    const invDueDate = inv.dueDate ? new Date(inv.dueDate) : new Date(); // Fallback do dzisiaj jeśli brak
+    if (invDueDate < now) overdueAmount = overdueAmount.plus(new Decimal(inv.amountGross || 0))
 
     if (invDueDate <= thirtyDaysFromNow) {
         allAlerts.push({
             id: inv.id,
-            title: `Koszt: ${inv.externalId || 'Faktura'}`,
+            title: `Koszt: ${inv.invoiceNumber || inv.ksefId || 'Faktura'}`,
             amount: Number(inv.amountGross),
             date: invDueDate,
             type: invDueDate < now ? 'Zaległość' : 'Do zapłaty',
-            contractor: contractorsMap[inv.contractorId] || 'Nieznany',
+            contractor: inv.contractor?.name || 'Nieznany',
             isIncome: false,
-            invoiceNumber: inv.externalId
+            invoiceNumber: inv.invoiceNumber || inv.ksefId || undefined
         })
     }
   })
@@ -437,6 +454,16 @@ export default async function DashboardPage({
                 <TooltipHelp content="Szacunkowa kwota 9% podatku dochodowego od Twojego zysku netto. Nie wydawaj tych pieniędzy." />
               </div>
               <p className="font-bold text-xl text-orange-300">-{formatPln(incomeTaxReserve)}</p>
+            </div>
+            <div>
+              <div className="flex items-center gap-1 mb-1">
+                <p className="text-sm text-slate-400 font-medium uppercase tracking-tighter text-blue-300">Koszty do Opłacenia</p>
+                <TooltipHelp content="Suma zaległych faktur manualnych oraz z KSeF, odliczana od Czystej Gotówki." />
+              </div>
+              <p className="font-bold text-[18px] mt-0.5 text-blue-300">-{formatPln(unpaidTotalAmountGross)}</p>
+              <p className="text-[10px] text-blue-400/80 mt-0.5 font-bold uppercase tracking-wider">
+                w tym {formatPln(unpaidKsefAmountGross)} z KSeF
+              </p>
             </div>
           </div>
         </div>

@@ -11,21 +11,21 @@ import prisma from "@/lib/prisma"
 export async function addContractor(formData: FormData): Promise<{ success: boolean, error?: string }> {
     try {
         const adminDb = getAdminDb()
-    const name = formData.get("name") as string
-    let nip = (formData.get("nip") as string || "").replace(/\s/g, "")
-    let address = formData.get("address") as string || ""
-    const status = formData.get("status") as string
-    const type = formData.get("type") as string || "INWESTOR"
+        const name = formData.get("name") as string
+        let nip = (formData.get("nip") as string || "").replace(/\s/g, "")
+        let address = formData.get("address") as string || ""
+        const status = formData.get("status") as string
+        const type = formData.get("type") as string || "INWESTOR"
 
-    // Heuristic: If address looks like a NIP and nip is empty, swap them
-    if (!nip && /^\d{10}$/.test(address.trim())) {
-        nip = address.trim()
-        address = ""
-    }
+        // Heuristic: If address looks like a NIP and nip is empty, swap them
+        if (!nip && /^\d{10}$/.test(address.trim())) {
+            nip = address.trim()
+            address = ""
+        }
 
-    if (!name) throw new Error("Nazwa firmy jest wymagana.")
+        if (!name) throw new Error("Nazwa firmy jest wymagana.")
 
-    const tenantId = await getCurrentTenantId()
+        const tenantId = await getCurrentTenantId()
 
         // 0. Sprawdzenie czy NIP już istnieje (Intelligent Upsert)
         if (nip) {
@@ -34,9 +34,9 @@ export async function addContractor(formData: FormData): Promise<{ success: bool
                 .where("nip", "==", nip)
                 .limit(1)
                 .get()
-            
+
             if (!existingQuery.empty) {
-                return { success: true } 
+                return { success: true }
             }
 
             // Prisma Check (Backup)
@@ -49,9 +49,9 @@ export async function addContractor(formData: FormData): Promise<{ success: bool
         } else {
             // 0a. Jeśli brak NIP, sprawdź czy istnieje już firma o tej samej nazwie (Deduplikacja)
             const existingByName = await prisma.contractor.findFirst({
-                where: { 
-                    tenantId, 
-                    name: { equals: name, mode: 'insensitive' } 
+                where: {
+                    tenantId,
+                    name: { equals: name, mode: 'insensitive' }
                 }
             })
             if (existingByName) {
@@ -59,58 +59,58 @@ export async function addContractor(formData: FormData): Promise<{ success: bool
             }
         }
 
-    // 1. Zapis kontrahenta w Firestore
-    const contractorRef = await adminDb.collection("contractors").add({
-        tenantId,
-        name,
-        nip: nip || null,
-        address: address || null,
-        type,
-        status: status || "ACTIVE",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-    })
-
-    // 2. Automatyczny Obiekt (Siedziba/Magazyn)
-    const objectName = type === "INWESTOR" ? "Siedziba Główna" : "Oddział / Magazyn"
-    const objectRef = adminDb.collection("objects").doc() // Rezerwujemy ID
-
-    await objectRef.set({
-        contractorId: contractorRef.id,
-        name: objectName,
-        address: address || null,
-        createdAt: new Date().toISOString()
-    })
-
-    // 3. Prisma Sync
-    await (prisma.contractor.upsert as any)({
-        where: { id: contractorRef.id },
-        update: {
-            name,
-            address: address || null,
-            status: status || "ACTIVE"
-        },
-        create: {
-            id: contractorRef.id,
+        // 1. Zapis kontrahenta w Firestore
+        const contractorRef = await adminDb.collection("contractors").add({
             tenantId,
             name,
             nip: nip || null,
             address: address || null,
             type,
             status: status || "ACTIVE",
-            objects: {
-                create: {
-                    id: objectRef.id,
-                    name: objectName,
-                    address: address || null
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        })
+
+        // 2. Automatyczny Obiekt (Siedziba/Magazyn)
+        const objectName = type === "INWESTOR" ? "Siedziba Główna" : "Oddział / Magazyn"
+        const objectRef = adminDb.collection("objects").doc() // Rezerwujemy ID
+
+        await objectRef.set({
+            contractorId: contractorRef.id,
+            name: objectName,
+            address: address || null,
+            createdAt: new Date().toISOString()
+        })
+
+        // 3. Prisma Sync
+        await (prisma.contractor.upsert as any)({
+            where: { id: contractorRef.id },
+            update: {
+                name,
+                address: address || null,
+                status: status || "ACTIVE"
+            },
+            create: {
+                id: contractorRef.id,
+                tenantId,
+                name,
+                nip: nip || null,
+                address: address || null,
+                type,
+                status: status || "ACTIVE",
+                objects: {
+                    create: {
+                        id: objectRef.id,
+                        name: objectName,
+                        address: address || null
+                    }
                 }
             }
-        }
-    })
+        })
 
-    revalidatePath("/crm")
-    revalidatePath("/")
-    return { success: true }
+        revalidatePath("/crm")
+        revalidatePath("/")
+        return { success: true }
     } catch (error: unknown) {
         console.error("[CRM_ACTION] Add Contractor error:", error)
         const errorMessage = error instanceof Error ? error.message : "Błąd podczas dodawania kontrahenta."
@@ -144,7 +144,7 @@ export async function updateContractor(formData: FormData): Promise<{ success: b
         // 1. Firestore Update (z Auto-Healingiem)
         const contractorRef = adminDb.collection("contractors").doc(id)
         const contractorDoc = await contractorRef.get()
-        
+
         if (!contractorDoc.exists) {
             console.warn("[CRM_SYNC] Kontrahent uciekł z Firestore. Auto-heal dla ID:", id)
             await contractorRef.set({
@@ -182,19 +182,19 @@ export async function updateContractor(formData: FormData): Promise<{ success: b
             })
         } catch (error) {
             console.warn("[CRM_SYNC] Contractor not found in Prisma during update. Attempting auto-heal for ID:", id)
-            
+
             try {
                 await prisma.contractor.create({
-                data: {
-                    id: id,
-                    tenantId,
-                    name,
-                    nip: nip || null,
-                    address: address || null,
-                    type: type,
-                    status: "ACTIVE"
-                }
-            })
+                    data: {
+                        id: id,
+                        tenantId,
+                        name,
+                        nip: nip || null,
+                        address: address || null,
+                        type: type,
+                        status: "ACTIVE"
+                    }
+                })
                 console.info("[CRM_SYNC] Contractor successfully auto-healed in Prisma.")
             } catch (createErr) {
                 console.error("[CRM_SYNC] Fatal error during contractor auto-heal:", createErr)
@@ -297,7 +297,7 @@ export async function createContractor(data: { name: string; nip?: string; addre
             .where("nip", "==", data.nip)
             .limit(1)
             .get()
-        
+
         if (!existingQuery.empty) {
             return { success: true, id: existingQuery.docs[0].id }
         }
@@ -312,9 +312,9 @@ export async function createContractor(data: { name: string; nip?: string; addre
     } else {
         // 0a. Sprawdzenie po nazwie (Deduplikacja)
         const existingByName = await prisma.contractor.findFirst({
-            where: { 
-                tenantId, 
-                name: { equals: data.name, mode: 'insensitive' } 
+            where: {
+                tenantId,
+                name: { equals: data.name, mode: 'insensitive' }
             }
         })
         if (existingByName) {
@@ -445,7 +445,7 @@ export async function deleteSelectedContractors(ids: string[]) {
 export async function getContractors() {
     try {
         const tenantId = await getCurrentTenantId()
-        
+
         const contractors = await prisma.contractor.findMany({
             where: { tenantId },
             include: {
@@ -453,12 +453,12 @@ export async function getContractors() {
                     select: { id: true, name: true, address: true }
                 },
                 invoices: {
-                    select: { 
-                        id: true, 
-                        amountGross: true, 
-                        dueDate: true, 
+                    select: {
+                        id: true,
+                        amountGross: true,
+                        dueDate: true,
                         type: true,
-                        status: true 
+                        status: true
                     }
                 }
             },

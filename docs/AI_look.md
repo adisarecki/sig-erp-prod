@@ -195,6 +195,7 @@ System obsługuje **oficjalny 4-etapowy standard Handshake KSeF v2.0**:
 - **Krok 5 (Fetch Metadata)**: `fetchInvoiceMetadata()` → `POST /v2/online/Query/Invoice/Sync` (SessionToken). Obsługa pustych list (`[]`).
 - **Krok 6 (Parse XML FA3)**: Refinement ZAL. Priorytetyzacja `ZamowienieWiersz` dla faktur zaliczkowych (exclusive mapping). Weryfikacja liczby pozycji w diagnostyce.
 - **Krok 7 (Auth Guard)**: Uszczelnienie logiki 404/401 dla nieprawidłowych tokenów sesji.
+- **Krok 8 (UI & Dashboard Integration)**: Nowa widokówka `src/app/(dashboard)/finanse/ksef/page.tsx` wraz z modułem "Zatwierdź Dostawców". Dashboard zaktualizowany o integrację bazy Prisma do prezentacji zaległości i obliczania kapitału `Safe To Spend`.
 - **Caching**: Access Token buforowany w pamięci przez 55 min (TOKEN_CACHE_TTL).
 - **Security**: RSA-OAEP z SHA-256. Brak statycznych plików PEM (pobierane v2 runtime).
 
@@ -204,6 +205,7 @@ System obsługuje **oficjalny 4-etapowy standard Handshake KSeF v2.0**:
 3. Initialize via `/v2/auth/ksef-token` (Context: NIP)
 4. Redeem via `/v2/auth/token/redeem` using Bearer AuthorizationToken
 5. Metadata via `fetchInvoiceMetadata()` using SessionToken header
+6. Sync to Postgres (Prisma) and present in UI (`/finanse/ksef`)
 
 ---
 

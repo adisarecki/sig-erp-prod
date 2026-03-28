@@ -60,10 +60,13 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 - **Stabilny Cache**: Access Token jest buforowany przez 55 minut, co minimalizuje obciążenie serwerów MF i zapewnia stabilność sesji.
 - **Obsługa FA(3)**: Step 6: Dodano obsługę faktur zaliczkowych (ZAL) oraz ekstrakcję szczegółowych pozycji zamówienia ze schematu FA (3).
 - **Odporność na Błędy**: Bezpieczna obsługa pustych wyników zapytania oraz precyzyjna diagnostyka błędów sesji (Step 7 Auth-Fix).
-- **Integracja Bazy Danych (Upsert & Duplicate Guard)**: Pobierki i zapis faktur z zabezpieczeniem przed duplikatami (`ksefId`). Automatyczne budowanie profilu kontrahenta (weryfikacja NIP) oraz wyciąganie przypisanych do faktur kont bankowych. Monitorowanie statusu (`paymentStatus`), typów KSeF (`ksefType` dla zaliczek) oraz terminów płatności (`dueDate`).
+- **Integracja Bazy Danych (Upsert & Duplicate Guard)**: Pobieranie i zapis faktur z zabezpieczeniem przed duplikatami (`ksefId`). Automatyczne budowanie profilu kontrahenta (weryfikacja NIP) oraz wyciąganie przypisanych do faktur kont bankowych. Monitorowanie statusu (`paymentStatus`), typów KSeF (`ksefType` dla zaliczek) oraz terminów płatności (`dueDate`).
+- **Dashboard i Powiadomienia (UI Integration)**: Tabela naglących płatności zasila się automatycznie z bazy Prisma. Wskaźnik Safe to Spend odlicza niezapłacone KSeF od czystej gotówki. Panel na `/finanse/ksef` umożliwiający synchronizację z konkretnego Date-Range, przeglądanie faktur KSeF oraz zarządzanie i akceptację Oczekujących Dostawców, którzy trafili ze świeżych zestawień XML.
+
 **Narzędzia:**
 - **Synchronizacja**: `/api/ksef/process` – pełne przetwarzanie (Upsert) i parowanie faktur (zabezpieczenie Anti-Duplicate).
 - **Paginacja**: Pobieranie do 50 faktur na stronę przez funkcję `fetchInvoiceMetadata` (Metadane) przy użyciu nagłówka `SessionToken`.
+- **UI KSeF**: Dashboard główny ze zintegrowanymi wynikami oraz dedykowana sekcja w `src/app/(dashboard)/finanse/ksef/page.tsx` wraz z modułem zatwierdzania nieznanych kontrahentów (PENDING).
 
 
 
