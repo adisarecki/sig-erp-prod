@@ -3,60 +3,81 @@ import prisma from "@/lib/prisma";
 import { KSeFService } from "@/lib/ksef/ksefService";
 import { getCurrentTenantId } from "@/lib/tenant";
 
-export const maxDuration = 60; // Długie zapytania KSeF (v2.0 Timeout Guard)
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
-        const { ksefIds } = body;
+        const tenantId = await getCurrentTenantId();
+        
+        // Szukamy faktur, które wpadły z szybkiego Szybkiego Syncu i nie mają XML'a
+        const pendingInvoices = await prisma.invoice.findMany({
+            where: {
+                tenantId,
+                status: "XML_MISSING",
+                ksefId: { not: null }
+            },
+            take: 20 // Ograniczamy do 20, by uniknąć wyjazdu poza 60s Max Duration Vercela
+        });
 
-        if (!Array.isArray(ksefIds) || ksefIds.length === 0) {
-            return NextResponse.json({ error: "Brak przekazanych identyfikatorów KSeF" }, { status: 400 });
+        if (pendingInvoices.length === 0) {
+            return NextResponse.json({
+                success: true,
+                message: "Brak nowych dokumentów 'XML_MISSING' do przeprocesowania."
+            });
         }
 
-        const tenantId = await getCurrentTenantId();
         const ksefSvc = new KSeFService();
         const sessionToken = await ksefSvc.getSessionToken();
         
         let processed = 0;
         let errors = 0;
-        let duplicates = 0;
 
-        for (const ksefId of ksefIds) {
+        for (const invoice of pendingInvoices) {
+            const ksefId = invoice.ksefId!;
             try {
-                // KROK A: Sprawdź duplikat po KSeF ID (Anti-Duplicate Guard)
-                const existingInvoice = await prisma.invoice.findUnique({
-                    where: { ksefId },
-                });
-
-                if (existingInvoice) {
-                    console.log(`[KSEF_PROCESS] Pominięto duplikat faktury: ${ksefId}`);
-                    duplicates++;
-                    continue;
-                }
-
-                // KROK A.2: Brak duplikatu, więc pobieramy pełnego XML'a z KSeF
+                // Pobieramy pełnego XML'a z KSeF
                 const parsed = await ksefSvc.fetchAndParse(ksefId, { sessionToken });
                 
-                // AUTO-KATEGORYZACJA: Sprzedaż czy Koszt?
+                // My pobraliśmy typ z logiki Header - tu go po prostu potwierdzamy / korygujemy
                 const myNip = process.env.KSEF_NIP || "";
-                // Jeśli mój NIP to Sprzedawca, to jest to dla mnie REVENUE (Przychód)
                 const isRevenue = parsed.sellerNip === myNip;
-                const dbType = isRevenue ? "REVENUE" : "EXPENSE";
-
-                // Ustalenie kto jest Drugą Stroną Transakcji
+                
+                // UZUPEŁNIAMY KONTRAHENTA (Szczegóły jak adres i konto bankowe z XML)
                 const counterpartyNip = isRevenue ? parsed.counterpartyNip : parsed.sellerNip;
                 const counterpartyName = isRevenue ? parsed.counterpartyName : parsed.sellerName;
-                const counterpartyAddress = isRevenue ? "" : parsed.sellerAddress; // Adresy zazwyczaj bierzemy od sprzedawców w KSeF, ale można to rozbudować
+                const counterpartyAddress = isRevenue ? "" : parsed.sellerAddress;
 
-                // KROK B: Logika Auto-Contractor (Wyszukiwanie dostawcy/klienta)
                 let contractor = await prisma.contractor.findUnique({
                     where: { tenantId_nip: { tenantId, nip: counterpartyNip } }
                 });
 
-                if (!contractor) {
-                    // Generuj kontrahenta w stanie PENDING i podepnij mu znalezione konto bankowe (tylko dla kosztów Nabywca płaci na konto Sprzedawcy)
-                    const accountsArr = (!isRevenue && parsed.sellerBankAccount) ? [parsed.sellerBankAccount] : [];
+                if (contractor) {
+                    // Update Contractor z XML
+                    let updatedBankAccounts = contractor.bankAccounts;
+                    let bankAdded = false;
+
+                    // Tylko do dostawców dodajemy konto Sprzedawcy, bo on jest odbiorcą pieniędzy
+                    if (!isRevenue && parsed.sellerBankAccount && !contractor.bankAccounts.includes(parsed.sellerBankAccount)) {
+                        updatedBankAccounts.push(parsed.sellerBankAccount);
+                        bankAdded = true;
+                    }
+
+                    // Zaktualizuj address, jeśli puste
+                    const currentAddress = contractor.address;
+                    const addressUpdated = !currentAddress && counterpartyAddress;
+
+                    if (bankAdded || addressUpdated) {
+                        await prisma.contractor.update({
+                            where: { id: contractor.id },
+                            data: {
+                                bankAccounts: updatedBankAccounts,
+                                ...(addressUpdated ? { address: counterpartyAddress } : {})
+                            }
+                        });
+                        console.log(`[KSEF_PROCESS] Zaktualizowano kontrahenta z XML: ${counterpartyNip}`);
+                    }
+                } else {
+                    // Fallback w razie jakby ktoś go usunął ręcznie 
                     contractor = await prisma.contractor.create({
                         data: {
                             tenantId,
@@ -65,48 +86,36 @@ export async function POST(request: NextRequest) {
                             address: counterpartyAddress,
                             status: "PENDING",
                             type: isRevenue ? "KLIENT" : "DOSTAWCA",
-                            bankAccounts: accountsArr
+                            bankAccounts: (!isRevenue && parsed.sellerBankAccount) ? [parsed.sellerBankAccount] : []
                         }
-                    });
-                    console.log(`[KSEF_PROCESS] Wygenerowano kontrahenta: ${counterpartyNip}`);
-                } else if (!isRevenue && parsed.sellerBankAccount && !contractor.bankAccounts.includes(parsed.sellerBankAccount)) {
-                    // Jeśli istnieje dostawca, dołączamy mu konto bankowe do tablicy, jeśli nie było
-                    await prisma.contractor.update({
-                        where: { id: contractor.id },
-                        data: { bankAccounts: { push: parsed.sellerBankAccount } }
                     });
                 }
 
-                // Kalkulacja uproszczonego taxRate jeśli potrzebne
                 let taxRateValue = 0;
                 if (!parsed.netAmount.isZero()) {
                     taxRateValue = parsed.vatAmount.dividedBy(parsed.netAmount).toNumber();
                 }
 
-                // KROK C: Zapis faktury i powiązanie z Mądrym Kontrahentem
-                await prisma.invoice.create({
+                // AKTUALIZACJA FAKTURY (Zrzucenie XML_MISSING i uzupełnienie dueDate / invoiceNumber)
+                await prisma.invoice.update({
+                    where: { id: invoice.id },
                     data: {
-                        tenantId,
-                        contractorId: contractor.id,
-                        ksefId: parsed.ksefNumber,
                         invoiceNumber: parsed.invoiceNumber,
-                        type: dbType, // REVENUE lub EXPENSE wyliczony z XML
-                        ksefType: parsed.ksefType, // Oddzielenie faktur ZAL / ZW
+                        ksefType: parsed.ksefType,
                         amountNet: parsed.netAmount.toNumber(),
                         amountGross: parsed.grossAmount.toNumber(),
                         taxRate: Number.isNaN(taxRateValue) ? 0 : taxRateValue,
                         issueDate: parsed.issueDate,
                         dueDate: parsed.dueDate,
-                        paymentStatus: parsed.paymentStatus, // UNPAID (lub PAID)
-                        status: "ACTIVE"
+                        status: "ACTIVE" // The faktura staje się teraz widoczna w pełnym systemie finansowym i spłuczona!
                     }
                 });
 
-                console.log(`[KSEF_PROCESS] Zapisano w bazie fakturę: ${parsed.ksefNumber}`);
+                console.log(`[KSEF_PROCESS] Skonsumowano pełny XML dla KSeF ID: ${parsed.ksefNumber}`);
                 processed++;
 
             } catch (err: any) {
-                console.error(`[KSEF_PROCESS] Błąd przetwarzania ID ${ksefId}:`, err);
+                console.error(`[KSEF_PROCESS] Błąd przetwarzania XML dla ID ${ksefId}:`, err);
                 errors++;
             }
         }
@@ -114,15 +123,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             processed,
-            duplicates,
             errors,
-            message: `Wgrano ${processed} nowych faktur. Ominięto ${duplicates} duplikatów. Błędów: ${errors}.`
+            message: `Pobrano szczegóły XML dla ${processed} dokumentów. Błędów: ${errors}.`
         });
 
     } catch (error: any) {
         console.error("[KSEF_PROCESS_MASTER]", error);
         return NextResponse.json(
-            { error: error.message || "Błąd generalny integracji faktur KSeF" },
+            { error: error.message || "Błąd generalny odczytu XML z KSeF" },
             { status: 500 }
         );
     }

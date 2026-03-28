@@ -23,64 +23,62 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
         return new Date().toISOString().split('T')[0]
     })
 
+    const [isFetchingXml, setIsFetchingXml] = useState(false)
+
     const handleSync = async () => {
         setIsSyncing(true)
         setSyncMessage("")
         try {
-            // First we need to fetch KSeF IDs for a given date range. Look from KSeF API `/api/ksef/invoices`
-            // But the instruction said: `odpala Twój nowy proces POST /api/ksef/process` 
-            // `ksef/process` expects `{ ksefIds: [] }`. Since the API handles upsert, we might need a UI input
-            // that specifies dates, then calls KSeF to get IDs, then calls /api/ksef/process to injest them.
-            // For MVP simplicity and because the exact flow of `/api/ksef/invoices` may require inputs, 
-            // let's assume we do a full query for the last 3 days here, call API, then push IDs to process.
-
-            // Request logic:
             const fromDateObj = new Date(dateFrom)
             const toDateObj = new Date(dateTo)
-            
-            // Koniec dnia roboczego dla daty do
             toDateObj.setHours(23, 59, 59, 999)
 
             const dateFromStr = fromDateObj.toISOString()
             const dateToStr = toDateObj.toISOString()
 
-            // 1. Get IDs
+            // 1. Szybki Sync - pobranie z KSeF i zapis jako XML_MISSING
             const queryRes = await fetch(`/api/ksef/invoices?dateFrom=${encodeURIComponent(dateFromStr)}&dateTo=${encodeURIComponent(dateToStr)}`)
             const queryData = await queryRes.json()
 
-            if (!queryData.success || !queryData.invoices) {
-                setSyncMessage(queryData.error || "Błąd pobierania listy z KSeF.")
+            if (!queryData.success) {
+                setSyncMessage(queryData.error || queryData.pagination?.message || "Błąd pobierania listy z KSeF.")
                 setIsSyncing(false)
                 return
             }
 
-            const ksefIds = queryData.invoices.map((inv: any) => inv.ksefNumber)
-
-            if (ksefIds.length === 0) {
-                setSyncMessage("Brak nowych faktur w KSeF z ostatnich 7 dni.")
-                setIsSyncing(false)
-                return
-            }
-
-            // 2. Process IDs into Prisma & Firestore
-            const processRes = await fetch('/api/ksef/process', {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ksefIds })
-            })
-
-            const processData = await processRes.json()
-            if (processData.success) {
-                setSyncMessage(processData.message || "Pomyślnie zsynchronizowano faktury KSeF.")
-                window.location.reload()
-            } else {
-                setSyncMessage(processData.error || "Błąd parsowania i zapisywania pobranych faktur.")
-            }
+            setSyncMessage(`Zapisano nagłówki: ${queryData.savedCount || 0} szt.`)
+            window.location.reload()
         } catch (error: any) {
             console.error("KSeF Sync Error", error)
             setSyncMessage("Krytyczny błąd połączenia z serwerem.")
         } finally {
             setIsSyncing(false)
+        }
+    }
+
+    const handleFetchXml = async () => {
+        setIsFetchingXml(true)
+        setSyncMessage("")
+        try {
+            // 2. Deep Fetch - pobierz dla faktur XML_MISSING
+            const processRes = await fetch('/api/ksef/process', {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({}) // Backend sam szuka XML_MISSING
+            })
+
+            const processData = await processRes.json()
+            if (processData.success) {
+                setSyncMessage(processData.message || "Pomyślnie doczytano szczegóły XML.")
+                window.location.reload()
+            } else {
+                setSyncMessage(processData.error || "Błąd parsowania XML.")
+            }
+        } catch (error: any) {
+            console.error("KSeF XML Fetch Error", error)
+            setSyncMessage("Krytyczny błąd połączenia z serwerem.")
+        } finally {
+            setIsFetchingXml(false)
         }
     }
 
@@ -91,15 +89,14 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
             alert(result.error)
             setActionId(null)
         }
-        // Sukces przerenderuje stronę automatycznie ze względu na revalidatePath
     }
 
     return (
         <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start gap-4 p-6 bg-slate-50 border border-slate-100 rounded-2xl">
                 <div className="flex-1 w-full md:w-auto mt-4 md:mt-0">
-                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">Oś Szybkiej Synchronizacji</h2>
-                    <p className="text-sm font-medium text-slate-500 mt-1">Pobierz dokumenty z państwowego systemu e-Faktur z wybranego okresu.</p>
+                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">Synchronizacja Dwufazowa</h2>
+                    <p className="text-sm font-medium text-slate-500 mt-1">Szybko pobierz listę, a następnie dociągnij treść XML dla nowych faktur.</p>
                 </div>
                 <div className="flex flex-col md:flex-row items-end gap-3 w-full md:w-auto">
                     <div className="flex items-center gap-2">
@@ -122,24 +119,36 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
                             />
                         </div>
                     </div>
-                    <div className="flex flex-col items-end w-full md:w-auto">
-                    <Button 
-                        onClick={handleSync} 
-                        disabled={isSyncing}
-                        className="bg-indigo-600 hover:bg-indigo-700 h-12 px-8 text-white font-black shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all rounded-xl"
-                    >
-                        {isSyncing ? (
-                            <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Pobieranie ZK KSeF...</>
-                        ) : (
-                            <><DownloadCloud className="w-5 h-5 mr-2" /> Pobierz KSeF</>
-                        )}
-                    </Button>
+                    <div className="flex flex-col md:flex-row items-end gap-2 w-full md:w-auto">
+                        <Button 
+                            onClick={handleSync} 
+                            disabled={isSyncing || isFetchingXml}
+                            variant="outline"
+                            className="bg-white hover:bg-slate-50 border-slate-200 text-slate-700 h-12 px-6 font-bold shadow-sm rounded-xl"
+                        >
+                            {isSyncing ? (
+                                <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> ...</>
+                            ) : (
+                                <><DownloadCloud className="w-5 h-5 mr-2" /> 1. Szybki Sync</>
+                            )}
+                        </Button>
+                        <Button 
+                            onClick={handleFetchXml} 
+                            disabled={isSyncing || isFetchingXml}
+                            className="bg-indigo-600 hover:bg-indigo-700 h-12 px-6 text-white font-black shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all rounded-xl"
+                        >
+                            {isFetchingXml ? (
+                                <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Detale ...</>
+                            ) : (
+                                "2. Pobierz XML i Rozlicz"
+                            )}
+                        </Button>
+                    </div>
                     {syncMessage && (
-                        <p className={`text-xs font-bold ${syncMessage.includes("Błąd") ? "text-red-500" : "text-green-600"}`}>
+                        <p className={`text-xs font-bold w-full text-right ${syncMessage.includes("Błąd") ? "text-red-500" : "text-green-600"}`}>
                             {syncMessage}
                         </p>
                     )}
-                    </div>
                 </div>
             </div>
 
@@ -185,7 +194,7 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
                                         </td>
                                         <td className="p-4">
                                             <p className="text-sm font-medium text-slate-700">{new Date(inv.issueDate).toLocaleDateString('pl-PL')}</p>
-                                            <div className="flex gap-1 mt-1">
+                                            <div className="flex gap-1 mt-1 flex-wrap">
                                                 <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wide bg-indigo-50 px-1.5 py-0.5 rounded">{inv.ksefType}</span>
                                                 {inv.type && (
                                                     <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${
@@ -194,6 +203,11 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
                                                             : 'bg-rose-100 text-rose-700'
                                                     }`}>
                                                         {inv.type === 'REVENUE' || inv.type === 'INCOME' ? 'Sprzedaż' : 'Zakup'}
+                                                    </span>
+                                                )}
+                                                {inv.status === 'XML_MISSING' && (
+                                                    <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 flex items-center gap-1" title="Brak detali XML. Kliknij Pobierz XML, aby dociągnąć konto bankowe.">
+                                                        <ShieldAlert className="w-3 h-3" /> Brak XML
                                                     </span>
                                                 )}
                                             </div>

@@ -182,6 +182,7 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 079| KSeF / Parser| FIXED | KSeF FA (3) Polymorphic Mapping. | Wdrożono obsługę faktur zaliczkowych (ZAL) oraz ekstrakcję pozycji z sekcji `ZamowienieWiersz`. Podwójny test diagnostyczny w suicie `/verify-all`. |
 | Vector 080| KSeF / Parser| FIXED | KSeF Vendor Profile Extraction. | Rozbudowano parser o ekstrakcję danych sprzedawcy (NIP, Nazwa, Adres) z sekcji `Podmiot1`. Weryfikacja multi-tożsamości w diagnostyce. |
 | Vector 081| KSeF / Parser| FIXED | KSeF FA (3) ZAL Refinement. | Wdrożono ekskluzywne mapowanie `ZamowienieWiersz` dla faktur ZAL. Aktualizacja danych POLON-ALFA S.A. (NIP 5540311901). Weryfikacja liczby pozycji w Step 6. |
+| Vector 082| KSeF / Architecture| FIXED | KSeF 2-Phase Sync & Date Range Query. | Wdrożenie szybkiego syncu nagłówków (XML_MISSING) i PENDING Contractors (Szybki Sync) oraz asynchronicznego pobierania detali XML na żądanie. Skorygowano kryteria "range" KSeF dla Kosztów -> `acquisitionTimestamp`. |
 
 ---
 

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { KSeFService } from '@/lib/ksef/ksefService';
+import prisma from "@/lib/prisma";
+import { getCurrentTenantId } from "@/lib/tenant";
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Długie zapytania KSeF (v2.0 Timeout Guard)
@@ -14,6 +16,7 @@ export async function GET(request: NextRequest) {
         const page = parseInt(searchParams.get('page') || '1');
         const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '50'), 50); // KSeF limit is 50
 
+        const tenantId = await getCurrentTenantId();
         const ksefSvc = new KSeFService();
         
         // 2. Session Handshake (v2.0)
@@ -31,61 +34,111 @@ export async function GET(request: NextRequest) {
             }).then(res => res.map((item: any) => ({ ...item, _apiDirection: 'REVENUE' })))
               .catch(err => {
                   console.error('[KSeF_API_INVOICES] Sales fetch error:', err);
-                  return []; // Fallback empty array on specific failure
+                  return [];
               }),
               
-            // EXPENSE (Koszty) - TEST 1 Bypass: Wide date range (from 2026-01-01)
+            // EXPENSE (Koszty) - Szeroki zakres dla testów (2026-01-01)
             ksefSvc.fetchInvoiceMetadata({ 
                 sessionToken,
-                dateFrom: "2026-01-01T00:00:00.000Z", // Wide range bypass (Requested by Wizjoner)
+                dateFrom: "2026-01-01T00:00:00.000Z", // Wide range bypass (Zgodnie z poleceniem Wizjonera)
                 dateTo,
                 pageSize,
                 subjectType: 'subject2'
             }).then(res => res.map((item: any) => ({ ...item, _apiDirection: 'EXPENSE' })))
               .catch(err => {
                   console.error('[KSeF_API_INVOICES] Expenses fetch error:', err);
-                  return []; // Fallback empty array on specific failure
+                  return [];
               })
         ]);
         
         const combinedList = [...salesResponse, ...expensesResponse];
         
-        // 4. Map Results
-        const mappedInvoices = combinedList.map((item: any) => ({
-            ksefReferenceNumber: item.invoiceReferenceNumber,
-            invoiceNumber: item.invoiceNumber || "N/A",
-            issueDate: item.invoicingDate,
-            sellerNIP: item.sellerNip || "Nieznany",
-            sellerName: item.sellerName || "Nieznany",
-            buyerNIP: item.buyerNip || "Mój Tenant",
-            buyerName: item.buyerName || "Mój Tenant",
-            netAmount: item.netAmount || 0,
-            vatAmount: item.vatAmount || 0,
-            grossAmount: item.grossAmount || 0,
-            direction: item._apiDirection, // Added for UI badge
-            status: "RECEIVED"
-        }));
+        // 4. Mappowanie wyników i ZAPIS DO PRISMA (Szybki Sync)
+        let savedCount = 0;
+
+        for (const item of combinedList) {
+            const ksefReferenceNumber = item.invoiceReferenceNumber || item.ksefReferenceNumber;
+            if (!ksefReferenceNumber) continue;
+
+            // Extract Contractor data safely checking KSeF API variations:
+            const sellerNip = item.subjectBy?.issuedByIdentifier?.identifier || item.sellerNip || "Nieznany";
+            const sellerName = item.subjectBy?.issuedByName?.tradeName || item.sellerName || "Nieznany";
+            const buyerNip = item.subjectTo?.issuedByIdentifier?.identifier || item.buyerNip || "Mój Tenant";
+            const buyerName = item.subjectTo?.issuedByName?.tradeName || item.buyerName || "Mój Tenant";
+
+            const isRevenue = item._apiDirection === "REVENUE";
+            const counterpartyNip = isRevenue ? buyerNip : sellerNip;
+            const counterpartyName = isRevenue ? buyerName : sellerName;
+
+            // Find or Create PENDING Contractor (Płytki Profil z API)
+            let contractor = await prisma.contractor.findUnique({
+                where: { tenantId_nip: { tenantId, nip: counterpartyNip } }
+            });
+
+            if (!contractor) {
+                contractor = await prisma.contractor.create({
+                    data: {
+                        tenantId,
+                        nip: counterpartyNip,
+                        name: counterpartyName,
+                        status: "PENDING",
+                        type: isRevenue ? "KLIENT" : "DOSTAWCA",
+                    }
+                });
+            }
+
+            // Mamy net/vat/gross z itemu (KSeF doc expects net/gross/vat directly)
+            const netAmount = parseFloat(item.net || item.netAmount || "0");
+            const grossAmount = parseFloat(item.gross || item.grossAmount || "0");
+            let taxRateValue = 0;
+            if (netAmount > 0) {
+                taxRateValue = (grossAmount - netAmount) / netAmount;
+            }
+
+            const invoiceNumber = item.invoiceNumber || "Oczekuje na XML";
+            const issueDate = item.invoicingDate ? new Date(item.invoicingDate).toISOString() : new Date().toISOString();
+
+            // Szybki upsert do bazy danych ze statusem XML_MISSING
+            await prisma.invoice.upsert({
+                where: { ksefId: ksefReferenceNumber },
+                create: {
+                    tenantId,
+                    contractorId: contractor.id,
+                    ksefId: ksefReferenceNumber,
+                    invoiceNumber: invoiceNumber,
+                    type: isRevenue ? "REVENUE" : "EXPENSE",
+                    amountNet: netAmount,
+                    amountGross: grossAmount,
+                    taxRate: Number.isNaN(taxRateValue) ? 0 : taxRateValue,
+                    issueDate: new Date(issueDate),
+                    dueDate: new Date(issueDate), // Domyślnie równa issueDate dopóki XML nie dociągnie `dueDate`
+                    paymentStatus: "UNPAID",
+                    status: "XML_MISSING" // UWAGA: Oznacza, że faktura czeka na pełne pobranie XML
+                },
+                update: {
+                    // Celowo puste, Header ma być tylko wrzutką, chyba że status to nadal XML_MISSING (wtedy the XML fetch wasn't run)
+                }
+            });
+            savedCount++;
+        }
 
         return NextResponse.json({
             success: true,
-            invoices: mappedInvoices,
+            savedCount,
             pagination: {
-                total: mappedInvoices.length,
+                total: combinedList.length,
                 page,
                 pageSize,
-                message: mappedInvoices.length === 50 ? "Osiągnięto limit strony (50). Użyj filtrów daty, aby zobaczyć więcej." : "Pobrano wszystkie pasujące rekordy."
+                message: combinedList.length === 50 ? "Osiągnięto limit strony (50). Użyj filtrów daty, aby zobaczyć więcej." : `Pobrano ${combinedList.length} nagłówków. Zapisano ${savedCount} sztuk.`
             }
         });
-
 
     } catch (error: any) {
         console.error('[KSeF_API_INVOICES] Error:', error);
         
-        // Zadanie: Zwróć 200 z pustą tablicą zamiast błędu 500 (Fail-Safe), 
-        // aby uniknąć crashu frontendu w okresach bezfakturowych.
         return NextResponse.json({
             success: true,
-            invoices: [],
+            savedCount: 0,
             pagination: {
                 total: 0,
                 page: 1,

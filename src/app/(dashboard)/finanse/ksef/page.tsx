@@ -13,7 +13,7 @@ export default async function KSeFInboxPage() {
         where: {
             tenantId,
             ksefId: { not: null },
-            status: "ACTIVE"
+            status: { in: ["ACTIVE", "XML_MISSING"] }
         },
         include: { contractor: true },
         orderBy: { issueDate: "desc" }
@@ -40,7 +40,8 @@ export default async function KSeFInboxPage() {
         dueDate: inv.dueDate,
         paymentStatus: inv.paymentStatus,
         ksefType: inv.ksefType || "Faktura",
-        type: inv.type
+        type: inv.type,
+        status: inv.status
     }))
 
     const mappedContractors = pendingContractors.map(c => ({

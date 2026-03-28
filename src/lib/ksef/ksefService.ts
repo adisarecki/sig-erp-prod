@@ -300,22 +300,32 @@ export class KSeFService {
 
         const isSales = (options?.subjectType === 'subject1');
         
-        // Anti: Wywalamy rozróżnienie. Od teraz pytamy o wszystko tak samo (invoicingDate).
-        const fromYMD = new Date(from).toISOString().split('T')[0];
-        const toYMD = new Date(to).toISOString().split('T')[0];
+        // KSeF API requires full ISO DateTime for range queries (not strictly just YYYY-MM-DD for everything).
+        // It strictly requires invoicingDate for subject1, and acquisitionTimestamp for subject2.
+        const fromIso = new Date(from).toISOString();
+        const toIso = new Date(to).toISOString();
 
-        console.log(`[KSeF_DEBUG] Sending ${options?.subjectType || 'subject2'} Query: { invoicingDateFrom: "${fromYMD}", invoicingDateTo: "${toYMD}" }`);
+        const queryCriteria: any = {
+            subjectType: options?.subjectType || 'subject2', // Domyślnie Nabywca (Koszt)
+            type: 'range',
+        };
+
+        if (isSales) {
+            queryCriteria.invoicingDateFrom = fromIso;
+            queryCriteria.invoicingDateTo = toIso;
+        } else {
+            // Zakupy / Koszty wymagają acquisitionTimestamp! To blokowało pobieranie faktur Nabywcy.
+            queryCriteria.acquisitionTimestampFrom = fromIso;
+            queryCriteria.acquisitionTimestampTo = toIso;
+        }
+
+        console.log(`[KSeF_DEBUG] Sending ${options?.subjectType || 'subject2'} Query:`, JSON.stringify(queryCriteria));
 
         const res = await fetch(url, {
             method: 'POST',
             headers,
             body: JSON.stringify({
-                queryCriteria: {
-                    subjectType: options?.subjectType || 'subject2', // Domyślnie Nabywca (Koszt)
-                    type: 'range',
-                    invoicingDateFrom: fromYMD,
-                    invoicingDateTo: toYMD,
-                },
+                queryCriteria,
                 pageSize: options?.pageSize || 50,
                 pageOffset: 0,
             }),
