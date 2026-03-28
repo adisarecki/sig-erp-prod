@@ -241,7 +241,7 @@ export class KSeFService {
                     // Autoryzacja dla Redeem (V2 wymaga przekazania tokena z Kroku 3 w nagłówku)
                     ...(authenticationToken ? { 'Authorization': `Bearer ${authenticationToken}` } : {})
                 },
-                body: JSON.stringify({ referenceNumber })
+                body: JSON.stringify({}) // KSeF V2 Redeem wymaga pustego body
             });
 
             if (redeemRes.ok) {
