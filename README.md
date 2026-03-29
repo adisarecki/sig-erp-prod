@@ -57,7 +57,8 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 5.  **Redeem (Finalizacja JWT)**: Wymiana na ostateczne tokeny `accessToken` i `refreshToken` (`POST /v2/auth/token/redeem`).
 
 **Główne Atuty Nowego Standardu:**
-- **Vercel Edge Runtime**: API zoptymalizowane pod `runtime: 'edge'`, co eliminuje timeouty (limit 30s) i przyspiesza start funkcji.
+- **Node.js Runtime Standard**: Pełna zgodność z bibliotekami `crypto` i `X509Certificate` (niezbędne do bezpiecznego połączenia z MF).
+- **Cierpliwy Handshake (Resilience)**: **[NOWOŚĆ]** Implementacja **Exponential Backoff** (2s -> 16s) oraz wydłużony polling statusu (do 60s), co gwarantuje stabilność sesji nawet przy dużym obciążeniu serwerów MF.
 - **Summer Timezone (+02:00)**: Pełna obsługa polskiego czasu letniego w zapytaniach, zgodnie z aktualnym offsetem Ministerstwa.
 - **Pancerny Kod (Robust Fetch)**: Defensywne pobieranie danych (raw text first) zapobiegające błędom parsowania przy HTML-owych stronach błędów MF.
 - **Authorization: Bearer**: Przejście z nagłówka `SessionToken` na światowy standard `Bearer Token`.

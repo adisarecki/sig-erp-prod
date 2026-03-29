@@ -57,6 +57,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 082 | KSeF / Architecture| FIXED | KSeF JWT v2 Standard Implementation. | Wdrożono 5-etapowy Handshake z pollingiem statusu (`GET /v2/auth/{referenceNumber}`). Przejście na `Authorization: Bearer` oraz strukturę `filters`/`paging` dla zapytań metadanych. Obsługa strefy czasowej `+01:00`. |
 | Vector 083 | KSeF / Resilience  | FIXED | Resilient Handshake (Exponential Backoff). | Refaktoryzacja Pollingu Statusu. Wprowadzono wykładnicze opóźnienie (2s -> 16s) oraz wydłużono timeout do 60s. Dodano szczegółowe logowanie statusów MF (np. 310 Processing). |
 | Vector 084 | KSeF / Architecture| FIXED | Edge Runtime & Robust Fetching Optimization. | Wdrożono `runtime: 'edge'` dla routerów API. Zastosowano "Pancerny Kod" (defensive fetch) oraz offset `+02:00` dla polskiego czasu letniego. Skrócono zasięg test-sync do 48h. |
+| Vector 085 | KSeF / Architecture| REVERT | Node.js Runtime compatibility fix. | Przywrócono standardowy Node.js runtime zamiast Edge, aby zachować pełną zgodność z modułem `crypto` i `X509Certificate`. Rozwiązano błąd Vercel Build "Module not found". |
 
 ---
 *Ostatnia aktywność techniczna: 2026-03-29. Build Verified (TSC: OK).*

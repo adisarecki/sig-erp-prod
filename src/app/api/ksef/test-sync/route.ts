@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { KSeFService } from '@/lib/ksef/ksefService';
 
-export const runtime = 'edge';
-
 export async function GET() {
     try {
         const ksefSvc = new KSeFService();
