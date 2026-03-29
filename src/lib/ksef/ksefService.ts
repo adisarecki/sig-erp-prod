@@ -193,7 +193,7 @@ export class KSeFService {
         // KROK 3: KSeF-Token Init (V2 Architecture Payload)
         const bodyPayload = {
             contextIdentifier: {
-                type: "onip",
+                type: "nip",
                 identifier: targetNip
             },
             challenge,
