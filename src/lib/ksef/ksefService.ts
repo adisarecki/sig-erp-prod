@@ -1,5 +1,6 @@
 import { XMLParser } from 'fast-xml-parser';
 import Decimal from 'decimal.js';
+import crypto from 'crypto';
 
 // Base URL: https://api.ksef.mf.gov.pl/api
 const KSEF_BASE_URL = (process.env.KSEF_BASE_URL || 'https://api.ksef.mf.gov.pl/api').replace(/\/$/, '');
@@ -8,10 +9,89 @@ const DEFAULT_NIP = '9542751368';
 
 // ─── Module-Level Cache ────────────────────────────────────────────────────────
 
+// Public Key Cache
+let cachedPublicKey: crypto.KeyObject | null = null;
+let keyFetchTime: number = 0;
+const KEY_CACHE_TTL = 1000 * 60 * 60; // 1 hour
+
 // Access Token Cache (Final Handshake Token)
 let cachedAccessToken: string | null = null;
 let tokenFetchTime: number = 0;
 const TOKEN_CACHE_TTL = 1000 * 60 * 55; // 55 mins (approx 1h)
+
+async function fetchKSeFPublicKey(retryCount: number = 3): Promise<crypto.KeyObject> {
+    const now = Date.now();
+    if (cachedPublicKey && (now - keyFetchTime < KEY_CACHE_TTL)) {
+        return cachedPublicKey;
+    }
+
+    const url = `${KSEF_BASE_URL}/v2/security/public-key-certificates`;
+    let lastError: Error | null = null;
+
+    for (let i = 0; i < retryCount; i++) {
+        try {
+            console.log(`[KSeF_SERVICE] Step 2a: Fetching dynamic public key (Attempt ${i + 1}/${retryCount})`);
+            const res = await fetch(url, { signal: AbortSignal.timeout(25000) });
+            const text = await res.text();
+            if (!res.ok) {
+                throw new Error(`Failed to fetch KSeF public key (${res.status}): ${text}`);
+            }
+
+            const certs: Array<{ certificate: string; usage: string[] }> = JSON.parse(text);
+            const encCert = certs.find(c =>
+                c.usage.some(u => u.toLowerCase().includes('asymmetric') || u.toLowerCase().includes('encryption'))
+            ) || certs[0];
+
+            if (!encCert?.certificate) {
+                throw new Error('No valid encryption certificate found in KSeF response');
+            }
+
+            const rawCert = encCert.certificate.trim();
+            console.log(`[KSeF_SERVICE] Parsing certificate with X509 (length: ${rawCert.length})`);
+
+            let derBuffer: Buffer;
+            if (rawCert.includes('-----BEGIN')) {
+                derBuffer = Buffer.from(rawCert.replace(/-----(BEGIN|END) CERTIFICATE-----/g, '').replace(/\s+/g, ''), 'base64');
+            } else {
+                derBuffer = Buffer.from(rawCert, 'base64');
+            }
+
+            const x509 = new crypto.X509Certificate(derBuffer);
+            const keyObject = x509.publicKey;
+
+            cachedPublicKey = keyObject;
+            keyFetchTime = now;
+            console.log('[KSeF_SERVICE] Step 2a OK: Dynamic key fetched and parsed.');
+            return keyObject;
+
+        } catch (err: any) {
+            console.error(`[KSeF_SERVICE] Public key attempt ${i + 1} failed: ${err.message}`);
+            lastError = err;
+            if (i < retryCount - 1) {
+                await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+            }
+        }
+    }
+
+    throw new Error(`Failed to read asymmetric key after ${retryCount} attempts: ${lastError?.message}`);
+}
+
+/**
+ * Step 2b: Encrypt `token|timestampMs` with RSA-OAEP SHA-256.
+ */
+async function encryptKSeFToken(token: string, timestampMs: number): Promise<string> {
+    const publicKey = await fetchKSeFPublicKey();
+    const payload = `${token}|${timestampMs}`;
+    const encrypted = crypto.publicEncrypt(
+        {
+            key: publicKey,
+            padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+            oaepHash: 'sha256',
+        },
+        Buffer.from(payload, 'utf8')
+    );
+    return encrypted.toString('base64');
+}
 
 // ─── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -84,8 +164,8 @@ export class KSeFService {
     }
 
     /**
-     * KSeF Workflow V2.2 "Czyste Cięcie" - Raw Token Handshake
-     * No RSA, No Encryption, Direct Token Initialization.
+     * KSeF Workflow V2.3 "Hybryda" - Heavy RSA Auth -> Lightweight Metadata.
+     * Restores Challenge + RSA for Init, maintains Bearer for Metadata.
      */
     async performFullHandshake(nip?: string, token?: string): Promise<{ accessToken: string; refreshToken: string }> {
         const targetNip = nip || process.env.KSEF_NIP || DEFAULT_NIP;
@@ -93,12 +173,35 @@ export class KSeFService {
 
         if (!targetToken) throw new Error('KSEF_TOKEN missing in environment.');
 
-        console.log(`[KSeF_SERVICE] Step 1: KSeF-Token Init (Raw Token) for NIP: ${targetNip}...`);
+        console.log(`[KSeF_SERVICE] Hybrid Handshake (RSA Init) for NIP: ${targetNip}...`);
 
-        const bodyPayload = { token: targetToken };
-        console.log('[KSeF_DEBUG] AUTH BODY:', JSON.stringify(bodyPayload, null, 2));
+        // KROK 1: Challenge (Wymagany do encryptedToken)
+        const challengeRes = await fetch(`${KSEF_BASE_URL}/v2/auth/challenge`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nip: targetNip }),
+            signal: AbortSignal.timeout(25000)
+        });
 
-        // KROK 1: KSeF-Token Init (Raw Token as per Auditor Instruction)
+        const challengeText = await challengeRes.text();
+        if (!challengeRes.ok) throw new Error(`Challenge failed (${challengeRes.status}): ${challengeText}`);
+        const { challenge, timestampMs } = JSON.parse(challengeText);
+
+        // KROK 2: Encryption (KSeF Public Key)
+        const encryptedToken = await encryptKSeFToken(targetToken, timestampMs);
+
+        // KROK 3: KSeF-Token Init (V2 Architecture Payload)
+        const bodyPayload = {
+            contextIdentifier: {
+                type: "onip",
+                identifier: targetNip
+            },
+            challenge,
+            encryptedToken
+        };
+
+        console.log(`[KSeF_DEBUG] HYBRID AUTH BODY:`, JSON.stringify(bodyPayload, null, 2));
+
         const initRes = await fetch(`${KSEF_BASE_URL}/v2/auth/ksef-token`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -115,10 +218,10 @@ export class KSeFService {
         
         if (!refNum || !authTok) throw new Error('No referenceNumber or authenticationToken in KSeF response');
 
-        // KROK 2 (Polling): waitForAuthOk (Step 4 Final Flow)
+        // KROK 4 (Polling): waitForAuthOk (Step 4 Final Flow)
         let pollAttempts = 0;
         let isReady = false;
-        const delay = 2000; // Fixed 2s interval
+        const delay = 2000;
 
         while (pollAttempts < 150) {
             pollAttempts++;
@@ -151,8 +254,8 @@ export class KSeFService {
 
         if (!isReady) throw new Error(`Handshake timed out for ${refNum}`);
 
-        // KROK 3 (Redeem): POST /auth/token/redeem
-        console.log(`[KSeF_SERVICE] Step 3: Token Redeem for ${refNum}...`);
+        // KROK 5 (Redeem): POST /auth/token/redeem
+        console.log(`[KSeF_SERVICE] Step 5: Token Redeem for ${refNum}...`);
         const redeemRes = await fetch(`${KSEF_BASE_URL}/v2/auth/token/redeem`, {
             method: 'POST',
             headers: { 
@@ -201,7 +304,7 @@ export class KSeFService {
         pageSize?: number;
         subjectType?: 'subject1' | 'subject2' | 'subject3';
     }): Promise<any[]> {
-        console.log('[KSeF_SERVICE] Step 5: Fetching invoice metadata (Sync Incremental)...');
+        console.log('[KSeF_SERVICE] Step 6: Fetching invoice metadata (Sync Incremental)...');
 
         // Default range: Last 7 days (Wizjoner Final Flow to prevent 504 Timeouts)
         const from = options?.dateFrom || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -268,7 +371,7 @@ export class KSeFService {
      * Fetch & Parse XML
      */
     async fetchAndParse(ksefNumber: string, options?: { accessToken?: string; testToken?: string }): Promise<KsefParsedInvoice> {
-        console.log(`[KSeF_SERVICE] Step 6: Fetching detail XML for ${ksefNumber}...`);
+        console.log(`[KSeF_SERVICE] Step 7: Fetching detail XML for ${ksefNumber}...`);
 
         const headers = await this.getHeaders('application/xml', {
             accessToken: options?.accessToken,
