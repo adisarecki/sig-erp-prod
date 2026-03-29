@@ -214,9 +214,9 @@ export class KSeFService {
         // KROK 4 (Polling): GET /auth/{refNum}
         let pollAttempts = 0;
         let isReady = false;
-        let delay = 2000;
+        const delay = 2000; // Fixed 2s interval (Wizjoner Final Flow)
 
-        while (pollAttempts < 15) { // Increased limit for resilience
+        while (pollAttempts < 150) { // Max 150 attempts (5 mins total)
             pollAttempts++;
             const statusRes = await fetch(`${KSEF_BASE_URL}/v2/auth/${refNum}`, {
                 method: 'GET',
@@ -228,16 +228,14 @@ export class KSeFService {
             });
 
             const statusText = await statusRes.text();
-            if (!statusRes.ok && statusRes.status !== 202) {
-                console.error(`[KSeF_SERVICE] Polling Error (${statusRes.status}): ${statusText}`);
-            }
-
             const statusData = JSON.parse(statusText);
-            const statusCode = statusData.exception?.exceptionDetailList?.[0]?.exceptionCode || statusData.status?.code || statusRes.status;
+            
+            // Extract the deep status code (Wizjoner standard)
+            const statusCode = statusData.status?.code || statusRes.status;
 
-            console.log(`[KSeF_SERVICE] Polling Attempt ${pollAttempts}. Status Code: ${statusCode}`);
+            console.log(`[KSeF_SERVICE] Polling Attempt ${pollAttempts}/${150}. Status Code: ${statusCode}`);
 
-            if (statusCode === 200 || statusRes.status === 200) {
+            if (statusCode === 200) {
                 isReady = true;
                 break;
             } 
@@ -246,9 +244,8 @@ export class KSeFService {
                 throw new Error('Token KSeF nieprawidłowy (Status 450). Przerwano handshake.');
             }
 
-            // Inne statusy (np. 100/310 Processing) -> Czekaj
+            // Otherwise 100/310 -> Wait 2s
             await new Promise(r => setTimeout(r, delay));
-            delay = Math.min(delay * 2, 12000);
         }
 
         if (!isReady) throw new Error(`Handshake timed out for ${refNum}`);
@@ -312,7 +309,8 @@ export class KSeFService {
     }): Promise<any[]> {
         console.log('[KSeF_SERVICE] Step 5: Fetching invoice metadata (Sync Incremental)...');
 
-        const from = options?.dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        // Default range: Last 7 days (Wizjoner Final Flow to prevent 504 Timeouts)
+        const from = options?.dateFrom || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
         const to = options?.dateTo || new Date().toISOString();
 
         const headers = await this.getHeaders('application/json', {
