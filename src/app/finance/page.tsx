@@ -74,7 +74,7 @@ export default async function FinancePage({
             tenantId: inv.tenantId,
             contractorId: inv.contractorId,
             projectId: inv.projectId,
-            type: inv.type === 'REVENUE' ? 'SPRZEDAŻ' : 'KOSZT', // Unified labels for UI logic
+            type: (inv.type === 'REVENUE' || inv.type === 'INCOME') ? 'INCOME' : 'EXPENSE', // Unified labels for UI logic
             amountNet: inv.amountNet.toNumber(),
             amountGross: inv.amountGross.toNumber(),
             taxRate: inv.taxRate.toNumber(),

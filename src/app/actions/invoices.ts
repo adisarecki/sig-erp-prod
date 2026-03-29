@@ -119,7 +119,7 @@ export async function markInvoiceAsPaid(id: string, paymentDateOverride?: string
 
             // Stwórz transakcję finansową (Ledger) w Firestore
             const transRef = adminDb.collection("transactions").doc()
-            const isIncome = invoice.type === "REVENUE" || invoice.type === "SPRZEDAŻ"
+            const isIncome = invoice.type === "REVENUE" || invoice.type === "INCOME" || invoice.type === "SPRZEDAŻ"
             const classification = invoice.projectId ? "PROJECT_COST" : "GENERAL_COST"
             
             transaction.set(transRef, {
@@ -127,9 +127,9 @@ export async function markInvoiceAsPaid(id: string, paymentDateOverride?: string
                 projectId: invoice.projectId || null,
                 classification,
                 amount: amountGross,
-                type: isIncome ? "PRZYCHÓD" : "KOSZT",
+                type: isIncome ? "INCOME" : "EXPENSE",
                 transactionDate: paymentDate.toISOString(),
-                category: isIncome ? "SPRZEDAŻ_TOWARU" : "KOSZT_FIRMOWY",
+                category: isIncome ? "SPRZEDAŻ" : "ZAKUP",
                 description: `Płatność (KSeF): ${invoice.invoiceNumber || invoice.ksefId || 'Bez numeru'}`,
                 status: "ACTIVE",
                 source: "INVOICE",

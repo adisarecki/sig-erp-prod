@@ -40,11 +40,12 @@ export async function GET() {
                 const ksefId = (item as any).ksefNumber || item.invoiceReferenceNumber;
                 if (!ksefId) continue;
 
-                const isRevenue = (item as any)._apiDirection === "REVENUE";
+                const direction = (item as any)._apiDirection || "EXPENSE"; // Default to EXPENSE if unknown
+                const isIncome = direction === "INCOME";
                 let nip = '0000000000';
                 let name = 'Nieznany Kontrahent';
 
-                if (isRevenue) {
+                if (isIncome) {
                     const buyer = (item as any).buyer || item.subject2;
                     nip = (buyer as any)?.identifier?.value || '0000000000';
                     name = buyer?.name || 'Nieznany Kontrahent';
@@ -59,7 +60,7 @@ export async function GET() {
 
                 if (!contractor) {
                     contractor = await prisma.contractor.create({
-                        data: { tenantId, nip, name, status: 'PENDING', type: isRevenue ? 'KLIENT' : 'DOSTAWCA' }
+                        data: { tenantId, nip, name, status: 'PENDING', type: isIncome ? 'KLIENT' : 'DOSTAWCA' }
                     });
                     await syncContractorToFirestore(contractor);
                 } else if (!contractor.name || contractor.name === 'Nieznany Kontrahent') {
@@ -77,7 +78,7 @@ export async function GET() {
                     create: {
                         tenantId, contractorId: contractor.id, ksefId,
                         invoiceNumber: item.invoiceNumber || 'OCZEKUJE',
-                        type: isRevenue ? 'REVENUE' : 'EXPENSE',
+                        type: isIncome ? 'INCOME' : 'EXPENSE',
                         amountNet, amountGross,
                         taxRate: amountNet.isZero() ? new Decimal(0) : vatAmount.div(amountNet).toDecimalPlaces(4),
                         issueDate: new Date(item.issueDate || Date.now()),
