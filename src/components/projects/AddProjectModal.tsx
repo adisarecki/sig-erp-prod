@@ -87,8 +87,9 @@ export function AddProjectModal({ contractors }: AddProjectModalProps) {
                                 name="retentionShortTermRate"
                                 type="number"
                                 step="0.1"
-                                defaultValue="5"
+                                defaultValue="0"
                                 className="w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                                placeholder="np. 5.0"
                             />
                         </div>
                         <div className="space-y-1">
@@ -97,8 +98,9 @@ export function AddProjectModal({ contractors }: AddProjectModalProps) {
                                 name="retentionLongTermRate"
                                 type="number"
                                 step="0.1"
-                                defaultValue="3"
+                                defaultValue="0"
                                 className="w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                                placeholder="np. 3.0"
                             />
                         </div>
                     </div>

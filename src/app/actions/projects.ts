@@ -105,13 +105,14 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
         })
 
         try {
+            console.log(`[PROJECT_SYNC] Creating Project ${projectId} | RetShort: ${retShort} | RetLong: ${retLong}`)
             await (prisma as any).project.create({
                 data: {
                     id: projectId,
-                    tenantId,
+                    tenant: { connect: { id: tenantId } },
                     name,
-                    contractorId,
-                    objectId: targetObjectId,
+                    contractor: { connect: { id: contractorId } },
+                    object: { connect: { id: targetObjectId } },
                     type: "NOWY",
                     status: "PLANNED",
                     lifecycleStatus: "ACTIVE",
@@ -210,10 +211,10 @@ export async function createProject(data: { name: string, contractorId: string }
         await (prisma as any).project.create({
             data: {
                 id: projectId,
-                tenantId,
+                tenant: { connect: { id: tenantId } },
                 name: data.name,
-                contractorId: data.contractorId,
-                objectId,
+                contractor: { connect: { id: data.contractorId } },
+                object: { connect: { id: objectId } },
                 type: "NOWY",
                 status: "PLANNED",
                 lifecycleStatus: "ACTIVE",

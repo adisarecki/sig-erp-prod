@@ -54,7 +54,7 @@ export async function forceSyncProjects() {
                 await prisma.object.create({
                     data: {
                         id: proj.objectId,
-                        contractorId: proj.contractorId,
+                        contractor: { connect: { id: proj.contractorId } },
                         name: objName,
                         description: "Obiekt zsynchronizowany awaryjnie przez system Healer"
                     }
@@ -65,10 +65,10 @@ export async function forceSyncProjects() {
             await prisma.project.create({
                 data: {
                     id: proj.id,
-                    tenantId: proj.tenantId,
+                    tenant: { connect: { id: proj.tenantId } },
                     name: proj.name,
-                    contractorId: proj.contractorId,
-                    objectId: proj.objectId,
+                    contractor: { connect: { id: proj.contractorId } },
+                    object: { connect: { id: proj.objectId } },
                     type: proj.type || "NOWY",
                     status: proj.status || "PLANNED",
                     lifecycleStatus: proj.lifecycleStatus || "ACTIVE",

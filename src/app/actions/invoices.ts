@@ -168,8 +168,8 @@ export async function markInvoiceAsPaid(id: string, paymentDateOverride?: string
                 const prismaTrans = await tx.transaction.create({
                     data: {
                         id: tDoc.id,
-                        tenantId,
-                        projectId: invoice.projectId,
+                        tenant: { connect: { id: tenantId } },
+                        project: invoice.projectId ? { connect: { id: invoice.projectId } } : undefined,
                         classification: tData.classification,
                         amount: amountGross,
                         type: tData.type,
@@ -456,7 +456,7 @@ export async function addIncomeInvoice(formData: FormData) {
                     await prisma.contractor.create({
                         data: {
                             id: txResult.contractorId,
-                            tenantId,
+                            tenant: { connect: { id: tenantId } },
                             name: newContractorName,
                             nip: newContractorNip || null,
                             address: newContractorAddress || null,
@@ -467,7 +467,7 @@ export async function addIncomeInvoice(formData: FormData) {
                     
                     await prisma.object.create({
                         data: {
-                            contractorId: txResult.contractorId,
+                            contractor: { connect: { id: txResult.contractorId } },
                             name: "Siedziba Główna",
                             address: newContractorAddress || null
                         }
@@ -513,7 +513,7 @@ export async function addIncomeInvoice(formData: FormData) {
                     } else {
                         const newObj = await prisma.object.create({
                             data: {
-                                contractorId: prismaContractorId,
+                                contractor: { connect: { id: prismaContractorId } },
                                 name: "Siedziba Główna"
                             }
                         })
@@ -523,10 +523,10 @@ export async function addIncomeInvoice(formData: FormData) {
                     await prisma.project.create({
                         data: {
                             id: txResult.projectId,
-                            tenantId,
+                            tenant: { connect: { id: tenantId } },
                             name: newProjectName,
-                            contractorId: prismaContractorId,
-                            objectId: targetObjectId!,
+                            contractor: { connect: { id: prismaContractorId } },
+                            object: { connect: { id: targetObjectId! } },
                             type: "INWESTYCJA",
                             status: "PLANNED",
                             budgetEstimated: 0
@@ -538,9 +538,9 @@ export async function addIncomeInvoice(formData: FormData) {
             await prisma.invoice.create({
                 data: {
                     id: txResult.invoiceId,
-                    tenantId,
-                    contractorId: prismaContractorId,
-                    projectId: txResult.projectId || null,
+                    tenant: { connect: { id: tenantId } },
+                    contractor: { connect: { id: prismaContractorId } },
+                    project: txResult.projectId ? { connect: { id: txResult.projectId } } : undefined,
                     type: "SPRZEDAŻ",
                     amountNet: amountNet.toNumber(),
                     amountGross: amountGross.toNumber(),
@@ -562,8 +562,8 @@ export async function addIncomeInvoice(formData: FormData) {
                     const prismaTrans = await prisma.transaction.create({
                         data: {
                             id: tDoc.id,
-                            tenantId,
-                            projectId: txResult.projectId || null,
+                            tenant: { connect: { id: tenantId } },
+                            project: txResult.projectId ? { connect: { id: txResult.projectId } } : undefined,
                             classification: (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (txResult.projectId ? "PROJECT_COST" : "GENERAL_COST"),
                             amount: amountGross.toNumber(),
                             type: "PRZYCHÓD",
@@ -844,7 +844,7 @@ export async function addCostInvoice(formData: FormData) {
                     await prisma.contractor.create({
                         data: {
                             id: txResult.contractorId,
-                            tenantId,
+                            tenant: { connect: { id: tenantId } },
                             name: newContractorName,
                             nip: newContractorNip || null,
                             address: newContractorAddress || null,
@@ -856,7 +856,7 @@ export async function addCostInvoice(formData: FormData) {
                     // Obiekt domyślny
                     await prisma.object.create({
                         data: {
-                            contractorId: txResult.contractorId,
+                            contractor: { connect: { id: txResult.contractorId } },
                             name: "Siedziba Główna",
                             address: newContractorAddress || null
                         }
@@ -872,7 +872,7 @@ export async function addCostInvoice(formData: FormData) {
                         await prisma.contractor.create({
                             data: {
                                 id: txResult.contractorId,
-                                tenantId: d.tenantId,
+                                tenant: { connect: { id: d.tenantId } },
                                 name: d.name,
                                 nip: d.nip || null,
                                 address: d.address || null,
@@ -923,7 +923,7 @@ export async function addCostInvoice(formData: FormData) {
                         // Tworzymy techniczny obiekt "Siedziba Główna" dla relacji
                         const newObj = await prisma.object.create({
                             data: {
-                                contractorId: prismaContractorId,
+                                contractor: { connect: { id: prismaContractorId } },
                                 name: "Siedziba Główna"
                             }
                         })
@@ -933,10 +933,10 @@ export async function addCostInvoice(formData: FormData) {
                     await prisma.project.create({
                         data: {
                             id: txResult.safeProjectId,
-                            tenantId,
+                            tenant: { connect: { id: tenantId } },
                             name: newProjectName,
-                            contractorId: prismaContractorId,
-                            objectId: targetObjectId!,
+                            contractor: { connect: { id: prismaContractorId } },
+                            object: { connect: { id: targetObjectId! } },
                             type: "INWESTYCJA",
                             status: "PLANNED",
                             budgetEstimated: 0
@@ -948,9 +948,9 @@ export async function addCostInvoice(formData: FormData) {
             await prisma.invoice.create({
                 data: {
                     id: txResult.invoiceId,
-                    tenantId,
-                    contractorId: prismaContractorId,
-                    projectId: txResult.safeProjectId as string | null,
+                    tenant: { connect: { id: tenantId } },
+                    contractor: { connect: { id: prismaContractorId } },
+                    project: (txResult.safeProjectId as string | null) ? { connect: { id: txResult.safeProjectId as string } } : undefined,
                     type: "EXPENSE",
                     amountNet: amountNet.toNumber(),
                     amountGross: amountGross.toNumber(),
@@ -971,8 +971,8 @@ export async function addCostInvoice(formData: FormData) {
                     const prismaTrans = await prisma.transaction.create({
                         data: {
                             id: tDoc.id,
-                            tenantId,
-                            projectId: txResult.safeProjectId,
+                            tenant: { connect: { id: tenantId } },
+                            project: txResult.safeProjectId ? { connect: { id: txResult.safeProjectId as string } } : undefined,
                             classification: txResult.classificationValue,
                             amount: amountGross.toNumber(),
                             type: "EXPENSE",

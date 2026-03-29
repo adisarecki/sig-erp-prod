@@ -67,9 +67,9 @@ export async function addRetention(formData: FormData) {
             await (prisma as any).retention.create({
                 data: {
                     id: retentionId,
-                    tenantId,
-                    projectId,
-                    contractorId,
+                    tenant: { connect: { id: tenantId } },
+                    project: projectId ? { connect: { id: projectId } } : undefined,
+                    contractor: contractorId ? { connect: { id: contractorId } } : undefined,
                     amount: numericAmount,
                     type,
                     expiryDate,
@@ -205,8 +205,8 @@ export async function syncRetentionsFromProject(
                 await (prisma as any).retention.create({
                     data: {
                         id: retentionRef.id,
-                        tenantId,
-                        projectId,
+                        tenant: { connect: { id: tenantId } },
+                        project: { connect: { id: projectId } },
                         amount: shortAmount,
                         type: shortType,
                         expiryDate: shortExpiryDate,
@@ -270,8 +270,8 @@ export async function syncRetentionsFromProject(
                 await (prisma as any).retention.create({
                     data: {
                         id: retentionRef.id,
-                        tenantId,
-                        projectId,
+                        tenant: { connect: { id: tenantId } },
+                        project: { connect: { id: projectId } },
                         amount: longAmount,
                         type: longType,
                         expiryDate: longExpiryDate,
