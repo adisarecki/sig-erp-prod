@@ -1,8 +1,8 @@
 "use client"
 
 import { Trash2, ArrowUpRight, ArrowDownRight, Link as LinkIcon, Loader2, X, AlertTriangle, FileText, Calendar, Building2, Briefcase, Info, Sparkles, CheckCircle } from "lucide-react"
-import { assignTransactionToProject, deleteTransaction } from "@/app/actions/transactions"
-import { deleteInvoice, markInvoiceAsPaid } from "@/app/actions/invoices"
+import { assignTransactionToProject, deleteTransaction } from "../../app/actions/transactions"
+import { deleteInvoice, markInvoiceAsPaid } from "../../app/actions/invoices"
 import { useState } from "react"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 import {
@@ -34,7 +34,6 @@ interface HistoryItem {
     contractorId?: string;
     contractorName?: string;
     nip?: string | null;
-    // New fields for Phase 11.2
     counterpartyRaw?: string | null;
     matchedContractorId?: string | null;
     tags?: string | null;
@@ -122,127 +121,174 @@ export function TransactionHistory({
 
     return (
         <div className="divide-y divide-slate-100">
-            {initialTransactions.map((t) => {
-                
-                return (
-                    <div 
-                        key={t.id} 
-                        className="p-4 sm:p-6 flex flex-col lg:flex-row justify-between items-start lg:items-center hover:bg-slate-50 transition-colors group cursor-pointer"
-                        onClick={() => setViewingItem(t)}
-                    >
-                        <div className="flex gap-4 items-center flex-1 min-w-0 pointer-events-none">
-                            <div className={`p-3 rounded-xl flex items-center justify-center shrink-0 ${t.type === 'PRZYCHÓD' ? 'bg-green-100 text-green-600' : 'bg-rose-100 text-rose-600'}`}>
-                                {t.type === 'PRZYCHÓD' ? <ArrowUpRight className="w-6 h-6" /> : <ArrowDownRight className="w-6 h-6" />}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="font-bold text-slate-900 text-lg truncate uppercase tracking-tight">
-                                        {t.title}
-                                    </p>
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 ${t.statusColor}`}>
-                                        {t.statusBadge}
+            {initialTransactions.map((t) => (
+                <div 
+                    key={t.id} 
+                    className="p-4 sm:p-6 flex flex-col lg:flex-row justify-between items-start lg:items-center hover:bg-slate-50 transition-colors group cursor-pointer"
+                    onClick={() => setViewingItem(t)}
+                >
+                    <div className="flex gap-4 items-center flex-1 min-w-0 pointer-events-none">
+                        <div className={`p-3 rounded-xl flex items-center justify-center shrink-0 ${t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' ? 'bg-green-100 text-green-600' : 'bg-rose-100 text-rose-600'}`}>
+                            {t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' ? <ArrowUpRight className="w-6 h-6" /> : <ArrowDownRight className="w-6 h-6" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-bold text-slate-900 text-lg truncate uppercase tracking-tight">
+                                    {t.title}
+                                </p>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 ${t.statusColor}`}>
+                                    {t.statusBadge}
+                                </span>
+                                {t.tags?.split(',').map(tag => (
+                                    <Badge key={tag} variant="outline" className="text-[10px] font-black tracking-tighter shrink-0 bg-blue-50 text-blue-700 border-blue-200">
+                                        {tag.trim()}
+                                    </Badge>
+                                ))}
+                                {t.classification === 'INTERNAL_COST' ? (
+                                    <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 border border-slate-200">
+                                        🔒 [Koszty Własne]
                                     </span>
-                                    {t.tags?.split(',').map(tag => (
-                                        <Badge key={tag} variant="outline" className="text-[10px] font-black tracking-tighter shrink-0 bg-blue-50 text-blue-700 border-blue-200">
-                                            {tag.trim()}
-                                        </Badge>
-                                    ))}
-                                    {t.classification === 'INTERNAL_COST' ? (
-                                        <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 border border-slate-200">
-                                            🔒 [Koszty Własne]
+                                ) : (t.classification === 'GENERAL_COST' || !t.projectId) && (
+                                    <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 border border-amber-200">
+                                        🏢 [Koszty Ogólne Firmy]
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 mt-0.5">
+                                {t.counterpartyRaw && (
+                                    <div className="flex items-center gap-1.5">
+                                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                                        <span className="font-semibold text-slate-700 truncate max-w-[200px]">
+                                            {t.contractorName || t.counterpartyRaw}
                                         </span>
-                                    ) : (t.classification === 'GENERAL_COST' || !t.projectId) && (
-                                        <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 border border-amber-200">
-                                            🏢 [Koszty Ogólne Firmy]
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 mt-0.5">
-                                    {t.counterpartyRaw && (
-                                        <div className="flex items-center gap-1.5">
-                                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                                            <span className="font-semibold text-slate-700 truncate max-w-[200px]">
-                                                {t.contractorName || t.counterpartyRaw}
-                                            </span>
+                                    </div>
+                                )}
+                                {t.documentNumber && (
+                                    <span className="font-mono text-[11px] text-slate-400 font-medium whitespace-nowrap">
+                                        Dok: {t.documentNumber}
+                                    </span>
+                                )}
+                                <span className="font-medium px-2 py-0.5 rounded-md bg-slate-100 whitespace-nowrap">
+                                    {new Date(t.date).toLocaleDateString('pl-PL')}
+                                </span>
+                                <span className="hidden sm:inline text-slate-300">•</span>
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <span className="shrink-0">Projekt:</span>
+                                    {t.projectId ? (
+                                        <span className="font-medium text-slate-700 truncate">{projectsMap[t.projectId] || t.projectId}</span>
+                                    ) : (
+                                        <div className="flex items-center gap-2">
+                                            <span className="italic text-slate-400 shrink-0">Brak przypisania</span>
+                                            <div className="pointer-events-auto">
+                                                {!t.isInvoice && (
+                                                    assigningId === t.id ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                                                    ) : (
+                                                        <select 
+                                                            className="text-xs bg-white border border-slate-200 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer hover:border-blue-300 transition-colors"
+                                                            onChange={(e) => {
+                                                                e.stopPropagation();
+                                                                handleAssign(t.id, e.target.value);
+                                                            }}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            defaultValue=""
+                                                        >
+                                                            <option value="" disabled>Przypisz Projekt...</option>
+                                                            {allProjects.map(p => (
+                                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    )
+                                                )}
+                                            </div>
                                         </div>
                                     )}
-                                    {t.documentNumber && (
-                                        <span className="font-mono text-[11px] text-slate-400 font-medium whitespace-nowrap">
-                                            Dok: {t.documentNumber}
-                                        </span>
-                                    )}
-                                    <span className="font-medium px-2 py-0.5 rounded-md bg-slate-100 whitespace-nowrap">
-                                        {new Date(t.date).toLocaleDateString('pl-PL')}
-                                    </span>
-                                    <span className="hidden sm:inline text-slate-300">•</span>
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <span className="shrink-0">Projekt:</span>
-                                        {t.projectId ? (
-                                            <span className="font-medium text-slate-700 truncate">{projectsMap[t.projectId] || t.projectId}</span>
-                                        ) : (
-                                            <div className="flex items-center gap-2">
-                                                <span className="italic text-slate-400 shrink-0">Brak przypisania</span>
-                                                <div className="pointer-events-auto">
-                                                    {!t.isInvoice && (
-                                                        assigningId === t.id ? (
-                                                            <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                                                        ) : (
-                                                            <select 
-                                                                className="text-xs bg-white border border-slate-200 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer hover:border-blue-300 transition-colors"
-                                                                onChange={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleAssign(t.id, e.target.value);
-                                                                }}
-                                                                onClick={(e) => e.stopPropagation()}
-                                                                defaultValue=""
-                                                            >
-                                                                <option value="" disabled>Przypisz Projekt...</option>
-                                                                {allProjects.map(p => (
-                                                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                                                ))}
-                                                            </select>
-                                                        )
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-6 mt-4 lg:mt-0 ml-14 lg:ml-0 pointer-events-none">
-                            <CurrencyDisplay 
-                                gross={t.amount}
-                                net={t.amountNet}
-                                isIncome={t.type === 'PRZYCHÓD'}
-                                className={`text-xl font-bold whitespace-nowrap ${t.type === 'PRZYCHÓD' ? 'text-green-600' : 'text-slate-900'}`}
-                            />
-                            <div className="pointer-events-auto flex items-center gap-1">
-                                {t.isInvoice && t.statusBadge !== "OPŁACONA" && (
-                                    <button
-                                        onClick={(e) => handleQuickPay(e, t.id)}
-                                        disabled={payingId === t.id}
-                                        className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all hover:scale-110 disabled:opacity-50"
-                                        title="Oznacz jako opłacone"
-                                    >
-                                        {payingId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                                    </button>
-                                )}
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setDeleteConfirmItem(t);
-                                    }}
-                                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-lg transition-all hover:scale-110"
-                                    title="Usuń dokument"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
                             </div>
                         </div>
                     </div>
-                );
-            })}
+                    <div className="flex items-center gap-6 mt-4 lg:mt-0 ml-14 lg:ml-0 pointer-events-none">
+                        <CurrencyDisplay 
+                            gross={t.amount}
+                            net={t.amountNet}
+                            isIncome={t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ'}
+                            className={`text-xl font-bold whitespace-nowrap ${t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' ? 'text-green-600' : 'text-slate-900'}`}
+                        />
+                        <div className="pointer-events-auto flex items-center gap-1">
+                            {t.isInvoice && t.statusBadge !== "OPŁACONA" && (
+                                <button
+                                    onClick={(e) => handleQuickPay(e, t.id)}
+                                    disabled={payingId === t.id}
+                                    className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all hover:scale-110 disabled:opacity-50"
+                                    title="Oznacz jako opłacone"
+                                >
+                                    {payingId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                                </button>
+                            )}
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteConfirmItem(t);
+                                }}
+                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-lg transition-all hover:scale-110"
+                                title="Usuń dokument"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ))}
+
+            {/* GRAND TOTAL SUMMARY FOOTER */}
+            <div className="bg-slate-900 text-white p-6 sm:px-10 flex flex-col md:flex-row justify-between items-center gap-6 border-t border-slate-800 shadow-2xl relative z-10">
+                <div className="flex flex-col sm:flex-row gap-6 sm:gap-12 w-full md:w-auto">
+                    <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Suma Przychodów</p>
+                        <div className="flex items-baseline gap-2">
+                            <CurrencyDisplay 
+                                gross={initialTransactions.reduce((acc, t) => (t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ') ? acc + t.amount : acc, 0)} 
+                                isIncome={true} 
+                                className="text-xl font-black text-green-400" 
+                            />
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
+                                Netto: {initialTransactions.reduce((acc, t) => (t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ') ? acc + (t.amountNet || 0) : acc, 0).toFixed(2)}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Suma Kosztów</p>
+                        <div className="flex items-baseline gap-2">
+                            <CurrencyDisplay 
+                                gross={initialTransactions.reduce((acc, t) => t.type === 'KOSZT' ? acc + t.amount : acc, 0)} 
+                                isIncome={false} 
+                                className="text-xl font-black text-rose-400" 
+                            />
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
+                                Netto: {initialTransactions.reduce((acc, t) => t.type === 'KOSZT' ? acc + (t.amountNet || 0) : acc, 0).toFixed(2)}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-slate-800/50 p-4 px-6 rounded-2xl border border-white/5 flex flex-col items-center sm:items-end w-full md:w-auto">
+                    <p className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.3em] mb-1">Saldo Końcowe (Bilans)</p>
+                    <div className="flex items-baseline gap-3">
+                        <CurrencyDisplay 
+                            gross={initialTransactions.reduce((acc, t) => (t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ') ? acc + t.amount : acc - t.amount, 0)} 
+                            isIncome={initialTransactions.reduce((acc, t) => (t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ') ? acc + t.amount : acc - t.amount, 0) >= 0}
+                            className={`text-3xl font-black tracking-tighter ${
+                                initialTransactions.reduce((acc, t) => (t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ') ? acc + t.amount : acc - t.amount, 0) >= 0 
+                                ? 'text-white' 
+                                : 'text-rose-400'
+                            }`} 
+                        />
+                    </div>
+                    <p className="text-[11px] text-slate-400 font-bold mt-1">
+                        Wartość Netto: {initialTransactions.reduce((acc, t) => (t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ') ? acc + (t.amountNet || 0) : acc - (t.amountNet || 0), 0).toFixed(2)} PLN
+                    </p>
+                </div>
+            </div>
 
             {/* SAFE DELETE MODAL */}
             <Dialog open={!!deleteConfirmItem} onOpenChange={(open) => !open && setDeleteConfirmItem(null)}>
@@ -287,7 +333,7 @@ export function TransactionHistory({
             {/* QUICK VIEW MODAL */}
             <Dialog open={!!viewingItem} onOpenChange={(open) => !open && setViewingItem(null)}>
                 <DialogContent className="sm:max-w-[550px] overflow-hidden p-0 rounded-2xl border-none shadow-2xl">
-                    <div className={`h-2 ${viewingItem?.type === 'PRZYCHÓD' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                    <div className={`h-2 ${viewingItem?.type === 'PRZYCHÓD' || viewingItem?.type === 'SPRZEDAŻ' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                     
                     <div className="p-6 pt-8 space-y-6">
                         <div className="flex justify-between items-start">
@@ -306,7 +352,7 @@ export function TransactionHistory({
                                 <CurrencyDisplay 
                                     gross={viewingItem?.amount || 0}
                                     net={viewingItem?.amountNet}
-                                    isIncome={viewingItem?.type === 'PRZYCHÓD'}
+                                    isIncome={viewingItem?.type === 'PRZYCHÓD' || viewingItem?.type === 'SPRZEDAŻ'}
                                     className="text-2xl font-black text-slate-900"
                                 />
                                 {viewingItem?.amountNet && (
@@ -378,5 +424,5 @@ export function TransactionHistory({
                 </DialogContent>
             </Dialog>
         </div>
-    )
+    );
 }

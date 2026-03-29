@@ -6,7 +6,7 @@ import { validateNonZero } from "@/lib/ledger"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { getAdminDb } from "@/lib/firebaseAdmin"
 import prisma from "@/lib/prisma"
-import { syncInvoiceToFirestore } from "@/lib/finance/sync-utils"
+import { syncInvoiceToFirestore } from "../../lib/finance/sync-utils"
 
 
 export async function deleteInvoice(id: string): Promise<{ success: boolean, error?: string }> {

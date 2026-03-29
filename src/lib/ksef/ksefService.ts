@@ -464,6 +464,9 @@ export class KSeFService {
         }));
 
 
+        const netAmount = new Decimal(fa.P_13_1 || 0).plus(fa.P_13_2 || 0).plus(fa.P_13_3 || 0);
+        const grossAmount = new Decimal(fa.P_15 || 0);
+
         return {
             ksefNumber,
             invoiceNumber: String(fa.P_2 || 'Unknown'),
@@ -476,9 +479,9 @@ export class KSeFService {
             sellerAddress: String(faktura.Podmiot1?.Adres?.AdresL1 || 'Brak adresu'),
             sellerBankAccount: null,
             ksefType: String(rodzajFaktury || 'VAT'),
-            netAmount: new Decimal(fa.P_13_1 || 0).plus(fa.P_13_2 || 0).plus(fa.P_13_3 || 0),
-            vatAmount: new Decimal(0),
-            grossAmount: new Decimal(fa.P_15 || 0),
+            netAmount,
+            vatAmount: grossAmount.minus(netAmount),
+            grossAmount,
             currency: String(fa.KodWaluty || 'PLN'),
             paymentStatus: 'UNPAID',
             lineItems,
