@@ -65,6 +65,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 094 | KSeF / UI Bugfix    | FIXED | Quick Sync UI Fix. | Rozwiązano problem "cichego błędu" w `/api/ksef/invoices`. Zaktualizowano mapowanie pól (subject1/2) pod KSeF v2.0. Poprawiono obsługę błędów (success: false), co pozwala UI wyświetlić komunikat o błędzie. |
 | Vector 095 | KSeF / Architecture| FIXED | KSeF Real Field Mapping. | Ostateczna synchronizacja z JSON-em produkcyjnym KSeF na podstawie logów Vercel. Wdrożono mapowanie dla `ksefNumber` oraz obiektów `seller`/`buyer`. Rozwiązano problem "pustej listy" przy poprawnym pobraniu danych. |
 | Vector 096 | KSeF / Debug        | FIXED | Strict Sync Logging (Investigation). | Wdrożono rygorystyczne logowanie `[PRISMA_SUCCESS]` i `[PRISMA_UPSERT_ERROR]` w celu śledzenia rurociągu danych. Dodano logowanie kierunku (REVENUE/EXPENSE) oraz NIP-ów do debugowania "zaginionych faktur". |
+| Vector 097 | KSeF / Debug        | FIXED | Emergency Mode: Log or Die. | Wdrożono rygorystyczne logowanie `[SYNC_PROCESS]` i `[PRISMA_SUCCESS]` z ID rekordu. Skorygowano ekstrakcję NIP (Buyer: identifier.value vs Seller: nip). Zapewniono pełne `await` dla stabilności w środowisku Vercel. |
 
 ---
 *Ostatnia aktywność techniczna: 2026-03-29. Build Verified (TSC: OK).*

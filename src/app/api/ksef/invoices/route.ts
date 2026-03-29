@@ -75,22 +75,25 @@ export async function GET(request: NextRequest) {
 
                 const isRevenue = item._apiDirection === "REVENUE";
                 
-                // Determine Counterparty based on Direct Seller/Buyer mapping (Log format)
-                // Fallback to subject1 (Seller) / subject2 (Buyer) if needed
+                // Zadanie 2: Weryfikacja klucza NIP (Krytyczne!)
+                // Seller NIP: item.seller.nip
+                // Buyer NIP: item.buyer.identifier.value
                 let nip = '0000000000';
                 let name = 'Nieznany Kontrahent';
 
                 if (isRevenue) {
-                    // Counterparty is the Buyer
+                    // Dla sprzedaży (Revenue/Subject1) kontrahentem jest Nabywca (Buyer)
                     const buyer = item.buyer || item.subject2;
                     nip = (buyer as any)?.identifier?.value || (buyer as any)?.issuedByIdentifier?.value || '0000000000';
                     name = buyer?.name || (buyer as any)?.issuedByName || 'Nieznany Kontrahent';
                 } else {
-                    // Counterparty is the Seller
+                    // Dla kosztów (Expense/Subject2) kontrahentem jest Sprzedawca (Seller)
                     const seller = item.seller || item.subject1;
-                    nip = seller?.nip || (seller as any)?.issuedByIdentifier?.value || '0000000000';
+                    nip = (seller as any)?.nip || (seller as any)?.issuedByIdentifier?.value || '0000000000';
                     name = seller?.name || (seller as any)?.issuedByName || 'Nieznany Kontrahent';
                 }
+
+                console.log(`[SYNC_PROCESS] Processing invoice: ${item.invoiceNumber} from ${name} (NIP: ${nip})`);
 
                 // 4a. Contractor Upsert (NIP as key)
                 let contractor = await prisma.contractor.findUnique({
@@ -120,7 +123,8 @@ export async function GET(request: NextRequest) {
                 const amountNet = new Decimal(item.netAmount || 0);
                 const vatAmount = new Decimal(item.vatAmount || 0);
 
-                await prisma.invoice.upsert({
+                // Zadanie 3: Sprawdzenie await Promise.all (Await Safety)
+                const result = await prisma.invoice.upsert({
                     where: { ksefId },
                     create: {
                         tenantId,
@@ -144,7 +148,7 @@ export async function GET(request: NextRequest) {
                     }
                 });
 
-                console.log("[PRISMA_SUCCESS] Saved invoice:", ksefId);
+                console.log(`[PRISMA_SUCCESS] Invoice ${item.invoiceNumber} saved with ID: ${result.id}`);
                 savedCount++;
                 results.push({
                     ksefId,
@@ -152,10 +156,8 @@ export async function GET(request: NextRequest) {
                     seller: name,
                     amount: amountGross.toString()
                 });
-            } catch (err: unknown) {
-                console.error("[PRISMA_UPSERT_ERROR] Failed for KSeF Number:", (item as any).ksefNumber, err);
-                // Also log more metadata for debugging
-                console.error(`[KSeF_MAPPING_DEBUG] Item details: Direction=${(item as any)._apiDirection}, NIP=${(item as any).seller?.nip || (item as any).buyer?.identifier?.value}`);
+            } catch (dbError: any) {
+                console.error(`[PRISMA_FATAL] Error saving invoice ${item.invoiceNumber}:`, dbError);
             }
         }
 

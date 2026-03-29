@@ -59,7 +59,7 @@ export async function GET() {
                 // in general sync mode, but we check direction if available.
                 const isRevenue = (item as any)._apiDirection === "REVENUE";
                 
-                // Determine Counterparty based on Direct Seller/Buyer mapping (Log format)
+                // Zadanie 2: Weryfikacja klucza NIP (Krytyczne!)
                 let nip = '0000000000';
                 let name = 'Nieznany Kontrahent';
 
@@ -72,6 +72,8 @@ export async function GET() {
                     nip = (seller as any)?.nip || (seller as any)?.issuedByIdentifier?.value || '0000000000';
                     name = seller?.name || (seller as any)?.issuedByName || 'Nieznany Kontrahent';
                 }
+
+                console.log(`[SYNC_PROCESS] Processing invoice: ${item.invoiceNumber} from ${name} (NIP: ${nip})`);
 
                 // 4a. Contractor Upsert
                 let contractor = await prisma.contractor.findUnique({
@@ -100,7 +102,8 @@ export async function GET() {
                 const amountNet = new Decimal(item.netAmount || 0);
                 const vatAmount = new Decimal(item.vatAmount || 0);
 
-                const savedInvoice = await prisma.invoice.upsert({
+                // Zadanie 3: Sprawdzenie await Promise.all (Await Safety)
+                const result = await prisma.invoice.upsert({
                     where: { ksefId },
                     create: {
                         tenantId,
@@ -123,10 +126,10 @@ export async function GET() {
                     }
                 });
 
-                console.log("[PRISMA_SUCCESS] Saved invoice (Sync):", ksefId);
+                console.log(`[PRISMA_SUCCESS] Invoice ${item.invoiceNumber} saved with ID: ${result.id}`);
 
                 results.push({
-                    id: savedInvoice.id,
+                    id: result.id,
                     ksefId: ksefId,
                     invoiceNumber: item.invoiceNumber,
                     seller: name,
@@ -135,9 +138,8 @@ export async function GET() {
                 });
 
                 savedCount++;
-            } catch (err: unknown) {
-                console.error("[PRISMA_UPSERT_ERROR] Failed during Sync for KSeF Number:", (item as any).ksefNumber, err);
-                console.error(`[KSeF_SYNC_DEBUG] Item details: Direction=${(item as any)._apiDirection}, NIP=${(item as any).seller?.nip || (item as any).buyer?.identifier?.value}`);
+            } catch (dbError: any) {
+                console.error(`[PRISMA_FATAL] Error saving invoice ${item.invoiceNumber}:`, dbError);
             }
         }
 
