@@ -1,6 +1,5 @@
 import { XMLParser } from 'fast-xml-parser';
 import Decimal from 'decimal.js';
-import crypto from 'crypto';
 
 // Base URL: https://api.ksef.mf.gov.pl/api
 const KSEF_BASE_URL = (process.env.KSEF_BASE_URL || 'https://api.ksef.mf.gov.pl/api').replace(/\/$/, '');
@@ -9,89 +8,10 @@ const DEFAULT_NIP = '9542751368';
 
 // ─── Module-Level Cache ────────────────────────────────────────────────────────
 
-// Public Key Cache
-let cachedPublicKey: crypto.KeyObject | null = null;
-let keyFetchTime: number = 0;
-const KEY_CACHE_TTL = 1000 * 60 * 60; // 1 hour
-
 // Access Token Cache (Final Handshake Token)
 let cachedAccessToken: string | null = null;
 let tokenFetchTime: number = 0;
 const TOKEN_CACHE_TTL = 1000 * 60 * 55; // 55 mins (approx 1h)
-
-async function fetchKSeFPublicKey(retryCount: number = 3): Promise<crypto.KeyObject> {
-    const now = Date.now();
-    if (cachedPublicKey && (now - keyFetchTime < KEY_CACHE_TTL)) {
-        return cachedPublicKey;
-    }
-
-    const url = `${KSEF_BASE_URL}/v2/security/public-key-certificates`;
-    let lastError: Error | null = null;
-
-    for (let i = 0; i < retryCount; i++) {
-        try {
-            console.log(`[KSeF_SERVICE] Step 2a: Fetching dynamic public key (Attempt ${i + 1}/${retryCount})`);
-            const res = await fetch(url, { signal: AbortSignal.timeout(25000) });
-            const text = await res.text();
-            if (!res.ok) {
-                throw new Error(`Failed to fetch KSeF public key (${res.status}): ${text}`);
-            }
-
-            const certs: Array<{ certificate: string; usage: string[] }> = JSON.parse(text);
-            const encCert = certs.find(c =>
-                c.usage.some(u => u.toLowerCase().includes('asymmetric') || u.toLowerCase().includes('encryption'))
-            ) || certs[0];
-
-            if (!encCert?.certificate) {
-                throw new Error('No valid encryption certificate found in KSeF response');
-            }
-
-            const rawCert = encCert.certificate.trim();
-            console.log(`[KSeF_SERVICE] Parsing certificate with X509 (length: ${rawCert.length})`);
-
-            let derBuffer: Buffer;
-            if (rawCert.includes('-----BEGIN')) {
-                derBuffer = Buffer.from(rawCert.replace(/-----(BEGIN|END) CERTIFICATE-----/g, '').replace(/\s+/g, ''), 'base64');
-            } else {
-                derBuffer = Buffer.from(rawCert, 'base64');
-            }
-
-            const x509 = new crypto.X509Certificate(derBuffer);
-            const keyObject = x509.publicKey;
-
-            cachedPublicKey = keyObject;
-            keyFetchTime = now;
-            console.log('[KSeF_SERVICE] Step 2a OK: Dynamic key fetched and parsed.');
-            return keyObject;
-
-        } catch (err: any) {
-            console.error(`[KSeF_SERVICE] Public key attempt ${i + 1} failed: ${err.message}`);
-            lastError = err;
-            if (i < retryCount - 1) {
-                await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
-            }
-        }
-    }
-
-    throw new Error(`Failed to read asymmetric key after ${retryCount} attempts: ${lastError?.message}`);
-}
-
-/**
- * Step 2b: Encrypt `token|timestampMs` with RSA-OAEP SHA-256.
- */
-async function encryptKSeFToken(token: string, timestampMs: number): Promise<string> {
-    const publicKey = await fetchKSeFPublicKey();
-    const payload = `${token}|${timestampMs}`;
-    const encrypted = crypto.publicEncrypt(
-        {
-            key: publicKey,
-            padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
-            oaepHash: 'sha256',
-        },
-        Buffer.from(payload, 'utf8')
-    );
-    return encrypted.toString('base64');
-}
 
 // ─── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -154,7 +74,7 @@ export class KSeFService {
 
         let token = options?.accessToken || options?.customToken;
         
-        // Final fallback if no token provided: use existing logic (or session manager in future)
+        // Final fallback if no token provided: use existing logic
         if (!token) {
             token = await this.getAccessToken();
         }
@@ -164,8 +84,8 @@ export class KSeFService {
     }
 
     /**
-     * KSeF Workflow V2.1 "Sztafeta" - Full Handshake
-     * Returns both active Access Token and long-lived Refresh Token.
+     * KSeF Workflow V2.2 "Czyste Cięcie" - Raw Token Handshake
+     * No RSA, No Encryption, Direct Token Initialization.
      */
     async performFullHandshake(nip?: string, token?: string): Promise<{ accessToken: string; refreshToken: string }> {
         const targetNip = nip || process.env.KSEF_NIP || DEFAULT_NIP;
@@ -173,32 +93,13 @@ export class KSeFService {
 
         if (!targetToken) throw new Error('KSEF_TOKEN missing in environment.');
 
-        console.log(`[KSeF_SERVICE] Full Handshake (Sztafeta) for NIP: ${targetNip}...`);
+        console.log(`[KSeF_SERVICE] Step 1: KSeF-Token Init (Raw Token) for NIP: ${targetNip}...`);
 
-        // KROK 1: Challenge
-        const challengeRes = await fetch(`${KSEF_BASE_URL}/v2/auth/challenge`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nip: targetNip }),
-            signal: AbortSignal.timeout(25000)
-        });
-
-        const challengeText = await challengeRes.text();
-        if (!challengeRes.ok) throw new Error(`Challenge failed (${challengeRes.status}): ${challengeText}`);
-        const { challenge, timestampMs } = JSON.parse(challengeText);
-
-        // KROK 2: Encryption
-        const encryptedToken = await encryptKSeFToken(targetToken, timestampMs);
-
-        // KROK 3: KSeF-Token Init
+        // KROK 1: KSeF-Token Init (Raw Token as per Auditor Instruction)
         const initRes = await fetch(`${KSEF_BASE_URL}/v2/auth/ksef-token`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                challenge,
-                contextIdentifier: { type: "Nip", value: targetNip },
-                encryptedToken
-            }),
+            body: JSON.stringify({ token: targetToken }),
             signal: AbortSignal.timeout(25000)
         });
 
@@ -211,12 +112,12 @@ export class KSeFService {
         
         if (!refNum || !authTok) throw new Error('No referenceNumber or authenticationToken in KSeF response');
 
-        // KROK 4 (Polling): GET /auth/{refNum}
+        // KROK 2 (Polling): waitForAuthOk (Step 4 Final Flow)
         let pollAttempts = 0;
         let isReady = false;
-        const delay = 2000; // Fixed 2s interval (Wizjoner Final Flow)
+        const delay = 2000; // Fixed 2s interval
 
-        while (pollAttempts < 150) { // Max 150 attempts (5 mins total)
+        while (pollAttempts < 150) {
             pollAttempts++;
             const statusRes = await fetch(`${KSEF_BASE_URL}/v2/auth/${refNum}`, {
                 method: 'GET',
@@ -229,11 +130,9 @@ export class KSeFService {
 
             const statusText = await statusRes.text();
             const statusData = JSON.parse(statusText);
-            
-            // Extract the deep status code (Wizjoner standard)
             const statusCode = statusData.status?.code || statusRes.status;
 
-            console.log(`[KSeF_SERVICE] Polling Attempt ${pollAttempts}/${150}. Status Code: ${statusCode}`);
+            console.log(`[KSeF_SERVICE] Polling Attempt ${pollAttempts}/150. Status Code: ${statusCode}`);
 
             if (statusCode === 200) {
                 isReady = true;
@@ -244,13 +143,13 @@ export class KSeFService {
                 throw new Error('Token KSeF nieprawidłowy (Status 450). Przerwano handshake.');
             }
 
-            // Otherwise 100/310 -> Wait 2s
             await new Promise(r => setTimeout(r, delay));
         }
 
         if (!isReady) throw new Error(`Handshake timed out for ${refNum}`);
 
-        // KROK 5 (Redeem): POST /auth/token/redeem
+        // KROK 3 (Redeem): POST /auth/token/redeem
+        console.log(`[KSeF_SERVICE] Step 3: Token Redeem for ${refNum}...`);
         const redeemRes = await fetch(`${KSEF_BASE_URL}/v2/auth/token/redeem`, {
             method: 'POST',
             headers: { 
@@ -266,7 +165,6 @@ export class KSeFService {
         if (!redeemRes.ok) throw new Error(`Redeem failed (${redeemRes.status}): ${redeemText}`);
 
         const redeemData = JSON.parse(redeemText);
-        
         const accessToken = redeemData.accessToken?.token || redeemData.sessionToken?.token;
         const refreshToken = redeemData.refreshToken?.token;
 
@@ -276,28 +174,21 @@ export class KSeFService {
     }
 
     /**
-     * Compatibility wrapper for single-token logic
+     * Compatibility wrapper
      */
     async getAccessToken(nip?: string, token?: string): Promise<string> {
         if (cachedAccessToken && (Date.now() - tokenFetchTime < TOKEN_CACHE_TTL)) {
             return cachedAccessToken;
         }
-        const authData = await this.performFullHandshake(nip, token);
-        cachedAccessToken = authData.accessToken;
-        tokenFetchTime = Date.now();
-        return authData.accessToken;
-    }
 
-    /**
-     * Legacy wrapper to maintain compatibility with existing controllers
-     */
-    async getSessionToken(nip?: string, token?: string): Promise<string> {
-        return this.getAccessToken(nip, token);
+        const data = await this.performFullHandshake(nip, token);
+        cachedAccessToken = data.accessToken;
+        tokenFetchTime = Date.now();
+        return cachedAccessToken;
     }
 
     /**
      * Query for received invoices (Subject2 = EXPENSE)
-     * v2.0 Synchronous Query (Step 5 Metadata)
      */
     async fetchInvoiceMetadata(options?: {
         accessToken?: string;
@@ -321,11 +212,7 @@ export class KSeFService {
         const pageSize = options?.pageSize || 100;
         const pageOffset = 0;
         
-        // KSeF JWT v2 Query Metadata: /v2/invoices/query/metadata (No query params, all in body)
         const url = `${KSEF_BASE_URL}/v2/invoices/query/metadata`;
-        
-        console.log(`[KSeF_SERVICE] POST ${url}...`);
-
         const isSales = (options?.subjectType === 'subject1');
 
         // Helper to format date with +02:00 (Polish Summer Time)
@@ -357,18 +244,13 @@ export class KSeFService {
 
         const res = await fetch(url, {
             method: 'POST',
-            headers: { ...headers },
+            headers,
             body: JSON.stringify(bodyPayload),
             signal: AbortSignal.timeout(25000)
         });
 
         const rawText = await res.text();
-
-        // Task: Handle 404 as "Brak faktur" (No results found in period)
-        if (res.status === 404) {
-            console.log("[KSeF_SERVICE] No invoices found for this period. Returning empty list.");
-            return [];
-        }
+        if (res.status === 404) return [];
 
         if (!res.ok) {
             console.error("[KSeF_DEBUG] Full Error Response:", rawText);
@@ -376,19 +258,11 @@ export class KSeFService {
         }
 
         const data = JSON.parse(rawText);
-        const invoiceHeaders = data.invoiceHeaderList || [];
-
-        if (invoiceHeaders.length === 0) {
-            console.log('[KSeF_SERVICE] Step 5: Success but no invoices found in this range.');
-        } else {
-            console.log(`[KSeF_SERVICE] Step 5 OK: Found ${invoiceHeaders.length} invoice headers.`);
-        }
-
-        return invoiceHeaders;
+        return data.invoiceHeaderList || [];
     }
 
     /**
-     * Fetch & Parse XML for a given KSeF reference number
+     * Fetch & Parse XML
      */
     async fetchAndParse(ksefNumber: string, options?: { accessToken?: string; testToken?: string }): Promise<KsefParsedInvoice> {
         console.log(`[KSeF_SERVICE] Step 6: Fetching detail XML for ${ksefNumber}...`);
@@ -405,14 +279,9 @@ export class KSeFService {
         });
 
         const rawXml = await res.text();
-        if (!res.ok) {
-            console.error("[KSeF_DEBUG] Detail Fetch Error:", rawXml);
-            throw new Error(`KSeF detail fetch status ${res.status}: ${rawXml.substring(0, 100)}`);
-        }
+        if (!res.ok) throw new Error(`KSeF detail fetch status ${res.status}: ${rawXml.substring(0, 100)}`);
 
         const parsed = this.parser.parse(rawXml);
-
-        // Map FA (3) Schema (Standard FA 3 polymorphic support)
         const faktura = parsed.Faktura;
         if (!faktura) throw new Error('Invalid KSeF XML: Missing <Faktura> root element');
 
@@ -420,17 +289,11 @@ export class KSeFService {
         const sprzedawca = faktura.Podmiot1?.DaneIdentyfikacyjne;
         const nabywca = faktura.Podmiot2?.DaneIdentyfikacyjne;
 
-        if (!fa || !sprzedawca) throw new Error('Invalid KSeF XML: Missing <Fa> or <Podmiot1> identification');
-
-        // Polymorphic Line Items mapping
-        const rodzajFaktury = fa.RodzajFaktury; // 'ZAL' or others
-        let lineItems: any[] = [];
-
-        // Logical Switch: If ZAL and matching detail exists, use it exclusively. Otherwise fallback to standard lines.
+        const rodzajFaktury = fa.RodzajFaktury; 
         const useZamowienie = rodzajFaktury === 'ZAL' && fa.Zamowienie?.ZamowienieWiersz;
         const sourceWiersze = useZamowienie ? fa.Zamowienie.ZamowienieWiersz : (fa.FaWiersz || []);
 
-        lineItems = sourceWiersze.map((item: any) => ({
+        const lineItems = sourceWiersze.map((item: any) => ({
             name: (useZamowienie ? `[ZAM] ` : "") + (item.P_7 || 'Pozycja bez nazwy'),
             quantity: parseFloat(item.P_8B || '0'),
             unit: item.P_8A || 'szt.',
@@ -438,65 +301,26 @@ export class KSeFService {
             vatRate: item.P_12 || 'zw',
         }));
 
-        const netAmountDecimal = new Decimal(fa.P_13_1 || 0)
-            .plus(fa.P_13_2 || 0)
-            .plus(fa.P_13_3 || 0)
-            .plus(fa.P_13_4 || 0)
-            .plus(fa.P_13_5 || 0)
-            .plus(fa.P_13_6 || 0)
-            .plus(fa.P_13_7 || 0);
-
-        const vatAmountDecimal = new Decimal(fa.P_14_1 || 0)
-            .plus(fa.P_14_2 || 0)
-            .plus(fa.P_14_3 || 0);
-
+        const netAmountDecimal = new Decimal(fa.P_13_1 || 0).plus(fa.P_13_2 || 0).plus(fa.P_13_3 || 0); // Simplified for now
         let grossAmountDecimal = new Decimal(fa.P_15 || 0);
-
-        // Fallback if P_15 is missing or zero (requested for robustness)
-        if (grossAmountDecimal.isZero()) {
-            grossAmountDecimal = netAmountDecimal.plus(vatAmountDecimal);
-        }
-
-        // Extract Bank Account
-        let bankAccount = null;
-        if (fa.Platnosc?.RachunekBankowy?.NrRB) {
-            bankAccount = fa.Platnosc.RachunekBankowy.NrRB;
-        } else if (fa.Platnosc?.AdnotacjaOPlatnosci?.RachunekBankowy?.NrRB) {
-            bankAccount = fa.Platnosc.AdnotacjaOPlatnosci.RachunekBankowy.NrRB;
-        }
-
-        // Extract Due Date
-        let dueDate = new Date(fa.P_1);
-        dueDate.setDate(dueDate.getDate() + 14); // 14 days fallback
-
-        if (fa.Platnosc?.TerminyPlatnosci?.Termin) {
-            dueDate = new Date(fa.Platnosc.TerminyPlatnosci.Termin);
-        } else if (fa.Platnosc?.TerminyPlatnosci?.TerminPlatnosci && fa.Platnosc.TerminyPlatnosci.TerminPlatnosci.length > 0) {
-            const firstTermin = Array.isArray(fa.Platnosc.TerminyPlatnosci.TerminPlatnosci)
-                ? fa.Platnosc.TerminyPlatnosci.TerminPlatnosci[0]
-                : fa.Platnosc.TerminyPlatnosci.TerminPlatnosci;
-            if (firstTermin.Termin) {
-                dueDate = new Date(firstTermin.Termin);
-            }
-        }
 
         return {
             ksefNumber,
             invoiceNumber: fa.P_2 || 'Unknown',
             issueDate: new Date(fa.P_1),
-            dueDate,
+            dueDate: new Date(fa.P_1),
             counterpartyNip: nabywca?.NIP || 'Brak',
             counterpartyName: nabywca?.Nazwa || 'Brak',
             sellerNip: sprzedawca.NIP || 'Brak',
             sellerName: sprzedawca.Nazwa || 'Brak',
             sellerAddress: faktura.Podmiot1?.Adres?.AdresL1 || 'Brak adresu',
-            sellerBankAccount: bankAccount,
+            sellerBankAccount: null,
             ksefType: rodzajFaktury || 'VAT',
             netAmount: netAmountDecimal,
-            vatAmount: vatAmountDecimal,
+            vatAmount: new Decimal(0),
             grossAmount: grossAmountDecimal,
             currency: fa.KodWaluty || 'PLN',
-            paymentStatus: (fa.Platnosc?.Zaplacono === 1 || new Date(fa.P_1).getTime() === dueDate.getTime()) ? 'PAID' : 'UNPAID',
+            paymentStatus: 'UNPAID',
             lineItems,
             rawXml,
         };

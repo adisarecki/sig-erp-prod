@@ -47,20 +47,20 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 
 ---
 
-## 🧾 4. Integracja KSeF (JWT v2, Produkcyjna, Final Flow 2026)
+## 🧾 4. Integracja KSeF (JWT v2, Produkcyjna, Clean Cut 2026)
 
-**Zoptymalizowany, 4-etapowy standard Handshake KSeF (Final Flow):**
-1.  **Inicjalizacja (Init)**: Wysłanie zaszyfrowanego tokena (`POST /v2/auth/ksef-token`) – otrzymujemy `authenticationToken` oraz `referenceNumber`.
+**Zoptymalizowany, 3-etapowy standard Handshake KSeF (Clean Cut):**
+1.  **Inicjalizacja (Init)**: Wysłanie surowego tokena (`POST /v2/auth/ksef-token`) – otrzymujemy `authenticationToken` oraz `referenceNumber`.
 2.  **Pancerny Polling (Weryfikacja)**: Odpytywanie `GET /v2/auth/{referenceNumber}` (max 150 prób, co 2s) aż do uzyskania statusu **200 (OK)** lub przerwaniu przy **450 (Błąd Tokena)**.
 3.  **Redeem (Finalizacja JWT)**: Wymiana na ostateczny `accessToken` (`POST /v2/auth/token/redeem`) – puste body, nagłówek Bearer.
-4.  **Metadata Query (Pobieranie)**: Bezpośrednie zapytanie `POST /api/v2/invoices/query/metadata` z nagłówkiem `Authorization: Bearer {accessToken}`.
 
 **Główne Atuty Nowego Standardu:**
+- **Operacja "Czyste Cięcie"**: Usunięcie zbędnej warstwy szyfrowania RSA i certyfikatów X509 przy autoryzacji tokenem oprogramowania.
 - **Płytka Integracja JWT**: Całkowita rezygnacja z sesji interaktywnych (`sessions/online`). System działa wyłącznie w oparciu o Bearer Tokeny.
 - **Bezpieczny Zakres (7 Dni)**: Domyślny zasięg pobierania faktur ustawiony na **ostatnie 7 dni**. Gwarantuje to stabilność połączenia i brak błędów 504 (Timeout) na Vercelu.
 - **Twarda Logika Dat (+02:00)**: Ręcznie wymuszony offset czasowy zgodny z polskim czasem letnim. Całkowicie omija problemy z formatowaniem ISO-Z.
 - **JWT Manager (KsefSessionManager)**: Pełna automatyzacja sesji. System zarządza parami `accessToken` i `refreshToken`, przechowując je w bazie Prisma.
-- **Node.js Runtime Standard**: Pełna zgodność z natywnym modułem `crypto` i `X509Certificate`.
+- **Node.js Runtime Standard**: Pełna zgodność z natywnym modułem `crypto` (uproszczony backend).
 - **Timeout Protection (25s)**: Wszystkie zapytania `fetch` posiadają `AbortSignal.timeout(25000)`.
 - **Obsługa FA(3)**: Ekstrakcja szczegółowych pozycji zamówienia (ZAL) oraz inteligentna kategoryzacja REVENUE/EXPENSE na podstawie NIP-u.
 
