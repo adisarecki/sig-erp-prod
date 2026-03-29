@@ -15,7 +15,7 @@ export async function GET(
         const sessionToken = await ksefSvc.getSessionToken();
 
         // 2. Fetch & Parse using SessionToken
-        const parsedData = await ksefSvc.fetchAndParse(ksefNumber, { sessionToken });
+        const parsedData = await ksefSvc.fetchAndParse(ksefNumber, { accessToken: sessionToken });
 
         return NextResponse.json({
             success: true,

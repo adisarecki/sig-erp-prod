@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
             const ksefId = invoice.ksefId!;
             try {
                 // Pobieramy pełnego XML'a z KSeF
-                const parsed = await ksefSvc.fetchAndParse(ksefId, { sessionToken });
+                const parsed = await ksefSvc.fetchAndParse(ksefId, { accessToken: sessionToken });
                 
                 // My pobraliśmy typ z logiki Header - tu go po prostu potwierdzamy / korygujemy
                 const myNip = process.env.KSEF_NIP || "";
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
                 console.log(`[KSEF_PROCESS] Skonsumowano pełny XML dla KSeF ID: ${parsed.ksefNumber}`);
                 processed++;
 
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error(`[KSEF_PROCESS] Błąd przetwarzania XML dla ID ${ksefId}:`, err);
                 errors++;
             }
@@ -127,10 +127,10 @@ export async function POST(request: NextRequest) {
             message: `Pobrano szczegóły XML dla ${processed} dokumentów. Błędów: ${errors}.`
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("[KSEF_PROCESS_MASTER]", error);
         return NextResponse.json(
-            { error: error.message || "Błąd generalny odczytu XML z KSeF" },
+            { error: (error as Error).message || "Błąd generalny odczytu XML z KSeF" },
             { status: 500 }
         );
     }

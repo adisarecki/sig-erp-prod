@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { PrismaClient, Tenant } from '@prisma/client';
 import { KSeFService } from './ksefService';
 
@@ -5,9 +6,9 @@ const prisma = new PrismaClient();
 
 // Extracted from schema.prisma (to bypass stale Prisma Client types in IDE)
 interface TenantWithKsef extends Tenant {
-    ksefAccessToken?: string | null;
-    ksefRefreshToken?: string | null;
-    ksefTokenExpiresAt?: Date | null;
+    ksefAccessToken: string | null;
+    ksefRefreshToken: string | null;
+    ksefTokenExpiresAt: Date | null;
 }
 
 export class KsefSessionManager {
@@ -18,9 +19,9 @@ export class KsefSessionManager {
         try {
             const parts = token.split('.');
             if (parts.length !== 3) return null;
-            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8')) as unknown as { exp?: number };
             return payload;
-        } catch (e) {
+        } catch (e: unknown) {
             return null;
         }
     }
@@ -34,7 +35,7 @@ export class KsefSessionManager {
         if (!decoded || !decoded.exp) return false;
 
         const now = Math.floor(Date.now() / 1000);
-        return decoded.exp > (now + 300); // 5 mins buffer
+        return (decoded.exp ?? 0) > (now + 300); // 5 mins buffer
     }
 
     /**
@@ -64,13 +65,14 @@ export class KsefSessionManager {
                     data: {
                         ksefAccessToken: newTokens.accessToken,
                         ksefRefreshToken: newTokens.refreshToken,
-                        ksefTokenExpiresAt: new Date(this.decodeJwt(newTokens.accessToken).exp * 1000)
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        ksefTokenExpiresAt: new Date(this.decodeJwt(newTokens.accessToken)!.exp! * 1000)
                     } as any
                 });
                 return newTokens.accessToken;
-            } catch (err) {
-                console.warn(`[KSeF_MANAGER] Refresh failed, falling back to full handshake. Error:`, err);
-            }
+        } catch (err: unknown) {
+            console.warn(`[KSeF_MANAGER] Refresh failed, falling back to full handshake. Error:`, err);
+        }
         }
 
         // 3. Fallback to Full Handshake (Sztafeta V2.1)
@@ -86,8 +88,8 @@ export class KsefSessionManager {
             where: { id: tenantId },
             data: {
                 ksefAccessToken: authData.accessToken,
-                ksefRefreshToken: authData.refreshToken,
-                ksefTokenExpiresAt: new Date(this.decodeJwt(authData.accessToken).exp * 1000)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ksefTokenExpiresAt: new Date(this.decodeJwt(authData.accessToken)!.exp! * 1000)
             } as any
         });
 
@@ -114,7 +116,7 @@ export class KsefSessionManager {
         const text = await res.text();
         if (!res.ok) throw new Error(`KSeF Refresh Failed (${res.status}): ${text}`);
 
-        const data = JSON.parse(text);
+        const data = JSON.parse(text) as unknown as { accessToken?: { token: string }; refreshToken?: { token: string } };
         const accessToken = data.accessToken?.token;
         const newRefreshToken = data.refreshToken?.token;
 

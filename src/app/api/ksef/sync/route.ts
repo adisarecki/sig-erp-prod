@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentTenantId } from '@/lib/tenant';
 import prisma from '@/lib/prisma';
-import { KSeFService } from '@/lib/ksef/ksefService';
+import { KSeFService, KSeFInvoiceHeader } from '@/lib/ksef/ksefService';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 
 /**
@@ -19,16 +19,20 @@ export async function GET() {
         let sessionToken: string;
         try {
             sessionToken = await ksefService.getSessionToken();
-        } catch (err: any) {
-            console.error("[KSeF_SYNC_AUTH_ERROR]", err.message);
+        } catch (err: unknown) {
+            const error = err as Error;
+            console.error("[KSeF_SYNC_AUTH_ERROR]", error.message);
             return NextResponse.json(
-                { success: false, error: `Błąd autoryzacji KSeF (v2.0): ${err.message}` },
+                { success: false, error: `Błąd autoryzacji KSeF (v2.0): ${error.message}` },
                 { status: 401 }
             );
         }
 
-        // 3. Use sessionToken for further requests (fetch invoices)
-        const invoiceList = await ksefService.fetchInvoiceMetadata({ sessionToken });
+        // 3. Use sessionToken for further requests (fetch invoices with PermanentStorage for incremental sync)
+        const invoiceList: KSeFInvoiceHeader[] = await ksefService.fetchInvoiceMetadata({ 
+            accessToken: sessionToken,
+            dateType: 'PermanentStorage'
+        });
         
         if (!invoiceList || invoiceList.length === 0) {
             console.log("[KSeF_SYNC] No new invoices found in the current period.");
@@ -47,7 +51,7 @@ export async function GET() {
         for (const item of invoiceList) {
             try {
                 // Fetch full XML details
-                const details = await ksefService.fetchAndParse(item.invoiceReferenceNumber, { sessionToken });
+                const details = await ksefService.fetchAndParse(item.invoiceReferenceNumber, { accessToken: sessionToken });
                 
                 // 4a. Prisma Upsert (SQL)
                 const savedInvoice = await prisma.ksefInvoice.upsert({
@@ -94,8 +98,8 @@ export async function GET() {
                     status: "UNVERIFIED"
                 });
 
-            } catch (err: any) {
-                console.error(`[KSeF_SYNC_DETAIL_ERROR] ${item.invoiceReferenceNumber}:`, err.message);
+            } catch (err: unknown) {
+                console.error(`[KSeF_SYNC_DETAIL_ERROR] ${item.invoiceReferenceNumber}:`, (err as Error).message);
             }
         }
 
@@ -106,10 +110,11 @@ export async function GET() {
             message: `Pomyślnie zsynchronizowano i zapisano ${results.length} faktur z KSeF.`
         });
 
-    } catch (error: any) {
-        console.error("[KSeF_API_SYNC_ERROR]", error);
+    } catch (error: unknown) {
+        const err = error as Error;
+        console.error("[KSeF_API_SYNC_ERROR]", err);
         return NextResponse.json(
-            { success: false, error: error.message || "Wystąpił błąd podczas synchronizacji z KSeF." },
+            { success: false, error: err.message || "Wystąpił błąd podczas synchronizacji z KSeF." },
             { status: 500 }
         );
     }

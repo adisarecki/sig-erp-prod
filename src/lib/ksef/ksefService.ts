@@ -64,9 +64,10 @@ async function fetchKSeFPublicKey(retryCount: number = 3): Promise<crypto.KeyObj
             console.log('[KSeF_SERVICE] Step 2a OK: Dynamic key fetched and parsed.');
             return keyObject;
 
-        } catch (err: any) {
-            console.error(`[KSeF_SERVICE] Public key attempt ${i + 1} failed: ${err.message}`);
-            lastError = err;
+        } catch (err: unknown) {
+            const error = err as Error;
+            console.error(`[KSeF_SERVICE] Public key attempt ${i + 1} failed: ${error.message}`);
+            lastError = error;
             if (i < retryCount - 1) {
                 await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
             }
@@ -120,6 +121,16 @@ export interface KsefParsedInvoice {
         vatRate: string;
     }>;
     rawXml: string;
+}
+
+export interface KSeFInvoiceHeader {
+    invoiceReferenceNumber: string;
+    ksefNumber?: string;
+    invoiceNumber?: string;
+    issueDate?: string;
+    netAmount?: number;
+    grossAmount?: number;
+    [key: string]: unknown;
 }
 
 // ─── Service ───────────────────────────────────────────────────────────────────
@@ -294,6 +305,13 @@ export class KSeFService {
     }
 
     /**
+     * Alias for getAccessToken to support legacy or alternative naming conventions
+     */
+    async getSessionToken(nip?: string, token?: string): Promise<string> {
+        return this.getAccessToken(nip, token);
+    }
+
+    /**
      * Query for received invoices (Subject2 = EXPENSE)
      */
     async fetchInvoiceMetadata(options?: {
@@ -302,8 +320,10 @@ export class KSeFService {
         dateFrom?: string;
         dateTo?: string;
         pageSize?: number;
-        subjectType?: 'subject1' | 'subject2' | 'subject3';
-    }): Promise<any[]> {
+        pageOffset?: number;
+        subjectType?: 'subject1' | 'subject2' | 'subject3' | 'Subject1' | 'Subject2' | 'Subject3';
+        dateType?: 'Issue' | 'PermanentStorage' | 'issue' | 'permanentStorage';
+    }): Promise<KSeFInvoiceHeader[]> {
         console.log('[KSeF_SERVICE] Step 6: Fetching invoice metadata (Sync Incremental)...');
 
         // Default range: Last 7 days (Wizjoner Final Flow to prevent 504 Timeouts)
@@ -316,10 +336,30 @@ export class KSeFService {
         });
 
         const pageSize = options?.pageSize || 100;
-        const pageOffset = 0;
+        const pageOffset = options?.pageOffset || 0;
         
-        const url = `${KSEF_BASE_URL}/v2/invoices/query/metadata`;
-        const isSales = (options?.subjectType === 'subject1');
+        // Final URL with pageOffset/pageSize as Query Parameters (KSeF V2 requirement)
+        const url = `${KSEF_BASE_URL}/v2/invoices/query/metadata?pageOffset=${pageOffset}&pageSize=${pageSize}`;
+        
+        // Subject mapping to PascalCase (Subject1 = Seller, Subject2 = Buyer)
+        const subjectMap: Record<string, string> = {
+            'subject1': 'Subject1',
+            'subject2': 'Subject2',
+            'subject3': 'Subject3',
+            'Subject1': 'Subject1',
+            'Subject2': 'Subject2',
+            'Subject3': 'Subject3',
+        };
+        const mappedSubject = subjectMap[options?.subjectType || 'subject2'] || 'Subject2';
+
+        // DateType mapping (Default to Issue, handle PermanentStorage for Incremental Sync)
+        const dateTypeMap: Record<string, string> = {
+            'issue': 'Issue',
+            'Issue': 'Issue',
+            'permanentStorage': 'PermanentStorage',
+            'PermanentStorage': 'PermanentStorage'
+        };
+        const mappedDateType = dateTypeMap[options?.dateType || ''] || 'Issue';
 
         // Helper to format date with +02:00 (Polish Summer Time)
         const formatKSeFDate = (isoStr: string, isEnd: boolean) => {
@@ -330,17 +370,13 @@ export class KSeFService {
             return `${datePart}T${timePart}+02:00`;
         };
 
+        // KSeF Query Metadata Body (NO paging, NO invoiceType)
         const bodyPayload = {
-            subjectType: options?.subjectType || 'subject2',
+            subjectType: mappedSubject,
             dateRange: {
-                dateType: "issue",
+                dateType: mappedDateType,
                 from: formatKSeFDate(from, false),
                 to: formatKSeFDate(to, true)
-            },
-            invoiceType: isSales ? "sales" : "purchase",
-            paging: {
-                offset: pageOffset,
-                limit: pageSize
             }
         };
 
@@ -363,7 +399,10 @@ export class KSeFService {
         }
 
         const data = JSON.parse(rawText);
-        return data.invoiceHeaderList || [];
+        console.log(`[KSeF_DEBUG] FULL RESPONSE DATA:`, JSON.stringify(data, null, 2));
+        
+        // Handle variations in KSeF response fields between versions
+        return data.invoiceHeaderList || data.invoiceHeaders || [];
     }
 
     /**
@@ -398,7 +437,7 @@ export class KSeFService {
         const useZamowienie = rodzajFaktury === 'ZAL' && fa.Zamowienie?.ZamowienieWiersz;
         const sourceWiersze = useZamowienie ? fa.Zamowienie.ZamowienieWiersz : (fa.FaWiersz || []);
 
-        const lineItems = sourceWiersze.map((item: any) => ({
+        const lineItems = sourceWiersze.map((item: { P_7?: string; P_8B?: string; P_8A?: string; P_9B?: string; P_12?: string }) => ({
             name: (useZamowienie ? `[ZAM] ` : "") + (item.P_7 || 'Pozycja bez nazwy'),
             quantity: parseFloat(item.P_8B || '0'),
             unit: item.P_8A || 'szt.',
@@ -406,8 +445,6 @@ export class KSeFService {
             vatRate: item.P_12 || 'zw',
         }));
 
-        const netAmountDecimal = new Decimal(fa.P_13_1 || 0).plus(fa.P_13_2 || 0).plus(fa.P_13_3 || 0); // Simplified for now
-        let grossAmountDecimal = new Decimal(fa.P_15 || 0);
 
         return {
             ksefNumber,
@@ -421,9 +458,9 @@ export class KSeFService {
             sellerAddress: faktura.Podmiot1?.Adres?.AdresL1 || 'Brak adresu',
             sellerBankAccount: null,
             ksefType: rodzajFaktury || 'VAT',
-            netAmount: netAmountDecimal,
+            netAmount: new Decimal(fa.P_13_1 || 0).plus(fa.P_13_2 || 0).plus(fa.P_13_3 || 0),
             vatAmount: new Decimal(0),
-            grossAmount: grossAmountDecimal,
+            grossAmount: new Decimal(fa.P_15 || 0),
             currency: fa.KodWaluty || 'PLN',
             paymentStatus: 'UNPAID',
             lineItems,

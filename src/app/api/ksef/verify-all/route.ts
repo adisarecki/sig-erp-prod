@@ -38,8 +38,8 @@ export async function GET() {
             logToReport("✅ KROK 4: Pobranie Access Tokena (Redeem) OK.");
             logToReport(`🔑 Final AccessToken: ${accessToken.substring(0, 10)}...`);
             testResults.auth = true;
-        } catch (err: any) {
-            logToReport(`❌ FAILURE: Handshake failed: ${err.message}`);
+        } catch (err: unknown) {
+            logToReport(`❌ FAILURE: Handshake failed: ${(err as Error).message}`);
             throw err;
         }
 
@@ -129,13 +129,14 @@ export async function GET() {
         // 4a. Invalid Token (401)
         try {
             logToReport("   Testing 401 Unauthorized (Invalid Token)...");
-            await ksefSvc.fetchInvoiceMetadata({ sessionToken: "INVALID_TOKEN_123" });
+            await ksefSvc.fetchInvoiceMetadata({ accessToken: "INVALID_TOKEN_123" });
             logToReport("   ❌ FAILURE: API accepted an invalid token! (Security Risk)");
-        } catch (err: any) {
-            if (err.message.includes("401") || err.message.includes("403")) {
+        } catch (err: unknown) {
+            const error = err as Error;
+            if (error.message.includes("401") || error.message.includes("403")) {
                 logToReport("   ✅ SUCCESS: API correctly rejected invalid token.");
             } else {
-                logToReport(`   ⚠️ INFO: Received unexpected error for invalid token: ${err.message}`);
+                logToReport(`   ⚠️ INFO: Received unexpected error for invalid token: ${error.message}`);
             }
         }
 
@@ -144,17 +145,18 @@ export async function GET() {
             logToReport("   Testing 404 Not Found (Invalid KSeF Number)...");
             await ksefSvc.fetchAndParse("INVALID-KSEF-NUMBER-999");
             logToReport("   ❌ FAILURE: API returned data for a non-existent invoice!");
-        } catch (err: any) {
-            if (err.message.includes("404") || err.message.includes("400")) {
+        } catch (err: unknown) {
+            const error = err as Error;
+            if (error.message.includes("404") || error.message.includes("400")) {
                 logToReport("   ✅ SUCCESS: API correctly rejected non-existent invoice.");
             } else {
-                logToReport(`   ⚠️ INFO: Received unexpected error for invalid ID: ${err.message}`);
+                logToReport(`   ⚠️ INFO: Received unexpected error for invalid ID: ${error.message}`);
             }
         }
         testResults.edgeCases = true;
 
-    } catch (globalErr: any) {
-        logToReport(`\n🔴 FATAL SYSTEM ERROR: ${globalErr.message}`);
+    } catch (globalErr: unknown) {
+        logToReport(`\n🔴 FATAL SYSTEM ERROR: ${(globalErr as Error).message}`);
     }
 
     logToReport("\n================================================================");
