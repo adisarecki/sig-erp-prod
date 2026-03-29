@@ -420,7 +420,7 @@ export class KSeFService {
         console.log(`[KSeF_DEBUG] FULL RESPONSE DATA:`, JSON.stringify(data, null, 2));
         
         // Handle variations in KSeF response fields between versions
-        return data.invoiceHeaderList || data.invoiceHeaders || [];
+        return data.invoices || data.invoiceHeaderList || data.invoiceHeaders || [];
     }
 
     /**
