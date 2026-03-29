@@ -32,11 +32,12 @@ async function fetchKSeFPublicKey(retryCount: number = 3): Promise<crypto.KeyObj
         try {
             console.log(`[KSeF_SERVICE] Step 2a: Fetching dynamic public key from: ${url} (Attempt ${i + 1}/${retryCount})`);
             const res = await fetch(url);
+            const text = await res.text();
             if (!res.ok) {
-                throw new Error(`Failed to fetch KSeF public key (${res.status}): ${await res.text()}`);
+                throw new Error(`Failed to fetch KSeF public key (${res.status}): ${text}`);
             }
 
-            const certs: Array<{ certificate: string; usage: string[] }> = await res.json();
+            const certs: Array<{ certificate: string; usage: string[] }> = JSON.parse(text);
             const encCert = certs.find(c =>
                 c.usage.some(u => u.toLowerCase().includes('asymmetric') || u.toLowerCase().includes('encryption'))
             ) || certs[0];
@@ -187,11 +188,12 @@ export class KSeFService {
             body: JSON.stringify({ nip: targetNip }),
         });
 
+        const challengeText = await challengeRes.text();
         if (!challengeRes.ok) {
-            throw new Error(`Step 1 Challenge failed (${challengeRes.status}): ${await challengeRes.text()}`);
+            throw new Error(`Step 1 Challenge failed (${challengeRes.status}): ${challengeText}`);
         }
 
-        const { challenge, timestampMs } = await challengeRes.json();
+        const { challenge, timestampMs } = JSON.parse(challengeText);
         if (!challenge || !timestampMs) throw new Error('Invalid Challenge response');
 
         // ── KROK 2: Klucz i Szyfrowanie ──────
@@ -211,11 +213,12 @@ export class KSeFService {
             }),
         });
 
+        const initText = await initRes.text();
         if (!initRes.ok && initRes.status !== 202) {
-            throw new Error(`Step 3 Initialization failed (${initRes.status}): ${await initRes.text()}`);
+            throw new Error(`Step 3 Initialization failed (${initRes.status}): ${initText}`);
         }
 
-        const initData = await initRes.json();
+        const initData = JSON.parse(initText);
         const referenceNumber = initData.referenceNumber;
         const authenticationToken = initData.authenticationToken?.token;
         
@@ -239,7 +242,8 @@ export class KSeFService {
             });
 
             if (statusRes.ok) {
-                const statusData = await statusRes.json();
+                const statusText = await statusRes.text();
+                const statusData = JSON.parse(statusText);
                 const statusCode = statusData.exception?.serviceCode || statusData.statusCode || "OK";
                 
                 console.log(`[KSeF_SERVICE] Polling status (${pollAttempts}/${maxPollAttempts}) [${statusCode}]: ${statusData.status}`);
@@ -281,11 +285,12 @@ export class KSeFService {
             body: JSON.stringify({})
         });
 
+        const redeemText = await redeemRes.text();
         if (!redeemRes.ok) {
-            throw new Error(`Step 5 Redeem failed (${redeemRes.status}): ${await redeemRes.text()}`);
+            throw new Error(`Step 5 Redeem failed (${redeemRes.status}): ${redeemText}`);
         }
 
-        const redeemData = await redeemRes.json();
+        const redeemData = JSON.parse(redeemText);
         const finalAccessToken = redeemData.accessToken?.token || redeemData.sessionToken?.token;
 
         if (!finalAccessToken) {
@@ -339,13 +344,13 @@ export class KSeFService {
 
         const isSales = (options?.subjectType === 'subject1');
 
-        // Helper to format date with +01:00 as requested by the "Instruction service"
+        // Helper to format date with +02:00 (Polish Summer Time)
         const formatKSeFDate = (isoStr: string, isEnd: boolean) => {
             const d = new Date(isoStr);
             const pad = (n: number) => n.toString().padStart(2, '0');
             const datePart = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
             const timePart = isEnd ? "23:59:59" : "00:00:00";
-            return `${datePart}T${timePart}+01:00`;
+            return `${datePart}T${timePart}+02:00`;
         };
 
         const bodyPayload = {
@@ -374,6 +379,8 @@ export class KSeFService {
             body: JSON.stringify(bodyPayload),
         });
 
+        const rawText = await res.text();
+
         // Task: Handle 404 as "Brak faktur" (No results found in period)
         if (res.status === 404) {
             console.log("[KSeF_SERVICE] No invoices found for this period. Returning empty list.");
@@ -381,11 +388,11 @@ export class KSeFService {
         }
 
         if (!res.ok) {
-            const errorDetails = await res.text();
-            throw new Error(`KSeF Step 5 Sync Query Failed (${res.status}): ${errorDetails}`);
+            console.error("[KSeF_DEBUG] Full Error Response:", rawText);
+            throw new Error(`KSeF status ${res.status}: ${rawText.substring(0, 100)}`);
         }
 
-        const data = await res.json();
+        const data = JSON.parse(rawText);
         const invoiceHeaders = data.invoiceHeaderList || [];
 
         if (invoiceHeaders.length === 0) {
@@ -413,12 +420,12 @@ export class KSeFService {
             headers,
         });
 
+        const rawXml = await res.text();
         if (!res.ok) {
-            const errorDetails = await res.text();
-            throw new Error(`KSeF Fetch Failed (${res.status}): ${errorDetails}`);
+            console.error("[KSeF_DEBUG] Detail Fetch Error:", rawXml);
+            throw new Error(`KSeF detail fetch status ${res.status}: ${rawXml.substring(0, 100)}`);
         }
 
-        const rawXml = await res.text();
         const parsed = this.parser.parse(rawXml);
 
         // Map FA (3) Schema (Standard FA 3 polymorphic support)

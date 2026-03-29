@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { KSeFService } from '@/lib/ksef/ksefService';
 
+export const runtime = 'edge';
+
 export async function GET() {
     try {
         const ksefSvc = new KSeFService();
@@ -18,12 +20,14 @@ export async function GET() {
             }, { status: 401 });
         }
 
-        // 2. Shallow Sync (Subject2)
+        // 2. Shallow Sync (Subject2) - Last 48 Hours
         try {
+            const dateFrom = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
             const metadata = await ksefSvc.fetchInvoiceMetadata({
                 accessToken,
                 subjectType: 'subject2',
-                pageSize: 5
+                dateFrom,
+                pageSize: 10
             });
 
             return NextResponse.json({
