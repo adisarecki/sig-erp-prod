@@ -193,14 +193,17 @@ System obsługuje **oficjalny 4-etapowy standard Handshake KSeF v2.0**:
 - **Krok 2 (Security)**: `GET /v2/security/public-key-certificates` → pobranie certyfikatu i wyciągnięcie publicznego klucza RSA przez `new crypto.X509Certificate(der).publicKey`.
 - **Krok 3 (Init)**: `POST /v2/auth/ksef-token` → inicjalizacja sesji z `contextIdentifier` (NIP) i zaszyfrowanym tokenem (`token|timestampMs`). Zwraca `authenticationToken` (status 202).
 - **Krok 4 (Redeem)**: `POST /v2/auth/token/redeem` → wymiana tokena operacyjnego na finalny `accessToken`. 
-- **Krok 5 (Fetch Metadata)**: `fetchInvoiceMetadata()` → `POST /v2/online/Query/Invoice/Sync` (SessionToken). Wdrożono **Double-Fetch** w trybie **range** (invoicingDate). Równoległe pobieranie `subject1` (Sprzedaż) i `subject2` (Koszty) przez `Promise.all`.
-- **Krok 6 (Parse XML FA3)**: Refinement ZAL. Priorytetyzacja `ZamowienieWiersz` dla faktur zaliczkowych (exclusive mapping). Weryfikacja liczby pozycji w diagnostyce.
-- **Krok 7 (Auto-Categorization Logic)**: 
+- **Krok 5 (Fetch Metadata)**: `fetchInvoiceMetadata()` → `POST /v2/invoices/query/metadata` (SessionToken). Paginacja w Query Params (`pageOffset`/`pageSize`).
+- **Krok 6 (Stage 1: Shallow Sync)**:
+    - **Upsert Contractor**: NIP-based resolution. Status `PENDING`. System name priority (no overwrite if existing name exists).
+    - **Upsert Invoice**: Header-only sync into Prisma `Invoice` table. Status `XML_MISSING`. `paymentStatus: UNPAID`.
+    - **Isolation**: Prisma-only. Firestore sync disabled for metadata phase.
+    - **Zero-Amount Grace**: Full support for settlement invoices with 0.00 PLN.
+- **Krok 7 (Parse XML FA3)**: Refinement ZAL. Priorytetyzacja `ZamowienieWiersz` dla faktur zaliczkowych (exclusive mapping).
+- **Krok 8 (Auto-Categorization Logic)**: 
     - System porównuje `parsed.sellerNip` z `process.env.KSEF_NIP`. 
-    - Jeśli NIP-y są zgodne → faktura jest oznaczana jako **REVENUE**, a kontrahentem staje się Nabywca (`Podmiot2`). 
-    - Jeśli NIP-y są różne → faktura to **EXPENSE**, a kontrahentem pozostaje Sprzedawca (`Podmiot1`).
-- **Krok 8 (Auth Guard)**: Uszczelnienie logiki 404/401 dla nieprawidłowych tokenów sesji.
-- **Krok 9 (UI & Dashboard Integration)**: Nowa widokówka `src/app/(dashboard)/finanse/ksef/page.tsx` wraz z modułem "Zatwierdź Dostawców". Dashboard zaktualizowany o integrację bazy Prisma do prezentacji zaległości i obliczania kapitału `Safe To Spend`. Wyświetlanie odznak [Sprzedaż] / [Zakup] w Inboxie.- **Caching**: Access Token buforowany w pamięci przez 55 min (TOKEN_CACHE_TTL).
+    - Jeśli NIP-y są zgodne → faktura jest oznaczana jako **REVENUE**.
+- **Krok 9 (UI & Dashboard Integration)**: Dashboard zaktualizowany o integrację bazy Prisma do prezentacji zaległości i obliczania kapitału `Safe To Spend`. Wyświetlanie odznak [Brak XML] w Inboxie.
 - **Security**: RSA-OAEP z SHA-256. Brak statycznych plików PEM (pobierane v2 runtime).
 
 **Przykład handshake & Query (v2.0 Inwentor):**

@@ -60,14 +60,35 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 - **Lightweight Outbound Sync**: Po autoryzacji system używa wyłącznie `Bearer Token` do pobierania metadanych, całkowicie omijając zbędną i wolną sesję online (`sessions/online`).
 - **Bezpieczny Zakres (7 Dni)**: Domyślny zasięg pobierania faktur ograniczony do **7 dni**, co eliminuje błędy 504 (Timeout) na Vercelu.
 - **Twarda Logika Dat (+02:00)**: Ręcznie wymuszony offset czasowy zgodny z polskim czasem letnim.
-- **JWT Manager (KsefSessionManager)**: Pełna automatyzacja sesji i odświeżania tokenów w bazie Prisma.
-- **Node.js Runtime Standard**: Pełna zgodność z natywnym modułem `crypto`.
-- **Obsługa FA(3)**: Ekstrakcja szczegółowych pozycji zamówienia (ZAL) oraz inteligentna kategoryzacja REVENUE/EXPENSE.
+- **Krok 5 (Fetch Metadata)**: `fetchInvoiceMetadata()` → `POST /v2/invoices/query/metadata` (SessionToken). Paginacja w Query Params (`pageOffset`/`pageSize`).
+- **Krok 6 (Stage 1: Shallow Sync)**:
+    - **Upsert Contractor**: NIP-based resolution. Status `PENDING`. System name priority (no overwrite if existing name exists).
+    - **Upsert Invoice**: Header-only sync into Prisma `Invoice` table. Status `XML_MISSING`. `paymentStatus: UNPAID`.
+    - **Isolation**: Prisma-only. Firestore sync disabled for metadata phase.
+    - **Zero-Amount Grace**: Full support for settlement invoices with 0.00 PLN.
+- **Krok 7 (Parse XML FA3)**: Refinement ZAL. Priorytetyzacja `ZamowienieWiersz` dla faktur zaliczkowych (exclusive mapping).
+- **Krok 8 (Auto-Categorization Logic)**: 
+    - System porównuje `parsed.sellerNip` z `process.env.KSEF_NIP`. 
+    - Jeśli NIP-y są zgodne → faktura jest oznaczana jako **REVENUE**.
+- **Krok 9 (UI & Dashboard Integration)**: Dashboard zaktualizowany o integrację bazy Prisma do prezentacji zaległości i obliczania kapitału `Safe To Spend`. Wyświetlanie odznak [Brak XML] in Inboxie.
 
 **Narzędzia:**
-- **Synchronizacja**: `/api/ksef/process` – pełne przetwarzanie i parowanie faktur.
-- **Weryfikacja Handshake**: `/api/ksef/test-sync` – szybki test połączenia w standardzie JWT v2.
-- **UI KSeF**: Dashboard główny ze zintegrowanymi wynikami w `src/app/(dashboard)/finanse/ksef/page.tsx`.
+- **Synchronizacja**: `/api/ksef/sync` – Płytki Sync (Nagłówki + Kontrahenci PENDING).
+- **Procesowanie**: `/api/ksef/process` – Głęboki Sync (Pobieranie XML dla XML_MISSING).
+- **Weryfikacja Handshake**: `/api/ksef/verify-all` – Full Diagnostic Suite (Step 1-7).
+- **UI KSeF**: Dashboard główny (`src/app/(dashboard)/finanse/ksef/page.tsx`).
+
+**Architektura "Płytkiego Syncu" (Stage 1):**
+1. **Metadata Fetch**: Pobranie listy nagłówków z KSeF (v2.0).
+2. **Intelligent Upsert (Contractor)**: 
+   - Klucz: NIP. 
+   - Status: `PENDING`. 
+   - **Zasada Nazwy**: Systemowa nazwa ma priorytet (ochrona przed caps-lockiem z KSeF).
+3. **Invoice Header (Transaction)**: 
+   - Klucz: `ksefId`. 
+   - Status: `XML_MISSING`. 
+   - **Izolacja**: Wyłącznie Prisma (SQL). Firestore wyłączony do czasu pełnego XML.
+   - **Zero Handling**: Pełne wsparcie dla kwot 0.00 PLN.
 
 
 

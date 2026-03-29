@@ -129,7 +129,17 @@ export interface KSeFInvoiceHeader {
     invoiceNumber?: string;
     issueDate?: string;
     netAmount?: number;
+    vatAmount?: number;
     grossAmount?: number;
+    currency?: string;
+    subject1?: {
+        issuedByIdentifier?: { value: string };
+        issuedByName?: string;
+    };
+    subject2?: {
+        issuedByIdentifier?: { value: string };
+        issuedByName?: string;
+    };
     [key: string]: unknown;
 }
 
