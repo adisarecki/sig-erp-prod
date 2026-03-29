@@ -58,6 +58,7 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 
 **Główne Atuty Nowego Standardu:**
 - **Authorization: Bearer**: Przejście z nagłówka `SessionToken` na światowy standard `Bearer Token`, co eliminuje błędy 401.
+- **Cierpliwy Handshake (Resilience)**: **[NOWOŚĆ]** Implementacja **Exponential Backoff** (2s -> 16s) oraz wydłużony polling statusu (do 60s), co gwarantuje stabilność sesji nawet przy dużym obciążeniu serwerów MF.
 - **Query Metadata V2**: Zapytania o faktury używają teraz struktury wrappera `filters` i `paging`, co zapewnia 100% precyzji w wynikach.
 - **Polish Timezone (+01:00)**: Pełna obsługa polskiego czasu zamiast UTC (Z) w zapytaniach, zgodnie z wymogami Ministerstwa.
 - **Dynamiczne Zarządzanie Kluczami**: Certyfikaty są pobierane w runtime i trzymane w bezpiecznym cache'u w pamięci.

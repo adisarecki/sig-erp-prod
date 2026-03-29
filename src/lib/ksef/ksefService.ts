@@ -222,10 +222,11 @@ export class KSeFService {
         if (!referenceNumber) throw new Error('No referenceNumber in Step 3 response');
         console.log('[KSeF_SERVICE] Step 3 referenceNumber:', referenceNumber);
 
-        // ── KROK 4: Polling Statusu (GET {referenceNumber}) ──
+        // ── KROK 4: Cierpliwy Handshake (Polling Statusu z Exponential Backoff) ──
         let pollAttempts = 0;
-        const maxPollAttempts = 20;
+        const maxPollAttempts = 10; // Rozszerzone do 10 prób dla stabilności weekendowej
         let isSuccess = false;
+        let currentDelay = 2000; // Start od 2 sekund
 
         while (pollAttempts < maxPollAttempts) {
             pollAttempts++;
@@ -239,19 +240,34 @@ export class KSeFService {
 
             if (statusRes.ok) {
                 const statusData = await statusRes.json();
-                console.log(`[KSeF_SERVICE] Polling status (${pollAttempts}/${maxPollAttempts}): ${statusData.status}`);
+                const statusCode = statusData.exception?.serviceCode || statusData.statusCode || "OK";
+                
+                console.log(`[KSeF_SERVICE] Polling status (${pollAttempts}/${maxPollAttempts}) [${statusCode}]: ${statusData.status}`);
+                
                 if (statusData.status === "Success") {
                     isSuccess = true;
                     break;
                 }
+                
+                // Zadanie: Logowanie statusu "Processing" (np. 310)
+                if (statusData.status === "Processing" || statusCode === "310") {
+                    console.log(`[KSeF_SERVICE] Sesja wciąż przetwarzana (Processing). Czekamy...`);
+                }
+
             } else {
-                console.warn(`[KSeF_SERVICE] Status check failed (${statusRes.status}). Retrying...`);
+                const errText = await statusRes.text();
+                // Błąd rzucaj tylko, gdy dostaniesz błąd krytyczny (np. 4xx/5xx inne niż 200/202)
+                console.warn(`[KSeF_SERVICE] Status check returned non-200 (${statusRes.status}). Retrying... Details: ${errText.substring(0, 50)}`);
             }
-            await new Promise(r => setTimeout(r, 2000));
+
+            // Exponential Backoff: 2s -> 4s -> 8s (do max 16s)
+            console.log(`[KSeF_SERVICE] Wykładniczy Backoff: Następna próba za ${currentDelay / 1000}s...`);
+            await new Promise(r => setTimeout(r, currentDelay));
+            currentDelay = Math.min(currentDelay * 2, 16000); 
         }
 
         if (!isSuccess) {
-            throw new Error(`KSeF Auth Polling timed out (Final status not Success) for ${referenceNumber}`);
+            throw new Error(`KSeF Auth Polling timed out (Final status not Success) after ${pollAttempts} attempts for ${referenceNumber}`);
         }
 
         // ── KROK 5: Wymiana na JWT (Redeem) ──────
