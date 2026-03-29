@@ -132,6 +132,14 @@ export interface KSeFInvoiceHeader {
     vatAmount?: number;
     grossAmount?: number;
     currency?: string;
+    seller?: {
+        nip?: string;
+        name?: string;
+    };
+    buyer?: {
+        identifier?: { value: string };
+        name?: string;
+    };
     subject1?: {
         issuedByIdentifier?: { value: string };
         issuedByName?: string;

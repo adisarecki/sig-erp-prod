@@ -69,17 +69,28 @@ export async function GET(request: NextRequest) {
 
         for (const item of combinedList) {
             try {
-                const ksefId = item.invoiceReferenceNumber;
+                // Official KSeF v2.0 unique identifier
+                const ksefId = item.ksefNumber || item.invoiceReferenceNumber;
                 if (!ksefId) continue;
 
-                // Determine Counterparty (Subject1 is always Seller, Subject2 is always Buyer)
-                // If it's REVENUE (User is Seller/Subject1), counterparty is Subject2 (Buyer)
-                // If it's EXPENSE (User is Buyer/Subject2), counterparty is Subject1 (Seller)
                 const isRevenue = item._apiDirection === "REVENUE";
-                const counterparty = isRevenue ? item.subject2 : item.subject1;
                 
-                const nip = counterparty?.issuedByIdentifier?.value || '0000000000';
-                const name = counterparty?.issuedByName || 'Nieznany Kontrahent';
+                // Determine Counterparty based on Direct Seller/Buyer mapping (Log format)
+                // Fallback to subject1 (Seller) / subject2 (Buyer) if needed
+                let nip = '0000000000';
+                let name = 'Nieznany Kontrahent';
+
+                if (isRevenue) {
+                    // Counterparty is the Buyer
+                    const buyer = item.buyer || item.subject2;
+                    nip = (buyer as any)?.identifier?.value || (buyer as any)?.issuedByIdentifier?.value || '0000000000';
+                    name = buyer?.name || (buyer as any)?.issuedByName || 'Nieznany Kontrahent';
+                } else {
+                    // Counterparty is the Seller
+                    const seller = item.seller || item.subject1;
+                    nip = seller?.nip || (seller as any)?.issuedByIdentifier?.value || '0000000000';
+                    name = seller?.name || (seller as any)?.issuedByName || 'Nieznany Kontrahent';
+                }
 
                 // 4a. Contractor Upsert (NIP as key)
                 let contractor = await prisma.contractor.findUnique({
@@ -97,7 +108,7 @@ export async function GET(request: NextRequest) {
                         }
                     });
                 } else if (!contractor.name || contractor.name === 'Nieznany Kontrahent' || contractor.name === '') {
-                    // Update name only if empty
+                    // Name priority protection rule: update only if currently empty
                     contractor = await prisma.contractor.update({
                         where: { id: contractor.id },
                         data: { name }
@@ -127,6 +138,7 @@ export async function GET(request: NextRequest) {
                         ksefType: 'VAT'
                     },
                     update: {
+                        // Keep header current if it's still missing XML
                         status: 'XML_MISSING',
                         updatedAt: new Date()
                     }
@@ -137,22 +149,22 @@ export async function GET(request: NextRequest) {
                     ksefId,
                     invoiceNumber: item.invoiceNumber,
                     seller: name,
-                    amount: amountGross.toString(),
-                    status: "XML_MISSING"
+                    amount: amountGross.toString()
                 });
             } catch (err: unknown) {
-                console.error(`[KSeF_API_INVOICES] Item error for ${item.invoiceReferenceNumber}:`, err);
+                console.error(`[KSeF_API_INVOICES] Item mapping error for ${item.ksefNumber}:`, err);
             }
         }
 
         return NextResponse.json({
             success: true,
             savedCount,
+            results,
             pagination: {
                 total: combinedList.length,
                 page,
                 pageSize,
-                message: combinedList.length === 50 ? "Osiągnięto limit strony (50). Użyj filtrów daty, aby zobaczyć więcej." : `Pobrano ${combinedList.length} nagłówków. Zapisano ${savedCount} sztuk w systemie Prisma (XML_MISSING).`
+                message: combinedList.length === 50 ? "Osiągnięto limit strony (50). Użyj filtrów daty, aby zobaczyć więcej." : `Pobrano ${combinedList.length} nagłówków. Zapisano ${savedCount} sztuk w systemie Prisma (Płytki Sync).`
             }
         });
 

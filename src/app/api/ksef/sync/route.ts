@@ -46,93 +46,93 @@ export async function GET() {
         }
 
         // 4. Shallow Sync Loop (Metadata-only) - Prisma only
+        let savedCount = 0;
         const results = [];
 
         for (const item of invoiceList) {
             try {
-                // Determine Counterparty (In Subject2 query, counterpart is Subject1)
-                const nip = item.subject1?.issuedByIdentifier?.value || '0000000000';
-                const name = item.subject1?.issuedByName || 'Nieznany Sprzedawca';
+                // Official KSeF v2.0 unique identifier
+                const ksefId = (item as any).ksefNumber || item.invoiceReferenceNumber;
+                if (!ksefId) continue;
 
-                // 4a. Contractor Upsert (NIP as key)
-                const contractor = await prisma.contractor.upsert({
-                    where: { 
-                        tenantId_nip: {
-                            tenantId,
-                            nip
-                        }
-                    },
-                    update: {
-                        // Priority: Keeping system name if already filled
-                        name: {
-                            set: name // We will handle actual "priority" logic in a more complex way if needed, 
-                                     // but Prisma's set is fine here as a baseline for shallow sync.
-                                     // User specified: "System Name has priority. Only update if empty."
-                        }
-                    },
-                    create: {
-                        tenantId,
-                        nip,
-                        name,
-                        status: 'PENDING',
-                        type: 'DOSTAWCA'
-                    }
-                });
+                // For the sync route, we assume these are mostly incoming expenses (zakupy) 
+                // in general sync mode, but we check direction if available.
+                const isRevenue = (item as any)._apiDirection === "REVENUE";
+                
+                // Determine Counterparty based on Direct Seller/Buyer mapping (Log format)
+                let nip = '0000000000';
+                let name = 'Nieznany Kontrahent';
 
-                // Re-verify name priority: If contractor already existed, don't overwrite name if not empty
-                // (Prisma upsert update is tricky for conditional field updates, so we might need a separate check if we want to be strict)
-                // Let's do a more robust check:
-                const existingContractor = await prisma.contractor.findUnique({
+                if (isRevenue) {
+                    const buyer = (item as any).buyer || item.subject2;
+                    nip = (buyer as any)?.identifier?.value || (buyer as any)?.issuedByIdentifier?.value || '0000000000';
+                    name = buyer?.name || (buyer as any)?.issuedByName || 'Nieznany Kontrahent';
+                } else {
+                    const seller = (item as any).seller || item.subject1;
+                    nip = (seller as any)?.nip || (seller as any)?.issuedByIdentifier?.value || '0000000000';
+                    name = seller?.name || (seller as any)?.issuedByName || 'Nieznany Kontrahent';
+                }
+
+                // 4a. Contractor Upsert
+                let contractor = await prisma.contractor.findUnique({
                     where: { tenantId_nip: { tenantId, nip } }
                 });
-                
-                if (existingContractor && existingContractor.name && existingContractor.name !== name && existingContractor.name !== 'Nieznany Sprzedawca') {
-                    // Keep existing name
-                } else {
-                    await prisma.contractor.update({
+
+                if (!contractor) {
+                    contractor = await prisma.contractor.create({
+                        data: {
+                            tenantId,
+                            nip,
+                            name,
+                            status: 'PENDING',
+                            type: isRevenue ? 'KLIENT' : 'DOSTAWCA'
+                        }
+                    });
+                } else if (!contractor.name || contractor.name === 'Nieznany Kontrahent' || contractor.name === '') {
+                    contractor = await prisma.contractor.update({
                         where: { id: contractor.id },
                         data: { name }
                     });
                 }
 
-                // 4b. Invoice Upsert (ksefId as key)
-                // Handle 0 amounts and currency gracefully
+                // 4b. Invoice Upsert
                 const amountGross = new Decimal(item.grossAmount || 0);
                 const amountNet = new Decimal(item.netAmount || 0);
                 const vatAmount = new Decimal(item.vatAmount || 0);
-                
+
                 const savedInvoice = await prisma.invoice.upsert({
-                    where: { ksefId: item.invoiceReferenceNumber },
-                    update: {
-                        status: 'XML_MISSING',
-                        updatedAt: new Date(),
-                    },
+                    where: { ksefId },
                     create: {
                         tenantId,
                         contractorId: contractor.id,
-                        ksefId: item.invoiceReferenceNumber,
-                        invoiceNumber: item.invoiceNumber || 'BRAK',
-                        type: 'ZAKUP',
+                        ksefId,
+                        invoiceNumber: item.invoiceNumber || 'OCZEKUJE',
+                        type: isRevenue ? 'REVENUE' : 'EXPENSE',
                         amountNet,
                         amountGross,
                         taxRate: amountNet.isZero() ? new Decimal(0) : vatAmount.div(amountNet).toDecimalPlaces(4),
                         issueDate: new Date(item.issueDate || Date.now()),
-                        dueDate: new Date(item.issueDate || Date.now()), // Shallow fallback
-                        status: 'XML_MISSING',
+                        dueDate: new Date(item.issueDate || Date.now()),
                         paymentStatus: 'UNPAID',
+                        status: 'XML_MISSING',
                         ksefType: 'VAT'
+                    },
+                    update: {
+                        status: 'XML_MISSING',
+                        updatedAt: new Date()
                     }
                 });
 
                 results.push({
                     id: savedInvoice.id,
-                    ksefId: item.invoiceReferenceNumber,
+                    ksefId: ksefId,
                     invoiceNumber: item.invoiceNumber,
                     seller: name,
                     amount: amountGross.toString(),
                     status: "XML_MISSING"
                 });
 
+                savedCount++;
             } catch (err: unknown) {
                 console.error(`[KSeF_SHALLOW_SYNC_ERROR] ${item.invoiceReferenceNumber}:`, (err as Error).message);
             }
@@ -140,7 +140,7 @@ export async function GET() {
 
         return NextResponse.json({
             success: true,
-            count: results.length,
+            savedCount,
             invoices: results,
             message: `Płytka synchronizacja zakończona. Zapamiętano ${results.length} nagłówków faktur (XML_MISSING).`
         });
