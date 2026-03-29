@@ -58,6 +58,7 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
 
             if (!objectsSnap.empty) {
                 targetObjectId = objectsSnap.docs[0].id
+            } else {
                 const newObjRef = adminDb.collection("objects").doc()
                 targetObjectId = newObjRef.id
 
@@ -71,7 +72,7 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
                     await prisma.object.create({
                         data: {
                             id: targetObjectId,
-                            contractorId: contractorId,
+                            contractor: { connect: { id: contractorId } },
                             name: "Siedziba Główna",
                             description: "Wygenerowany obiekt",
                         }
@@ -184,7 +185,7 @@ export async function createProject(data: { name: string, contractorId: string }
             await prisma.object.create({
                 data: {
                     id: objectId,
-                    contractorId: data.contractorId,
+                    contractor: { connect: { id: data.contractorId } },
                     name: "Siedziba Główna"
                 }
             })
