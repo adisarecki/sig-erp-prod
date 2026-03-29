@@ -331,15 +331,13 @@ export class KSeFService {
         };
 
         const bodyPayload = {
-            filters: {
-                dateRange: {
-                    dateType: "issue",
-                    from: formatKSeFDate(from, false),
-                    to: formatKSeFDate(to, true)
-                },
-                subjectType: options?.subjectType || 'subject2',
-                invoiceType: isSales ? "sales" : "purchase"
+            subjectType: options?.subjectType || 'subject2',
+            dateRange: {
+                dateType: "issue",
+                from: formatKSeFDate(from, false),
+                to: formatKSeFDate(to, true)
             },
+            invoiceType: isSales ? "sales" : "purchase",
             paging: {
                 offset: pageOffset,
                 limit: pageSize
