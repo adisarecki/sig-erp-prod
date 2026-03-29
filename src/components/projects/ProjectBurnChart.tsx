@@ -58,8 +58,8 @@ export function ProjectBurnChart({ invoices, transactions = [], budgetEstimated 
             groupedByDate[dateKey] = { invIncome: 0, invExpense: 0, cashIncome: 0, cashExpense: 0 }
         }
         
-        const isIncome = inv.type === 'SPRZEDAŻ' || inv.type === 'PRZYCHÓD' || inv.type === 'INCOME'
-        const isExpense = inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'WYDATEK'
+        const isIncome = inv.type === 'SPRZEDAŻ' || inv.type === 'PRZYCHÓD' || inv.type === 'INCOME' || inv.type === 'REVENUE'
+        const isExpense = inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'WYDATEK' || inv.type === 'ZAKUP'
         
         if (isIncome) groupedByDate[dateKey].invIncome += Number(inv.amountNet)
         if (isExpense) groupedByDate[dateKey].invExpense += Number(inv.amountNet)
@@ -71,8 +71,8 @@ export function ProjectBurnChart({ invoices, transactions = [], budgetEstimated 
             groupedByDate[dateKey] = { invIncome: 0, invExpense: 0, cashIncome: 0, cashExpense: 0 }
         }
         
-        const isIncome = t.type === 'PRZYCHÓD'
-        const isExpense = t.type === 'KOSZT'
+        const isIncome = t.type === 'PRZYCHÓD' || t.type === 'INCOME' || t.type === 'REVENUE' || t.type === 'SPRZEDAŻ'
+        const isExpense = t.type === 'KOSZT' || t.type === 'EXPENSE' || t.type === 'WYDATEK' || t.type === 'ZAKUP'
         
         if (isIncome) groupedByDate[dateKey].cashIncome += Number(t.amount)
         if (isExpense) groupedByDate[dateKey].cashExpense += Number(t.amount)

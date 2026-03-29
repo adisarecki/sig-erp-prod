@@ -162,17 +162,17 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                 const invoices = project.invoices || []
                 const transactions = project.transactions || []
                 const totalInvoicedNet = invoices
-                    .filter((inv) => inv.type === 'SPRZEDAŻ')
+                    .filter((inv) => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE' || inv.type === 'PRZYCHÓD')
                     .reduce((sum: number, inv) => sum + Number(inv.amountNet), 0)
                 const totalInvoicedGross = invoices
-                    .filter((inv) => inv.type === 'SPRZEDAŻ')
+                    .filter((inv) => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE' || inv.type === 'PRZYCHÓD')
                     .reduce((sum: number, inv) => sum + Number(inv.amountGross || inv.amountNet), 0)
 
                 const totalCostsNet = invoices
-                    .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE')
+                    .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'ZAKUP' || inv.type === 'WYDATEK')
                     .reduce((sum: number, inv) => sum + Number(inv.amountNet), 0)
                 const totalCostsGross = invoices
-                    .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE')
+                    .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'ZAKUP' || inv.type === 'WYDATEK')
                     .reduce((sum: number, inv) => sum + Number(inv.amountGross || inv.amountNet), 0)
 
                 const currentMarginNet = totalInvoicedNet - totalCostsNet

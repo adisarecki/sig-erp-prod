@@ -133,9 +133,12 @@ export default async function DashboardPage({
     if (startDate && txDate < startDate) return
     if (endDate && txDate > endDate) return
     
-    if (tx.type === 'PRZYCHÓD' || tx.type === 'INCOME') {
+    const isIncome = tx.type === 'PRZYCHÓD' || tx.type === 'INCOME' || tx.type === 'SPRZEDAŻ' || tx.type === 'REVENUE'
+    const isExpense = tx.type === 'KOSZT' || tx.type === 'EXPENSE' || tx.type === 'ZAKUP' || tx.type === 'WYDATEK'
+    
+    if (isIncome) {
       realCashIncomes = realCashIncomes.plus(new Decimal(tx.amount))
-    } else if (tx.type === 'KOSZT' || tx.type === 'EXPENSE' || tx.type === 'ZAKUP') {
+    } else if (isExpense) {
       const amount = new Decimal(tx.amount)
       realCashCosts = realCashCosts.plus(amount)
       
@@ -177,11 +180,14 @@ export default async function DashboardPage({
     // Filtrowanie (Vector 023)
     const isWithinRange = (!startDate || issueDate >= startDate) && (!endDate || issueDate <= endDate)
 
+    const isInvIncome = inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE'
+    const isInvExpense = inv.type === 'KOSZT' || inv.type === 'ZAKUP' || inv.type === 'EXPENSE'
+
     // Logika Memoriałowa (Skumulowany Zysk)
     if (isWithinRange) {
-        if (inv.type === 'SPRZEDAŻ') {
+        if (isInvIncome) {
           cumulativeIncomeNet = cumulativeIncomeNet.plus(amountNet)
-        } else {
+        } else if (isInvExpense) {
           cumulativeCostNet = cumulativeCostNet.plus(amountNet)
         }
     }
@@ -189,9 +195,9 @@ export default async function DashboardPage({
     if (inv.status === 'PAID') {
        if (isWithinRange) {
           const vat = amountGross.minus(amountNet)
-          if (inv.type === 'SPRZEDAŻ') {
+          if (isInvIncome) {
             vatIncome = vatIncome.plus(vat)
-          } else if (['KOSZT', 'ZAKUP', 'EXPENSE'].includes(inv.type)) {
+          } else if (isInvExpense) {
             vatCost = vatCost.plus(vat)
             if (inv.projectId) {
               projectVatCost = projectVatCost.plus(vat)
@@ -249,8 +255,8 @@ export default async function DashboardPage({
   const allAlerts: { id?: string, title: string, amount: number, date: Date, type: string, contractor: string, isIncome?: boolean, invoiceNumber?: string, isDebtInstallment?: boolean }[] = []
   let overdueAmount = new Decimal(0)
 
-  const unpaidIncomes = allInvoices.filter(inv => inv.type === 'SPRZEDAŻ' && inv.status !== 'PAID')
-  const unpaidCosts = allInvoices.filter(inv => ['KOSZT', 'ZAKUP'].includes(inv.type) && inv.status !== 'PAID')
+  const unpaidIncomes = allInvoices.filter(inv => (inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE') && inv.status !== 'PAID')
+  const unpaidCosts = allInvoices.filter(inv => (inv.type === 'KOSZT' || inv.type === 'ZAKUP' || inv.type === 'EXPENSE') && inv.status !== 'PAID')
   const activeInstallments = tenantDebtInstallments.filter(di => di.status === 'ACTIVE')
 
   // Alerty i Overdue
@@ -683,7 +689,9 @@ export default async function DashboardPage({
                 </div>
                 <h2 className="text-xl font-black uppercase tracking-tight">Ostatnie Dokumenty</h2>
               </div>
-              <Button variant="ghost" className="text-sm font-bold text-slate-500 hover:text-slate-900">Zobacz wszystko →</Button>
+              <Link href="/finance">
+                <Button variant="ghost" className="text-sm font-bold text-slate-500 hover:text-slate-900 border border-slate-200">Zobacz wszystko →</Button>
+              </Link>
            </div>
            
            <div className="space-y-4">
@@ -704,8 +712,8 @@ export default async function DashboardPage({
                       <CurrencyDisplay 
                         gross={inv.amountGross} 
                         net={inv.amountNet} 
-                        isIncome={inv.type === 'SPRZEDAŻ'} 
-                        className={`font-black text-lg ${inv.type === 'SPRZEDAŻ' ? 'text-green-600' : 'text-slate-900'}`} 
+                        isIncome={inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE'} 
+                        className={`font-black text-lg ${ (inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE') ? 'text-green-600' : 'text-slate-900'}`} 
                       />
                       <p className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full mt-1 inline-block ${inv.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
                         {inv.status === 'PAID' ? 'Opłacona' : 'Nieopłacona'}
@@ -717,7 +725,7 @@ export default async function DashboardPage({
                           invoiceId={inv.id}
                           invoiceNumber={inv.externalId || 'Dokument'}
                           amountGross={Number(inv.amountGross)}
-                          isIncome={inv.type === 'SPRZEDAŻ'}
+                          isIncome={inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE'}
                        />
                     )}
                   </div>

@@ -41,11 +41,11 @@ export default async function ProjectCockpit({ params }: PageProps) {
 
     // Obliczenia finansowe (CASH FLOW - SOURCE: TRANSACTIONS)
     const totalInvoiced = transactions
-        .filter((t: any) => t.type === 'PRZYCHÓD')
+        .filter((t: any) => t.type === 'PRZYCHÓD' || t.type === 'INCOME' || t.type === 'REVENUE' || t.type === 'SPRZEDAŻ')
         .reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0)
 
     const totalCosts = transactions
-        .filter((t: any) => t.type === 'KOSZT' || t.type === 'EXPENSE' || t.type === 'WYDATEK')
+        .filter((t: any) => t.type === 'KOSZT' || t.type === 'EXPENSE' || t.type === 'WYDATEK' || t.type === 'ZAKUP')
         .reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0)
     
     const margin = totalInvoiced - totalCosts
@@ -56,7 +56,7 @@ export default async function ProjectCockpit({ params }: PageProps) {
     const profitabilityMargin = totalInvoiced > 0 ? (margin / totalInvoiced) * 100 : 0
 
     const totalInvoicedNet = invoices
-        .filter((inv: any) => inv.type === 'SPRZEDAŻ')
+        .filter((inv: any) => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE')
         .reduce((sum: number, inv: any) => sum + Number(inv.amountNet), 0)
 
     const totalStageBudgets = stages.reduce((sum: number, s: any) => sum + (Number(s.budgetEstimated) || 0), 0)
@@ -250,8 +250,8 @@ export default async function ProjectCockpit({ params }: PageProps) {
                                                 <CurrencyDisplay 
                                                     gross={t.amount}
                                                     net={t.amount}
-                                                    isIncome={t.type === 'PRZYCHÓD'}
-                                                    className={`font-black text-sm group-hover:scale-105 transition-transform ${t.type === 'PRZYCHÓD' ? 'text-emerald-600' : 'text-rose-600'}`}
+                                                    isIncome={t.type === 'PRZYCHÓD' || t.type === 'INCOME' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE'}
+                                                    className={`font-black text-sm group-hover:scale-105 transition-transform ${ (t.type === 'PRZYCHÓD' || t.type === 'INCOME' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? 'text-emerald-600' : 'text-rose-600'}`}
                                                 />
                                                 <TransactionDeleteButton 
                                                     transactionId={t.id} 
