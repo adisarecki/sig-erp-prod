@@ -57,14 +57,11 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 5.  **Redeem (Finalizacja JWT)**: Wymiana na ostateczny `accessToken` (`POST /v2/auth/token/redeem`) przy użyciu tego samego `authenticationToken`.
 
 **Główne Atuty Nowego Standardu:**
-- **Vercel Edge Runtime**: API zoptymalizowane pod `runtime: 'edge'`, co eliminuje timeouty (limit 30s) i przyspiesza start funkcji.
-- **Sztafeta Handshake (V2.1)**: Precyzyjny proces wymiany tokenów z pollingiem autoryzacyjnym, gwarantujący 100% stabilności sesji.
-- **Timeout Protection (25s)**: Wszystkie zapytania `fetch` posiadają `AbortSignal.timeout(25000)`, co zabezpiecza przed "zawieszeniem" funkcji na Vercel.
-- **Summer Timezone (+02:00)**: Pełna obsługa polskiego czasu letniego w zapytaniach.
-- **Cierpliwy Handshake (Resilience)**: **[NOWOŚĆ]** Implementacja **Exponential Backoff** (2s -> 16s) oraz wydłużony polling statusu (do 60s), co gwarantuje stabilność sesji nawet przy dużym obciążeniu serwerów MF.
-- **Summer Timezone (+02:00)**: Pełna obsługa polskiego czasu letniego w zapytaniach, zgodnie z aktualnym offsetem Ministerstwa.
-- **Pancerny Kod (Robust Fetch)**: Defensywne pobieranie danych (raw text first) zapobiegające błędom parsowania przy HTML-owych stronach błędów MF.
-- **Authorization: Bearer**: Przejście z nagłówka `SessionToken` na światowy standard `Bearer Token`.
+- **JWT Manager (KsefSessionManager)**: **[NOWOŚĆ]** Pełna automatyzacja sesji. System zarządza parami `accessToken` i `refreshToken`, przechowując je w bazie Prisma.
+- **Check & Refresh Logic**: Przed każdym zapytaniem system sprawdza ważność JWT. Jeśli wygasł – odświeża go automatycznie bez przerywania pracy.
+- **Node.js Runtime Standard**: Przywrócono pełną zgodność z `crypto` i `X509Certificate` (wymagane dla stabilności DB).
+- **Timeout Protection (25s)**: Wszystkie zapytania `fetch` posiadają `AbortSignal.timeout(25000)`.
+- **Summer Timezone (+02:00)**: Pełna obsługa polskiego czasu letniego.
 - **Stabilny Cache**: Access Token jest buforowany przez 55 minut, co minimalizuje obciążenie serwerów MF i zapewnia stabilność sesji.
 - **2-Fazowy Szybki Sync (V2 Ready)**: Architektura pobierania w pełni asynchroniczna. Opcja "Szybki Sync" pobiera ułamku sekundy setki nagłówków `XML_MISSING`.
 - **Inteligencja Dat (Standard +01:00)**: System używa właściwej dla Ministerstwa daty zapisu, całkowicie omijając błąd 401/404.

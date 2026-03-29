@@ -152,28 +152,28 @@ export class KSeFService {
             headers['Accept'] = 'application/xml';
         }
 
-        const token = options?.accessToken || options?.customToken || await this.getAccessToken();
-        headers['Authorization'] = `Bearer ${token}`;
+        let token = options?.accessToken || options?.customToken;
+        
+        // Final fallback if no token provided: use existing logic (or session manager in future)
+        if (!token) {
+            token = await this.getAccessToken();
+        }
 
+        headers['Authorization'] = `Bearer ${token}`;
         return headers;
     }
 
     /**
-     * KSeF Workflow V2.1 "Sztafeta" Handshake
+     * KSeF Workflow V2.1 "Sztafeta" - Full Handshake
+     * Returns both active Access Token and long-lived Refresh Token.
      */
-    async getAccessToken(nip?: string, token?: string): Promise<string> {
-        const now = Date.now();
-
-        if (cachedAccessToken && (now - tokenFetchTime < TOKEN_CACHE_TTL)) {
-            return cachedAccessToken;
-        }
-
+    async performFullHandshake(nip?: string, token?: string): Promise<{ accessToken: string; refreshToken: string }> {
         const targetNip = nip || process.env.KSEF_NIP || DEFAULT_NIP;
         const targetToken = token || KSEF_TOKEN;
 
         if (!targetToken) throw new Error('KSEF_TOKEN missing in environment.');
 
-        console.log(`[KSeF_SERVICE] Workflow V2.1 "Sztafeta" starting for NIP: ${targetNip}...`);
+        console.log(`[KSeF_SERVICE] Full Handshake (Sztafeta) for NIP: ${targetNip}...`);
 
         // KROK 1: Challenge
         const challengeRes = await fetch(`${KSEF_BASE_URL}/v2/auth/challenge`, {
@@ -190,7 +190,7 @@ export class KSeFService {
         // KROK 2: Encryption
         const encryptedToken = await encryptKSeFToken(targetToken, timestampMs);
 
-        // KROK 3: POST /auth/ksef-token (Start Sztafety)
+        // KROK 3: KSeF-Token Init
         const initRes = await fetch(`${KSEF_BASE_URL}/v2/auth/ksef-token`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -211,7 +211,7 @@ export class KSeFService {
         
         if (!refNum || !authTok) throw new Error('No referenceNumber or authenticationToken in KSeF response');
 
-        // KROK 4 (Polling): GET /auth/{refNum} with Bearer authTok
+        // KROK 4 (Polling): GET /auth/{refNum}
         let pollAttempts = 0;
         let isReady = false;
         let delay = 2000;
@@ -227,24 +227,18 @@ export class KSeFService {
                 signal: AbortSignal.timeout(25000)
             });
 
-            const statusText = await statusRes.text();
-            
-            // Workflow V2.1: Czekaj konkretnie na status 200
             if (statusRes.status === 200) {
-                const statusData = JSON.parse(statusText);
-                console.log(`[KSeF_SERVICE] Polling Success (${pollAttempts}): ${statusData.status}`);
                 isReady = true;
                 break;
             } else {
-                console.log(`[KSeF_SERVICE] Polling (${pollAttempts}). Status: ${statusRes.status}. Retrying in ${delay / 1000}s...`);
                 await new Promise(r => setTimeout(r, delay));
                 delay = Math.min(delay * 2, 12000);
             }
         }
 
-        if (!isReady) throw new Error(`Handshake V2.1 "Sztafeta" timed out for ${refNum}`);
+        if (!isReady) throw new Error(`Handshake timed out for ${refNum}`);
 
-        // KROK 5 (Redeem): POST /auth/token/redeem with Bearer authTok
+        // KROK 5 (Redeem): POST /auth/token/redeem
         const redeemRes = await fetch(`${KSEF_BASE_URL}/v2/auth/token/redeem`, {
             method: 'POST',
             headers: { 
@@ -260,15 +254,26 @@ export class KSeFService {
         if (!redeemRes.ok) throw new Error(`Redeem failed (${redeemRes.status}): ${redeemText}`);
 
         const redeemData = JSON.parse(redeemText);
-        const finalToken = redeemData.accessToken?.token || redeemData.sessionToken?.token;
+        
+        const accessToken = redeemData.accessToken?.token || redeemData.sessionToken?.token;
+        const refreshToken = redeemData.refreshToken?.token;
 
-        if (!finalToken) throw new Error('No accessToken found in Workflow 2.1 response');
+        if (!accessToken || !refreshToken) throw new Error('Failed to retrieve full JWT token pair');
 
-        cachedAccessToken = finalToken;
+        return { accessToken, refreshToken };
+    }
+
+    /**
+     * Compatibility wrapper for single-token logic
+     */
+    async getAccessToken(nip?: string, token?: string): Promise<string> {
+        if (cachedAccessToken && (Date.now() - tokenFetchTime < TOKEN_CACHE_TTL)) {
+            return cachedAccessToken;
+        }
+        const authData = await this.performFullHandshake(nip, token);
+        cachedAccessToken = authData.accessToken;
         tokenFetchTime = Date.now();
-
-        console.log('[KSeF_SERVICE] Workflow V2.1 Handshake Successfully Completed.');
-        return finalToken;
+        return authData.accessToken;
     }
 
     /**

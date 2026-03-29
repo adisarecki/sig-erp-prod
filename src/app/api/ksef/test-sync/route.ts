@@ -1,23 +1,30 @@
 import { NextResponse } from 'next/server';
 import { KSeFService } from '@/lib/ksef/ksefService';
+import { KsefSessionManager } from '@/lib/ksef/ksefSessionManager';
+import { PrismaClient } from '@prisma/client';
 
-// Workflow V2.1: Edge Runtime + Timeout Protection (25s)
-export const runtime = 'edge';
+const prisma = new PrismaClient();
 
 export async function GET() {
     try {
         const ksefSvc = new KSeFService();
-        console.log("[KSEF_TEST] Starting handshake verification (v2.0)...");
+        const sessionMgr = new KsefSessionManager();
+
+        // Podnieś pierwszą firmę dla testu
+        const tenant = await prisma.tenant.findFirst();
+        if (!tenant) throw new Error('Brak Tenant w bazie danych dla testu.');
+
+        console.log(`[KSEF_TEST] Starting JWT Manager verification for Tenant: ${tenant.name}...`);
         
-        // 1. Handshake (JWT v2)
+        // 1. Handshake (JWT Manager / Check & Refresh Logic)
         let accessToken: string;
         try {
-            accessToken = await ksefSvc.getAccessToken();
+            accessToken = await sessionMgr.ensureAccessToken(tenant.id);
         } catch (err: any) {
-            console.error("[KSEF_TEST] Handshake failed:", err.message);
+            console.error("[KSEF_TEST] JWT Manager failed:", err.message);
             return NextResponse.json({ 
                 success: false, 
-                error: `Błąd uścisku dłoni JWT v2: ${err.message}` 
+                error: `Błąd JWT Manager: ${err.message}` 
             }, { status: 401 });
         }
 
