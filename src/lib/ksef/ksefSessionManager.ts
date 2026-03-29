@@ -104,9 +104,10 @@ export class KsefSessionManager {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${refreshToken}`
             },
-            body: JSON.stringify({ refreshToken }),
+            body: JSON.stringify({}),
             signal: AbortSignal.timeout(25000)
         });
 
@@ -114,9 +115,14 @@ export class KsefSessionManager {
         if (!res.ok) throw new Error(`KSeF Refresh Failed (${res.status}): ${text}`);
 
         const data = JSON.parse(text);
+        const accessToken = data.accessToken?.token;
+        const newRefreshToken = data.refreshToken?.token;
+
+        if (!accessToken) throw new Error('No accessToken found in refresh response');
+        
         return {
-            accessToken: data.accessToken?.token,
-            refreshToken: data.refreshToken?.token
+            accessToken,
+            refreshToken: newRefreshToken || refreshToken // Fallback to original if not rotated
         };
     }
 }

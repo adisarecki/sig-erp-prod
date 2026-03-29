@@ -378,7 +378,7 @@ export class KSeFService {
             customToken: options?.testToken,
         });
 
-        const res = await fetch(`${KSEF_BASE_URL}/v2/online/Invoice/Get/${ksefNumber}`, {
+        const res = await fetch(`${KSEF_BASE_URL}/v2/invoices/ksef/${ksefNumber}`, {
             method: 'GET',
             headers,
             signal: AbortSignal.timeout(25000)
