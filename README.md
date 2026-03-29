@@ -47,19 +47,23 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 
 ---
 
-## 🧾 4. Integracja KSeF (v2.0, Produkcyjna, 2026)
+## 🧾 4. Integracja KSeF (JWT v2, Produkcyjna, 2026)
 
-**Pełny, 4-etapowy standard Handshake KSeF v2.0 (Zgodność OpenAPI):**
-1.  **Challenge (Wyzwanie)**: Pobranie unikalnego `challenge` oraz `timestampMs` z serwerów MF (`POST /v2/auth/challenge`).
-2.  **Encryption (Szyfrowanie)**: Dynamiczne pobranie certyfikatu publicznego oraz zaszyfrowanie ciągu `{KSEF_TOKEN}|{timestampMs}` algorytmem **RSA-OAEP (SHA-256)**.
-3.  **KSeF-Token (Inicjalizacja)**: Przesłanie zaszyfrowanego tokena wraz z identyfikatorem NIP (`POST /v2/auth/ksef-token`). System otrzymuje status **202 Accepted** oraz token operacyjny.
-4.  **Redeem (Finalizacja)**: Wymiana tokena operacyjnego na ostateczny `accessToken` (`POST /v2/auth/token/redeem`).
+**Nowy, 5-etapowy standard Handshake KSeF JWT v2 (Zgodność z "Instrukcją Serwisową"):**
+1.  **Challenge (Wyzwanie)**: Pobranie unikalnego `challenge` z serwerów MF (`POST /v2/auth/challenge`).
+2.  **Encryption (Szyfrowanie)**: Zaszyfrowanie tokena MF algorytmem **RSA-OAEP (SHA-256)** przy użyciu dynamicznego klucza publicznego.
+3.  **KSeF-Token (Inicjalizacja)**: Wstępna autoryzacja (`POST /v2/auth/ksef-token`) – otrzymujemy unikalny `referenceNumber`.
+4.  **Status Polling (Weryfikacja)**: **[NOWOŚĆ]** Odpytywanie `GET /v2/auth/{referenceNumber}` aż do uzyskania statusu **"Success"**. 
+5.  **Redeem (Finalizacja JWT)**: Wymiana na ostateczne tokeny `accessToken` i `refreshToken` (`POST /v2/auth/token/redeem`).
 
-**Główne Atuty Rozwiązania:**
-- **Dynamiczne Zarządzanie Kluczami**: Certyfikaty są pobierane w runtime i trzymane w bezpiecznym cache'u w pamięci (brak plików PEM w repozytorium).
+**Główne Atuty Nowego Standardu:**
+- **Authorization: Bearer**: Przejście z nagłówka `SessionToken` na światowy standard `Bearer Token`, co eliminuje błędy 401.
+- **Query Metadata V2**: Zapytania o faktury używają teraz struktury wrappera `filters` i `paging`, co zapewnia 100% precyzji w wynikach.
+- **Polish Timezone (+01:00)**: Pełna obsługa polskiego czasu zamiast UTC (Z) w zapytaniach, zgodnie z wymogami Ministerstwa.
+- **Dynamiczne Zarządzanie Kluczami**: Certyfikaty są pobierane w runtime i trzymane w bezpiecznym cache'u w pamięci.
 - **Stabilny Cache**: Access Token jest buforowany przez 55 minut, co minimalizuje obciążenie serwerów MF i zapewnia stabilność sesji.
-- **2-Fazowy Szybki Sync (Nowość!)**: Architektura pobierania w pełni asynchroniczna. Opcja "Szybki Sync" pobiera ułamku sekundy setki nagłówków `XML_MISSING` oraz ratunkowo buduje PENDING profile dostawców opierając się na nazwie i NIP. Opcja "Pobierz XML" dociąga głębokie dane (konta bankowe) w tle.
-- **Inteligencja Dat (Rozdzielone Zapytania)**: System automatycznie odpytuje KSeF o oba kierunki jednocześnie – Twoją sprzedaż (po dacie wystawienia `invoicingDateFrom`) oraz Twoje zakupy (używając właściwej dla Ministerstwa daty zapisu `acquisitionTimestampFrom`), całkowicie omijając błąd 404 Cichego Zera.
+- **2-Fazowy Szybki Sync (V2 Ready)**: Architektura pobierania w pełni asynchroniczna. Opcja "Szybki Sync" pobiera ułamku sekundy setki nagłówków `XML_MISSING`.
+- **Inteligencja Dat (Standard +01:00)**: System używa właściwej dla Ministerstwa daty zapisu, całkowicie omijając błąd 401/404.
 - **Obsługa FA(3)**: Step 6: Dodano obsługę faktur zaliczkowych (ZAL) oraz ekstrakcję szczegółowych pozycji zamówienia ze schematu FA (3).
 - **Auto-Kategoryzacja AI**: Inteligentne rozpoznawanie typu dokumentu na podstawie NIP-u właściciela. Jeśli jesteś Sprzedawcą (`Podmiot1`), system oznacza fakturę jako **REVENUE**. Jeśli Nabywcą (`Podmiot2`), jako **EXPENSE**.
 - **Odporność na Błędy**: Bezpieczna obsługa pustych wyników zapytania (status 404 traktowany jako sukces z pustą listą) oraz precyzyjna diagnostyka błędów sesji (Step 7 Auth-Fix). Zoptymalizowano obsługę okresów bezfakturowych (fix błędu 404/500).
@@ -67,9 +71,9 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 - **Dashboard i Powiadomienia (UI Integration)**: Tabela naglących płatności zasila się automatycznie z bazy Prisma. Wskaźnik Safe to Spend odlicza niezapłacone KSeF od czystej gotówki. Panel na `/finanse/ksef` umożliwiający synchronizację z konkretnego Date-Range, przeglądanie faktur KSeF (z kolorowymi odznakami typów) oraz zarządzanie i akceptację Oczekujących Dostawców.
 
 **Narzędzia:**
-- **Synchronizacja**: `/api/ksef/process` – pełne przetwarzanie (Upsert) i parowanie faktur (zabezpieczenie Anti-Duplicate).
-- **Paginacja**: Pobieranie do 50 faktur na stronę przez funkcję `fetchInvoiceMetadata` (Metadane) przy użyciu nagłówka `SessionToken`.
-- **UI KSeF**: Dashboard główny ze zintegrowanymi wynikami oraz dedykowana sekcja w `src/app/(dashboard)/finanse/ksef/page.tsx` wraz z modułem zatwierdzania nieznanych kontrahentów (PENDING).
+- **Synchronizacja**: `/api/ksef/process` – pełne przetwarzanie i parowanie faktur.
+- **Weryfikacja Handshake**: `/api/ksef/test-sync` – szybki test połączenia w standardzie JWT v2.
+- **UI KSeF**: Dashboard główny ze zintegrowanymi wynikami w `src/app/(dashboard)/finanse/ksef/page.tsx`.
 
 
 

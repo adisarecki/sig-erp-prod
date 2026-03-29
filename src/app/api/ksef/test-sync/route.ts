@@ -6,24 +6,40 @@ export async function GET() {
         const ksefSvc = new KSeFService();
         console.log("[KSEF_TEST] Starting handshake verification (v2.0)...");
         
-        // Handshake
-        let sessionToken: string;
+        // 1. Handshake (JWT v2)
+        let accessToken: string;
         try {
-            // Uses KSEF_NIP and KSEF_TOKEN from env
-            sessionToken = await ksefSvc.getSessionToken();
+            accessToken = await ksefSvc.getAccessToken();
         } catch (err: any) {
             console.error("[KSEF_TEST] Handshake failed:", err.message);
             return NextResponse.json({ 
                 success: false, 
-                error: `Błąd uścisku dłoni: ${err.message}` 
+                error: `Błąd uścisku dłoni JWT v2: ${err.message}` 
             }, { status: 401 });
         }
 
-        return NextResponse.json({
-            success: true,
-            sessionToken: `${sessionToken.substring(0, 10)}...`,
-            message: "Połączenie z KSeF (v2.0) zestawione pomyślnie."
-        });
+        // 2. Shallow Sync (Subject2)
+        try {
+            const metadata = await ksefSvc.fetchInvoiceMetadata({
+                accessToken,
+                subjectType: 'subject2',
+                pageSize: 5
+            });
+
+            return NextResponse.json({
+                success: true,
+                accessToken: `${accessToken.substring(0, 10)}...`,
+                metadataCount: metadata.length,
+                message: `JWT v2 Standard OK. Znaleziono ${metadata.length} nagłówków faktur (Koszty).`
+            });
+        } catch (err: any) {
+             console.error("[KSEF_TEST] Shallow Sync failed:", err.message);
+             return NextResponse.json({ 
+                success: false, 
+                accessToken: `${accessToken.substring(0, 10)}...`,
+                error: `Błąd pobierania metadanych: ${err.message}` 
+            }, { status: 500 });
+        }
 
 
     } catch (error: any) {

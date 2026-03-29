@@ -54,6 +54,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 079 | KSeF / Parser| FIXED | KSeF FA (3) Polymorphic Mapping. | Wdrożono obsługę faktur zaliczkowych (ZAL) oraz ekstrakcję pozycji z sekcji `ZamowienieWiersz`. Podwójny test diagnostyczny w suicie `/verify-all`. |
 | Vector 080 | KSeF / Parser| FIXED | KSeF Vendor Profile Extraction. | Rozbudowano parser o ekstrakcję danych sprzedawcy (NIP, Nazwa, Adres) z sekcji `Podmiot1`. Weryfikacja multi-tożsamości w diagnostyce. |
 | Vector 081 | KSeF / Parser| FIXED | KSeF FA (3) ZAL Refinement. | Wdrożono ekskluzywne mapowanie `ZamowienieWiersz` dla faktur ZAL. Aktualizacja danych POLON-ALFA S.A. (NIP 5540311901). Weryfikacja liczby pozycji w Step 6. |
+| Vector 082 | KSeF / Architecture| FIXED | KSeF JWT v2 Standard Implementation. | Wdrożono 5-etapowy Handshake z pollingiem statusu (`GET /v2/auth/{referenceNumber}`). Przejście na `Authorization: Bearer` oraz strukturę `filters`/`paging` dla zapytań metadanych. Obsługa strefy czasowej `+01:00`. |
 
 ---
-*Ostatnia aktywność techniczna: 2026-03-27. Build Verified (TSC: OK).*
+*Ostatnia aktywność techniczna: 2026-03-29. Build Verified (TSC: OK).*

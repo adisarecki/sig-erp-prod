@@ -139,26 +139,31 @@ export class KSeFService {
     }
 
     /**
-     * Post-handshake authorized requests in v2.0 use SessionToken header
+     * KSeF v2.0 uses Authorization: Bearer {accessToken} header
      */
-    private async getHeaders(contentType: string = 'application/json', options?: { sessionToken?: string; customToken?: string }) {
+    private async getHeaders(contentType: string = 'application/json', options?: { accessToken?: string; customToken?: string }) {
         const headers: Record<string, string> = {
             'Content-Type': contentType,
-            'Accept': contentType === 'application/xml' ? 'application/xml' : 'application/json',
+            'Accept': 'application/json',
         };
 
-        const token = options?.sessionToken || options?.customToken || await this.getAccessToken();
-        headers['SessionToken'] = token;
+        if (contentType === 'application/xml') {
+            headers['Accept'] = 'application/xml';
+        }
+
+        const token = options?.accessToken || options?.customToken || await this.getAccessToken();
+        headers['Authorization'] = `Bearer ${token}`;
 
         return headers;
     }
 
     /**
-     * KSeF v2.0 4-Step Handshake (Unified)
+     * KSeF v2.0 4-Step Handshake (JWT v2 Update)
      * 1. POST /v2/auth/challenge
      * 2. Key Fetch & RSA-OAEP Encryption
-     * 3. POST /v2/auth/ksef-token (Init)
-     * 4. POST /v2/auth/token/redeem (Final)
+     * 3. POST /v2/auth/ksef-token (Init) -> Reference Number
+     * 4. GET /v2/auth/{referenceNumber} -> Poll for "Success"
+     * 5. POST /v2/auth/token/redeem (Final) -> accessToken & refreshToken
      */
     async getAccessToken(nip?: string, token?: string): Promise<string> {
         const now = Date.now();
@@ -173,11 +178,10 @@ export class KSeFService {
 
         if (!targetToken) throw new Error('KSEF_TOKEN missing in environment.');
 
-        console.log(`[KSeF_SERVICE] Starting v2.0 4-step Handshake for NIP: ${targetNip}...`);
+        console.log(`[KSeF_SERVICE] Starting JWT v2 Handshake for NIP: ${targetNip}...`);
 
         // ── KROK 1: Wyzwanie (Challenge) ─────────────────────
-        const challengeUrl = `${KSEF_BASE_URL}/v2/auth/challenge`;
-        const challengeRes = await fetch(challengeUrl, {
+        const challengeRes = await fetch(`${KSEF_BASE_URL}/v2/auth/challenge`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nip: targetNip }),
@@ -189,15 +193,12 @@ export class KSeFService {
 
         const { challenge, timestampMs } = await challengeRes.json();
         if (!challenge || !timestampMs) throw new Error('Invalid Challenge response');
-        console.log('[KSeF_SERVICE] Step 1 OK: Challenge verified.');
 
-        // ── KROK 2: Klucz i Szyfrowanie (Handled by helpers) ──────
+        // ── KROK 2: Klucz i Szyfrowanie ──────
         const encryptedToken = await encryptKSeFToken(targetToken, timestampMs);
-        console.log('[KSeF_SERVICE] Step 2 OK: Token encrypted (RSA-OAEP SHA-256).');
 
-        // ── KROK 3: Inicjalizacja Tokena ──────────────────────
-        const initUrl = `${KSEF_BASE_URL}/v2/auth/ksef-token`;
-        const initRes = await fetch(initUrl, {
+        // ── KROK 3: Inicjalizacja Tokena (ksef-token) ────────
+        const initRes = await fetch(`${KSEF_BASE_URL}/v2/auth/ksef-token`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -219,65 +220,68 @@ export class KSeFService {
         const authenticationToken = initData.authenticationToken?.token;
         
         if (!referenceNumber) throw new Error('No referenceNumber in Step 3 response');
-        console.log('[KSeF_SERVICE] Step 3 OK: KSeF-Token initialized (202 Accepted). Reference:', referenceNumber);
+        console.log('[KSeF_SERVICE] Step 3 referenceNumber:', referenceNumber);
 
-        // ── KROK 4: Pobranie Access Tokena (Redeem) z Pollingiem ──────
-        const redeemUrl = `${KSEF_BASE_URL}/v2/auth/token/redeem`;
-        let redeemRes;
-        let finalSessionToken;
-        let attempts = 0;
-        const maxAttempts = 12;
+        // ── KROK 4: Polling Statusu (GET {referenceNumber}) ──
+        let pollAttempts = 0;
+        const maxPollAttempts = 20;
+        let isSuccess = false;
 
-        // Wstępne oczekiwanie na przetworzenie przez serwery Ministerstwa (3 sekundy)
-        await new Promise(r => setTimeout(r, 3000));
-
-        while (attempts < maxAttempts) {
-            attempts++;
-            redeemRes = await fetch(redeemUrl, {
-                method: 'POST',
+        while (pollAttempts < maxPollAttempts) {
+            pollAttempts++;
+            const statusRes = await fetch(`${KSEF_BASE_URL}/v2/auth/${referenceNumber}`, {
+                method: 'GET',
                 headers: { 
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    // Autoryzacja dla Redeem (V2 wymaga przekazania tokena z Kroku 3 w nagłówku)
-                    ...(authenticationToken ? { 'Authorization': `Bearer ${authenticationToken}` } : {})
-                },
-                body: JSON.stringify({}) // KSeF V2 Redeem wymaga pustego body
+                    'Authorization': `Bearer ${authenticationToken}`
+                }
             });
 
-            if (redeemRes.ok) {
-                const redeemData = await redeemRes.json();
-                console.log('[KSeF_DEBUG] Step 4 Redeem Success Response:', JSON.stringify(redeemData));
-                // W specyfikacji V2 pole to nazywa się accessToken, choć niektóre wersje Swaggera pokazują sessionToken
-                finalSessionToken = redeemData.accessToken?.token || redeemData.sessionToken?.token;
-                break;
+            if (statusRes.ok) {
+                const statusData = await statusRes.json();
+                console.log(`[KSeF_SERVICE] Polling status (${pollAttempts}/${maxPollAttempts}): ${statusData.status}`);
+                if (statusData.status === "Success") {
+                    isSuccess = true;
+                    break;
+                }
             } else {
-                const errText = await redeemRes.text();
-                
-                // Zadanie: Logowanie body przy błędzie (audytor tego potrzebuje)
-                if (redeemRes.status === 401) {
-                    console.error('[KSeF_DEBUG] Step 4 Redeem failed (401):', errText);
-                }
-
-                // 21301 "Brak autoryzacji" i status "100" oznaczają, że sesja procesuje się asynchronicznie
-                if (errText.includes('21301') && attempts < maxAttempts) {
-                    console.log(`[KSeF_SERVICE] Step 4: Token not ready yet (21301). Retrying in 3s... (${attempts}/${maxAttempts})`);
-                    await new Promise(r => setTimeout(r, 3000));
-                } else {
-                    throw new Error(`Step 4 Redeem failed (${redeemRes.status}): ${errText}`);
-                }
+                console.warn(`[KSeF_SERVICE] Status check failed (${statusRes.status}). Retrying...`);
             }
+            await new Promise(r => setTimeout(r, 2000));
         }
 
-        if (!finalSessionToken) {
-            throw new Error('No final token (accessToken or sessionToken) found in Step 4 response after retries');
+        if (!isSuccess) {
+            throw new Error(`KSeF Auth Polling timed out (Final status not Success) for ${referenceNumber}`);
         }
 
-        // 5. Update Cache
-        cachedAccessToken = finalSessionToken;
+        // ── KROK 5: Wymiana na JWT (Redeem) ──────
+        const redeemRes = await fetch(`${KSEF_BASE_URL}/v2/auth/token/redeem`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${authenticationToken}`
+            },
+            body: JSON.stringify({})
+        });
+
+        if (!redeemRes.ok) {
+            throw new Error(`Step 5 Redeem failed (${redeemRes.status}): ${await redeemRes.text()}`);
+        }
+
+        const redeemData = await redeemRes.json();
+        const finalAccessToken = redeemData.accessToken?.token || redeemData.sessionToken?.token;
+
+        if (!finalAccessToken) {
+            throw new Error('No accessToken found in Redeem response');
+        }
+
+        // 6. Update Cache
+        cachedAccessToken = finalAccessToken;
         tokenFetchTime = Date.now();
 
-        console.log('[KSeF_SERVICE] Step 4: Token Redeemed Successfully.');
-        return finalSessionToken;
+        console.log('[KSeF_SERVICE] JWT v2 Handshake Completed.');
+        return finalAccessToken;
     }
 
     /**
@@ -292,7 +296,7 @@ export class KSeFService {
      * v2.0 Synchronous Query (Step 5 Metadata)
      */
     async fetchInvoiceMetadata(options?: {
-        sessionToken?: string;
+        accessToken?: string;
         testToken?: string;
         dateFrom?: string;
         dateTo?: string;
@@ -305,41 +309,51 @@ export class KSeFService {
         const to = options?.dateTo || new Date().toISOString();
 
         const headers = await this.getHeaders('application/json', {
-            sessionToken: options?.sessionToken,
+            accessToken: options?.accessToken,
             customToken: options?.testToken,
         });
 
-        const pageSize = options?.pageSize || 50;
+        const pageSize = options?.pageSize || 100;
         const pageOffset = 0;
-        const url = `${KSEF_BASE_URL}/v2/invoices/query/metadata?pageSize=${pageSize}&pageOffset=${pageOffset}`;
+        
+        // KSeF JWT v2 Query Metadata: /v2/invoices/query/metadata (No query params, all in body)
+        const url = `${KSEF_BASE_URL}/v2/invoices/query/metadata`;
+        
         console.log(`[KSeF_SERVICE] POST ${url}...`);
-        console.log(`[KSeF_SERVICE_ENV] Current API Environment: ${KSEF_BASE_URL}`);
 
         const isSales = (options?.subjectType === 'subject1');
 
-        // KSeF API /invoices/query/metadata wymaga strefy Z i najlepiej formatu bez milisekund: YYYY-MM-DDTHH:mm:ssZ
-        const fromIso = new Date(from).toISOString().replace(/\.\d{3}Z$/, 'Z');
-        const toIso = new Date(to).toISOString().replace(/\.\d{3}Z$/, 'Z');
+        // Helper to format date with +01:00 as requested by the "Instruction service"
+        const formatKSeFDate = (isoStr: string, isEnd: boolean) => {
+            const d = new Date(isoStr);
+            const pad = (n: number) => n.toString().padStart(2, '0');
+            const datePart = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            const timePart = isEnd ? "23:59:59" : "00:00:00";
+            return `${datePart}T${timePart}+01:00`;
+        };
 
         const bodyPayload = {
-            subjectType: options?.subjectType || 'subject2', // Domyślnie Nabywca (Koszt)
-            dateRange: {
-                dateType: isSales ? "issue" : "acquisition",
-                from: fromIso,
-                to: toIso
+            filters: {
+                dateRange: {
+                    dateType: "issue",
+                    from: formatKSeFDate(from, false),
+                    to: formatKSeFDate(to, true)
+                },
+                subjectType: options?.subjectType || 'subject2',
+                invoiceType: isSales ? "sale" : "purchase"
+            },
+            paging: {
+                offset: pageOffset,
+                limit: pageSize
             }
         };
 
-        const tokenUsed = headers['SessionToken'];
-        console.log(`[KSeF_DEBUG] Using Token (last 4 chars): ${tokenUsed ? tokenUsed.slice(-4) : 'NULL'}`);
-        console.log(`[KSeF_DEBUG] Sending ${options?.subjectType || 'subject2'} Query:`, JSON.stringify(bodyPayload));
+        console.log(`[KSeF_DEBUG] Sending JWT v2 Query:`, JSON.stringify(bodyPayload, null, 2));
 
         const res = await fetch(url, {
             method: 'POST',
             headers: {
-                'SessionToken': tokenUsed,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
+                ...headers
             },
             body: JSON.stringify(bodyPayload),
         });
@@ -370,11 +384,11 @@ export class KSeFService {
     /**
      * Fetch & Parse XML for a given KSeF reference number
      */
-    async fetchAndParse(ksefNumber: string, options?: { sessionToken?: string; testToken?: string }): Promise<KsefParsedInvoice> {
+    async fetchAndParse(ksefNumber: string, options?: { accessToken?: string; testToken?: string }): Promise<KsefParsedInvoice> {
         console.log(`[KSeF_SERVICE] Step 6: Fetching detail XML for ${ksefNumber}...`);
 
         const headers = await this.getHeaders('application/xml', {
-            sessionToken: options?.sessionToken,
+            accessToken: options?.accessToken,
             customToken: options?.testToken,
         });
 
