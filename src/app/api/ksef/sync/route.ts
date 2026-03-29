@@ -123,6 +123,8 @@ export async function GET() {
                     }
                 });
 
+                console.log("[PRISMA_SUCCESS] Saved invoice (Sync):", ksefId);
+
                 results.push({
                     id: savedInvoice.id,
                     ksefId: ksefId,
@@ -134,7 +136,8 @@ export async function GET() {
 
                 savedCount++;
             } catch (err: unknown) {
-                console.error(`[KSeF_SHALLOW_SYNC_ERROR] ${item.invoiceReferenceNumber}:`, (err as Error).message);
+                console.error("[PRISMA_UPSERT_ERROR] Failed during Sync for KSeF Number:", (item as any).ksefNumber, err);
+                console.error(`[KSeF_SYNC_DEBUG] Item details: Direction=${(item as any)._apiDirection}, NIP=${(item as any).seller?.nip || (item as any).buyer?.identifier?.value}`);
             }
         }
 

@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
                 }
 
                 // 4b. Invoice Upsert (ksefId as key)
-                const amountGross = new Decimal(item.grossAmount || 0);
+                const amountGross = new Decimal(item.grossGrossAmount || item.grossAmount || 0);
                 const amountNet = new Decimal(item.netAmount || 0);
                 const vatAmount = new Decimal(item.vatAmount || 0);
 
@@ -144,6 +144,7 @@ export async function GET(request: NextRequest) {
                     }
                 });
 
+                console.log("[PRISMA_SUCCESS] Saved invoice:", ksefId);
                 savedCount++;
                 results.push({
                     ksefId,
@@ -152,7 +153,9 @@ export async function GET(request: NextRequest) {
                     amount: amountGross.toString()
                 });
             } catch (err: unknown) {
-                console.error(`[KSeF_API_INVOICES] Item mapping error for ${item.ksefNumber}:`, err);
+                console.error("[PRISMA_UPSERT_ERROR] Failed for KSeF Number:", (item as any).ksefNumber, err);
+                // Also log more metadata for debugging
+                console.error(`[KSeF_MAPPING_DEBUG] Item details: Direction=${(item as any)._apiDirection}, NIP=${(item as any).seller?.nip || (item as any).buyer?.identifier?.value}`);
             }
         }
 
