@@ -194,7 +194,7 @@ export class KSeFService {
         const bodyPayload = {
             contextIdentifier: {
                 type: "nip",
-                identifier: targetNip
+                value: targetNip
             },
             challenge,
             encryptedToken
