@@ -346,12 +346,13 @@ export class KSeFService {
             }
         };
 
-        console.log(`[KSeF_DEBUG] Sending JWT v2 Query:`, JSON.stringify(bodyPayload, null, 2));
+        const rawBody = JSON.stringify(bodyPayload);
+        console.log(`[KSeF_DEBUG] RAW BODY TO KSeF:`, rawBody);
 
         const res = await fetch(url, {
             method: 'POST',
             headers,
-            body: JSON.stringify(bodyPayload),
+            body: rawBody,
             signal: AbortSignal.timeout(25000)
         });
 

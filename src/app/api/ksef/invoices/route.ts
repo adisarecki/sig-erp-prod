@@ -16,6 +16,13 @@ export async function GET(request: NextRequest) {
         const dateTo = searchParams.get('dateTo') || new Date().toISOString();
         const page = parseInt(searchParams.get('page') || '1');
         const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '50'), 50); // KSeF limit is 50
+        
+        console.log('[KSEF_API_INVOICES] INPUT options:', {
+            dateFrom,
+            dateTo,
+            pageSize,
+            page
+        });
 
         const tenantId = await getCurrentTenantId();
         const ksefSvc = new KSeFService();
