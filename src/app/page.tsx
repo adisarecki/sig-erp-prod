@@ -123,11 +123,12 @@ export default async function DashboardPage({
   const contractorsMap: Record<string, string> = {}
   contractors.forEach((c: any) => { contractorsMap[c.id] = c.name })
 
-  // AGREGACJA TRANSAKCJI (BILANS KASOWY)
+  // AGREGACJA TRANSAKCJI I FAKTUR (UNIFIED VIEW - Vector 097)
   let realCashIncomes = new Decimal(0)
   let realCashCosts = new Decimal(0)
   let totalGeneralCosts = new Decimal(0)
 
+  // 1. Zliczanie z Transakcji (Bank/Manual)
   transactions.forEach(tx => {
     const txDate = new Date(tx.transactionDate)
     if (startDate && txDate < startDate) return
@@ -141,8 +142,30 @@ export default async function DashboardPage({
     } else if (isExpense) {
       const amount = new Decimal(tx.amount)
       realCashCosts = realCashCosts.plus(amount)
-      
       if (tx.classification === 'GENERAL_COST' || !tx.projectId) {
+        totalGeneralCosts = totalGeneralCosts.plus(amount)
+      }
+    }
+  })
+
+  // 2. Zliczanie z Faktur Nieopłaconych (Zobowiązania - by Dashboard match Finance)
+  // Unikamy podwójnego liczenia faktur już opłaconych (które są w transactions)
+  allInvoices.forEach(inv => {
+    if (inv.status === 'PAID') return; // Te są już w transactions
+
+    const issueDate = new Date(inv.issueDate)
+    if (startDate && issueDate < startDate) return
+    if (endDate && issueDate > endDate) return
+
+    const isIncome = inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE'
+    const isExpense = inv.type === 'KOSZT' || inv.type === 'ZAKUP' || inv.type === 'EXPENSE'
+
+    if (isIncome) {
+      // Opcjonalnie: możemy doliczyć oczekiwane przychody do bilansu, ale zostawiamy Cash Basis dla przychodów
+    } else if (isExpense) {
+      const amount = new Decimal(inv.amountGross) // Liczymy Brutto dla bilansu gotówkowego/bezpieczeństwa
+      realCashCosts = realCashCosts.plus(amount)
+      if (!inv.projectId) {
         totalGeneralCosts = totalGeneralCosts.plus(amount)
       }
     }
@@ -270,7 +293,7 @@ export default async function DashboardPage({
             title: `Wpływ: ${inv.externalId || 'Faktura'}`,
             amount: Number(inv.amountGross),
             date: invDueDate,
-            type: invDueDate < now ? 'Zaległość' : 'Oczekujący wpływ',
+            type: invDueDate < now ? 'ZALEGŁA' : 'Oczekujący wpływ',
             contractor: contractorsMap[inv.contractorId] || 'Nieznany',
             isIncome: true,
             invoiceNumber: inv.externalId
@@ -292,7 +315,7 @@ export default async function DashboardPage({
             title: `Koszt: ${inv.invoiceNumber || inv.ksefId || 'Faktura'}`,
             amount: Number(inv.amountGross),
             date: invDueDate,
-            type: invDueDate < now ? 'Zaległość' : 'Do zapłaty',
+            type: invDueDate < now ? 'ZALEGŁA' : 'Do zapłaty',
             contractor: inv.contractor?.name || 'Nieznany',
             isIncome: false,
             invoiceNumber: inv.invoiceNumber || inv.ksefId || undefined

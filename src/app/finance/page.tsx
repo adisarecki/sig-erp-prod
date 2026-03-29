@@ -157,7 +157,7 @@ export default async function FinancePage({
                         displayDate = linkedTx.transactionDate
                     }
                 } else if (dueDate < now) {
-                    badge = 'OPÓŹNIONA'
+                    badge = 'ZALEGŁA'
                     color = 'bg-rose-100 text-rose-700'
                 }
 
@@ -286,6 +286,45 @@ export default async function FinancePage({
                     projectsMap={Object.fromEntries(projectsMap.map(p => [p.id, p.name]))}
                     allProjects={projectsMap}
                 />
+                
+                {/* FOOTER SUMMARY BAR (Vector 097) */}
+                <div className="bg-slate-900 text-white px-8 py-6 flex flex-col lg:flex-row justify-between items-center gap-6 border-t-4 border-indigo-500 rounded-b-xl">
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Podsumowanie Widoku</span>
+                        <span className="text-xs text-slate-400 font-medium italic">
+                            {activeFilter === 'PROJECT' ? 'Wyfiltrowano: Tylko Koszty Projektowe' : activeFilter === 'GENERAL' ? 'Wyfiltrowano: Tylko Koszty Ogólne' : 'Bilans wszystkich dokumentów'}
+                        </span>
+                    </div>
+                    
+                    <div className="flex flex-wrap justify-center lg:justify-end gap-8 lg:gap-14">
+                        <div className="text-center sm:text-right">
+                            <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1">Netto (Razem)</p>
+                            <p className="text-xl font-black text-indigo-100 italic">
+                                {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(
+                                    transactions.reduce((sum, t) => sum + (t.amountNet || 0), 0)
+                                )}
+                            </p>
+                        </div>
+                        
+                        <div className="text-center sm:text-right">
+                            <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1">VAT (Podatek)</p>
+                            <p className="text-xl font-black text-rose-400">
+                                {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(
+                                    transactions.reduce((sum, t) => sum + ((t.amount || 0) - (t.amountNet || 0)), 0)
+                                )}
+                            </p>
+                        </div>
+                        
+                        <div className="text-center sm:text-right border-l border-slate-700 pl-8">
+                            <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1">Brutto (DO ZAPŁATY/SUMA)</p>
+                            <p className="text-3xl font-black text-emerald-400 drop-shadow-sm">
+                                {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(
+                                    transactions.reduce((sum, t) => sum + (t.amount || 0), 0)
+                                )}
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

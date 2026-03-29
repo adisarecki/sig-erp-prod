@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { getCurrentTenantId } from "@/lib/tenant";
 import Decimal from "decimal.js";
 import { syncInvoiceToFirestore, syncContractorToFirestore } from "@/lib/finance/sync-utils";
+import { recalculateProjectBudget } from "@/app/actions/projects";
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // Deep XML Sync can be slow for many records
@@ -56,6 +57,11 @@ export async function POST(request: NextRequest) {
 
                 // 3. Atomowa aktualizacja Prisma (Invoice + KsefInvoice + Contractor)
                 await prisma.$transaction(async (tx) => {
+                    // Wyznaczenie kontrahenta na podstawie typu (Vector 094)
+                    const isExpense = invoice.type === 'EXPENSE' || invoice.type === 'ZAKUP';
+                    const targetNip = isExpense ? parsed.sellerNip : parsed.buyerNip;
+                    const targetName = isExpense ? parsed.sellerName : parsed.buyerName;
+
                     // a) Główne dane faktury
                     const updatedInvoice = await tx.invoice.update({
                         where: { id: invoice.id },
@@ -79,8 +85,8 @@ export async function POST(request: NextRequest) {
                             ksefNumber: invoice.ksefId!,
                             invoiceNumber: parsed.invoiceNumber,
                             issueDate: parsed.issueDate,
-                            counterpartyNip: parsed.counterpartyNip,
-                            counterpartyName: parsed.counterpartyName,
+                            counterpartyNip: String(targetNip),
+                            counterpartyName: String(targetName),
                             netAmount: parsed.netAmount,
                             vatAmount: parsed.vatAmount,
                             grossAmount: parsed.grossAmount,
@@ -93,10 +99,15 @@ export async function POST(request: NextRequest) {
                         }
                     });
 
-                    // c) Wzbogacenie Kontrahenta (np. o nowe konta bankowe z XML)
-                    // Wyciągamy konta z XML (jeśli są)
-                    const xmlParsed = (parsed as any).lineItems; // Uproszczenie, w realnym XML konta są w Podmiot1
-                    // Tu możemy dodać logikę wyciągania kont, ale na razie skupmy się na sync-drift
+                    // c) Wzbogacenie Kontrahenta (Healing Vector 095)
+                    // Jeżeli kontrahent był "Nieznany", aktualizujemy go danymi z XML
+                    if (updatedInvoice.contractor.nip === targetNip && 
+                        (!updatedInvoice.contractor.name || updatedInvoice.contractor.name === 'Nieznany Kontrahent')) {
+                        await tx.contractor.update({
+                            where: { id: updatedInvoice.contractor.id },
+                            data: { name: targetName }
+                        });
+                    }
 
                     // 4. [HEALING] Dual-Sync: Wymuszenie zapisu do Firestore
                     // To naprawia "Drift" - jeśli faktury nie było w FS, set() z merge:true ją stworzy.
@@ -111,6 +122,15 @@ export async function POST(request: NextRequest) {
                     });
 
                     await syncContractorToFirestore(updatedInvoice.contractor);
+
+                    // 5. Rekalkulacja Budżetu (jeśli przypisana do projektu)
+                    if (updatedInvoice.projectId) {
+                        try {
+                            await recalculateProjectBudget(updatedInvoice.projectId);
+                        } catch (recalcError) {
+                            console.warn(`[DEEP_SYNC_RECALC_WARN] Failed to recalc budget for ${updatedInvoice.projectId}`);
+                        }
+                    }
                 });
 
                 processedCount++;

@@ -47,12 +47,12 @@ export async function GET() {
 
                 if (isIncome) {
                     const buyer = (item as any).buyer || item.subject2;
-                    nip = (buyer as any)?.identifier?.value || '0000000000';
-                    name = buyer?.name || 'Nieznany Kontrahent';
+                    nip = String((buyer as any)?.identifier?.value || '0000000000');
+                    name = String(buyer?.name || 'Nieznany Kontrahent');
                 } else {
                     const seller = (item as any).seller || item.subject1;
-                    nip = (seller as any)?.nip || '0000000000';
-                    name = seller?.name || 'Nieznany Kontrahent';
+                    nip = String((seller as any)?.nip || '0000000000');
+                    name = String(seller?.name || 'Nieznany Kontrahent');
                 }
 
                 // 4a. Contractor Sync

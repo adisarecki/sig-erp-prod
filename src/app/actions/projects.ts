@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { getAdminDb } from "@/lib/firebaseAdmin"
 import prisma from "@/lib/prisma"
+import Decimal from "decimal.js"
 import { syncRetentionsFromProject } from "./retentions"
 import { createNotification } from "./notifications"
 
@@ -50,7 +51,7 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
         const tenantId = await getCurrentTenantId()
         let targetObjectId = objectId
 
-        if (!targetObjectId) {
+        if (!targetObjectId || targetObjectId === "") {
             const objectsSnap = await adminDb.collection("objects")
                 .where("contractorId", "==", contractorId)
                 .limit(1)
@@ -154,6 +155,66 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
     } catch (error: any) {
         console.error("[PROJECT_ADD_ERROR]", error)
         return { success: false, error: error.message || "Błąd podczas dodawania projektu." }
+    }
+}
+
+/**
+ * REKALKULACJA BUDŻETU PROJEKTU (DNA Vector 096)
+ * Sumuje wszystkie powiązane koszty (Invoices + Transactions) i aktualizuje budgetUsed.
+ */
+export async function recalculateProjectBudget(projectId: string) {
+    if (!projectId) return;
+
+    try {
+        const tenantId = await getCurrentTenantId()
+        
+        // 1. Sumuj faktury kosztowe (EXPENSE/KOSZT) - Netto
+        const invoices = await prisma.invoice.findMany({
+            where: {
+                projectId,
+                tenantId,
+                type: { in: ['EXPENSE', 'KOSZT', 'ZAKUP'] }
+            },
+            select: { amountNet: true }
+        })
+        const invoicesTotal = invoices.reduce((sum, inv) => sum.plus(inv.amountNet), new Decimal(0))
+
+        // 2. Sumuj transakcje bankowe kosztowe (EXPENSE/KOSZT) - Netto
+        // Bank import transactions are usually Net = Gross = amount or handled via classification
+        const transactions = await prisma.transaction.findMany({
+            where: {
+                projectId,
+                tenantId,
+                type: { in: ['EXPENSE', 'KOSZT', 'WYDATEK'] },
+                status: 'ACTIVE'
+            },
+            select: { amount: true }
+        })
+        const transactionsTotal = transactions.reduce((sum, tx) => sum.plus(new Decimal(tx.amount)), new Decimal(0))
+
+        const totalUsed = invoicesTotal.plus(transactionsTotal)
+
+        // 3. Update Project
+        await prisma.project.update({
+            where: { id: projectId },
+            data: { budgetUsed: totalUsed }
+        })
+
+        // 4. Firestore Mirror Update
+        const adminDb = getAdminDb()
+        await adminDb.collection("projects").doc(projectId).update({
+            budgetUsed: totalUsed.toNumber(),
+            updatedAt: new Date().toISOString()
+        })
+
+        console.log(`[BUDGET_RECALC] Project: ${projectId} | Total Used: ${totalUsed.toNumber()} PLN`)
+        
+        revalidatePath("/projects")
+        revalidatePath("/finance")
+        revalidatePath("/")
+        
+    } catch (error) {
+        console.error("[BUDGET_RECALC_ERROR]", error)
     }
 }
 

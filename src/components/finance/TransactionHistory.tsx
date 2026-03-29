@@ -2,7 +2,7 @@
 
 import { Trash2, ArrowUpRight, ArrowDownRight, Link as LinkIcon, Loader2, X, AlertTriangle, FileText, Calendar, Building2, Briefcase, Info, Sparkles, CheckCircle } from "lucide-react"
 import { assignTransactionToProject, deleteTransaction } from "../../app/actions/transactions"
-import { deleteInvoice, markInvoiceAsPaid } from "../../app/actions/invoices"
+import { assignInvoiceToProject, deleteInvoice, markInvoiceAsPaid } from "../../app/actions/invoices"
 import { useState } from "react"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 import {
@@ -95,12 +95,15 @@ export function TransactionHistory({
         }
     }
 
-    const handleAssign = async (transactionId: string, projectId: string) => {
+    const handleAssign = async (itemId: string, projectId: string, isInvoice: boolean) => {
         if (!projectId) return
         
-        setAssigningId(transactionId)
+        setAssigningId(itemId)
         try {
-            const result = await assignTransactionToProject(transactionId, projectId)
+            const result = isInvoice 
+                ? await assignInvoiceToProject(itemId, projectId)
+                : await assignTransactionToProject(itemId, projectId)
+
             if (!result.success) {
                 alert(result.error || "Błąd podczas przypisywania do projektu.")
             }
@@ -186,25 +189,23 @@ export function TransactionHistory({
                                             <div className="flex items-center gap-2">
                                                 <span className="italic text-slate-400 shrink-0">Brak przypisania</span>
                                                 <div className="pointer-events-auto">
-                                                    {!t.isInvoice && (
-                                                        assigningId === t.id ? (
-                                                            <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                                                        ) : (
-                                                            <select 
-                                                                className="text-xs bg-white border border-slate-200 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer hover:border-blue-300 transition-colors"
-                                                                onChange={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleAssign(t.id, e.target.value);
-                                                                }}
-                                                                onClick={(e) => e.stopPropagation()}
-                                                                defaultValue=""
-                                                            >
-                                                                <option value="" disabled>Przypisz Projekt...</option>
-                                                                {allProjects.map(p => (
-                                                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                                                ))}
-                                                            </select>
-                                                        )
+                                                    {assigningId === t.id ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                                                    ) : (
+                                                        <select 
+                                                            className="text-xs bg-white border border-slate-200 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer hover:border-blue-300 transition-colors"
+                                                            onChange={(e) => {
+                                                                e.stopPropagation();
+                                                                handleAssign(t.id, e.target.value, t.isInvoice);
+                                                            }}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            defaultValue=""
+                                                        >
+                                                            <option value="" disabled>Przypisz Projekt...</option>
+                                                            {allProjects.map(p => (
+                                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                                            ))}
+                                                        </select>
                                                     )}
                                                 </div>
                                             </div>

@@ -6,6 +6,8 @@ import { validateNonZero } from "@/lib/ledger"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { getAdminDb } from "@/lib/firebaseAdmin"
 import prisma from "@/lib/prisma"
+import { recalculateProjectBudget } from "./projects"
+import { syncRetentionsFromProject } from "./retentions"
 import { syncInvoiceToFirestore } from "../../lib/finance/sync-utils"
 
 
@@ -1018,5 +1020,37 @@ export async function addCostInvoice(formData: FormData) {
     } catch (error: unknown) {
         console.error("[ADD_COST_INVOICE_ERROR]", error)
         return { success: false, error: error instanceof Error ? error.message : "Wystąpił błąd przy dodawaniu kosztu." }
+    }
+}
+
+/**
+ * PRZYPISANIE FAKTURY DO PROJEKTU (DNA Vector 096)
+ */
+export async function assignInvoiceToProject(invoiceId: string, projectId: string) {
+    if (!invoiceId || !projectId) throw new Error("ID faktury oraz ID projektu są wymagane.")
+
+    try {
+        const tenantId = await getCurrentTenantId()
+        const adminDb = getAdminDb()
+
+        // 1. Prisma Update
+        await prisma.invoice.update({
+            where: { id: invoiceId, tenantId },
+            data: { projectId }
+        })
+
+        // 2. Firestore Sync (Mirror)
+        await adminDb.collection("invoices").doc(invoiceId).update({
+            projectId,
+            updatedAt: new Date().toISOString()
+        })
+
+        // 3. Rekalkulacja Budżetu Projektu
+        await recalculateProjectBudget(projectId)
+
+        return { success: true }
+    } catch (error: any) {
+        console.error("[ASSIGN_INVOICE_ERROR]", error)
+        return { success: false, error: error.message || "Nie udało się przypisać faktury do projektu." }
     }
 }

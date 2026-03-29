@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { getAdminDb } from "@/lib/firebaseAdmin"
 import prisma from "@/lib/prisma"
+import Decimal from "decimal.js"
+import { recalculateProjectBudget } from "./projects"
+import { syncRetentionsFromProject } from "./retentions"
 
 export async function deleteTransaction(id: string): Promise<{ success: boolean, error?: string }> {
     try {
@@ -124,9 +127,7 @@ export async function assignTransactionToProject(transactionId: string, projectI
             }
         })
 
-        revalidatePath("/finance")
-        revalidatePath("/projects")
-        revalidatePath("/")
+        await recalculateProjectBudget(projectId)
 
         return { success: true }
     } catch (error: any) {

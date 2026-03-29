@@ -224,7 +224,7 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
                                             <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${
                                                 inv.paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'
                                             }`}>
-                                                {inv.paymentStatus === 'PAID' ? 'Opłacono' : 'Zaległość'}
+                                                {inv.paymentStatus === 'PAID' ? 'Opłacono' : 'Zaległa'}
                                             </span>
                                         </td>
                                     </tr>

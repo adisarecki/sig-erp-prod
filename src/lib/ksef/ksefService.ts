@@ -110,6 +110,8 @@ export interface KsefParsedInvoice {
     sellerName: string;
     sellerAddress: string;
     sellerBankAccount: string | null;
+    buyerNip: string;
+    buyerName: string;
     ksefType: string;
     dueDate: Date;
     paymentStatus: 'PAID' | 'UNPAID';
@@ -474,16 +476,18 @@ export class KSeFService {
         const grossAmount = new Decimal(fa.P_15 || 0);
 
         return {
-            ksefNumber,
+            ksefNumber: String(ksefNumber),
             invoiceNumber: String(fa.P_2 || 'Unknown'),
             issueDate: new Date(fa.P_1),
             dueDate: new Date(fa.P_1),
-            counterpartyNip: String(nabywca?.NIP || 'Brak'),
-            counterpartyName: String(nabywca?.Nazwa || 'Brak'),
-            sellerNip: String(sprzedawca.NIP || 'Brak'),
-            sellerName: String(sprzedawca.Nazwa || 'Brak'),
+            sellerNip: String(sprzedawca?.NIP || 'Brak'),
+            sellerName: String(sprzedawca?.Nazwa || 'Brak'),
             sellerAddress: String(faktura.Podmiot1?.Adres?.AdresL1 || 'Brak adresu'),
             sellerBankAccount: null,
+            buyerNip: String(nabywca?.NIP || 'Brak'),
+            buyerName: String(nabywca?.Nazwa || 'Brak'),
+            counterpartyNip: String(nabywca?.NIP || 'Brak'), // Legacy compatibility
+            counterpartyName: String(nabywca?.Nazwa || 'Brak'), // Legacy compatibility
             ksefType: String(rodzajFaktury || 'VAT'),
             netAmount,
             vatAmount: grossAmount.minus(netAmount),
