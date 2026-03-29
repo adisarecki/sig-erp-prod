@@ -95,11 +95,14 @@ export class KSeFService {
 
         console.log(`[KSeF_SERVICE] Step 1: KSeF-Token Init (Raw Token) for NIP: ${targetNip}...`);
 
+        const bodyPayload = { token: targetToken };
+        console.log('[KSeF_DEBUG] AUTH BODY:', JSON.stringify(bodyPayload, null, 2));
+
         // KROK 1: KSeF-Token Init (Raw Token as per Auditor Instruction)
         const initRes = await fetch(`${KSEF_BASE_URL}/v2/auth/ksef-token`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: targetToken }),
+            body: JSON.stringify(bodyPayload),
             signal: AbortSignal.timeout(25000)
         });
 

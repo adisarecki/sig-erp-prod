@@ -51,6 +51,7 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 
 **Zoptymalizowany, 3-etapowy standard Handshake KSeF (Clean Cut):**
 1.  **Inicjalizacja (Init)**: Wysłanie surowego tokena (`POST /v2/auth/ksef-token`) – otrzymujemy `authenticationToken` oraz `referenceNumber`.
+    - **UWAGA KRYTYCZNA**: Endpoint przyjmuje **WYŁĄCZNIE** obiekt `{ "token": "..." }`. Przesłanie jakichkolwiek dodatkowych pól (nawet pustych) skutkuje błędem 400.
 2.  **Pancerny Polling (Weryfikacja)**: Odpytywanie `GET /v2/auth/{referenceNumber}` (max 150 prób, co 2s) aż do uzyskania statusu **200 (OK)** lub przerwaniu przy **450 (Błąd Tokena)**.
 3.  **Redeem (Finalizacja JWT)**: Wymiana na ostateczny `accessToken` (`POST /v2/auth/token/redeem`) – puste body, nagłówek Bearer.
 
