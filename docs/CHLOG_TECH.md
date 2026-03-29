@@ -62,6 +62,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 087 | KSeF / Architecture| FIXED | JWT Manager & Persistence Architecture. | Wdrożono `KsefSessionManager` z obsługą `refreshToken` w bazie Prisma. Implementacja logiki "Check & Refresh" (JWT decode) dla automatyzacji procesów w tle. |
 | Vector 088 | KSeF / Architecture| FIXED | Metadata Query Typo (sale -> sales) & JWT Integration. | Naprawiono błąd 400 (21405) poprzez zmianę `invoiceType` na `sales` (plural). Pełna integracja `KsefSessionManager` z endpointem `/api/ksef/invoices`. |
 | Vector 093 | KSeF / Architecture| FIXED | Stage 1: Shallow Sync (Płytki Sync). | Wdrożono flow: Metadata -> Upsert Contractor (PENDING) -> Upsert Invoice (XML_MISSING). Izolacja Prisma-only. Priorytet nazwy systemowej Kontrahenta. Obsługa kwot 0 PLN. |
+| Vector 094 | KSeF / UI Bugfix    | FIXED | Quick Sync UI Fix. | Rozwiązano problem "cichego błędu" w `/api/ksef/invoices`. Zaktualizowano mapowanie pól (subject1/2) pod KSeF v2.0. Poprawiono obsługę błędów (success: false), co pozwala UI wyświetlić komunikat o błędzie. |
 
 ---
 *Ostatnia aktywność techniczna: 2026-03-29. Build Verified (TSC: OK).*

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { KSeFService } from '@/lib/ksef/ksefService';
 import { KsefSessionManager } from '@/lib/ksef/ksefSessionManager';
+import Decimal from 'decimal.js';
 import prisma from "@/lib/prisma";
 import { getCurrentTenantId } from "@/lib/tenant";
 
@@ -62,73 +63,86 @@ export async function GET(request: NextRequest) {
         
         const combinedList = [...salesResponse, ...expensesResponse];
         
-        // 4. Mappowanie wyników i ZAPIS DO PRISMA (Szybki Sync)
+        // 4. Mappowanie wyników i ZAPIS DO PRISMA (Szybki Sync) - Płytki Sync
         let savedCount = 0;
+        const results = [];
 
         for (const item of combinedList) {
-            const ksefReferenceNumber = item.invoiceReferenceNumber || item.ksefReferenceNumber;
-            if (!ksefReferenceNumber) continue;
+            try {
+                const ksefId = item.invoiceReferenceNumber;
+                if (!ksefId) continue;
 
-            // Extract Contractor data safely checking KSeF API variations:
-            const sellerNip = item.subjectBy?.issuedByIdentifier?.identifier || item.sellerNip || "Nieznany";
-            const sellerName = item.subjectBy?.issuedByName?.tradeName || item.sellerName || "Nieznany";
-            const buyerNip = item.subjectTo?.issuedByIdentifier?.identifier || item.buyerNip || "Mój Tenant";
-            const buyerName = item.subjectTo?.issuedByName?.tradeName || item.buyerName || "Mój Tenant";
+                // Determine Counterparty (Subject1 is always Seller, Subject2 is always Buyer)
+                // If it's REVENUE (User is Seller/Subject1), counterparty is Subject2 (Buyer)
+                // If it's EXPENSE (User is Buyer/Subject2), counterparty is Subject1 (Seller)
+                const isRevenue = item._apiDirection === "REVENUE";
+                const counterparty = isRevenue ? item.subject2 : item.subject1;
+                
+                const nip = counterparty?.issuedByIdentifier?.value || '0000000000';
+                const name = counterparty?.issuedByName || 'Nieznany Kontrahent';
 
-            const isRevenue = item._apiDirection === "REVENUE";
-            const counterpartyNip = isRevenue ? buyerNip : sellerNip;
-            const counterpartyName = isRevenue ? buyerName : sellerName;
+                // 4a. Contractor Upsert (NIP as key)
+                let contractor = await prisma.contractor.findUnique({
+                    where: { tenantId_nip: { tenantId, nip } }
+                });
 
-            // Find or Create PENDING Contractor (Płytki Profil z API)
-            let contractor = await prisma.contractor.findUnique({
-                where: { tenantId_nip: { tenantId, nip: counterpartyNip } }
-            });
+                if (!contractor) {
+                    contractor = await prisma.contractor.create({
+                        data: {
+                            tenantId,
+                            nip,
+                            name,
+                            status: 'PENDING',
+                            type: isRevenue ? 'KLIENT' : 'DOSTAWCA'
+                        }
+                    });
+                } else if (!contractor.name || contractor.name === 'Nieznany Kontrahent' || contractor.name === '') {
+                    // Update name only if empty
+                    contractor = await prisma.contractor.update({
+                        where: { id: contractor.id },
+                        data: { name }
+                    });
+                }
 
-            if (!contractor) {
-                contractor = await prisma.contractor.create({
-                    data: {
+                // 4b. Invoice Upsert (ksefId as key)
+                const amountGross = new Decimal(item.grossAmount || 0);
+                const amountNet = new Decimal(item.netAmount || 0);
+                const vatAmount = new Decimal(item.vatAmount || 0);
+
+                await prisma.invoice.upsert({
+                    where: { ksefId },
+                    create: {
                         tenantId,
-                        nip: counterpartyNip,
-                        name: counterpartyName,
-                        status: "PENDING",
-                        type: isRevenue ? "KLIENT" : "DOSTAWCA",
+                        contractorId: contractor.id,
+                        ksefId,
+                        invoiceNumber: item.invoiceNumber || 'OCZEKUJE',
+                        type: isRevenue ? 'REVENUE' : 'EXPENSE',
+                        amountNet,
+                        amountGross,
+                        taxRate: amountNet.isZero() ? new Decimal(0) : vatAmount.div(amountNet).toDecimalPlaces(4),
+                        issueDate: new Date(item.issueDate || Date.now()),
+                        dueDate: new Date(item.issueDate || Date.now()),
+                        paymentStatus: 'UNPAID',
+                        status: 'XML_MISSING',
+                        ksefType: 'VAT'
+                    },
+                    update: {
+                        status: 'XML_MISSING',
+                        updatedAt: new Date()
                     }
                 });
+
+                savedCount++;
+                results.push({
+                    ksefId,
+                    invoiceNumber: item.invoiceNumber,
+                    seller: name,
+                    amount: amountGross.toString(),
+                    status: "XML_MISSING"
+                });
+            } catch (err: unknown) {
+                console.error(`[KSeF_API_INVOICES] Item error for ${item.invoiceReferenceNumber}:`, err);
             }
-
-            // Mamy net/vat/gross z itemu (KSeF doc expects net/gross/vat directly)
-            const netAmount = parseFloat(item.net || item.netAmount || "0");
-            const grossAmount = parseFloat(item.gross || item.grossAmount || "0");
-            let taxRateValue = 0;
-            if (netAmount > 0) {
-                taxRateValue = (grossAmount - netAmount) / netAmount;
-            }
-
-            const invoiceNumber = item.invoiceNumber || "Oczekuje na XML";
-            const issueDate = item.invoicingDate ? new Date(item.invoicingDate).toISOString() : new Date().toISOString();
-
-            // Szybki upsert do bazy danych ze statusem XML_MISSING
-            await prisma.invoice.upsert({
-                where: { ksefId: ksefReferenceNumber },
-                create: {
-                    tenantId,
-                    contractorId: contractor.id,
-                    ksefId: ksefReferenceNumber,
-                    invoiceNumber: invoiceNumber,
-                    type: isRevenue ? "REVENUE" : "EXPENSE",
-                    amountNet: netAmount,
-                    amountGross: grossAmount,
-                    taxRate: Number.isNaN(taxRateValue) ? 0 : taxRateValue,
-                    issueDate: new Date(issueDate),
-                    dueDate: new Date(issueDate), // Domyślnie równa issueDate dopóki XML nie dociągnie `dueDate`
-                    paymentStatus: "UNPAID",
-                    status: "XML_MISSING" // UWAGA: Oznacza, że faktura czeka na pełne pobranie XML
-                },
-                update: {
-                    // Celowo puste, Header ma być tylko wrzutką, chyba że status to nadal XML_MISSING (wtedy the XML fetch wasn't run)
-                }
-            });
-            savedCount++;
         }
 
         return NextResponse.json({
@@ -138,22 +152,23 @@ export async function GET(request: NextRequest) {
                 total: combinedList.length,
                 page,
                 pageSize,
-                message: combinedList.length === 50 ? "Osiągnięto limit strony (50). Użyj filtrów daty, aby zobaczyć więcej." : `Pobrano ${combinedList.length} nagłówków. Zapisano ${savedCount} sztuk.`
+                message: combinedList.length === 50 ? "Osiągnięto limit strony (50). Użyj filtrów daty, aby zobaczyć więcej." : `Pobrano ${combinedList.length} nagłówków. Zapisano ${savedCount} sztuk w systemie Prisma (XML_MISSING).`
             }
         });
 
     } catch (error: any) {
-        console.error('[KSeF_API_INVOICES] Error:', error);
+        console.error('[KSeF_API_INVOICES] Global Error:', error);
         
         return NextResponse.json({
-            success: true,
+            success: false,
+            error: error.message || "Błąd wewnętrzny serwera podczas synchronizacji.",
             savedCount: 0,
             pagination: {
                 total: 0,
                 page: 1,
                 pageSize: 50,
-                message: "Brak faktur lub błąd bezpiecznego połączenia (Wektor: 404)."
+                message: "Błąd połączenia z KSeF lub bazą danych."
             }
-        }, { status: 200 });
+        }, { status: 500 });
     }
 }
