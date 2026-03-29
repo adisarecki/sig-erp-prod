@@ -60,6 +60,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 085 | KSeF / Architecture| REVERT | Node.js Runtime compatibility fix. | Przywrócono standardowy Node.js runtime zamiast Edge, aby zachować pełną zgodność z modułem `crypto` i `X509Certificate`. Rozwiązano błąd Vercel Build "Module not found". |
 | Vector 086 | KSeF / Architecture| FIXED | Workflow V2.1 "Sztafeta" Implementation. | Wdrożono nowy protokół autoryzacji: KSeF-Token -> Polling z Bearer (authTok) -> Redeem. Dodano `AbortSignal.timeout(25000)` do wszystkich fetchy oraz przywrócono `runtime: 'edge'`. |
 | Vector 087 | KSeF / Architecture| FIXED | JWT Manager & Persistence Architecture. | Wdrożono `KsefSessionManager` z obsługą `refreshToken` w bazie Prisma. Implementacja logiki "Check & Refresh" (JWT decode) dla automatyzacji procesów w tle. |
+| Vector 088 | KSeF / Architecture| FIXED | Metadata Query Typo (sale -> sales) & JWT Integration. | Naprawiono błąd 400 (21405) poprzez zmianę `invoiceType` na `sales` (plural). Pełna integracja `KsefSessionManager` z endpointem `/api/ksef/invoices`. |
 
 ---
 *Ostatnia aktywność techniczna: 2026-03-29. Build Verified (TSC: OK).*

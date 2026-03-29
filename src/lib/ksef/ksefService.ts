@@ -332,7 +332,7 @@ export class KSeFService {
                     to: formatKSeFDate(to, true)
                 },
                 subjectType: options?.subjectType || 'subject2',
-                invoiceType: isSales ? "sale" : "purchase"
+                invoiceType: isSales ? "sales" : "purchase"
             },
             paging: {
                 offset: pageOffset,

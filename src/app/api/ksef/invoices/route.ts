@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { KSeFService } from '@/lib/ksef/ksefService';
+import { KsefSessionManager } from '@/lib/ksef/ksefSessionManager';
 import prisma from "@/lib/prisma";
 import { getCurrentTenantId } from "@/lib/tenant";
 
@@ -18,15 +19,16 @@ export async function GET(request: NextRequest) {
 
         const tenantId = await getCurrentTenantId();
         const ksefSvc = new KSeFService();
+        const sessionMgr = new KsefSessionManager();
         
-        // 2. Session Handshake (v2.0)
-        const sessionToken = await ksefSvc.getSessionToken();
+        // 2. Automated Session Management (JWT Manager / Check & Refresh)
+        const accessToken = await sessionMgr.ensureAccessToken(tenantId);
 
         // 3. Double-Fetch: Query Sales (subject1) & Expenses (subject2) concurrently
         const [salesResponse, expensesResponse] = await Promise.all([
             // REVENUE (Sprzedaż)
             ksefSvc.fetchInvoiceMetadata({ 
-                sessionToken,
+                accessToken,
                 dateFrom,
                 dateTo,
                 pageSize,
@@ -39,7 +41,7 @@ export async function GET(request: NextRequest) {
               
             // EXPENSE (Koszty) - Szeroki zakres dla testów (2026-01-01)
             ksefSvc.fetchInvoiceMetadata({ 
-                sessionToken,
+                accessToken,
                 dateFrom: "2026-01-01T00:00:00.000Z", // Wide range bypass (Zgodnie z poleceniem Wizjonera)
                 dateTo,
                 pageSize,
