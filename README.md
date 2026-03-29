@@ -49,15 +49,18 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 
 ## 🧾 4. Integracja KSeF (JWT v2, Produkcyjna, 2026)
 
-**Nowy, 5-etapowy standard Handshake KSeF JWT v2 (Zgodność z "Instrukcją Serwisową"):**
+**Nowy, 5-etapowy standard Handshake KSeF Workflow V2.1 (Sztafeta):**
 1.  **Challenge (Wyzwanie)**: Pobranie unikalnego `challenge` z serwerów MF (`POST /v2/auth/challenge`).
-2.  **Encryption (Szyfrowanie)**: Zaszyfrowanie tokena MF algorytmem **RSA-OAEP (SHA-256)** przy użyciu dynamicznego klucza publicznego.
-3.  **KSeF-Token (Inicjalizacja)**: Wstępna autoryzacja (`POST /v2/auth/ksef-token`) – otrzymujemy unikalny `referenceNumber`.
-4.  **Status Polling (Weryfikacja)**: **[NOWOŚĆ]** Odpytywanie `GET /v2/auth/{referenceNumber}` aż do uzyskania statusu **"Success"**. 
-5.  **Redeem (Finalizacja JWT)**: Wymiana na ostateczne tokeny `accessToken` i `refreshToken` (`POST /v2/auth/token/redeem`).
+2.  **Encryption (Szyfrowanie)**: Zaszyfrowanie tokena MF algorytmem **RSA-OAEP (SHA-256)**.
+3.  **KSeF-Token (Inicjalizacja)**: Wysłanie zaszyfrowanego tokena (`POST /v2/auth/ksef-token`) – otrzymujemy `authenticationToken` oraz `referenceNumber`.
+4.  **Sztafeta Polling (Weryfikacja)**: **[NOWOŚĆ]** Odpytywanie `GET /v2/auth/{referenceNumber}` z nagłówkiem `Authorization: Bearer {authenticationToken}` aż do uzyskaniu statusu **200 (OK)**. 
+5.  **Redeem (Finalizacja JWT)**: Wymiana na ostateczny `accessToken` (`POST /v2/auth/token/redeem`) przy użyciu tego samego `authenticationToken`.
 
 **Główne Atuty Nowego Standardu:**
-- **Node.js Runtime Standard**: Pełna zgodność z bibliotekami `crypto` i `X509Certificate` (niezbędne do bezpiecznego połączenia z MF).
+- **Vercel Edge Runtime**: API zoptymalizowane pod `runtime: 'edge'`, co eliminuje timeouty (limit 30s) i przyspiesza start funkcji.
+- **Sztafeta Handshake (V2.1)**: Precyzyjny proces wymiany tokenów z pollingiem autoryzacyjnym, gwarantujący 100% stabilności sesji.
+- **Timeout Protection (25s)**: Wszystkie zapytania `fetch` posiadają `AbortSignal.timeout(25000)`, co zabezpiecza przed "zawieszeniem" funkcji na Vercel.
+- **Summer Timezone (+02:00)**: Pełna obsługa polskiego czasu letniego w zapytaniach.
 - **Cierpliwy Handshake (Resilience)**: **[NOWOŚĆ]** Implementacja **Exponential Backoff** (2s -> 16s) oraz wydłużony polling statusu (do 60s), co gwarantuje stabilność sesji nawet przy dużym obciążeniu serwerów MF.
 - **Summer Timezone (+02:00)**: Pełna obsługa polskiego czasu letniego w zapytaniach, zgodnie z aktualnym offsetem Ministerstwa.
 - **Pancerny Kod (Robust Fetch)**: Defensywne pobieranie danych (raw text first) zapobiegające błędom parsowania przy HTML-owych stronach błędów MF.

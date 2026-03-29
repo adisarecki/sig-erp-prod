@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { KSeFService } from '@/lib/ksef/ksefService';
 
+// Workflow V2.1: Edge Runtime + Timeout Protection (25s)
+export const runtime = 'edge';
+
 export async function GET() {
     try {
         const ksefSvc = new KSeFService();

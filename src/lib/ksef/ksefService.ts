@@ -30,8 +30,8 @@ async function fetchKSeFPublicKey(retryCount: number = 3): Promise<crypto.KeyObj
 
     for (let i = 0; i < retryCount; i++) {
         try {
-            console.log(`[KSeF_SERVICE] Step 2a: Fetching dynamic public key from: ${url} (Attempt ${i + 1}/${retryCount})`);
-            const res = await fetch(url);
+            console.log(`[KSeF_SERVICE] Step 2a: Fetching dynamic public key (Attempt ${i + 1}/${retryCount})`);
+            const res = await fetch(url, { signal: AbortSignal.timeout(25000) });
             const text = await res.text();
             if (!res.ok) {
                 throw new Error(`Failed to fetch KSeF public key (${res.status}): ${text}`);
@@ -159,17 +159,11 @@ export class KSeFService {
     }
 
     /**
-     * KSeF v2.0 4-Step Handshake (JWT v2 Update)
-     * 1. POST /v2/auth/challenge
-     * 2. Key Fetch & RSA-OAEP Encryption
-     * 3. POST /v2/auth/ksef-token (Init) -> Reference Number
-     * 4. GET /v2/auth/{referenceNumber} -> Poll for "Success"
-     * 5. POST /v2/auth/token/redeem (Final) -> accessToken & refreshToken
+     * KSeF Workflow V2.1 "Sztafeta" Handshake
      */
     async getAccessToken(nip?: string, token?: string): Promise<string> {
         const now = Date.now();
 
-        // 0. Use cache if valid
         if (cachedAccessToken && (now - tokenFetchTime < TOKEN_CACHE_TTL)) {
             return cachedAccessToken;
         }
@@ -179,130 +173,102 @@ export class KSeFService {
 
         if (!targetToken) throw new Error('KSEF_TOKEN missing in environment.');
 
-        console.log(`[KSeF_SERVICE] Starting JWT v2 Handshake for NIP: ${targetNip}...`);
+        console.log(`[KSeF_SERVICE] Workflow V2.1 "Sztafeta" starting for NIP: ${targetNip}...`);
 
-        // ── KROK 1: Wyzwanie (Challenge) ─────────────────────
+        // KROK 1: Challenge
         const challengeRes = await fetch(`${KSEF_BASE_URL}/v2/auth/challenge`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nip: targetNip }),
+            signal: AbortSignal.timeout(25000)
         });
 
         const challengeText = await challengeRes.text();
-        if (!challengeRes.ok) {
-            throw new Error(`Step 1 Challenge failed (${challengeRes.status}): ${challengeText}`);
-        }
-
+        if (!challengeRes.ok) throw new Error(`Challenge failed (${challengeRes.status}): ${challengeText}`);
         const { challenge, timestampMs } = JSON.parse(challengeText);
-        if (!challenge || !timestampMs) throw new Error('Invalid Challenge response');
 
-        // ── KROK 2: Klucz i Szyfrowanie ──────
+        // KROK 2: Encryption
         const encryptedToken = await encryptKSeFToken(targetToken, timestampMs);
 
-        // ── KROK 3: Inicjalizacja Tokena (ksef-token) ────────
+        // KROK 3: POST /auth/ksef-token (Start Sztafety)
         const initRes = await fetch(`${KSEF_BASE_URL}/v2/auth/ksef-token`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 challenge,
-                contextIdentifier: {
-                    type: "Nip",
-                    value: targetNip
-                },
+                contextIdentifier: { type: "Nip", value: targetNip },
                 encryptedToken
             }),
+            signal: AbortSignal.timeout(25000)
         });
 
         const initText = await initRes.text();
-        if (!initRes.ok && initRes.status !== 202) {
-            throw new Error(`Step 3 Initialization failed (${initRes.status}): ${initText}`);
-        }
+        if (!initRes.ok && initRes.status !== 202) throw new Error(`KSeF-Token failed (${initRes.status}): ${initText}`);
 
         const initData = JSON.parse(initText);
-        const referenceNumber = initData.referenceNumber;
-        const authenticationToken = initData.authenticationToken?.token;
+        const refNum = initData.referenceNumber;
+        const authTok = initData.authenticationToken?.token;
         
-        if (!referenceNumber) throw new Error('No referenceNumber in Step 3 response');
-        console.log('[KSeF_SERVICE] Step 3 referenceNumber:', referenceNumber);
+        if (!refNum || !authTok) throw new Error('No referenceNumber or authenticationToken in KSeF response');
 
-        // ── KROK 4: Cierpliwy Handshake (Polling Statusu z Exponential Backoff) ──
+        // KROK 4 (Polling): GET /auth/{refNum} with Bearer authTok
         let pollAttempts = 0;
-        const maxPollAttempts = 10; // Rozszerzone do 10 prób dla stabilności weekendowej
-        let isSuccess = false;
-        let currentDelay = 2000; // Start od 2 sekund
+        let isReady = false;
+        let delay = 2000;
 
-        while (pollAttempts < maxPollAttempts) {
+        while (pollAttempts < 8) {
             pollAttempts++;
-            const statusRes = await fetch(`${KSEF_BASE_URL}/v2/auth/${referenceNumber}`, {
+            const statusRes = await fetch(`${KSEF_BASE_URL}/v2/auth/${refNum}`, {
                 method: 'GET',
                 headers: { 
                     'Accept': 'application/json',
-                    'Authorization': `Bearer ${authenticationToken}`
-                }
+                    'Authorization': `Bearer ${authTok}`
+                },
+                signal: AbortSignal.timeout(25000)
             });
 
-            if (statusRes.ok) {
-                const statusText = await statusRes.text();
+            const statusText = await statusRes.text();
+            
+            // Workflow V2.1: Czekaj konkretnie na status 200
+            if (statusRes.status === 200) {
                 const statusData = JSON.parse(statusText);
-                const statusCode = statusData.exception?.serviceCode || statusData.statusCode || "OK";
-                
-                console.log(`[KSeF_SERVICE] Polling status (${pollAttempts}/${maxPollAttempts}) [${statusCode}]: ${statusData.status}`);
-                
-                if (statusData.status === "Success") {
-                    isSuccess = true;
-                    break;
-                }
-                
-                // Zadanie: Logowanie statusu "Processing" (np. 310)
-                if (statusData.status === "Processing" || statusCode === "310") {
-                    console.log(`[KSeF_SERVICE] Sesja wciąż przetwarzana (Processing). Czekamy...`);
-                }
-
+                console.log(`[KSeF_SERVICE] Polling Success (${pollAttempts}): ${statusData.status}`);
+                isReady = true;
+                break;
             } else {
-                const errText = await statusRes.text();
-                // Błąd rzucaj tylko, gdy dostaniesz błąd krytyczny (np. 4xx/5xx inne niż 200/202)
-                console.warn(`[KSeF_SERVICE] Status check returned non-200 (${statusRes.status}). Retrying... Details: ${errText.substring(0, 50)}`);
+                console.log(`[KSeF_SERVICE] Polling (${pollAttempts}). Status: ${statusRes.status}. Retrying in ${delay / 1000}s...`);
+                await new Promise(r => setTimeout(r, delay));
+                delay = Math.min(delay * 2, 12000);
             }
-
-            // Exponential Backoff: 2s -> 4s -> 8s (do max 16s)
-            console.log(`[KSeF_SERVICE] Wykładniczy Backoff: Następna próba za ${currentDelay / 1000}s...`);
-            await new Promise(r => setTimeout(r, currentDelay));
-            currentDelay = Math.min(currentDelay * 2, 16000); 
         }
 
-        if (!isSuccess) {
-            throw new Error(`KSeF Auth Polling timed out (Final status not Success) after ${pollAttempts} attempts for ${referenceNumber}`);
-        }
+        if (!isReady) throw new Error(`Handshake V2.1 "Sztafeta" timed out for ${refNum}`);
 
-        // ── KROK 5: Wymiana na JWT (Redeem) ──────
+        // KROK 5 (Redeem): POST /auth/token/redeem with Bearer authTok
         const redeemRes = await fetch(`${KSEF_BASE_URL}/v2/auth/token/redeem`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'Authorization': `Bearer ${authenticationToken}`
+                'Authorization': `Bearer ${authTok}`
             },
-            body: JSON.stringify({})
+            body: JSON.stringify({}),
+            signal: AbortSignal.timeout(25000)
         });
 
         const redeemText = await redeemRes.text();
-        if (!redeemRes.ok) {
-            throw new Error(`Step 5 Redeem failed (${redeemRes.status}): ${redeemText}`);
-        }
+        if (!redeemRes.ok) throw new Error(`Redeem failed (${redeemRes.status}): ${redeemText}`);
 
         const redeemData = JSON.parse(redeemText);
-        const finalAccessToken = redeemData.accessToken?.token || redeemData.sessionToken?.token;
+        const finalToken = redeemData.accessToken?.token || redeemData.sessionToken?.token;
 
-        if (!finalAccessToken) {
-            throw new Error('No accessToken found in Redeem response');
-        }
+        if (!finalToken) throw new Error('No accessToken found in Workflow 2.1 response');
 
-        // 6. Update Cache
-        cachedAccessToken = finalAccessToken;
+        cachedAccessToken = finalToken;
         tokenFetchTime = Date.now();
 
-        console.log('[KSeF_SERVICE] JWT v2 Handshake Completed.');
-        return finalAccessToken;
+        console.log('[KSeF_SERVICE] Workflow V2.1 Handshake Successfully Completed.');
+        return finalToken;
     }
 
     /**
@@ -373,10 +339,9 @@ export class KSeFService {
 
         const res = await fetch(url, {
             method: 'POST',
-            headers: {
-                ...headers
-            },
+            headers: { ...headers },
             body: JSON.stringify(bodyPayload),
+            signal: AbortSignal.timeout(25000)
         });
 
         const rawText = await res.text();
@@ -418,6 +383,7 @@ export class KSeFService {
         const res = await fetch(`${KSEF_BASE_URL}/v2/online/Invoice/Get/${ksefNumber}`, {
             method: 'GET',
             headers,
+            signal: AbortSignal.timeout(25000)
         });
 
         const rawXml = await res.text();
