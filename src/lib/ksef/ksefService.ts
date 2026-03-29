@@ -216,7 +216,7 @@ export class KSeFService {
         let isReady = false;
         let delay = 2000;
 
-        while (pollAttempts < 8) {
+        while (pollAttempts < 15) { // Increased limit for resilience
             pollAttempts++;
             const statusRes = await fetch(`${KSEF_BASE_URL}/v2/auth/${refNum}`, {
                 method: 'GET',
@@ -227,13 +227,28 @@ export class KSeFService {
                 signal: AbortSignal.timeout(25000)
             });
 
-            if (statusRes.status === 200) {
+            const statusText = await statusRes.text();
+            if (!statusRes.ok && statusRes.status !== 202) {
+                console.error(`[KSeF_SERVICE] Polling Error (${statusRes.status}): ${statusText}`);
+            }
+
+            const statusData = JSON.parse(statusText);
+            const statusCode = statusData.exception?.exceptionDetailList?.[0]?.exceptionCode || statusData.status?.code || statusRes.status;
+
+            console.log(`[KSeF_SERVICE] Polling Attempt ${pollAttempts}. Status Code: ${statusCode}`);
+
+            if (statusCode === 200 || statusRes.status === 200) {
                 isReady = true;
                 break;
-            } else {
-                await new Promise(r => setTimeout(r, delay));
-                delay = Math.min(delay * 2, 12000);
+            } 
+            
+            if (statusCode === 450) {
+                throw new Error('Token KSeF nieprawidłowy (Status 450). Przerwano handshake.');
             }
+
+            // Inne statusy (np. 100/310 Processing) -> Czekaj
+            await new Promise(r => setTimeout(r, delay));
+            delay = Math.min(delay * 2, 12000);
         }
 
         if (!isReady) throw new Error(`Handshake timed out for ${refNum}`);
