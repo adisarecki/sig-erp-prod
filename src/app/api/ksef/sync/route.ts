@@ -3,7 +3,7 @@ import { getCurrentTenantId } from '@/lib/tenant';
 import prisma from '@/lib/prisma';
 import { KSeFService, KSeFInvoiceHeader } from '@/lib/ksef/ksefService';
 import Decimal from 'decimal.js';
-import { getAdminDb } from '@/lib/firebaseAdmin';
+import { syncContractorToFirestore, syncInvoiceToFirestore } from '@/lib/finance/sync-utils';
 
 /**
  * GET /api/ksef/sync
@@ -12,134 +12,93 @@ import { getAdminDb } from '@/lib/firebaseAdmin';
  */
 export async function GET() {
     try {
-        // 1. Initialize Service & Tenant
         const ksefService = new KSeFService();
         const tenantId = await getCurrentTenantId();
-
-        // 2. Get sessionToken (v2.0 handshake with dynamic key)
+        
         let sessionToken: string;
         try {
             sessionToken = await ksefService.getSessionToken();
-        } catch (err: unknown) {
-            const error = err as Error;
-            console.error("[KSeF_SYNC_AUTH_ERROR]", error.message);
-            return NextResponse.json(
-                { success: false, error: `Błąd autoryzacji KSeF (v2.0): ${error.message}` },
-                { status: 401 }
-            );
+        } catch (err: any) {
+            console.error("[KSeF_SYNC_AUTH_ERROR]", err.message);
+            return NextResponse.json({ success: false, error: `Błąd autoryzacji: ${err.message}` }, { status: 401 });
         }
 
-        // 3. Use sessionToken for further requests (fetch invoices with PermanentStorage for incremental sync)
         const invoiceList: KSeFInvoiceHeader[] = await ksefService.fetchInvoiceMetadata({ 
             accessToken: sessionToken,
             dateType: 'PermanentStorage'
         });
         
         if (!invoiceList || invoiceList.length === 0) {
-            console.log("[KSeF_SYNC] No new invoices found in the current period.");
-            return NextResponse.json({
-                success: true,
-                count: 0,
-                invoices: [],
-                message: "Brak nowych faktur w KSeF w wybranym okresie."
-            });
+            return NextResponse.json({ success: true, count: 0, message: "Brak nowych faktur." });
         }
 
-        // 4. Shallow Sync Loop (Metadata-only) - Prisma only
         let savedCount = 0;
         const results = [];
 
         for (const item of invoiceList) {
             try {
-                // Official KSeF v2.0 unique identifier
                 const ksefId = (item as any).ksefNumber || item.invoiceReferenceNumber;
                 if (!ksefId) continue;
 
-                // For the sync route, we assume these are mostly incoming expenses (zakupy) 
-                // in general sync mode, but we check direction if available.
                 const isRevenue = (item as any)._apiDirection === "REVENUE";
-                
-                // Zadanie 2: Weryfikacja klucza NIP (Krytyczne!)
                 let nip = '0000000000';
                 let name = 'Nieznany Kontrahent';
 
                 if (isRevenue) {
                     const buyer = (item as any).buyer || item.subject2;
-                    nip = (buyer as any)?.identifier?.value || (buyer as any)?.issuedByIdentifier?.value || '0000000000';
-                    name = buyer?.name || (buyer as any)?.issuedByName || 'Nieznany Kontrahent';
+                    nip = (buyer as any)?.identifier?.value || '0000000000';
+                    name = buyer?.name || 'Nieznany Kontrahent';
                 } else {
                     const seller = (item as any).seller || item.subject1;
-                    nip = (seller as any)?.nip || (seller as any)?.issuedByIdentifier?.value || '0000000000';
-                    name = seller?.name || (seller as any)?.issuedByName || 'Nieznany Kontrahent';
+                    nip = (seller as any)?.nip || '0000000000';
+                    name = seller?.name || 'Nieznany Kontrahent';
                 }
 
-                console.log(`[SYNC_PROCESS] Processing invoice: ${item.invoiceNumber} from ${name} (NIP: ${nip})`);
-
-                // 4a. Contractor Upsert
-                let contractor = await prisma.contractor.findUnique({
-                    where: { tenantId_nip: { tenantId, nip } }
-                });
+                // 4a. Contractor Sync
+                let contractor = await prisma.contractor.findUnique({ where: { tenantId_nip: { tenantId, nip } } });
 
                 if (!contractor) {
                     contractor = await prisma.contractor.create({
-                        data: {
-                            tenantId,
-                            nip,
-                            name,
-                            status: 'PENDING',
-                            type: isRevenue ? 'KLIENT' : 'DOSTAWCA'
-                        }
+                        data: { tenantId, nip, name, status: 'PENDING', type: isRevenue ? 'KLIENT' : 'DOSTAWCA' }
                     });
-                } else if (!contractor.name || contractor.name === 'Nieznany Kontrahent' || contractor.name === '') {
-                    contractor = await prisma.contractor.update({
-                        where: { id: contractor.id },
-                        data: { name }
-                    });
+                    await syncContractorToFirestore(contractor);
+                } else if (!contractor.name || contractor.name === 'Nieznany Kontrahent') {
+                    contractor = await prisma.contractor.update({ where: { id: contractor.id }, data: { name } });
+                    await syncContractorToFirestore(contractor);
                 }
 
-                // 4b. Invoice Upsert
+                // 4b. Invoice Header Sync
                 const amountGross = new Decimal(item.grossAmount || 0);
                 const amountNet = new Decimal(item.netAmount || 0);
                 const vatAmount = new Decimal(item.vatAmount || 0);
 
-                // Zadanie 3: Sprawdzenie await Promise.all (Await Safety)
                 const result = await prisma.invoice.upsert({
                     where: { ksefId },
                     create: {
-                        tenantId,
-                        contractorId: contractor.id,
-                        ksefId,
+                        tenantId, contractorId: contractor.id, ksefId,
                         invoiceNumber: item.invoiceNumber || 'OCZEKUJE',
                         type: isRevenue ? 'REVENUE' : 'EXPENSE',
-                        amountNet,
-                        amountGross,
+                        amountNet, amountGross,
                         taxRate: amountNet.isZero() ? new Decimal(0) : vatAmount.div(amountNet).toDecimalPlaces(4),
                         issueDate: new Date(item.issueDate || Date.now()),
                         dueDate: new Date(item.issueDate || Date.now()),
-                        paymentStatus: 'UNPAID',
-                        status: 'XML_MISSING',
-                        ksefType: 'VAT'
+                        paymentStatus: 'UNPAID', status: 'XML_MISSING', ksefType: 'VAT'
                     },
-                    update: {
-                        status: 'XML_MISSING',
-                        updatedAt: new Date()
-                    }
+                    update: { status: 'XML_MISSING', updatedAt: new Date() }
                 });
 
-                console.log(`[PRISMA_SUCCESS] Invoice ${item.invoiceNumber} saved with ID: ${result.id}`);
-
-                results.push({
-                    id: result.id,
-                    ksefId: ksefId,
-                    invoiceNumber: item.invoiceNumber,
-                    seller: name,
-                    amount: amountGross.toString(),
-                    status: "XML_MISSING"
+                await syncInvoiceToFirestore({
+                    ...result,
+                    type: result.type,
+                    amountNet: result.amountNet.toNumber(),
+                    amountGross: result.amountGross.toNumber(),
+                    taxRate: result.taxRate.toNumber()
                 });
 
                 savedCount++;
+                results.push({ id: result.id, ksefId, invoiceNumber: item.invoiceNumber, amount: amountGross.toString() });
             } catch (dbError: any) {
-                console.error(`[PRISMA_FATAL] Error saving invoice ${item.invoiceNumber}:`, dbError);
+                console.error(`[SYNC_ERROR] ${item.invoiceNumber}:`, dbError);
             }
         }
 

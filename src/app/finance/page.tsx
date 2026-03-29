@@ -52,15 +52,44 @@ export default async function FinancePage({
         const rawContractors = (await getContractors()) as any[]
         contractorsMap = rawContractors.map(c => ({ id: c.id, name: c.name }))
 
-        // Pobieramy transakcje i faktury z Firestore
+        // Pobieramy transakcje z Firestore (Bank imports) i Invoices z Prisma (Single Source of Truth)
         const adminDb = getAdminDb()
-        const [transactionsSnap, invoicesSnap] = await Promise.all([
+        const [transactionsSnap, prismaInvoices] = await Promise.all([
             adminDb.collection("transactions").where("tenantId", "==", tenantId).get(),
-            adminDb.collection("invoices").where("tenantId", "==", tenantId).get()
+            prisma.invoice.findMany({
+                where: { 
+                    tenantId,
+                    status: { in: ['ACTIVE', 'XML_MISSING', 'PAID'] }
+                },
+                include: { contractor: true },
+                orderBy: { issueDate: 'desc' }
+            })
         ])
 
         const rawTransactions = transactionsSnap.docs.map(d => ({ id: d.id, ...d.data() as any })).filter(t => t.status === "ACTIVE")
-        const rawInvoices = invoicesSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
+        
+        // Map Prisma Invoices to the expected internal format for historyItems
+        const rawInvoices = prismaInvoices.map(inv => ({
+            id: inv.id,
+            tenantId: inv.tenantId,
+            contractorId: inv.contractorId,
+            projectId: inv.projectId,
+            type: inv.type === 'REVENUE' ? 'SPRZEDAŻ' : 'KOSZT', // Unified labels for UI logic
+            amountNet: inv.amountNet.toNumber(),
+            amountGross: inv.amountGross.toNumber(),
+            taxRate: inv.taxRate.toNumber(),
+            issueDate: inv.issueDate.toISOString(),
+            dueDate: inv.dueDate.toISOString(),
+            status: inv.status,
+            paymentStatus: inv.paymentStatus,
+            externalId: inv.invoiceNumber || inv.ksefId,
+            description: inv.invoiceNumber || (inv.type === 'REVENUE' ? 'Faktura Sprzedaży' : 'Faktura Zakupu'), 
+            category: inv.ksefType || 'VAT',
+            createdAt: inv.createdAt.toISOString(),
+            // Pass contractor name through to avoid double search
+            contractorName: inv.contractor.name,
+            contractorNip: inv.contractor.nip
+        }))
 
         const now = new Date()
 
@@ -136,7 +165,7 @@ export default async function FinancePage({
                     id: inv.id,
                     isInvoice: true,
                     type: isIncome ? 'PRZYCHÓD' : 'KOSZT',
-                    title: inv.description || inv.category || 'Dokument Finansowy',
+                    title: (inv as any).description || (inv as any).category || 'Dokument Finansowy',
                     documentNumber: inv.externalId,
                     date: displayDate,
                     dueDate: inv.dueDate,
@@ -147,8 +176,8 @@ export default async function FinancePage({
                     statusBadge: badge,
                     statusColor: color,
                     contractorId: inv.contractorId,
-                    contractorName: contractor?.name || 'Nieznany kontrahent',
-                    nip: contractor?.nip || null
+                    contractorName: (inv as any).contractorName || contractor?.name || 'Nieznany kontrahent',
+                    nip: (inv as any).contractorNip || contractor?.nip || null
                 }
             })
         ]

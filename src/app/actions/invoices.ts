@@ -6,6 +6,7 @@ import { validateNonZero } from "@/lib/ledger"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { getAdminDb } from "@/lib/firebaseAdmin"
 import prisma from "@/lib/prisma"
+import { syncInvoiceToFirestore } from "@/lib/finance/sync-utils"
 
 
 export async function deleteInvoice(id: string): Promise<{ success: boolean, error?: string }> {
@@ -82,28 +83,54 @@ export async function markInvoiceAsPaid(id: string, paymentDateOverride?: string
         const paymentDate = paymentDateOverride ? new Date(paymentDateOverride) : new Date()
         const amountGross = Number(invoice.amountGross)
 
-        // 2. Firestore Update (Transaction)
+        // 2. Resilient Firestore Update / Sync-on-Demand
+        // W KSeF Stage 1 faktury mogą istnieć TYLKO w Prisma. Musimy je "wstrzyknąć" do Firestore przed opłaceniem.
         await adminDb.runTransaction(async (transaction) => {
             const invoiceRef = adminDb.collection("invoices").doc(id)
-            transaction.update(invoiceRef, {
-                status: "PAID",
-                updatedAt: paymentDate.toISOString()
-            })
+            const snap = await transaction.get(invoiceRef)
 
-            // Stwórz transakcję w Firestore
+            if (!snap.exists) {
+                // Skrócone mapowanie typu SQL -> Firestore
+                const fsType = invoice.type === 'REVENUE' ? 'SPRZEDAŻ' : 'EXPENSE'
+                
+                // Zadanie: Tworzenie lustrzanego odbicia w Firestore
+                transaction.set(invoiceRef, {
+                    tenantId,
+                    contractorId: invoice.contractorId,
+                    projectId: invoice.projectId || '',
+                    type: fsType,
+                    amountNet: Number(invoice.amountNet),
+                    amountGross: amountGross,
+                    taxRate: Number(invoice.taxRate),
+                    issueDate: invoice.issueDate.toISOString(),
+                    dueDate: invoice.dueDate.toISOString(),
+                    status: "PAID",
+                    externalId: invoice.invoiceNumber || invoice.ksefId,
+                    createdAt: invoice.createdAt.toISOString(),
+                    updatedAt: paymentDate.toISOString(),
+                    ksefId: invoice.ksefId
+                })
+            } else {
+                transaction.update(invoiceRef, {
+                    status: "PAID",
+                    updatedAt: paymentDate.toISOString()
+                })
+            }
+
+            // Stwórz transakcję finansową (Ledger) w Firestore
             const transRef = adminDb.collection("transactions").doc()
-            const isIncome = invoice.type === "SPRZEDAŻ"
+            const isIncome = invoice.type === "REVENUE" || invoice.type === "SPRZEDAŻ"
             const classification = invoice.projectId ? "PROJECT_COST" : "GENERAL_COST"
             
             transaction.set(transRef, {
                 tenantId,
-                projectId: invoice.projectId,
+                projectId: invoice.projectId || null,
                 classification,
                 amount: amountGross,
                 type: isIncome ? "PRZYCHÓD" : "KOSZT",
                 transactionDate: paymentDate.toISOString(),
                 category: isIncome ? "SPRZEDAŻ_TOWARU" : "KOSZT_FIRMOWY",
-                description: `Płatność faktury: ${invoice.externalId || 'Brak numeru'}`,
+                description: `Płatność (KSeF): ${invoice.invoiceNumber || invoice.ksefId || 'Bez numeru'}`,
                 status: "ACTIVE",
                 source: "INVOICE",
                 invoiceId: id,
@@ -112,13 +139,24 @@ export async function markInvoiceAsPaid(id: string, paymentDateOverride?: string
             })
         })
 
-        // 3. Prisma Sync (Syncing created transaction and payment link)
+        // 3. Prisma Sync (Update status and link to created transaction)
         await prisma.$transaction(async (tx) => {
             // Update Invoice
-            await tx.invoice.update({
+            const updatedInvoice = await tx.invoice.update({
                 where: { id },
-                data: { status: "PAID" }
+                data: { status: "PAID", paymentStatus: "PAID" },
+                include: { contractor: true }
             })
+
+            // Armored Dual-Sync to Firestore
+            await syncInvoiceToFirestore({
+                ...updatedInvoice,
+                amountNet: updatedInvoice.amountNet.toNumber(),
+                amountGross: updatedInvoice.amountGross.toNumber(),
+                taxRate: updatedInvoice.taxRate.toNumber(),
+                issueDate: updatedInvoice.issueDate.toISOString(),
+                dueDate: updatedInvoice.dueDate.toISOString()
+            });
 
             // Find the Firestore transaction we just created
             const transSnap = await adminDb.collection("transactions").where("invoiceId", "==", id).limit(1).get()
