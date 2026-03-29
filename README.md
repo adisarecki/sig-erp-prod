@@ -59,6 +59,7 @@ Obecnie „szlifujemy” automatyzację bankową i spójność danych:
 - **Heavy Inbound Auth**: Pełna zgodność z bramką produkcyjną Ministerstwa (wymagane szyfrowanie RSA i certyfikaty X509).
 - **Lightweight Outbound Sync**: Po autoryzacji system używa wyłącznie `Bearer Token` do pobierania metadanych, całkowicie omijając zbędną i wolną sesję online (`sessions/online`).
 - **Bezpieczny Zakres (7 Dni)**: Domyślny zasięg pobierania faktur ograniczony do **7 dni**, co eliminuje błędy 504 (Timeout) na Vercelu.
+- **Pancerne Mapowanie Danych (Vector 094)**: Wszystkie identyfikatory finansowe (NIP, `ksefNumber`, `invoiceNumber`) muszą być zawsze traktowane i zapisywane jako **String**. System wymusza rzutowanie typów, aby zapobiec błędom walidacji Prisma (Type Mismatch) przy numerach NIP, które mogą być interpretowane jako liczby.
 - **Twarda Logika Dat (+02:00)**: Ręcznie wymuszony offset czasowy zgodny z polskim czasem letnim.
 - **Krok 5 (Fetch Metadata)**: `fetchInvoiceMetadata()` → `POST /v2/invoices/query/metadata` (SessionToken). Paginacja w Query Params (`pageOffset`/`pageSize`).
 - **Krok 6 (Stage 1: Shallow Sync)**:
