@@ -31,6 +31,8 @@ export interface SyncInvoiceData {
     status: string;
     externalId?: string | null;
     ksefId?: string | null;
+    retainedAmount?: number | Decimal | null;
+    retentionReleaseDate?: Date | string | null;
     createdAt: Date | string;
 }
 
@@ -80,6 +82,8 @@ export async function syncInvoiceToFirestore(data: SyncInvoiceData) {
         status: data.status,
         externalId: data.externalId || null,
         ksefId: data.ksefId || null,
+        retainedAmount: data.retainedAmount ? Number(data.retainedAmount) : null,
+        retentionReleaseDate: data.retentionReleaseDate ? (typeof data.retentionReleaseDate === 'string' ? data.retentionReleaseDate : data.retentionReleaseDate.toISOString()) : null,
         createdAt: createdAtStr,
         updatedAt: new Date().toISOString()
     }, { merge: true });

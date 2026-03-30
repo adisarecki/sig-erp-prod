@@ -61,7 +61,7 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
 | **099** | Central Mapper | Unification of financial signs (+/-). |
 | **098.2** | XML Context | Binding Phase 2 to metadata ID. |
 | **101** | Dynamic Retention | Real Revenue calculation (Budget - Retention) in Project List UI. |
-| **102** | Annex Flexibility | Unblocked retention rate editing with non-retroactive snapshot warnings. |
+| **102.2** | Retention Fork | Decision Modal for Future vs Retroactive retention recalculation. |
 | **099** | Smart Enrichment | Contractor data (IBAN/Address) enriched from XML via Enrichment Proposals. |
 
 ---

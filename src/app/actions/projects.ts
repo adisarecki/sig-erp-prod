@@ -7,6 +7,7 @@ import prisma from "@/lib/prisma"
 import Decimal from "decimal.js"
 import { syncRetentionsFromProject } from "./retentions"
 import { createNotification } from "./notifications"
+import { syncInvoiceToFirestore } from "@/lib/finance/sync-utils"
 
 /**
  * POBIERANIE - Dashboard i Lista Projektów
@@ -306,7 +307,8 @@ export async function updateProject(
         retentionShortTermRate?: string, 
         retentionLongTermRate?: string,
         estimatedCompletionDate?: string,
-        warrantyPeriodYears?: string
+        warrantyPeriodYears?: string,
+        mode?: 'FUTURE' | 'RETROACTIVE'
     }
 ): Promise<{ success: boolean, error?: string }> {
     try {
@@ -358,6 +360,11 @@ export async function updateProject(
                 )
             }
 
+            // VECTOR 102.2: Retroactive Recalculation Path
+            if (data.mode === 'RETROACTIVE') {
+                await recalculateProjectInvoicesRetention(id, retShort, retLong)
+            }
+
             revalidatePath("/projects")
             revalidatePath("/")
         } catch (e) {
@@ -368,6 +375,69 @@ export async function updateProject(
     } catch (error: any) {
         console.error("[PROJECT_UPDATE_ERROR]", error)
         return { success: false, error: error.message || "Błąd podczas aktualizacji projektu." }
+    }
+}
+
+/**
+ * VECTOR 102.2: RETENTION FORK (ROZWIDLENIE KAUCJI)
+ * Recalculates all invoices for the project with new rates.
+ */
+async function recalculateProjectInvoicesRetention(projectId: string, shortRate: number, longRate: number) {
+    const tenantId = await getCurrentTenantId();
+    const adminDb = getAdminDb();
+    
+    console.log(`[RETROACTIVE_RECALC] Recalculating invoices for project ${projectId} with rates: S:${shortRate}, L:${longRate}`);
+
+    // 1. Get all revenue invoices for the project
+    const invoices = await prisma.invoice.findMany({
+        where: { 
+            projectId, 
+            tenantId,
+            type: { in: ['REVENUE', 'INCOME', 'SPRZEDAŻ'] } 
+        }
+    });
+
+    for (const inv of invoices) {
+        const amountNet = Number(inv.amountNet);
+        const totalRate = shortRate + longRate;
+        const newRetAmount = new Decimal(amountNet).mul(totalRate).toNumber();
+
+        // 2. Update Invoice in Prisma
+        await (prisma as any).invoice.update({
+            where: { id: inv.id },
+            data: { retainedAmount: newRetAmount }
+        });
+
+        // 3. Sync Header to Firestore (includes the updated retainedAmount)
+        await syncInvoiceToFirestore({
+            ...inv,
+            amountNet: inv.amountNet.toNumber(),
+            amountGross: inv.amountGross.toNumber(),
+            taxRate: inv.taxRate.toNumber(),
+            retainedAmount: newRetAmount,
+            // @ts-ignore
+            retentionReleaseDate: inv.retentionReleaseDate,
+            issueDate: inv.issueDate.toISOString(),
+            dueDate: inv.dueDate.toISOString(),
+            createdAt: inv.createdAt.toISOString()
+        } as any);
+
+        // 4. Update linked Retention records (source: INVOICE)
+        // These are the actual items in the "Skarbiec Kaucji" (Retention Vault)
+        const retentions = await (prisma as any).retention.findMany({
+            where: { invoiceId: inv.id, tenantId }
+        });
+
+        for (const ret of retentions) {
+            await (prisma as any).retention.update({
+                where: { id: ret.id },
+                data: { amount: newRetAmount }
+            });
+            await adminDb.collection("retentions").doc(ret.id).update({
+                amount: newRetAmount,
+                updatedAt: new Date().toISOString()
+            });
+        }
     }
 }
 
