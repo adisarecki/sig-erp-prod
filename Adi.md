@@ -11,6 +11,7 @@ System **SIG ERP** nie jest zwykłą bazą danych. To Twój firewall finansowy. 
 - **VATu do zapłaty**: Pilnujemy Twojego długu wobec państwa.
 - **Tax Shield (Tarcza)**: System wykrywa Twoje zakupy (np. od **POLON-ALFA S.A.**) i natychmiastowo dodaje zawarty w nich VAT do Twojej tarczy, zwiększając kwotę "Safe to Spend" w czasie rzeczywistym.
 - **Real Revenue Transparency (Vector 101)**: W widoku listy projektów widzisz teraz nie tylko szacowany budżet, ale realny wpływ pieniędzy po odjęciu kaucji gwarancyjnych. To chroni Cię przed planowaniem wydatków w oparciu o "puste miliony".
+- **Annex Flexibility (Vector 102)**: Jeśli podpiszesz aneks zmieniający stawki kaucji, możesz je teraz swobodnie edytować bez blokad. System przypilnuje, aby nowe stawki dotyczyły tylko przyszłych dokumentów, chroniąc Twoją historię finansową.
 
 ---
 

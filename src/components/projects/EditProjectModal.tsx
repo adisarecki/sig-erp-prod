@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Pencil } from "lucide-react"
 import { updateProject } from "@/app/actions/projects"
+import { toast } from "sonner"
 
 interface EditProjectModalProps {
     project: {
@@ -44,10 +45,6 @@ export function EditProjectModal({ project }: EditProjectModalProps) {
     const [estCompletion, setEstCompletion] = useState("")
     const [warranty, setWarranty] = useState((project.warrantyPeriodYears || 0).toString())
 
-    // UI Lock Mechanism: Fields are locked if they already have a value
-    const [isRetShortLocked, setIsRetShortLocked] = useState(Number(project.retentionShortTermRate || 0) > 0)
-    const [isRetLongLocked, setIsRetLongLocked] = useState(Number(project.retentionLongTermRate || 0) > 0)
-
     // Reset form when project prop changes or modal opens
     useEffect(() => {
         if (open) {
@@ -56,10 +53,6 @@ export function EditProjectModal({ project }: EditProjectModalProps) {
             setRetShort(getRateAsPercent(project.retentionShortTermRate))
             setRetLong(getRateAsPercent(project.retentionLongTermRate))
             setWarranty((project.warrantyPeriodYears || 0).toString())
-
-            // Set locking state based on database values
-            setIsRetShortLocked(Number(project.retentionShortTermRate || 0) > 0)
-            setIsRetLongLocked(Number(project.retentionLongTermRate || 0) > 0)
 
             if (project.estimatedCompletionDate) {
                 const date = new Date(project.estimatedCompletionDate)
@@ -73,19 +66,16 @@ export function EditProjectModal({ project }: EditProjectModalProps) {
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
 
-        // Guardrail: Alert user if retention rates have changed from DB
         const newRetShort = Number(retShort)
         const newRetLong = Number(retLong)
         const dbRetShort = Number(getRateAsPercent(project.retentionShortTermRate))
         const dbRetLong = Number(getRateAsPercent(project.retentionLongTermRate))
 
+        // VECTOR 102: Toast Warning for non-retroactive changes
         if (newRetShort !== dbRetShort || newRetLong !== dbRetLong) {
-            const confirmed = window.confirm(
-                `Uwaga: Twoja dotychczasowa kaucja dla tego projektu to ${dbRetShort}% (krótka) / ${dbRetLong}% (długa).\n\n` +
-                `Czy na pewno chcesz ją zmienić na ${newRetShort}% / ${newRetLong}%?\n\n` +
-                `Spowoduje to natychmiastowe przeliczenie kwot w Skarbcu.`
-            )
-            if (!confirmed) return
+            toast.warning("⚠️ Zmieniono stawki kaucji. Nowe wartości zostaną zastosowane do przyszłych dokumentów. Dane historyczne pozostają bez zmian.", {
+                duration: 6000
+            })
         }
 
         setIsPending(true)
@@ -101,7 +91,7 @@ export function EditProjectModal({ project }: EditProjectModalProps) {
             setOpen(false)
         } catch (error) {
             console.error(error)
-            alert("Błąd podczas aktualizacji projektu: " + (error as Error).message)
+            toast.error("Błąd podczas aktualizacji projektu: " + (error as Error).message)
         } finally {
             setIsPending(false)
         }
@@ -154,57 +144,25 @@ export function EditProjectModal({ project }: EditProjectModalProps) {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                                <Label htmlFor="edit-ret-short">Kaucja Krótka (%)</Label>
-                                {isRetShortLocked && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (confirm("Czy na pewno chcesz zmienić kaucję? Spowoduje to przeliczenie kwot.")) {
-                                                setIsRetShortLocked(false)
-                                            }
-                                        }}
-                                        className="text-[10px] text-blue-600 font-bold hover:underline"
-                                    >
-                                        Zmień
-                                    </button>
-                                )}
-                            </div>
+                            <Label htmlFor="edit-ret-short">Kaucja Krótka (%)</Label>
                             <Input
                                 id="edit-ret-short"
                                 type="number"
                                 step="0.1"
                                 value={retShort}
                                 onChange={(e) => setRetShort(e.target.value)}
-                                className={`font-bold ${isRetShortLocked ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`}
-                                readOnly={isRetShortLocked}
+                                className="font-bold"
                             />
                         </div>
                         <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                                <Label htmlFor="edit-ret-long">Kaucja Długa (%)</Label>
-                                {isRetLongLocked && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (confirm("Czy na pewno chcesz zmienić kaucję? Spowoduje to przeliczenie kwot.")) {
-                                                setIsRetLongLocked(false)
-                                            }
-                                        }}
-                                        className="text-[10px] text-blue-600 font-bold hover:underline"
-                                    >
-                                        Zmień
-                                    </button>
-                                )}
-                            </div>
+                            <Label htmlFor="edit-ret-long">Kaucja Długa (%)</Label>
                             <Input
                                 id="edit-ret-long"
                                 type="number"
                                 step="0.1"
                                 value={retLong}
                                 onChange={(e) => setRetLong(e.target.value)}
-                                className={`font-bold ${isRetLongLocked ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`}
-                                readOnly={isRetLongLocked}
+                                className="font-bold"
                             />
                         </div>
                     </div>
