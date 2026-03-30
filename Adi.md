@@ -9,7 +9,8 @@ Witaj Adi. Ten dokument to Twoje Centrum Dowodzenia. Zapomnij o wersjach Node.js
 System **SIG ERP** nie jest zwykłą bazą danych. To Twój firewall finansowy. Najważniejszą liczbą, jaką tu zobaczysz, jest **Safe to Spend**. To pieniądze, które realnie możesz wypłacić z firmy po odliczeniu:
 - **Podatku dochodowego (CIT 9%)**: System automatycznie odkłada rezerwę na każdą zarobioną złotówkę.
 - **VATu do zapłaty**: Pilnujemy Twojego długu wobec państwa.
-- **Tarczy Podatkowej**: System wykrywa Twoje zakupy (np. od **POLON-ALFA S.A.**) i natychmiastowo dodaje zawarty w nich VAT do Twojej tarczy, zwiększając kwotę "Safe to Spend" w czasie rzeczywistym.
+- **Tax Shield (Tarcza)**: System wykrywa Twoje zakupy (np. od **POLON-ALFA S.A.**) i natychmiastowo dodaje zawarty w nich VAT do Twojej tarczy, zwiększając kwotę "Safe to Spend" w czasie rzeczywistym.
+- **Real Revenue Transparency (Vector 101)**: W widoku listy projektów widzisz teraz nie tylko szacowany budżet, ale realny wpływ pieniędzy po odjęciu kaucji gwarancyjnych. To chroni Cię przed planowaniem wydatków w oparciu o "puste miliony".
 
 ---
 

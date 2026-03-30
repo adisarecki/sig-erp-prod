@@ -264,6 +264,29 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                         <TooltipHelp content="Wartość netto całego kontraktu lub Twojej oferty. Pozwala śledzić, jaki procent zlecenia został już zafakturowany." />
                                     </div>
                                     <p className="text-lg font-bold text-slate-800">{formatPln(Number(project.budgetEstimated))}</p>
+                                    
+                                    {/* VECTOR 101: DYNAMIC RETENTION & REAL REVENUE */}
+                                    {(() => {
+                                        const budgetVal = Number(project.budgetEstimated);
+                                        const shortRate = project.retentionShortTermRate || 0;
+                                        const longRate = project.retentionLongTermRate || 0;
+                                        const totalRate = shortRate + longRate;
+                                        const retentionAmount = budgetVal * totalRate;
+                                        const realRevenue = budgetVal - retentionAmount;
+
+                                        if (totalRate <= 0) return null;
+
+                                        return (
+                                            <div className="mt-1 flex flex-col items-start lg:items-end text-right">
+                                                <p className="text-xs text-slate-400 font-medium flex items-center gap-1">
+                                                    🔒 Kaucje gwarancyjne: {formatPln(retentionAmount)} ({(totalRate * 100).toFixed(1)}%)
+                                                </p>
+                                                <p className="text-xs text-emerald-600 font-bold mt-0.5">
+                                                    💰 Realny wpływ (Netto): {formatPln(realRevenue)}
+                                                </p>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                                 <div className="flex items-center gap-2 lg:border-l lg:border-slate-100 lg:pl-4 h-full" data-dialog="true">
                                     <ProjectAnalysisDialog
