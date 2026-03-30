@@ -475,19 +475,24 @@ export class KSeFService {
         const netAmount = new Decimal(fa.P_13_1 || 0).plus(fa.P_13_2 || 0).plus(fa.P_13_3 || 0);
         const grossAmount = new Decimal(fa.P_15 || 0);
 
+        const bankAccount = fa.Platnosc?.RachunekBankowy?.NrRB || fa.Platnosc?.NrRB || null;
+        const addressL1 = faktura.Podmiot1?.Adres?.AdresL1 || '';
+        const addressL2 = faktura.Podmiot1?.Adres?.AdresL2 || '';
+        const fullAddress = `${addressL1}${addressL1 && addressL2 ? ', ' : ''}${addressL2}`.trim();
+
         return {
             ksefNumber: String(ksefNumber),
             invoiceNumber: String(fa.P_2 || 'Unknown'),
             issueDate: new Date(fa.P_1),
-            dueDate: new Date(fa.P_1),
+            dueDate: new Date(fa.Platnosc?.TerminPlatnosci?.Termin || fa.P_1),
             sellerNip: String(sprzedawca?.NIP || 'Brak'),
             sellerName: String(sprzedawca?.Nazwa || 'Brak'),
-            sellerAddress: String(faktura.Podmiot1?.Adres?.AdresL1 || 'Brak adresu'),
-            sellerBankAccount: null,
+            sellerAddress: fullAddress || 'Brak adresu',
+            sellerBankAccount: bankAccount ? String(bankAccount) : null,
             buyerNip: String(nabywca?.NIP || 'Brak'),
             buyerName: String(nabywca?.Nazwa || 'Brak'),
-            counterpartyNip: String(nabywca?.NIP || 'Brak'), // Legacy compatibility
-            counterpartyName: String(nabywca?.Nazwa || 'Brak'), // Legacy compatibility
+            counterpartyNip: String(nabywca?.NIP || 'Brak'), 
+            counterpartyName: String(nabywca?.Nazwa || 'Brak'), 
             ksefType: String(rodzajFaktury || 'VAT'),
             netAmount,
             vatAmount: grossAmount.minus(netAmount),

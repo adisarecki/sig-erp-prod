@@ -20,6 +20,7 @@ import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 import { RetentionVault } from "@/components/finance/RetentionVault"
 import { PendingInvoicesWidget } from "@/components/dashboard/PendingInvoicesWidget"
 import { getVatBalanceColor } from "@/lib/utils/financeMapper"
+import { EnrichmentProposalWidget } from "@/components/dashboard/EnrichmentProposalWidget"
 
 // Inicjalizacja Firebase Admin dla Dashboardu
 initFirebaseAdmin();
@@ -96,6 +97,15 @@ export default async function DashboardPage({
   const allStages = projectStagesSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
   const contractors = contractorsSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
   const retentions = retentionsSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
+
+  const enrichmentNotifications = await (prisma as any).notification.findMany({
+    where: { 
+      tenantId, 
+      type: 'ENRICHMENT_PROPOSAL',
+      isRead: false
+    },
+    orderBy: { createdAt: 'desc' }
+  })
 
   // POBRANIE WPROWADZONYCH FAKTUR Z ZALEDGŁOŚCIAMI Z PRISMA (KSeF + Sync)
   const prismaUnpaidInvoices = await prisma.invoice.findMany({
@@ -208,20 +218,23 @@ export default async function DashboardPage({
         }
     }
 
-    if (inv.status === 'PAID') {
-       if (isWithinRange) {
-          const vat = amountGross.minus(amountNet)
-          if (isInvIncome) {
+    // AGREGACJA VAT (MEMORIAŁOWA - VECTOR 098)
+    // Liczymy VAT ze wszystkich faktur w wybranym okresie (Accrual Basis)
+    if (isWithinRange) {
+        const vat = amountGross.minus(amountNet)
+        if (isInvIncome) {
             vatIncome = vatIncome.plus(vat)
-          } else if (isInvExpense) {
+        } else if (isInvExpense) {
             vatCost = vatCost.plus(vat)
             if (inv.projectId) {
-              projectVatCost = projectVatCost.plus(vat)
+                projectVatCost = projectVatCost.plus(vat)
             } else {
-              generalVatCost = generalVatCost.plus(vat)
+                generalVatCost = generalVatCost.plus(vat)
             }
-          }
-       }
+        }
+    }
+
+    if (inv.status === 'PAID') {
        // Kaucje (Stary system - opcjonalnie)
        if (inv.retainedAmount) {
          const releaseDate = inv.retentionReleaseDate ? new Date(inv.retentionReleaseDate) : null
@@ -606,8 +619,9 @@ export default async function DashboardPage({
         <div className="lg:col-span-1">
           <RetentionVault 
             retentions={retentions} 
-            projects={projects.map((p: any) => ({ id: p.id, name: p.name }))} 
-            contractors={contractors.map((c: any) => ({ id: c.id, name: c.name }))}
+            projects={projects} 
+            contractors={contractors} 
+            invoices={allInvoices}
           />
         </div>
 
@@ -694,7 +708,6 @@ export default async function DashboardPage({
                          invoiceId={alert.isDebtInstallment ? undefined : alert.id} 
                          installmentId={alert.isDebtInstallment ? alert.id : undefined}
                          isInstallment={alert.isDebtInstallment}
-                         invoiceNumber={alert.invoiceNumber}
                          amountGross={alert.amount}
                          isIncome={!!alert.isIncome}
                        />
@@ -761,8 +774,14 @@ export default async function DashboardPage({
            </div>
         </div>
 
-        {/* LOGIKA DNA (Szybki Podgląd Zasad) */}
-        <div className="bg-slate-900 text-white border border-slate-800 shadow-2xl rounded-3xl p-8 relative overflow-hidden group">
+        {/* VECTOR 099: Smart Enrichment Proposals */}
+        <div className="lg:col-span-1 space-y-8">
+           {enrichmentNotifications.length > 0 && (
+             <EnrichmentProposalWidget notifications={enrichmentNotifications} />
+           )}
+
+           {/* LOGIKA DNA (Szybki Podgląd Zasad) */}
+           <div className="bg-slate-900 text-white border border-slate-800 shadow-2xl rounded-3xl p-8 relative overflow-hidden group">
            <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
               <Lock className="w-48 h-48" />
            </div>
@@ -787,7 +806,8 @@ export default async function DashboardPage({
               <div className="mt-8 pt-8 border-t border-slate-800">
                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Wersja Systemu: Fort Knox &bull; Ekstraklasa 2026</p>
               </div>
-           </div>
+            </div>
+         </div>
         </div>
       </div>
     </div>

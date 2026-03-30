@@ -556,6 +556,43 @@ export async function addIncomeInvoice(formData: FormData) {
                 }
             })
 
+            // --- VECTOR 097: Automatic Retention Entry ---
+            if (retainedAmount && retainedAmount.greaterThan(0) && retentionReleaseDate) {
+                const retentionRef = adminDb.collection("retentions").doc()
+                const retentionData = {
+                    tenantId,
+                    projectId: txResult.projectId || null,
+                    contractorId: prismaContractorId,
+                    invoiceId: txResult.invoiceId,
+                    amount: retainedAmount.toNumber(),
+                    type: "SHORT_TERM", // Default for direct invoice retentions
+                    expiryDate: retentionReleaseDate.toISOString(),
+                    source: "INVOICE",
+                    description: `Kaucja z faktury: ${description || txResult.invoiceId}`,
+                    status: "ACTIVE",
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                }
+                await retentionRef.set(retentionData)
+
+                await prisma.retention.create({
+                    data: {
+                        id: retentionRef.id,
+                        tenant: { connect: { id: tenantId } },
+                        project: txResult.projectId ? { connect: { id: txResult.projectId } } : undefined,
+                        contractor: { connect: { id: prismaContractorId } },
+                        // @ts-ignore - Prisma types might be stale
+                        invoice: { connect: { id: txResult.invoiceId } },
+                        amount: retainedAmount.toNumber(),
+                        type: "SHORT_TERM",
+                        expiryDate: retentionReleaseDate,
+                        source: "INVOICE",
+                        description: `Kaucja z faktury: ${description || txResult.invoiceId}`,
+                        status: "ACTIVE"
+                    }
+                })
+            }
+
             if (isPaidImmediately) {
                 const transSnap = await adminDb.collection("transactions").where("invoiceId", "==", txResult.invoiceId).limit(1).get()
                 if (!transSnap.empty) {
@@ -965,6 +1002,43 @@ export async function addCostInvoice(formData: FormData) {
                     retentionReleaseDate
                 }
             })
+
+            // --- VECTOR 097: Automatic Retention Entry ---
+            if (retainedAmount && retainedAmount.greaterThan(0) && retentionReleaseDate) {
+                const retentionRef = adminDb.collection("retentions").doc()
+                const retentionData = {
+                    tenantId,
+                    projectId: txResult.safeProjectId || null,
+                    contractorId: prismaContractorId,
+                    invoiceId: txResult.invoiceId,
+                    amount: retainedAmount.toNumber(),
+                    type: "SHORT_TERM", 
+                    expiryDate: retentionReleaseDate.toISOString(),
+                    source: "INVOICE",
+                    description: `Kaucja z faktury: ${description || txResult.invoiceId}`,
+                    status: "ACTIVE",
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                }
+                await retentionRef.set(retentionData)
+
+                await prisma.retention.create({
+                    data: {
+                        id: retentionRef.id,
+                        tenant: { connect: { id: tenantId } },
+                        project: txResult.safeProjectId ? { connect: { id: txResult.safeProjectId as string } } : undefined,
+                        contractor: { connect: { id: prismaContractorId } },
+                        // @ts-ignore - Prisma types might be stale
+                        invoice: { connect: { id: txResult.invoiceId } },
+                        amount: retainedAmount.toNumber(),
+                        type: "SHORT_TERM",
+                        expiryDate: retentionReleaseDate,
+                        source: "INVOICE",
+                        description: `Kaucja z faktury: ${description || txResult.invoiceId}`,
+                        status: "ACTIVE"
+                    }
+                })
+            }
 
             if (isPaidImmediately) {
                 const transSnap = await adminDb.collection("transactions").where("invoiceId", "==", txResult.invoiceId).limit(1).get()

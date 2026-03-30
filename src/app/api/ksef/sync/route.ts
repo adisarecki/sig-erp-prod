@@ -98,6 +98,17 @@ export async function GET() {
 
                 savedCount++;
                 results.push({ id: result.id, ksefId, invoiceNumber: item.invoiceNumber, amount: amountGross.toString() });
+
+                // 4c. VECTOR 099: Smart Enrichment (Tylko dla kosztów)
+                if (!isIncome) {
+                    try {
+                        const detail = await ksefService.fetchAndParse(ksefId, { accessToken: sessionToken });
+                        const { compareAndNotify } = await import("@/lib/finance/contractorEnricher");
+                        await compareAndNotify(detail, tenantId);
+                    } catch (enrichError) {
+                        console.warn(`[ENRICH_ERROR] Skipping enrichment for ${ksefId}:`, enrichError);
+                    }
+                }
             } catch (dbError: any) {
                 console.error(`[SYNC_ERROR] ${item.invoiceNumber}:`, dbError);
             }

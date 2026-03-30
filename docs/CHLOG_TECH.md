@@ -71,4 +71,17 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 100 | Finance / Engine | FIXED | Runtime Guard for toUpperCase. | Dodano zabezpieczenie przed `undefined` w `financeMapper.ts`, eliminując błąd TypeError w przeglądarce. |
 
 ---
+
+### 📝 Dodatkowe Notatki Audytowe
+
+### 2026-03-30 (Vector 097)
+- **Vector 097**: **Retention Audit (Skarbiec Kaucji)**:
+    - Dodano relację `invoiceId` do modelu `Retention` w Prisma.
+    - Wdrożono automatyczne tworzenie rekordów kaucji przy dodawaniu faktur kosztowych i przychodowych.
+    - Zaimplementowano `Popover` w `RetentionVault.tsx` wyświetlający detale audytu (numer faktury, opis P_7).
+    - Stworzono skrypt `heal-retentions` dla odzyskania historycznych danych.
+
+- **Vector 100**: Financial Engine Stability (toUpperCase Guard).
+- **Vector 097**: Retention Vault Audit Implementation (Automatic Invoice Linkage & Popover).
+
 *Ostatnia aktywność techniczna: 2026-03-30. Build Verified (TSC: OK).*

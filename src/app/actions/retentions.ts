@@ -13,7 +13,8 @@ export async function getRetentions() {
             where: { tenantId },
             include: {
                 project: true,
-                contractor: true
+                contractor: true,
+                invoice: true
             },
             orderBy: { expiryDate: 'asc' }
         })
@@ -35,6 +36,7 @@ export async function addRetention(formData: FormData) {
         const description = formData.get("description") as string
         const projectId = formData.get("projectId") as string || null
         const contractorId = formData.get("contractorId") as string || null
+        const invoiceId = formData.get("invoiceId") as string || null
         const source = (formData.get("source") as string) || "MANUAL"
 
         if (!amount || !expiryDateStr || !type) {
@@ -51,6 +53,7 @@ export async function addRetention(formData: FormData) {
             tenantId,
             projectId,
             contractorId,
+            invoiceId,
             amount: numericAmount,
             type,
             expiryDate: expiryDate.toISOString(),
@@ -70,6 +73,7 @@ export async function addRetention(formData: FormData) {
                     tenant: { connect: { id: tenantId } },
                     project: projectId ? { connect: { id: projectId } } : undefined,
                     contractor: contractorId ? { connect: { id: contractorId } } : undefined,
+                    invoice: invoiceId ? { connect: { id: invoiceId } } : undefined,
                     amount: numericAmount,
                     type,
                     expiryDate,
