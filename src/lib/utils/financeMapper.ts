@@ -51,5 +51,18 @@ export function mapFinancialValues(amountNet: number | Decimal, vat: number | De
  */
 export function getVatBalanceColor(vatBalance: number | Decimal): string {
     const balance = new Decimal(String(vatBalance));
-    return balance.gte(0) ? 'text-emerald-400' : 'text-rose-400';
+    if (balance.eq(0)) return 'text-amber-400';
+    return balance.gt(0) ? 'text-emerald-400' : 'text-rose-500';
+}
+
+/**
+ * DNA Vector 099: Centralny helper kolorów dla Dashboardu.
+ * Dodatni (+) -> Zielony
+ * Ujemny (-) -> Czerwony
+ * Zero (0) -> Pomarańczowy
+ */
+export function getFinancialColor(value: number | Decimal): string {
+    const val = new Decimal(String(value));
+    if (val.eq(0)) return 'text-amber-400';
+    return val.gt(0) ? 'text-emerald-400' : 'text-rose-500';
 }

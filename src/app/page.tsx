@@ -19,7 +19,7 @@ import { CIT_RATE } from "@/lib/config/tax"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 import { RetentionVault } from "@/components/finance/RetentionVault"
 import { PendingInvoicesWidget } from "@/components/dashboard/PendingInvoicesWidget"
-import { getVatBalanceColor } from "@/lib/utils/financeMapper"
+import { getVatBalanceColor, getFinancialColor } from "@/lib/utils/financeMapper"
 import { EnrichmentProposalWidget } from "@/components/dashboard/EnrichmentProposalWidget"
 
 // Inicjalizacja Firebase Admin dla Dashboardu
@@ -478,13 +478,13 @@ export default async function DashboardPage({
                 className="bg-white/10 border-white/20 hover:bg-white/20 text-white" 
             />
           </div>
-          <p className="text-6xl font-black tracking-tighter mt-4 text-emerald-400 drop-shadow-sm">
+          <p className={`text-6xl font-black tracking-tighter mt-4 drop-shadow-sm ${getFinancialColor(cleanCash)}`}>
             {formattedCleanCash}
           </p>
           <div className="flex gap-6 mt-6 border-t border-slate-700/50 pt-6">
             <div>
               <p className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-tighter">Bilans (Brutto)</p>
-              <p className="font-bold text-xl">{formattedNetCash}</p>
+              <p className={`font-bold text-xl ${getFinancialColor(globalBilans)}`}>{formattedNetCash}</p>
             </div>
             <div>
               <p className={`text-sm font-medium mb-1 uppercase tracking-tighter ${vatStatusColor}`}>
@@ -496,17 +496,17 @@ export default async function DashboardPage({
             </div>
             <div>
               <div className="flex items-center gap-1 mb-1">
-                <p className="text-sm text-slate-400 font-medium uppercase tracking-tighter text-orange-300">Rezerwa Podatkowa CIT (9%)</p>
+              <p className={`text-sm font-medium mb-1 uppercase tracking-tighter ${getFinancialColor(incomeTaxReserve.negated())}`}>Rezerwa Podatkowa CIT (9%)</p>
                 <TooltipHelp content="Szacunkowa kwota 9% podatku dochodowego od Twojego zysku netto. Nie wydawaj tych pieniędzy." />
               </div>
-              <p className="font-bold text-xl text-orange-300">-{formatPln(incomeTaxReserve)}</p>
+              <p className={`font-bold text-xl ${getFinancialColor(incomeTaxReserve.negated())}`}>-{formatPln(incomeTaxReserve)}</p>
             </div>
             <div>
               <div className="flex items-center gap-1 mb-1">
-                <p className="text-sm text-slate-400 font-medium uppercase tracking-tighter text-blue-300">Koszty do Opłacenia</p>
+                <p className={`text-sm font-medium uppercase tracking-tighter ${getFinancialColor(unpaidTotalAmountGross.negated())}`}>Koszty do Opłacenia</p>
                 <TooltipHelp content="Suma zaległych faktur manualnych oraz z KSeF, odliczana od Czystej Gotówki." />
               </div>
-              <p className="font-bold text-[18px] mt-0.5 text-blue-300">-{formatPln(unpaidTotalAmountGross)}</p>
+              <p className={`font-bold text-[18px] mt-0.5 ${getFinancialColor(unpaidTotalAmountGross.negated())}`}>-{formatPln(unpaidTotalAmountGross)}</p>
               <p className="text-[10px] text-blue-400/80 mt-0.5 font-bold uppercase tracking-wider">
                 w tym {formatPln(unpaidKsefAmountGross)} z KSeF
               </p>
