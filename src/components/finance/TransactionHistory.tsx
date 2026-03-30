@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
+import { mapFinancialValues, FinancialType } from "@/lib/utils/financeMapper"
 
 interface HistoryItem {
     id: string;
@@ -136,6 +137,15 @@ export function TransactionHistory({
                         className="p-4 sm:p-6 flex flex-col lg:flex-row justify-between items-start lg:items-center hover:bg-slate-50 transition-colors group cursor-pointer"
                         onClick={() => setViewingItem(t)}
                     >
+                        {(() => {
+                            const { signedNet, signedGross, netColor, grossColor } = mapFinancialValues(
+                                t.amountNet || 0, 
+                                (t.amount || 0) - (t.amountNet || 0), 
+                                t.type as FinancialType
+                            );
+                            
+                            return (
+                                <>
                         <div className="flex gap-4 items-center flex-1 min-w-0 pointer-events-none">
                             <div className={`p-3 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-green-100 text-green-600' : 'bg-rose-100 text-rose-600'}`}>
                                 {isIncome ? <ArrowUpRight className="w-6 h-6" /> : <ArrowDownRight className="w-6 h-6" />}
@@ -216,10 +226,10 @@ export function TransactionHistory({
                         </div>
                         <div className="flex items-center gap-6 mt-4 lg:mt-0 ml-14 lg:ml-0 pointer-events-none">
                             <CurrencyDisplay 
-                                gross={t.amount}
-                                net={t.amountNet}
+                                gross={signedGross.toNumber()}
+                                net={signedNet.toNumber()}
                                 isIncome={isIncome}
-                                className={`text-xl font-bold whitespace-nowrap ${isIncome ? 'text-green-600' : 'text-slate-900'}`}
+                                className={`text-xl font-bold whitespace-nowrap ${grossColor}`}
                             />
                             <div className="pointer-events-auto flex items-center gap-1">
                                 {t.isInvoice && t.statusBadge !== "OPŁACONA" && (
@@ -244,6 +254,9 @@ export function TransactionHistory({
                                 </button>
                             </div>
                         </div>
+                                </>
+                            );
+                        })()}
                     </div>
                 );
             })}
@@ -357,10 +370,19 @@ export function TransactionHistory({
                             </div>
                             <div className="text-right">
                                 <CurrencyDisplay 
-                                    gross={viewingItem?.amount || 0}
-                                    net={viewingItem?.amountNet}
+                                    gross={(() => {
+                                        const m = mapFinancialValues(viewingItem?.amountNet || 0, (viewingItem?.amount || 0) - (viewingItem?.amountNet || 0), viewingItem?.type as FinancialType);
+                                        return m.signedGross.toNumber();
+                                    })()}
+                                    net={(() => {
+                                        const m = mapFinancialValues(viewingItem?.amountNet || 0, (viewingItem?.amount || 0) - (viewingItem?.amountNet || 0), viewingItem?.type as FinancialType);
+                                        return m.signedNet.toNumber();
+                                    })()}
                                     isIncome={viewingItem && (viewingItem.type === 'INCOME' || viewingItem.type === 'PRZYCHÓD' || viewingItem.type === 'SPRZEDAŻ' || viewingItem.type === 'REVENUE') ? true : false}
-                                    className="text-2xl font-black text-slate-900"
+                                    className={`text-2xl font-black ${(() => {
+                                        const m = mapFinancialValues(viewingItem?.amountNet || 0, (viewingItem?.amount || 0) - (viewingItem?.amountNet || 0), viewingItem?.type as FinancialType);
+                                        return m.grossColor;
+                                    })()}`}
                                 />
                                 {viewingItem?.amountNet && (
                                     <p className="text-xs text-slate-400 font-medium">Baza netto: {viewingItem.amountNet.toFixed(2)} PLN</p>

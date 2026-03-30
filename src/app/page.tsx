@@ -19,6 +19,7 @@ import { CIT_RATE } from "@/lib/config/tax"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 import { RetentionVault } from "@/components/finance/RetentionVault"
 import { PendingInvoicesWidget } from "@/components/dashboard/PendingInvoicesWidget"
+import { getVatBalanceColor } from "@/lib/utils/financeMapper"
 
 // Inicjalizacja Firebase Admin dla Dashboardu
 initFirebaseAdmin();
@@ -29,15 +30,7 @@ const formatPln = (value: number | string | Decimal) => {
   return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(num)
 }
 
-// Funkcja pomocnicza do pobrania daty dla określonego dnia miesiąca
-const getNextDateForDayOfMonth = (day: number) => {
-  const now = new Date()
-  const date = new Date(now.getFullYear(), now.getMonth(), day)
-  if (now.getDate() > day) {
-    date.setMonth(date.getMonth() + 1)
-  }
-  return date
-}
+
 
 export default async function DashboardPage({ 
   searchParams 
@@ -257,9 +250,11 @@ export default async function DashboardPage({
 
   // Metryki Globalne
   const globalBilans = realCashIncomes.minus(realCashCosts)
-  // Korekta VAT Inversion (Vector 099): Zakupy (+), Sprzedaż (-)
+  // CENTRALNE MAPOWANIE VAT (DNA Vector 099)
+  // netVat: Suma(vatCost) - Suma(vatIncome). Dodatni = Nadpłata/Shield, Ujemny = Dług.
   const netVat = vatCost.minus(vatIncome)
-  // VAT Liability for Safe to Spend (only deduct if we owe money, i.e., sales > purchases)
+  
+  // VAT Liability for Safe to Spend: Tylko gdy vatIncome > vatCost (mamy dług)
   const vatLiability = Decimal.max(0, vatIncome.minus(vatCost))
   
   const TAX_RESERVE_PERCENT = new Decimal(CIT_RATE)
@@ -405,6 +400,7 @@ export default async function DashboardPage({
   const formattedCleanCash = formatPln(cleanCash);
   const formattedNetVat = formatPln(netVat.abs());
   const isVatOverpaid = netVat.gte(0);
+  const vatStatusColor = getVatBalanceColor(netVat);
   const formattedGeneralCosts = formatPln(totalGeneralCostsNet);
   const formattedProjectMargin = formatPln(projectMarginSumNet);
 
@@ -478,10 +474,10 @@ export default async function DashboardPage({
               <p className="font-bold text-xl">{formattedNetCash}</p>
             </div>
             <div>
-              <p className={`text-sm font-medium mb-1 uppercase tracking-tighter ${isVatOverpaid ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {isVatOverpaid ? 'Nadpłata VAT (Shield)' : 'VAT Netto do zapłaty'}
+              <p className={`text-sm font-medium mb-1 uppercase tracking-tighter ${vatStatusColor}`}>
+                {isVatOverpaid ? 'Nadpłata VAT (Shield)' : 'Zobowiązanie VAT (Dług)'}
               </p>
-              <p className={`font-bold text-xl ${isVatOverpaid ? 'text-emerald-400' : 'text-rose-400'}`}>
+              <p className={`font-bold text-xl ${vatStatusColor}`}>
                 {isVatOverpaid ? '+' : '-'}{formattedNetVat}
               </p>
             </div>

@@ -14,6 +14,8 @@ import { getProjects } from "@/app/actions/projects"
 import { getContractors } from "@/app/actions/crm"
 
 import { TransactionHistory } from "@/components/finance/TransactionHistory"
+import { mapFinancialValues, FinancialType } from "@/lib/utils/financeMapper"
+import Decimal from "decimal.js"
 
 // ... (existing functions)
 
@@ -291,39 +293,53 @@ export default async function FinancePage({
                 <div className="bg-slate-900 text-white px-8 py-6 flex flex-col lg:flex-row justify-between items-center gap-6 border-t-4 border-indigo-500 rounded-b-xl">
                     <div className="flex flex-col">
                         <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Podsumowanie Widoku</span>
-                        <span className="text-xs text-slate-400 font-medium italic">
+                        <span className="text-xs text-slate-400 font-medium italic text-balance">
                             {activeFilter === 'PROJECT' ? 'Wyfiltrowano: Tylko Koszty Projektowe' : activeFilter === 'GENERAL' ? 'Wyfiltrowano: Tylko Koszty Ogólne' : 'Bilans wszystkich dokumentów'}
                         </span>
                     </div>
                     
-                    <div className="flex flex-wrap justify-center lg:justify-end gap-8 lg:gap-14">
-                        <div className="text-center sm:text-right">
-                            <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1">Netto (Razem)</p>
-                            <p className="text-xl font-black text-indigo-100 italic">
-                                {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(
-                                    transactions.reduce((sum, t) => sum + (t.amountNet || 0), 0)
-                                )}
-                            </p>
-                        </div>
-                        
-                        <div className="text-center sm:text-right">
-                            <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1">VAT (Podatek)</p>
-                            <p className="text-xl font-black text-rose-400">
-                                {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(
-                                    transactions.reduce((sum, t) => sum + ((t.amount || 0) - (t.amountNet || 0)), 0)
-                                )}
-                            </p>
-                        </div>
-                        
-                        <div className="text-center sm:text-right border-l border-slate-700 pl-8">
-                            <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1">Brutto (DO ZAPŁATY/SUMA)</p>
-                            <p className="text-3xl font-black text-emerald-400 drop-shadow-sm">
-                                {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(
-                                    transactions.reduce((sum, t) => sum + (t.amount || 0), 0)
-                                )}
-                            </p>
-                        </div>
-                    </div>
+                    {(() => {
+                        // Obliczamy sumy wektorowe (DNA Vector 099)
+                        let totalNet = new Decimal(0);
+                        let totalVat = new Decimal(0);
+                        let totalGross = new Decimal(0);
+
+                        transactions.forEach(t => {
+                            const { signedNet, signedVat, signedGross } = mapFinancialValues(
+                                t.amountNet || 0,
+                                (t.amount || 0) - (t.amountNet || 0),
+                                t.type as FinancialType
+                            );
+                            totalNet = totalNet.plus(signedNet);
+                            totalVat = totalVat.plus(signedVat);
+                            totalGross = totalGross.plus(signedGross);
+                        });
+
+                        return (
+                            <div className="flex flex-wrap justify-center lg:justify-end gap-8 lg:gap-14">
+                                <div className="text-center sm:text-right">
+                                    <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1 text-balance">Netto (Realny Bilans)</p>
+                                    <p className={`text-xl font-black italic ${totalNet.gte(0) ? 'text-indigo-100' : 'text-rose-400'}`}>
+                                        {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', signDisplay: 'always' }).format(totalNet.toNumber())}
+                                    </p>
+                                </div>
+                                
+                                <div className="text-center sm:text-right">
+                                    <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1 text-balance">VAT (Kompensata)</p>
+                                    <p className={`text-xl font-black ${totalVat.gte(0) ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', signDisplay: 'always' }).format(totalVat.toNumber())}
+                                    </p>
+                                </div>
+                                
+                                <div className="text-center sm:text-right border-l border-slate-700 pl-8">
+                                    <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1 text-balance">Brutto (Cash Impact)</p>
+                                    <p className={`text-3xl font-black drop-shadow-sm ${totalGross.gte(0) ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', signDisplay: 'always' }).format(totalGross.toNumber())}
+                                    </p>
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
         </div>

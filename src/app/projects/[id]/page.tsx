@@ -12,6 +12,8 @@ import { TransactionDeleteButton } from "@/components/projects/TransactionDelete
 import { ArrowLeft, Building2, MapPin, Wallet, TrendingUp, ReceiptText, Calendar, BadgeDollarSign, Percent, PieChart } from "lucide-react"
 import Link from "next/link"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
+import { mapFinancialValues, FinancialType } from "@/lib/utils/financeMapper"
+import Decimal from "decimal.js"
 
 const formatPln = (value: number) => {
     return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(value)
@@ -39,21 +41,29 @@ export default async function ProjectCockpit({ params }: PageProps) {
     const stages = project.stages || []
     const budgetEstimated = Number(project.budgetEstimated) || 0
 
-    // Obliczenia finansowe (CASH FLOW - SOURCE: TRANSACTIONS)
-    const totalInvoiced = transactions
-        .filter((t: any) => t.type === 'PRZYCHÓD' || t.type === 'INCOME' || t.type === 'REVENUE' || t.type === 'SPRZEDAŻ')
-        .reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0)
+    // DNA Vector 099: Centralne mapowanie kosztów i przychodów projektu
+    let totalInvoiced = new Decimal(0)
+    let totalCosts = new Decimal(0)
 
-    const totalCosts = transactions
-        .filter((t: any) => t.type === 'KOSZT' || t.type === 'EXPENSE' || t.type === 'WYDATEK' || t.type === 'ZAKUP')
-        .reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0)
-    
-    const margin = totalInvoiced - totalCosts
-    const percentUsed = budgetEstimated > 0 ? (totalCosts / budgetEstimated) * 100 : 0
+    transactions.forEach((t: any) => {
+        const { signedNet } = mapFinancialValues(
+            t.amountNet || 0,
+            (t.amount || 0) - (t.amountNet || 0),
+            t.type as FinancialType
+        );
+        if (signedNet.gte(0)) {
+            totalInvoiced = totalInvoiced.plus(signedNet);
+        } else {
+            totalCosts = totalCosts.plus(signedNet.abs());
+        }
+    });
+
+    const margin = totalInvoiced.minus(totalCosts)
+    const percentUsed = budgetEstimated > 0 ? totalCosts.dividedBy(budgetEstimated).times(100).toNumber() : 0
 
     // NEW PRECENTAGE METRICS
-    const roi = totalCosts > 0 ? (margin / totalCosts) * 100 : 0
-    const profitabilityMargin = totalInvoiced > 0 ? (margin / totalInvoiced) * 100 : 0
+    const roi = totalCosts.isZero() ? new Decimal(0) : margin.dividedBy(totalCosts).times(100)
+    const profitabilityMargin = totalInvoiced.isZero() ? new Decimal(0) : margin.dividedBy(totalInvoiced).times(100)
 
     const totalInvoicedNet = invoices
         .filter((inv: any) => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE')
@@ -128,7 +138,7 @@ export default async function ProjectCockpit({ params }: PageProps) {
                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Przychody (Faktury)</span>
                             <TrendingUp className="w-4 h-4 text-emerald-500" />
                         </div>
-                        <CardTitle className="text-xl font-black text-slate-900">{formatPln(totalInvoiced)}</CardTitle>
+                        <CardTitle className="text-xl font-black text-slate-900">{formatPln(totalInvoiced.toNumber())}</CardTitle>
                     </CardHeader>
                 </Card>
 
@@ -138,7 +148,7 @@ export default async function ProjectCockpit({ params }: PageProps) {
                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Koszty Realne</span>
                             <ReceiptText className="w-4 h-4 text-rose-500" />
                         </div>
-                        <CardTitle className="text-xl font-black text-rose-600 truncate">{formatPln(totalCosts)}</CardTitle>
+                        <CardTitle className="text-xl font-black text-rose-600 truncate">{formatPln(totalCosts.toNumber())}</CardTitle>
                         <div className="mt-1 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
                             <div 
                                 className={`h-full ${percentUsed > 90 ? 'bg-rose-500' : 'bg-blue-500'}`}
@@ -148,22 +158,22 @@ export default async function ProjectCockpit({ params }: PageProps) {
                     </CardHeader>
                 </Card>
 
-                <Card className={`border-none shadow-sm ${margin < 0 ? 'bg-rose-50' : 'bg-emerald-50'}`}>
+                <Card className={`border-none shadow-sm ${margin.lt(0) ? 'bg-rose-50' : 'bg-emerald-50'}`}>
                     <CardHeader className="pb-2">
                         <div className="flex justify-between items-center text-slate-500">
                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Marża Kwotowa</span>
-                            <div className={`w-2 h-2 rounded-full ${margin < 0 ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
+                            <div className={`w-2 h-2 rounded-full ${margin.lt(0) ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
                         </div>
-                        <CardTitle className={`text-xl font-black ${margin < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                            {formatPln(margin)}
+                        <CardTitle className={`text-xl font-black ${margin.lt(0) ? 'text-rose-700' : 'text-emerald-700'}`}>
+                            {formatPln(margin.toNumber())}
                         </CardTitle>
                     </CardHeader>
                 </Card>
 
                 {/* ROI Card with Conditional Branding */}
                 <Card className={`border-none ${
-                    roi > 30 ? 'bg-emerald-600 text-white shadow-emerald-100/50' :
-                    roi >= 15 ? 'bg-amber-100 text-amber-900' :
+                    roi.gt(30) ? 'bg-emerald-600 text-white shadow-emerald-100/50' :
+                    roi.gte(15) ? 'bg-amber-100 text-amber-900' :
                     'bg-red-50 text-red-700 border border-red-100'
                 } shadow-xl relative overflow-hidden transition-all hover:scale-105 duration-300`}>
                     <CardHeader className="pb-2">
@@ -172,8 +182,8 @@ export default async function ProjectCockpit({ params }: PageProps) {
                             <Percent className="w-4 h-4" />
                         </div>
                         <CardTitle className="text-3xl font-black">{roi.toFixed(1)}%</CardTitle>
-                        <p className={`text-[9px] font-black uppercase mt-1 ${roi > 30 ? 'text-emerald-100' : roi >= 15 ? 'text-amber-700' : 'text-red-500'}`}>
-                            {roi > 30 ? "Super biznes 🚀" : roi >= 15 ? "Ok, pilnuj kosztów 🛡️" : "Alarm - po kosztach! ⚠️"}
+                        <p className={`text-[9px] font-black uppercase mt-1 ${roi.gt(30) ? 'text-emerald-100' : roi.gte(15) ? 'text-amber-700' : 'text-red-500'}`}>
+                            {roi.gt(30) ? "Super biznes 🚀" : roi.gte(15) ? "Ok, pilnuj kosztów 🛡️" : "Alarm - po kosztach! ⚠️"}
                         </p>
                     </CardHeader>
                 </Card>
@@ -215,8 +225,8 @@ export default async function ProjectCockpit({ params }: PageProps) {
                         <CardContent className="pt-6">
                             <ProjectFinancialChart 
                                 budgetEstimated={budgetEstimated}
-                                totalInvoiced={totalInvoiced}
-                                totalCosts={totalCosts}
+                                totalInvoiced={totalInvoiced.toNumber()}
+                                totalCosts={totalCosts.toNumber()}
                             />
                         </CardContent>
                     </Card>
@@ -246,19 +256,30 @@ export default async function ProjectCockpit({ params }: PageProps) {
                                                 <Calendar className="w-3 h-3" />
                                                 {new Date(t.transactionDate).toLocaleDateString('pl-PL')}
                                             </span>
-                                            <div className="flex items-center gap-2">
-                                                <CurrencyDisplay 
-                                                    gross={t.amount}
-                                                    net={t.amount}
-                                                    isIncome={t.type === 'PRZYCHÓD' || t.type === 'INCOME' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE'}
-                                                    className={`font-black text-sm group-hover:scale-105 transition-transform ${ (t.type === 'PRZYCHÓD' || t.type === 'INCOME' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? 'text-emerald-600' : 'text-rose-600'}`}
-                                                />
-                                                <TransactionDeleteButton 
-                                                    transactionId={t.id} 
-                                                    description={`${t.category}: ${t.description || ''}`}
-                                                    isTestMode={isTestMode}
-                                                />
-                                            </div>
+                                            {(() => {
+                                            const { signedNet, signedGross, grossColor } = mapFinancialValues(
+                                                t.amountNet || 0,
+                                                (t.amount || 0) - (t.amountNet || 0),
+                                                t.type as FinancialType
+                                            );
+                                            const isIncome = t.type === 'PRZYCHÓD' || t.type === 'INCOME' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE';
+                                            
+                                            return (
+                                                <div className="flex items-center gap-2">
+                                                    <CurrencyDisplay 
+                                                        gross={signedGross.toNumber()}
+                                                        net={signedNet.toNumber()}
+                                                        isIncome={isIncome}
+                                                        className={`font-black text-sm group-hover:scale-105 transition-transform ${grossColor}`}
+                                                    />
+                                                    <TransactionDeleteButton 
+                                                        transactionId={t.id} 
+                                                        description={`${t.category}: ${t.description || ''}`}
+                                                        isTestMode={isTestMode}
+                                                    />
+                                                </div>
+                                            );
+                                        })()}
                                         </div>
                                         <div className="flex items-center justify-between gap-2">
                                             <p className="text-xs font-black text-slate-800 uppercase tracking-tight truncate flex-1">{t.category}</p>
