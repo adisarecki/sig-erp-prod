@@ -11,7 +11,7 @@ Witaj w **Sig ERP** – nowoczesnym systemie finansowo-zarządczym, zaprojektowa
   - Rozpoznaje firmy w Twojej bazie (po NIP, Nazwie lub Numerze Konta).
   - Dopasowuje przelewy do wystawionych faktur i **automatycznie oznacza je jako OPŁACONE**.
   - Uczy się nowych numerów kont Twoich dostawców (Auto-Learning IBAN).
-- **"Safe to Spend" (Bezpieczna Wypłata)**: Najważniejsza liczba na Dashboardzie. System wylicza, ile pieniędzy możesz bezpiecznie wypłacić z firmy po odliczeniu podatków i rezerw.
+- **"Safe to Spend" (Bezpieczna Wypłata)**: Najważniejsza liczba na Dashboardzie. System precyzyjnie wylicza, ile pieniędzy możesz bezpiecznie wydać po odliczeniu podatków, rezerw oraz uwzględnieniu nadpłat VAT jako "tarczy" (DNA Vector 099).
 - **Auto-Kategoryzacja**: System uczy się Twoich wydatków – np. fakturę za paliwo sam przypisze do kosztów transportu.
 
 ### 🤖 Szybkie Skanowanie Faktur (AI/OCR)
@@ -31,10 +31,8 @@ Witaj w **Sig ERP** – nowoczesnym systemie finansowo-zarządczym, zaprojektowa
 
 ## 🛠️ 2. Nad czym aktualnie pracujemy? (Stan na dziś)
 
-Obecnie „szlifujemy” automatyzację bankową i spójność danych:
-- **Smart Match V2**: Udoskonaliliśmy algorytm dopasowywania przelewów do faktur, abyś nie musiał ręcznie wpisywać „opłacono”.
-- **Dual-Sync DNA**: Każda zmiana w bazie (np. nowy numer konta firmy) jest natychmiast zapisywana w dwóch bezpiecznych bazach danych (SQL + Google Firestore).
-- **Zasada 100% CSV**: Cały system bankowy zoptymalizowaliśmy pod natywny format PKO BP (Zawsze CSV, Nigdy MT940).
+- **DNA Vector 099 (Financial Engine Centralization)**: Wdrożyliśmy ujednolicony standard obliczeń finansowych. System teraz precyzyjnie rozróżnia VAT jako zasób (tarcza przy zakupach) i zobowiązanie (przy sprzedaży), eliminując błędy matematyczne w bilansach.
+- **Zasada 100% CSV**: Cały system bankowy zoptymalizowaliśmy pod natywny format PKO BP (Zopen CSV, Nigdy MT940).
 
 ---
 

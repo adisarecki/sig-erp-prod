@@ -15,7 +15,7 @@ System zbudowany w oparciu o **RSC (React Server Components)** i architekturę *
   - **PostgreSQL (Neon) + Prisma**: Secondary SSoT dla raportowania relacyjnego i analityki.
 - **Auth**: Firebase Auth (Admin SDK na backendzie, Client SDK na frontendzie).
 - **AI**: Google Gemini 2.0 Flash (OCR faktur i analiza danych).
-- **Finanse**: `decimal.js` dla precyzyjnych obliczeń pieniężnych.
+- **Finanse**: `decimal.js` dla precyzyjnych obliczeń pieniężnych. Centralny mapper: `src/lib/utils/financeMapper.ts` (Vector 099).
 
 ### 🔴 Build-Safe Firebase Admin
 Inicjalizacja Admin SDK w `src/lib/firebaseAdmin.ts` jest **leniwa (lazy initialization)**. Ma to na celu zapobieganie crashom podczas buildu na Vercelu, gdy zmienne środowiskowe nie są jeszcze dostępne. Zawsze używaj getterów: `getAdminDb()`, `getAdminAuth()`, `getAdminStorage()`.
@@ -56,10 +56,16 @@ graph TD
 
 ## 💰 4. Logika Biznesowa i Finanse
 
-### Modele Obliczeń (Profit First):
-System implementuje strategię bezpiecznych wypłat:
-1. `Safe to Spend = Bilans - VAT - CIT (9%)` (Standardowa rezerwa podatkowa).
-2. `Operating Profit = Revenue Net - Costs Net`
+### Modele Obliczeń (DNA Vector 099):
+System implementuje ujednolicony standard mapowania wartości:
+
+| Type | Net (P&L) | VAT (Treasury) | Gross (Cash) | Color |
+| :--- | :---: | :---: | :---: | :--- |
+| **Purchases (Expense)** | `-` | `+` (Buffer) | `-` | `text-rose-600` |
+| **Sales (Income)** | `+` | `-` (Liability) | `+` | `text-emerald-600` |
+
+1. `Safe to Spend = Cash Balance - CIT Reserve (9%) - VAT Liability (if any) - Unpaid Invoices`.
+2. `Operating Profit = Revenue Net - Costs Net`.
 3. **ROI (Return on Investment)**: `(Net Profit / Real Costs) * 100`.
 4. **Net Margin (Profitability)**: `(Net Profit / Net Invoiced) * 100`.
 
@@ -238,6 +244,9 @@ System integruje standard PKO BP CSV (Zalecany) w celu automatyzacji rozliczeń 
 7. **PKO BP CSV Specifics**: Separator `;`, kodowanie `win1250`. Sanitacja cudzysłowów na poziomie całych linii i kolumn.
 
 ---
+
+> [!IMPORTANT]
+> Przy każdej modyfikacji kodu finansowego, AI MUSI używać `mapFinancialValues` z `@/lib/utils/financeMapper`. Nigdy nie odwracaj znaków ręcznie.
 
 > [!IMPORTANT]
 > Przy każdej modyfikacji kodu, Assistent musi zweryfikować, czy zmiana zachowuje spójność między Firestore a Prisma oraz czy zachowano izolację `tenantId`.

@@ -13,8 +13,8 @@
 - **AI**: Google Gemini 3.0 Flash (OCR & Analiza)
 - **Standardy Finansowe**:
   - Kwoty przechowywane jako liczby całkowite (grosze) w bazie (INT/BigInt).
-  - Wykorzystanie `decimal.js` do precyzyjnych obliczeń na frontendzie/backendzie (np. `new Decimal(amount).div(100)` dla wyświetlania).
-  - Model "Profit First": Automatyczne wyliczanie rezerwy na podatek (Income Tax), VAT oraz "Safe Withdrawal" na Dashboardzie.
+  - Model "Profit First" (DNA Vector 099): Precyzyjne wyliczanie rezerwy na podatek (CIT), VAT oraz "Safe to Spend" przy użyciu centralnego mappera `financeMapper.ts`.
+    - **Logic**: Purchases (Cost -, VAT +, Gross -) | Sales (Net +, VAT -, Gross +).
 
 ## 3. Kluczowe Moduły
 ### Dashboard
@@ -45,7 +45,7 @@ Najbardziej zaawansowany moduł systemu.
 5. **Błąd 500 (Server Components render) w Importach**: Rzucanie surowych wyjątków (`throw Error`) w akcjach Next.js na Vercelu powodowało błędy 500 bez opisu. Naprawione przez wdrożenie standardu zwracania serylizowalnych obiektów `{ success, results, error }`.
 6. **Brak ID Konta Bankowego w transakcjach**: Importy bez jawnie wybranego konta bankowego blokowały się lub tworzyły osierocone rekordy. Wdrożono mandatoryjny selektor konta bankowego w UI (`finance/import`) z obsługą flagi `isDefault`.
 - **Vector 062: Smart Import Hub**: Wdrożono inteligentny system importu wyciągów (CRM + Finanse). System sam uczy się numerów kont kontrahentów i sugeruje rozliczenie faktur. (2026-03-27)
-- **Sprint 1: KSeF Core (Read-Only)**: Uruchomiono fundament integracji z Krajowym Systemem e-Faktur. System potrafi autoryzować sesję, pobierać listę faktur i parsować ich surowy XML (Fa/2) bezpośrednio z serwerów Ministerstwa Finansów. (2026-03-27)
+- **Vector 099: Financial Engine Centralization**: Stworzono `financeMapper.ts` jako SSoT (Single Source of Truth) dla wszystkich obliczeń finansowych. Rozwiązano problem "podwójnych minusów" i błędnego sumowania VAT. (2026-03-30)
 
 ---
 
@@ -70,4 +70,4 @@ Najbardziej zaawansowany moduł systemu.
 - Moduł CRM zintegrowany z historią płatności kontrahentów.
 
 ---
-*Dokument stworzony przez Antigravity dla Adi. Stan na dzień: 19.03.2026 (Aktualizacja: Next.js 15.2.6 CVE fix + Firebase Admin build-safe singleton).*
+*Dokument stworzony przez Antigravity dla Adi. Stan na dzień: 30.03.2026 (Aktualizacja: DNA Vector 099 — Centralizacja Finansów).*
