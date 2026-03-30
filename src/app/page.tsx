@@ -257,13 +257,16 @@ export default async function DashboardPage({
 
   // Metryki Globalne
   const globalBilans = realCashIncomes.minus(realCashCosts)
-  const netVat = vatIncome.minus(vatCost)
+  // Korekta VAT Inversion (Vector 099): Zakupy (+), Sprzedaż (-)
+  const netVat = vatCost.minus(vatIncome)
+  // VAT Liability for Safe to Spend (only deduct if we owe money, i.e., sales > purchases)
+  const vatLiability = Decimal.max(0, vatIncome.minus(vatCost))
   
   const TAX_RESERVE_PERCENT = new Decimal(CIT_RATE)
   // Rezerwa dochodowa CIT liczona od Net Profit (DNA Vector 011/013)
   const incomeTaxReserve = netProfit.gt(0) ? netProfit.times(TAX_RESERVE_PERCENT) : new Decimal(0)
   
-  const totalReserve = incomeTaxReserve.plus(netVat).plus(unpaidTotalAmountGross) // Wliczając zaległe faktury do rezerwy "Safe to Spend"
+  const totalReserve = incomeTaxReserve.plus(vatLiability).plus(unpaidTotalAmountGross) // Wliczając zaległe faktury do rezerwy "Safe to Spend"
   const cleanCash = globalBilans.minus(totalReserve)
   
   const totalDebtRemaining = legacyDebts.reduce((sum, d) => sum.plus(new Decimal(d.remainingAmount || 0)), new Decimal(0))
@@ -400,7 +403,8 @@ export default async function DashboardPage({
   const formattedNetProfit = formatPln(netProfit);
   const formattedCfIncomes30d = formatPln(cfIncomes30d); 
   const formattedCleanCash = formatPln(cleanCash);
-  const formattedNetVat = formatPln(netVat);
+  const formattedNetVat = formatPln(netVat.abs());
+  const isVatOverpaid = netVat.gte(0);
   const formattedGeneralCosts = formatPln(totalGeneralCostsNet);
   const formattedProjectMargin = formatPln(projectMarginSumNet);
 
@@ -474,8 +478,12 @@ export default async function DashboardPage({
               <p className="font-bold text-xl">{formattedNetCash}</p>
             </div>
             <div>
-              <p className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-tighter text-rose-400">VAT Netto do zapłaty</p>
-              <p className="font-bold text-xl text-rose-400">-{formattedNetVat}</p>
+              <p className={`text-sm font-medium mb-1 uppercase tracking-tighter ${isVatOverpaid ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {isVatOverpaid ? 'Nadpłata VAT (Shield)' : 'VAT Netto do zapłaty'}
+              </p>
+              <p className={`font-bold text-xl ${isVatOverpaid ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {isVatOverpaid ? '+' : '-'}{formattedNetVat}
+              </p>
             </div>
             <div>
               <div className="flex items-center gap-1 mb-1">
