@@ -165,6 +165,7 @@ System posiada wbudowaną wyszukiwarkę kontrahentów (Search & Select). Impleme
 | Vector 048 | Database / Sync  | FIXED | HOTFIX: Resolved Sync: error after purge. | Wdrożono "Deep Purge" (czyszczenie dual-source), poprawiono obsługę błędów w `/health` i wymuszono odświeżanie cache w UI. |
 | Vector 049 | Finance / Parser | FIXED | Phase 12: PKO BP CSV Standard & Sync Reset. | Implementacja dedykowanego parsera PKO BP (kolumny 0,3,5,6,7), sanitacja prefiksów i auto-routing ZUS/Zarząd. Wdrożono `/api/finance/sync` do resetu stanu. |
 | Vector 050 | Finance / Engine | FIXED | Phase 13: 3-Layer Bank Import Pipeline. | Refaktoryzacja potoku importu (Parser -> Normalizer -> Mapper). Obsługa `win1250` przez `iconv-lite` oraz wydajny batch saving (`createMany`). |
+| Vector 100 | Finance / Engine | FIXED | Runtime Guard for `toUpperCase()`. | Dodano sprawdzenie `type &&` w `financeMapper.ts`, aby zapobiec crashom przy brakujących typach transakcji. |
 | Vector 051 | Finance / Engine | FIXED | Phase 14: PKO BP CSV & Regex Entity Engine. | Wdrożono zaawansowany parser Regex dla PKO BP CSV. Obsługa extraction layer dla NIP, IBAN i Adresu zopisów transakcji. |
 | Vector 052 | Finance / Engine | FIXED | Phase 14b: Self-Learning Contractor matching. | Wdrożono kaskadowe dopasowanie (NIP > IBAN > Nazwa) i automatyczne uczenie się numerów kont kontrahentów z wyciągów. |
 | Vector 055 | Finance / Engine | FIXED | HOTFIX: Aggressive Regex Engine (Lookahead). | Konsolidacja kolumn PKO BP i silnik Regex z Lookaheadami. |

@@ -21,7 +21,7 @@ export function mapFinancialValues(amountNet: number | Decimal, vat: number | De
     const v = new Decimal(String(vat));
     const gross = net.plus(v);
 
-    const isIncome = ['INCOME', 'SPRZEDAŻ', 'REVENUE', 'PRZYCHÓD'].includes(type.toUpperCase());
+    const isIncome = type && ['INCOME', 'SPRZEDAŻ', 'REVENUE', 'PRZYCHÓD'].includes(type.toUpperCase());
 
     if (isIncome) {
         return {

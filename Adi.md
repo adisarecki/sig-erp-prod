@@ -46,6 +46,7 @@ Najbardziej zaawansowany moduł systemu.
 6. **Brak ID Konta Bankowego w transakcjach**: Importy bez jawnie wybranego konta bankowego blokowały się lub tworzyły osierocone rekordy. Wdrożono mandatoryjny selektor konta bankowego w UI (`finance/import`) z obsługą flagi `isDefault`.
 - **Vector 062: Smart Import Hub**: Wdrożono inteligentny system importu wyciągów (CRM + Finanse). System sam uczy się numerów kont kontrahentów i sugeruje rozliczenie faktur. (2026-03-27)
 - **Vector 099: Financial Engine Centralization**: Stworzono `financeMapper.ts` jako SSoT (Single Source of Truth) dla wszystkich obliczeń finansowych. Rozwiązano problem "podwójnych minusów" i błędnego sumowania VAT. (2026-03-30)
+- **Vector 100: Runtime Guard**: Dodano zabezpieczenie przed `undefined.toUpperCase()` w silniku finansowym. (2026-03-30)
 
 ---
 
