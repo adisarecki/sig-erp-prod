@@ -71,20 +71,39 @@ export async function GET(request: NextRequest) {
                 const amountNet = new Decimal(item.netAmount || 0);
                 const vatAmount = new Decimal(item.vatAmount || 0);
 
-                const result = await prisma.invoice.upsert({
-                    where: { ksefId },
-                    create: {
-                        tenantId, contractorId: contractor.id, ksefId,
-                        invoiceNumber: item.invoiceNumber || 'OCZEKUJE',
-                        type: isRevenue ? 'REVENUE' : 'EXPENSE',
-                        amountNet, amountGross,
-                        taxRate: amountNet.isZero() ? new Decimal(0) : vatAmount.div(amountNet).toDecimalPlaces(4),
-                        issueDate: new Date(item.issueDate || Date.now()),
-                        dueDate: new Date(item.issueDate || Date.now()),
-                        paymentStatus: 'UNPAID', status: 'XML_MISSING', ksefType: 'VAT'
-                    },
-                    update: { status: 'XML_MISSING', updatedAt: new Date() }
+                // 4b. VECTOR 098.1: ABSOLUTNA BLOKADA DUPLIKATÓW (Pre-check)
+                const existingInvoice = await prisma.invoice.findUnique({
+                    where: { ksefId }
                 });
+
+                let result;
+                if (existingInvoice) {
+                    // Jeśli istnieje, tylko aktualizujemy (Vector 098.2: Context Binding)
+                    result = await prisma.invoice.update({
+                        where: { ksefId },
+                        data: { updatedAt: new Date() }
+                    });
+                } else {
+                    // Jeśli nie istnieje, tworzymy "szkielet" (XML_MISSING)
+                    result = await prisma.invoice.create({
+                        data: {
+                            tenantId,
+                            contractorId: contractor.id,
+                            ksefId,
+                            invoiceNumber: item.invoiceNumber || 'OCZEKUJE',
+                            type: isRevenue ? 'REVENUE' : 'EXPENSE',
+                            amountNet,
+                            amountGross,
+                            taxRate: amountNet.isZero() ? new Decimal(0) : vatAmount.div(amountNet).toDecimalPlaces(4),
+                            issueDate: new Date(item.issueDate || Date.now()),
+                            dueDate: new Date(item.issueDate || Date.now()),
+                            paymentStatus: 'UNPAID',
+                            status: 'XML_MISSING',
+                            ksefType: 'VAT'
+                        }
+                    });
+                    savedCount++;
+                }
 
                 await syncInvoiceToFirestore({
                     ...result,

@@ -62,9 +62,9 @@ export async function POST(request: NextRequest) {
                     const targetNip = isExpense ? parsed.sellerNip : parsed.buyerNip;
                     const targetName = isExpense ? parsed.sellerName : parsed.buyerName;
 
-                    // a) Główne dane faktury
+                    // a) Główne dane faktury - Rygorystyczny UPDATE oparty na ksefId (Vector 098.2)
                     const updatedInvoice = await tx.invoice.update({
-                        where: { id: invoice.id },
+                        where: { ksefId: invoice.ksefId! }, // KLUCZOWE: Powiązanie kontekstu KSeF
                         data: {
                             amountNet: parsed.netAmount,
                             amountGross: parsed.grossAmount,
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
                         include: { contractor: true }
                     });
 
-                    // b) Pełna kopia XML w KsefInvoice
+                    // b) Pełna kopia XML w KsefInvoice (Tabela pomocnicza)
                     await tx.ksefInvoice.upsert({
                         where: { ksefNumber: invoice.ksefId! },
                         create: {

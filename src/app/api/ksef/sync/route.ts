@@ -74,27 +74,39 @@ export async function GET() {
                     where: { ksefId }
                 });
 
-                if (existingInvoice) {
-                    skippedCount++;
-                    continue; // Pomijamy zapis i wszelkie akcje poboczne (Firestore, Enrichment)
-                }
-
                 const amountGross = new Decimal(item.grossAmount || 0);
                 const amountNet = new Decimal(item.netAmount || 0);
                 const vatAmount = new Decimal(item.vatAmount || 0);
 
-                const result = await prisma.invoice.create({
-                    data: {
-                        tenantId, contractorId: contractor.id, ksefId,
-                        invoiceNumber: item.invoiceNumber || 'OCZEKUJE',
-                        type: isIncome ? 'INCOME' : 'EXPENSE',
-                        amountNet, amountGross,
-                        taxRate: amountNet.isZero() ? new Decimal(0) : vatAmount.div(amountNet).toDecimalPlaces(4),
-                        issueDate: new Date(item.issueDate || Date.now()),
-                        dueDate: new Date(item.issueDate || Date.now()),
-                        paymentStatus: 'UNPAID', status: 'XML_MISSING', ksefType: 'VAT'
-                    }
-                });
+                let result;
+                if (existingInvoice) {
+                    // Jeśli istnieje, tylko aktualizujemy (Vector 098.2: Context Binding)
+                    result = await prisma.invoice.update({
+                        where: { ksefId },
+                        data: { updatedAt: new Date() }
+                    });
+                    skippedCount++;
+                } else {
+                    // Jeśli nie istnieje, tworzymy "szkielet" (XML_MISSING)
+                    result = await prisma.invoice.create({
+                        data: {
+                            tenantId,
+                            contractorId: contractor.id,
+                            ksefId,
+                            invoiceNumber: item.invoiceNumber || 'OCZEKUJE',
+                            type: isIncome ? 'INCOME' : 'EXPENSE',
+                            amountNet,
+                            amountGross,
+                            taxRate: amountNet.isZero() ? new Decimal(0) : vatAmount.div(amountNet).toDecimalPlaces(4),
+                            issueDate: new Date(item.issueDate || Date.now()),
+                            dueDate: new Date(item.issueDate || Date.now()),
+                            paymentStatus: 'UNPAID',
+                            status: 'XML_MISSING',
+                            ksefType: 'VAT'
+                        }
+                    });
+                    savedCount++;
+                }
 
                 await syncInvoiceToFirestore({
                     ...result,
