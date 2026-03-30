@@ -33,6 +33,7 @@ export async function GET() {
         }
 
         let savedCount = 0;
+        let skippedCount = 0;
         const results = [];
 
         for (const item of invoiceList) {
@@ -68,14 +69,22 @@ export async function GET() {
                     await syncContractorToFirestore(contractor);
                 }
 
-                // 4b. Invoice Header Sync
+                // 4b. VECTOR 098.1: ABSOLUTNA BLOKADA DUPLIKATÓW (Pre-check)
+                const existingInvoice = await prisma.invoice.findUnique({
+                    where: { ksefId }
+                });
+
+                if (existingInvoice) {
+                    skippedCount++;
+                    continue; // Pomijamy zapis i wszelkie akcje poboczne (Firestore, Enrichment)
+                }
+
                 const amountGross = new Decimal(item.grossAmount || 0);
                 const amountNet = new Decimal(item.netAmount || 0);
                 const vatAmount = new Decimal(item.vatAmount || 0);
 
-                const result = await prisma.invoice.upsert({
-                    where: { ksefId },
-                    create: {
+                const result = await prisma.invoice.create({
+                    data: {
                         tenantId, contractorId: contractor.id, ksefId,
                         invoiceNumber: item.invoiceNumber || 'OCZEKUJE',
                         type: isIncome ? 'INCOME' : 'EXPENSE',
@@ -84,8 +93,7 @@ export async function GET() {
                         issueDate: new Date(item.issueDate || Date.now()),
                         dueDate: new Date(item.issueDate || Date.now()),
                         paymentStatus: 'UNPAID', status: 'XML_MISSING', ksefType: 'VAT'
-                    },
-                    update: { status: 'XML_MISSING', updatedAt: new Date() }
+                    }
                 });
 
                 await syncInvoiceToFirestore({
@@ -116,9 +124,11 @@ export async function GET() {
 
         return NextResponse.json({
             success: true,
-            savedCount,
+            saved: savedCount,
+            skipped: skippedCount,
+            count: savedCount, // Dla kompatybilności wstecznej jeśli UI tego wymaga
             invoices: results,
-            message: `Płytka synchronizacja zakończona. Zapamiętano ${results.length} nagłówków faktur (XML_MISSING).`
+            message: `Synchronizacja zakończona. Dodano: ${savedCount}, Pominięto: ${skippedCount}.`
         });
 
     } catch (error: unknown) {

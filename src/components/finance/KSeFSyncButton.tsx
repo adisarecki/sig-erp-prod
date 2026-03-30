@@ -37,7 +37,7 @@ export function KSeFSyncButton({ hasToken, variant = "outline", className = "", 
             if (result.success) {
                 toast.success("Synchronizacja zakończona", {
                     id: toastId,
-                    description: `Pobrano ${result.count} nowych faktur do Inboxa (UNVERIFIED).`
+                    description: `Dodano: ${result.saved || 0} nowych. Pominięto: ${result.skipped || 0} (już są w bazie).`
                 })
                 // Optional: Trigger revalidation or reload
                 setTimeout(() => window.location.reload(), 1500)
