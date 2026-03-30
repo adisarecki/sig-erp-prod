@@ -1,74 +1,43 @@
-# SIG ERP - Kompleksowa Baza Wiedzy (Adi.md)
+# SIG ERP – Strategia i Wizja (Adi.md)
 
-## 1. O Projekcie
-**SIG ERP** to nowoczesny, firmowy system finansowo-zarządczy zaprojektowany dla maksymalnej efektywności operacyjnej. System integruje zarządzanie kosztami, przychodami, projektami oraz automatyzację obiegu dokumentów przy użyciu AI.
-
-## 2. Architektura Techniczna
-- **Framework**: Next.js 15.2.6 (App Router, **patched — CVE-2025-66478**)
-- **Frontend**: React 19, Tailwind CSS 4, Radix UI (Shadcn)
-- **Backend**: Next.js API Routes (Route Handlers)
-- **Baza Danych**: PostgreSQL (via Prisma ORM)
-  - Kluczowe modele: `Transaction` (rejestr operacji), `Project` (budżet i burn rate), `Tenant` (wsparcie multi-tenant).
-  - Schema: Każda transakcja ma typ `INCOME`/`COST` i status `PENDING`/`COMPLETED`. Transakcje i Faktury posiadają pole `bankTransactionId` dla uniknięcia duplikatów przy imporcie.
-- **AI**: Google Gemini 3.0 Flash (OCR & Analiza)
-- **Standardy Finansowe**:
-  - Kwoty przechowywane jako liczby całkowite (grosze) w bazie (INT/BigInt).
-  - Model "Profit First" (DNA Vector 099): Precyzyjne wyliczanie rezerwy na podatek (CIT), VAT oraz "Safe to Spend" przy użyciu centralnego mappera `financeMapper.ts`.
-    - **Logic**: Purchases (Cost -, VAT +, Gross -) | Sales (Net +, VAT -, Gross +).
-
-## 3. Kluczowe Moduły
-### Dashboard
-Centrum dowodzenia z widokiem na płynność finansową. Implementuje regułę Profit First:
-1. `Income - VAT = Real Revenue`
-2. `Real Revenue - Operating Expenses = Gross Profit`
-3. `Gross Profit - Tax Reserve = Net Profit (Safe Withdrawal)`
-
-### OCR Scanner (Gemini 2.0)
-Najbardziej zaawansowany moduł systemu.
-- **Plik**: `src/components/finance/InvoiceScanner.tsx` & `src/app/api/ocr/scan/route.ts`
-- **Walidacja**: System sprawdza poprawność NIP (10 cyfr) oraz sumę kontrolną kwot (Net + VAT = Gross).
-- **Endpoint docelowy**: `POST /api/intake/ocr-draft` - tworzy tymczasowy obiekt w pamięci/bazie, który użytkownik musi zatwierdzić, zanim stanie się prawdziwą transakcją.
-- **Silnik**: Przejście z Tesseract.js -> Gemini 1.5 -> Gemini 2.0 Flash.
-- **Workflow**: 
-  1. Uploader przyjmuje PDF/Obraz (max 10MB).
-  2. Plik jest przesyłany jako Base64 (inlineData) do `api/ocr/scan`.
-  3. Gemini zwraca czysty JSON z danymi: NIP, kwoty, daty, numer faktury.
-  4. Dane trafiają do `api/intake/ocr-draft` jako szkic kosztu.
-
-### Finanse (Ledger)
-- System oparty na rejestrze przychodów i kosztów.
-- Integracja z projektami – każdy koszt/przychód może być przypisany do konkretnego zlecenia.
-
-## 4. Ostatnie Problemy i Rozwiązania
-1. **Błąd Hydracji i 404 Chunks**: Spowodowany konfliktami procesów `node.exe` i uszkodzonym cache `.next`. Rozwiązany przez `taskkill` i czyszczenie `.next`.
-2. **Crash `Object.defineProperty`**: Próba mutacji obiektu `File` w uploaderze. Naprawione przez użycie `useState<File | null>` i brak modyfikacji obiektu systemowego.
-5. **Błąd 500 (Server Components render) w Importach**: Rzucanie surowych wyjątków (`throw Error`) w akcjach Next.js na Vercelu powodowało błędy 500 bez opisu. Naprawione przez wdrożenie standardu zwracania serylizowalnych obiektów `{ success, results, error }`.
-6. **Brak ID Konta Bankowego w transakcjach**: Importy bez jawnie wybranego konta bankowego blokowały się lub tworzyły osierocone rekordy. Wdrożono mandatoryjny selektor konta bankowego w UI (`finance/import`) z obsługą flagi `isDefault`.
-- **Vector 062: Smart Import Hub**: Wdrożono inteligentny system importu wyciągów (CRM + Finanse). System sam uczy się numerów kont kontrahentów i sugeruje rozliczenie faktur. (2026-03-27)
-- **Vector 099: Financial Engine Centralization**: Stworzono `financeMapper.ts` jako SSoT (Single Source of Truth) dla wszystkich obliczeń finansowych. Rozwiązano problem "podwójnych minusów" i błędnego sumowania VAT. (2026-03-30)
-- **Vector 100: Runtime Guard**: Dodano zabezpieczenie przed `undefined.toUpperCase()` w silniku finansowym. (2026-03-30)
+Witaj Adi. Ten dokument to Twoje Centrum Dowodzenia. Zapomnij o wersjach Node.js czy Prisma. To jest miejsce, gdzie odpowiadamy na najważniejsze pytania: „Gdzie jest moja kasa?” oraz „Jak chronimy Twoją płynność finansową?”.
 
 ---
 
-## 📈 Tablica Postępu (Roadmap)
-7. **Błąd Firestore (Value for argument "data" is not a valid Firestore document)**: Próba zapisu wartości `undefined` w polach takich jak `nip` lub `address`. Naprawione przez wymuszenie jawnego rzutowania na `null` w całym potoku (types -> normalizer -> route).
+## 💰 1. Gdzie jest moja kasa? (Filozofia Profit First)
 
-## 5. Jak pracować z projektem (Dla kolejnych AI)
-- **Zasada ZERO Mutation**: Nie modyfikuj obiektów systemowych (np. File).
-- **Zasada AI-First**: Wszystkie nowe faktury powinny przechodzić przez `InvoiceScanner`.
-- **Zasada Serializable Actions**: Server Actions MUSZĄ zwracać obiekty `{ success, results?, error? }` zamiast rzucać błędy, aby uniknąć błędów 500 na Vercelu. (V.058)
-- **Zasada Firestore Strict Nulls**: Nigdy nie wysyłaj `undefined` do Firestore. Wszystkie opcjonalne pola muszą być jawnie ustawione na `null` (V.059).
-- **Zasada Bank Import (Always CSV)**: Do importu wyciągów bankowych używaj WYŁĄCZNIE formatu CSV. Format MT940 jest wycofany ze względu na błędy parsowania (Vector 060).
-- **Zasada Robust Bank Extraction (Separacja i Kodowanie)**: System bankowy automatycznie wykrywa separator (`,` vs `;`) i wymusza kodowanie `win1250` dla wyciągów PKO BP. Każda nowa reguła wyciągania danych (NIP/Nazwa) musi być testowana na obu separatorach (Vector 061).
-- **API Key**: Gemini API Key znajduje się w `.env` jako `GEMINI_API_KEY`.
-- **Prisma**: Po zmianach w schemacie zawsze uruchamiaj `npx prisma generate` oraz `npx prisma db push` dla synchronizacji z bazą danych.
-- **Firebase Admin**: Inicjalizacja przez `@/lib/firebaseAdmin.ts` (singleton z `getApps()`). Używaj getterów `getAdminDb()`, `getAdminAuth()`, `getAdminStorage()`. Nie importuj `firebase-admin/firestore` itd. na poziomie top-level — spowoduje to crash buildu na Vercelu.
-- **Zmienne Firebase na Vercelu**: `FIREBASE_SERVICE_ACCOUNT_JSON` (cały JSON w jednej linii) LUB trio: `FIREBASE_PROJECT_ID` + `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY`.
-
-## 6. Cele na Przyszłość
-- Pełna automatyzacja kategoryzacji kosztów na podstawie historii.
-- Eksport danych do formatów księgowych (JPK_V7).
-- Moduł CRM zintegrowany z historią płatności kontrahentów.
+System **SIG ERP** nie jest zwykłą bazą danych. To Twój firewall finansowy. Najważniejszą liczbą, jaką tu zobaczysz, jest **Safe to Spend**. To pieniądze, które realnie możesz wypłacić z firmy po odliczeniu:
+- **Podatku dochodowego (CIT 9%)**: System automatycznie odkłada rezerwę na każdą zarobioną złotówkę.
+- **VATu do zapłaty**: Pilnujemy Twojego długu wobec państwa.
+- **Tarczy Podatkowej**: System wykrywa Twoje zakupy (np. od **POLON-ALFA S.A.**) i natychmiastowo dodaje zawarty w nich VAT do Twojej tarczy, zwiększając kwotę "Safe to Spend" w czasie rzeczywistym.
 
 ---
-*Dokument stworzony przez Antigravity dla Adi. Stan na dzień: 30.03.2026 (Aktualizacja: DNA Vector 099 — Centralizacja Finansów).*
+
+## 🚀 2. Twoja Wizja Wolności (Po co to zrobiłeś?)
+
+Zbudowaliśmy ten system, abyś Ty nie musiał tracić życia na:
+- **Ręczne sprawdzanie przelewów**: Wyciąg z banku sam "skanuje" Twoich kontrahentów i faktury.
+- **Szukanie kaucji**: Skarbiec Kaucji pilnuje pieniędzy zamrożonych u inwestorów. Przypomnimy Ci o nich, zanim termin zwrotu minie.
+- **Niepewność przy budowie**: Dashboard pokaże Ci na żywo, czy dana inwestycja zarabia, czy koszty wymknęły się spod kontroli.
+
+---
+
+## 📈 3. Mapa do Imperium (Twój Roadmap)
+
+Sig ERP rośnie razem z Twoją firmą. Oto nasze strategiczne kroki:
+
+1. **Pełna Automatyzacja KSeF**: Zapomnij o mailach z fakturami. Wszystko spływa prosto od dostawców. (Wdrożone!)
+2. **Inteligentny Asystent (AI)**: System sam zasugeruje: "Ten projekt ma niską marżę, sprawdź koszty materiałów".
+3. **Moduł CRM & Oferty**: Tworzenie ofert dla klientów jednym kliknięciem na podstawie Twoich historycznych kosztów.
+4. **Automatyka JPK**: Gotowe zestawienia do biura rachunkowego za jednym kliknięciem.
+
+---
+
+## 🛡️ 4. Bezpieczeństwo i Spokój
+
+Jeśli w banku coś się nie zgadza, system zapali **Czerwoną Lampkę (Red Light)**. Każda złotówka ma swoje miejsce, a Ty masz pełną przejrzystość – nawet jeśli nie znasz się na programowaniu.
+
+---
+*Dla techników: Szczegółowe zasady budowy znajdują się w [AI_look.md](./docs/AI_look.md).*
+
+**Sig ERP – Twoja firma pod pełną kontrolą.**
