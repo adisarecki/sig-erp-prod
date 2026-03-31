@@ -1,10 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { RefreshCw, DownloadCloud, Loader2 } from "lucide-react"
+import { RefreshCw, LayoutDashboard, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { toast } from "sonner"
 import { motion } from "framer-motion"
+import { KSeFInboxModal } from "./KSeFInboxModal"
 
 interface KSeFSyncButtonProps {
     hasToken: boolean
@@ -15,64 +15,40 @@ interface KSeFSyncButtonProps {
 
 /**
  * KSeFSyncButton
- * Manages the manual trigger for KSeF synchronization.
- * Security: Only visible if hasToken is true.
+ * VECTOR 103: Trigger for KSeF Gatekeeper (Strefa Buforowa)
+ * Instead of auto-syncing, this now opens the Inbox Modal.
  */
 export function KSeFSyncButton({ hasToken, variant = "outline", className = "", showLabel = true }: KSeFSyncButtonProps) {
-    const [isSyncing, setIsSyncing] = useState(false)
+    const [isModalOpen, setIsModalOpen] = useState(false)
 
     // Security Guard: Hidden if no token configured
     if (!hasToken) return null
 
-    const handleSync = async () => {
-        setIsSyncing(true)
-        const toastId = toast.loading("Synchronizacja z KSeF...", {
-            description: "Pobieranie faktur z ostatniego miesiąca."
-        })
-
-        try {
-            const response = await fetch("/api/ksef/sync")
-            const result = await response.json()
-
-            if (result.success) {
-                toast.success("Synchronizacja zakończona", {
-                    id: toastId,
-                    description: `Dodano: ${result.saved || 0} nowych. Pominięto: ${result.skipped || 0} (już są w bazie).`
-                })
-                // Optional: Trigger revalidation or reload
-                setTimeout(() => window.location.reload(), 1500)
-            } else {
-                toast.error("Błąd synchronizacji", {
-                    id: toastId,
-                    description: result.error || "Wystąpił problem podczas komunikacji z KSeF."
-                })
-            }
-        } catch (error) {
-            console.error("[KSeF_SYNC_UI_ERROR]", error)
-            toast.error("Błąd sieci", {
-                id: toastId,
-                description: "Nie udało się nawiązać połączenia z API KSeF."
-            })
-        } finally {
-            setIsSyncing(false)
-        }
-    }
-
     return (
-        <Button
-            variant={variant}
-            size="sm"
-            onClick={handleSync}
-            disabled={isSyncing}
-            className={`flex items-center gap-2 font-bold transition-all active:scale-95 ${className}`}
-        >
-            <motion.div
-                animate={isSyncing ? { rotate: 360 } : {}}
-                transition={isSyncing ? { repeat: Infinity, duration: 1, ease: "linear" } : {}}
+        <>
+            <Button
+                variant={variant}
+                size="sm"
+                onClick={() => setIsModalOpen(true)}
+                className={`flex items-center gap-2 font-bold transition-all active:scale-95 group border-2 ${className}`}
             >
-                {isSyncing ? <Loader2 className="w-4 h-4" /> : <RefreshCw className="w-4 h-4" />}
-            </motion.div>
-            {showLabel && (isSyncing ? "Pobieranie..." : "Pobierz z KSeF")}
-        </Button>
+                <div className="group-hover:rotate-180 transition-transform duration-500">
+                    <RefreshCw className="w-4 h-4 text-indigo-500" />
+                </div>
+                {showLabel && "Pobierz z KSeF"}
+                <div className="ml-1 px-1.5 py-0.5 bg-indigo-50 rounded text-[9px] text-indigo-600 font-black uppercase tracking-widest hidden sm:block">
+                    Inbox
+                </div>
+            </Button>
+
+            <KSeFInboxModal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)}
+                onImportSuccess={() => {
+                    // Refresh the main app state if needed
+                    setTimeout(() => window.location.reload(), 500)
+                }}
+            />
+        </>
     )
 }

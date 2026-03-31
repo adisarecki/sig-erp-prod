@@ -43,9 +43,10 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
 
 ---
 
-## 🚩 4. Standardy Kodowania i Integrity Vectors
+## 🛡️ 4. Standardy Kodowania i Integrity Vectors
 
-- **Vector 098.1 (Duplicate Shield)**: Rygorystyczny `findUnique` przed zapisem faktury.
+- **Vector 098.1 (Duplicate Shield)**: Rygorystyczny `findUnique` przed zapisem faktury wykorzystujący `ksefId` jako klucz unikalny. To zapewnia, że żadna faktura MF nie zostanie zapisana dwukrotnie, nawet jeśli sync zostanie przerwany.
+- **Vector 103 (Gatekeeper Flow)**: Nowy standard importu. Zamiast zapisu bezpośrednio do bazy `Invoice`, dane wpadają do tymczasowej tabeli `KsefInvoice` (Inbox). Dopiero po akceptacji Wizjonera (Deep Sync), są migrowane do właściwych struktur finansowych.
 - **Vector 058 (Serializable Actions)**: Server Actions zwracają `{ success, results, error }`.
 - **Vector 061 (Bank CSV)**: Obsługa `win1250` i separatora `;` dla PKO BP.
 - **Regex Entity Engine**: Wyciąganie NIP/IBAN z opisów bankowych z lookaheadami.
@@ -63,6 +64,7 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
 | **101** | Dynamic Retention | Real Revenue calculation (Budget - Retention) in Project List UI. |
 | **102.2** | Retention Fork | Decision Modal for Future vs Retroactive retention recalculation. |
 | **099** | Smart Enrichment | Contractor data (IBAN/Address) enriched from XML via Enrichment Proposals. |
+| **103** | KSeF Gatekeeper | Inbox buffer (KsefInvoice) for selective document import approval. |
 
 ---
 *Plik utrzymywany przez Antigravity dla kolejnych sesji AI.*

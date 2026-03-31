@@ -18,8 +18,18 @@ Witaj w **Sig ERP** – Twoim cyfrowym biurze, które pilnuje pieniędzy, termin
 - **Zdrowie Projektu**: Widzisz na żywo, czy budowa zarabia, czy koszty wymknęły się spod kontroli.
 - **Skarbiec Kaucji**: Pilnujemy pieniędzy zamrożonych u inwestorów. Przypomnimy Ci o nich, zanim termin zwrotu minie.
 
-### 🧾 Integracja KSeF (Krajowy System Faktur)
-- **Jeden Przycisk**: Pobieraj wszystkie oficjalne faktury prosto z serwerów Ministerstwa Finansów. Żadnych maili, żadnych zaginionych kartek.
+### 🧾 Integracja KSeF (Bramka KSeF Inbox)
+- **Bramka (Gatekeeper)**: System nie importuje faktur "w ciemno". Po kliknięciu pobierania, otwiera się **Inbox KSeF**, gdzie przeglądasz wykryte dokumenty.
+- **Pełna Kontrola**: Sam decydujesz, które faktury mają stać się kosztem firmy. Zaznaczasz wybrane, a system resztę zrobi za Ciebie (pobierze XML, uzupełni dane kontrahenta i przeliczy budżet).
+- **Czysta Baza**: Niechciane dokumenty możesz odrzucić jednym kliknięciem, aby nie zaśmiecały Twojego widoku w przyszłości.
+
+---
+
+## 🧼 2. Operacja Czysta Kasa (Faza 0)
+Plan strategiczny mający na celu przywrócenie pełnej integralności danych przed testami produkcyjnymi:
+- **Twardy Reset Finansów**: Usunięcie błędnych faktur, transakcji i duplikatów przy jednoczesnym zachowaniu bazy Inwestorów i Projektów.
+- **KSeF First**: Re-import historycznych danych wyłącznie przez oficjalną Bramkę KSeF (Vector 103), co gwarantuje 100% zgodności z MF.
+- **Jedno SSoT**: Wyeliminowanie "dryfu" danych między SQL (Prisma) a NoSQL (Firestore).
 
 ---
 
