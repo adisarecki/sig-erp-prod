@@ -84,15 +84,16 @@ export async function GET(req: NextRequest) {
         const newInvoices = invoiceList.filter(item => {
             const ksefId = (item as any).ksefNumber || item.invoiceReferenceNumber;
             const invoiceNumber = item.invoiceNumber;
-            const sellerNip = (item as any).sellerNip || (item as any).issuerReferenceNumber; // Context dependent
+            
+            // Extract NIP from metadata (Subject1 = Seller in Subject2/Purchase context)
+            const sellerNip = item.seller?.nip || item.subject1?.issuedByIdentifier?.value;
 
             // First Line: KSeF ID
             if (finalizedIds.has(ksefId) || bufferedIds.has(ksefId)) return false;
 
             // Second Line: Business Logic (Number + NIP)
-            // Note: If sync metadata doesn't have NIP, we'll catch it in the Import Phase 2.
-            if (invoiceNumber && (item as any).sellerNip) {
-                const key = `${(item as any).sellerNip}_${invoiceNumber}`;
+            if (invoiceNumber && sellerNip) {
+                const key = `${sellerNip}_${invoiceNumber}`;
                 if (businessDuplicates.has(key)) {
                     console.warn(`[KSeF_SHIELD] Business Duplicate Blocked: ${key}`);
                     return false;
