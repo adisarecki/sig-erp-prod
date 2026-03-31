@@ -46,7 +46,13 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
 ## 🛡️ 4. Standardy Kodowania i Integrity Vectors
 
 - **Vector 098.1 (Duplicate Shield)**: Rygorystyczny `findUnique` przed zapisem faktury wykorzystujący `ksefId` jako klucz unikalny. To zapewnia, że żadna faktura MF nie zostanie zapisana dwukrotnie, nawet jeśli sync zostanie przerwany.
-- **Vector 101 (Real Cash Reality)**: Dashboard i Lista Projektów priorytetyzują **Realny Wpływ Netto** (90%). Budżet szacowany jest limitowany przez kaucje (Retention). Progress bary są dwuwarstwowe: Zielony (Gotówka) + Szary (Zablokowane 🔒).
+- **Vector 101.1 (Liquidity-First Architecture)**: Dashboard i Lista Projektów stosują model **Real Cash Inflow**.
+    - **Math Logic**:
+        - `retentionMultiplier = 1 - retentionRate`
+        - `NetOperatingLimit (Paliwo) = budgetEstimated * retentionMultiplier`
+        - `NetInflowActual = totalIncomesNet * retentionMultiplier`
+    - **Visual**: **Double-Layer Locking** – Pasek postępu posiada stałą strefę `locked-zone` (ostatnie $x$% tracka) z ikoną kłódki 🔒.
+    - **Interaction**: Interaktywne podpowiedzi (Tooltip Help) wyjaśniają parametry językiem korzyści płynnościowej.
 - **Vector 103 (Gatekeeper Flow)**: Nowy standard importu. Zamiast zapisu bezpośrednio do bazy `Invoice`, dane wpadają do tymczasowej tabeli `KsefInvoice` (Inbox). Dopiero po akceptacji Wizjonera (Deep Sync), są migrowane do właściwych struktur finansowych.
 - **Vector 058 (Serializable Actions)**: Server Actions zwracają `{ success, results, error }`.
 - **Vector 061 (Bank CSV)**: Obsługa `win1250` i separatora `;` dla PKO BP.

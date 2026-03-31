@@ -15,9 +15,9 @@ Witaj w **Sig ERP** – Twoim cyfrowym biurze, które pilnuje pieniędzy, termin
 - **Skanowanie Seryjne**: Masz paczkę faktur? Wrzucasz je wszystkie naraz, a system przetworzy je w tle.
 
 ### 🏗️ Zarządzanie Budowami (Inwestycje)
-- **Zdrowie Projektu (Wektor 101)**: Widzisz na żywo realny wpływ gotówki (**Real Inflow 90%**) zamiast "pustych milionów". System automatycznie odejmuje kaucje od budżetów, pokazując Ci faktyczny limit operacyjny.
-- **Podwójny Pasek Postępu**: Wizualizacja rozdzielona na gotówkę dostępną (Zielony) oraz kaucję zamrożoną (Szary 🔒).
-- **Skarbiec Kaucji**: Pilnujemy pieniędzy zamrożonych u inwestorów. Przypomnimy Ci o nich, zanim termin zwrotu minie.
+- **Architektura Płynności (Wektor 101.1)**: System priorytetyzuje **Paliwo (Realny Limit Operacyjny)** – Twoją faktyczną gotówkę netto (90%).
+- **Double-Layer Locking System**: Pasek postępu posiada stałą, wizualną barierę dla **Skarbca (Kaucja 🔒)**. Widzisz, ile pieniędzy jest zamrożonych długoterminowo, co chroni Cię przed błędnym planowaniem marży.
+- **Interaktywne Tooltipy**: Każda kluczowa metryka posiada podpowiedź wyjaśniającą jej znaczenie dla Twojej płynności (Liquidity-First).
 
 ### 🧾 Integracja KSeF (Bramka KSeF Inbox)
 - **Bramka (Gatekeeper)**: System nie importuje faktur "w ciemno". Po kliknięciu pobierania, otwiera się **Inbox KSeF**, gdzie przeglądasz wykryte dokumenty.

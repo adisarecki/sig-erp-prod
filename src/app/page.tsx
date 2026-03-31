@@ -565,8 +565,8 @@ export default async function DashboardPage({
               <Lock className="w-5 h-5" />
             </div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Portfel Realny (Netto)</h3>
-              <TooltipHelp content="Suma realnych wpływów (po odjęciu kaucji) dla wszystkich aktywnych projektów. To Twoja faktyczna baza operacyjna." />
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500 italic">Realny Limit Operacyjny (Paliwo)</h3>
+              <TooltipHelp content="Suma realnych wpływów (Paliwo) dla wszystkich aktywnych projektów. To Twoja faktyczna baza operacyjna i granica wydatków (90% kontraktów)." />
             </div>
           </div>
           {(() => {
@@ -577,8 +577,8 @@ export default async function DashboardPage({
             }, new Decimal(0));
             return (
               <>
-                <p className="text-3xl font-black mt-4 text-slate-900">{formatPln(totalProjectRealInflow)}</p>
-                <p className="text-xs mt-1 text-slate-500 font-medium italic">Limit operacyjny (90% bazy).</p>
+                <p className="text-3xl font-black mt-4 text-slate-900 tracking-tighter">{formatPln(totalProjectRealInflow)}</p>
+                <p className="text-[10px] mt-2 text-emerald-600 font-extrabold uppercase tracking-widest">Base operational liquidity (90%).</p>
               </>
             );
           })()}

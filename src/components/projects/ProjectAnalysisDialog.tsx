@@ -9,8 +9,9 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { LineChart as LineChartIcon, Lock } from "lucide-react"
+import { LineChart as LineChartIcon, Lock, Info } from "lucide-react"
 import { ProjectBurnChart } from "./ProjectBurnChart"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface ProjectAnalysisDialogProps {
     projectName: string
@@ -25,7 +26,7 @@ export function ProjectAnalysisDialog({
     invoices, 
     transactions = [], 
     budgetEstimated,
-    retentionRate = 0.1 // Domyślnie 10% dla Widoku Wizjonera
+    retentionRate = 0.1 // Domyślnie 10% dla Widoku Wizjonera (Wektor 101.1)
 }: ProjectAnalysisDialogProps) {
     return (
         <Dialog>
@@ -34,14 +35,22 @@ export function ProjectAnalysisDialog({
                     <LineChartIcon className="h-5 w-5" />
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[650px] bg-white border border-slate-200 shadow-xl rounded-2xl">
-                <DialogHeader>
-                    <DialogTitle className="text-xl font-bold text-slate-900">Analiza Zdrowia Projektu (Real Cash)</DialogTitle>
-                    <DialogDescription className="text-slate-500">
-                        Wizualizacja realnego wpływu gotówki dla: <strong className="text-slate-700">{projectName}</strong>
-                    </DialogDescription>
+            <DialogContent className="sm:max-w-[700px] bg-white border border-slate-200 shadow-xl rounded-3xl p-0 overflow-hidden">
+                <DialogHeader className="p-8 bg-slate-50 border-b">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-100">
+                            <LineChartIcon className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <DialogTitle className="text-2xl font-black text-slate-900 tracking-tight italic">Analiza Zdrowia: Paliwo vs Skarbiec</DialogTitle>
+                            <DialogDescription className="text-slate-500 font-medium">
+                                Architektura Płynności Projektu: <strong className="text-slate-700">{projectName}</strong>
+                            </DialogDescription>
+                        </div>
+                    </div>
                 </DialogHeader>
-                <div className="mt-6">
+                
+                <div className="p-8 space-y-8">
                     {(() => {
                         const costInvoices = invoices.filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'WYDATEK' || inv.type === 'ZAKUP')
                         const incomeInvoices = invoices.filter((inv) => inv.type === 'SPRZEDAŻ' || inv.type === 'PRZYCHÓD' || inv.type === 'INCOME' || inv.type === 'REVENUE')
@@ -49,129 +58,148 @@ export function ProjectAnalysisDialog({
                         const totalCostsNet = costInvoices.reduce((sum, inv) => sum + Number(inv.amountNet), 0)
                         const totalIncomesNet = incomeInvoices.reduce((sum, inv) => sum + Number(inv.amountNet), 0)
 
-                        // VECTOR 101: Rekalibracja na 90% Real Inflow
-                        const realInflowRate = 1 - retentionRate
-                        const maxRealInflow = budgetEstimated * realInflowRate
-                        const currentRealInflow = totalIncomesNet * realInflowRate
-                        const currentRetention = totalIncomesNet * retentionRate
+                        // --- LOGIC LAYER: VECTOR 101.1 (LIQUIDITY-FIRST) ---
+                        const retentionMultiplier = 1 - retentionRate
+                        const NetOperatingLimit = budgetEstimated * retentionMultiplier // Paliwo (90%)
+                        const GrossBillingPotential = budgetEstimated // Potencjał (100%)
+                        const SkarbiecNominal = budgetEstimated * retentionRate // Kaucja (10%)
                         
-                        const percentOfRealInflow = maxRealInflow > 0 ? (currentRealInflow / maxRealInflow) * 100 : 0
-                        const percentOfRetention = budgetEstimated > 0 ? (currentRetention / budgetEstimated) * 100 : 0
+                        const NetInflowActual = totalIncomesNet * retentionMultiplier // Realny wpływ do dziś
+                        const currentRetentionValue = totalIncomesNet * retentionRate // Kaucja zamrożona do dziś
                         
-                        const remainingToRealInflow = maxRealInflow - currentRealInflow
+                        // Obliczenia postępu wewnątrz limitu operacyjnego
+                        const percentOfNetLimit = NetOperatingLimit > 0 ? (NetInflowActual / NetOperatingLimit) * 100 : 0
+                        const remainingNetOperatingLimit = NetOperatingLimit - NetInflowActual
                         
-                        // Rentowność liczona od Real Cash (90%), nie od faktury (100%)
-                        const realProfitNet = currentRealInflow - totalCostsNet
-                        const isLoss = realProfitNet < 0
+                        // Rentowność (RealProfit) bazuje na NetInflowActual, a nie na fakturowaniu (Gross)
+                        const RealProfit = NetInflowActual - totalCostsNet
+                        const isLoss = RealProfit < 0
+                        const currentRoi = totalCostsNet > 0 ? (RealProfit / totalCostsNet * 100) : 0
 
                         return (
-                            <div className="space-y-6">
-                                {/* Sekcja 1: Postęp Kontraktu (Double-Layer Progress Bar) */}
-                                <div className={`p-4 rounded-xl border flex items-start gap-4 transition-all bg-slate-50 border-slate-200 text-slate-900`}>
-                                    <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 bg-emerald-100`}>
-                                        <span className="text-xl">💰</span>
-                                    </div>
-                                    <div className="space-y-1 w-full flex-1">
-                                        <div className="flex justify-between items-end mb-1">
-                                            <p className="font-black text-lg leading-none uppercase tracking-tight">
-                                                Postęp Realnego Wpływu
+                            <div className="space-y-8">
+                                {/* UI LAYER: DOUBLE-LAYER PROGRESS BAR */}
+                                <div className="p-6 rounded-3xl border border-slate-200 bg-slate-50/50 shadow-sm relative group overflow-hidden">
+                                    <div className="flex justify-between items-end mb-6">
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-xs font-black uppercase tracking-widest text-emerald-600 italic">Realny Limit Operacyjny (Paliwo)</p>
+                                                <TooltipHelp content="Calculated Net Liquidity: Twoja realna baza operacyjna po odliczeniu kaucji. Na jej bazie planuj wydatki i marżę (90% kontraktu)." />
+                                            </div>
+                                            <p className="text-3xl font-black text-slate-900 tracking-tighter">
+                                                {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(NetOperatingLimit)}
                                             </p>
-                                            <span className="text-xs font-bold text-slate-400">Total: {new Intl.NumberFormat('pl-PL').format(budgetEstimated)} zł</span>
                                         </div>
-                                        <p className="text-sm opacity-90 mb-3 block">
-                                            Pozostało do Realnego Wpływu: <strong className="text-emerald-600 font-black">{new Intl.NumberFormat('pl-PL').format(remainingToRealInflow)} zł (Netto)</strong>
-                                        </p>
-                                        
-                                        {/* Double-Layer Progress Bar */}
-                                        <div className="w-full bg-slate-200/50 rounded-full h-4 overflow-hidden mt-3 relative flex">
-                                            <div
-                                                className={`h-4 transition-all duration-1000 bg-emerald-500 z-10 shadow-[0_0_15px_rgba(16,185,129,0.3)]`}
-                                                style={{ width: `${Math.min(90, percentOfRealInflow * realInflowRate)}%` }}
-                                                title="Realny wpływ (Netto)"
-                                            />
-                                            <div
-                                                className={`h-4 transition-all duration-1000 bg-slate-400/50`}
-                                                style={{ width: `${Math.min(10, percentOfRetention)}%` }}
-                                                title="Zablokowana kaucja (🔒)"
-                                            />
+                                        <div className="text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <TooltipHelp content="Total Contract Value: Całkowita wartość robót do wykonania (Gross Revenue Potential)." />
+                                                <p className="text-[10px] font-black uppercase text-slate-400">Potencjał Fakturowania</p>
+                                            </div>
+                                            <p className="text-xl font-bold text-slate-400 tracking-tight">
+                                                {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(GrossBillingPotential)}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* DoubleLayerProgressBar Engine */}
+                                    <div className="relative w-full h-8 bg-slate-200 rounded-2xl overflow-hidden shadow-inner flex border-2 border-slate-100">
+                                        {/* Status: Active Inflow (Paliwo zużyte) */}
+                                        <div 
+                                            className="h-full bg-emerald-500 z-10 transition-all duration-1000 shadow-[0_0_20px_rgba(16,185,129,0.3)] flex items-center justify-center text-[10px] font-black text-white px-2"
+                                            style={{ width: `${percentOfNetLimit * retentionMultiplier}%` }}
+                                        >
+                                            {percentOfNetLimit > 10 ? `${(percentOfNetLimit).toFixed(0)}%` : ''}
                                         </div>
                                         
-                                        <div className="flex justify-between text-[10px] mt-2 font-black uppercase tracking-widest">
-                                            <span className="text-emerald-600">Dostępne: {new Intl.NumberFormat('pl-PL').format(currentRealInflow)} zł</span>
-                                            <span className="text-slate-400 flex items-center gap-1"><Lock className="w-3 h-3" /> Kaucja: {new Intl.NumberFormat('pl-PL').format(currentRetention)} zł</span>
-                                            <span className="text-slate-900 border-l border-slate-300 pl-2">Limit Operacyjny: {new Intl.NumberFormat('pl-PL').format(maxRealInflow)} zł</span>
+                                        {/* Status: Available Area (Paliwo wolne) */}
+                                        <div className="flex-1 h-full bg-slate-200" />
+                                        
+                                        {/* Status: LOCKED ZONE (Skarbiec / Kaucja) */}
+                                        <div 
+                                            className="h-full bg-slate-400/30 opacity-60 flex items-center justify-center border-l-2 border-slate-300/50"
+                                            style={{ width: `${retentionRate * 100}%` }}
+                                        >
+                                            <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:4px_4px]" />
+                                            <Lock className="w-4 h-4 text-slate-500 opacity-60 z-20" />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-3 mt-4">
+                                        <div className="flex flex-col">
+                                            <p className="text-[9px] font-black text-emerald-600 uppercase">Obecne Paliwo:</p>
+                                            <p className="font-bold text-slate-800">{new Intl.NumberFormat('pl-PL').format(NetInflowActual)} zł</p>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <p className="text-[9px] font-black text-rose-500 uppercase">Pozostało Paliwa:</p>
+                                            <p className="font-bold text-slate-800">{new Intl.NumberFormat('pl-PL').format(remainingNetOperatingLimit)} zł</p>
+                                        </div>
+                                        <div className="flex flex-col items-end">
+                                            <div className="flex items-center gap-1">
+                                                <p className="text-[9px] font-black text-slate-500 uppercase">Skarbiec (Kaucja):</p>
+                                                <TooltipHelp content="Contractual Retention: Pieniądze zamrożone jako zabezpieczenie. Pracują dopiero po zwolnieniu (aneks/koniec gwarancji)." />
+                                            </div>
+                                            <p className="font-bold text-slate-500">{new Intl.NumberFormat('pl-PL').format(SkarbiecNominal)} zł</p>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Sekcja 2: Wynik Finansowy Projektu (Scorecard) */}
-                                <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-xl border border-slate-800 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
-                                        <span className="text-6xl">📊</span>
+                                {/* SCORECARD: REAL PROFIT ANALYSIS */}
+                                <div className="bg-slate-900 text-white rounded-[2rem] p-8 shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                                    <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none rotate-12">
+                                        <span className="text-[120px] font-black italic tracking-tighter">LIQUIDITY</span>
                                     </div>
-                                    <h3 className="text-sm font-black uppercase tracking-widest text-indigo-400 mb-6 flex items-center gap-2">
-                                        <span className="flex items-center gap-2 italic">Real Profit Analysis <TooltipHelp content="Zysk liczony w oparciu o realny wpływ (90%), a nie obietnicę zapłaty kaucji." /></span>
-                                        {isLoss && <span className="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full animate-pulse font-black uppercase">Alarm: Deficyt gotówkowy!</span>}
-                                    </h3>
+                                    
+                                    <div className="relative z-10">
+                                        <div className="flex justify-between items-center mb-8">
+                                            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-indigo-400 italic">Financial Scorecard: Real Cash Inflow</h3>
+                                            {isLoss ? (
+                                                <span className="bg-rose-600 text-[10px] font-black px-4 py-1.5 rounded-full animate-pulse shadow-lg shadow-rose-500/20 uppercase">Deficyt Płynności!</span>
+                                            ) : (
+                                                <span className="bg-emerald-600 text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg shadow-emerald-500/20 uppercase">Bezpieczna Marża</span>
+                                            )}
+                                        </div>
 
-                                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
-                                        <div>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mb-1">Przychody (Netto 90%)</p>
-                                            <p className="text-xl font-black text-emerald-400">{new Intl.NumberFormat('pl-PL').format(currentRealInflow)} zł</p>
-                                            <p className="text-[9px] text-slate-500 mt-1 uppercase font-bold tracking-tight">Kasa na koncie</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mb-1">Koszty (Netto)</p>
-                                            <p className="text-xl font-black text-rose-400">-{new Intl.NumberFormat('pl-PL').format(totalCostsNet)} zł</p>
-                                            <p className="text-[9px] text-slate-500 mt-1 uppercase font-bold tracking-tight">Wydatki realne</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mb-1">Realna Marża</p>
-                                            <p className={`text-xl font-black ${isLoss ? 'text-rose-500' : 'text-emerald-500'}`}>
-                                                {isLoss ? '' : '+'}{new Intl.NumberFormat('pl-PL').format(realProfitNet)} zł
-                                            </p>
-                                            <p className="text-[9px] text-slate-500 mt-1 uppercase font-bold tracking-tight">Zysk dostępny (Dziś)</p>
-                                        </div>
-                                        {/* ROI Badge */}
-                                        <div className={`p-2 rounded-xl h-full flex flex-col justify-center border ${
-                                            (realProfitNet / totalCostsNet * 100) > 20 ? 'bg-emerald-500/10 border-emerald-500/20' :
-                                            (realProfitNet / totalCostsNet * 100) >= 10 ? 'bg-amber-500/10 border-amber-500/20' :
-                                            'bg-rose-500/10 border-rose-500/20'
-                                        }`}>
-                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-tighter mb-1">Real ROI</p>
-                                            <p className={`text-xl font-black ${
-                                                (realProfitNet / totalCostsNet * 100) > 20 ? 'text-emerald-400' :
-                                                (realProfitNet / totalCostsNet * 100) >= 10 ? 'text-amber-400' :
-                                                'text-rose-400'
-                                            }`}>
-                                                {totalCostsNet > 0 ? (realProfitNet / totalCostsNet * 100).toFixed(1) : '0'}%
-                                            </p>
-                                            <p className="text-[8px] font-bold uppercase mt-1 opacity-70">
-                                                {(realProfitNet / totalCostsNet * 100) > 20 ? "Ekstraklasa" : (realProfitNet / totalCostsNet * 100) >= 10 ? "Bezpiecznie" : "Ryzykownie"}
-                                            </p>
-                                        </div>
-                                        {/* Rentowność */}
-                                        <div className="flex flex-col justify-center">
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mb-1">Rentowność</p>
-                                            <p className="text-xl font-black text-indigo-400">
-                                                {currentRealInflow > 0 ? (realProfitNet / currentRealInflow * 100).toFixed(1) : '0'}%
-                                            </p>
-                                            <p className="text-[9px] text-slate-500 mt-1 uppercase font-bold tracking-tight">Gotówka / Przychód</p>
+                                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase">Wpływ Realny (Netto)</p>
+                                                <p className="text-3xl font-black text-emerald-400 tracking-tighter whitespace-nowrap">{new Intl.NumberFormat('pl-PL').format(NetInflowActual)} zł</p>
+                                                <p className="text-[8px] text-slate-500 uppercase font-black tracking-widest">Kasa na koncie</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase">Wydatki Operacyjne</p>
+                                                <p className="text-3xl font-black text-rose-400 tracking-tighter whitespace-nowrap">-{new Intl.NumberFormat('pl-PL').format(totalCostsNet)} zł</p>
+                                                <p className="text-[8px] text-slate-500 uppercase font-black tracking-widest">Koszty netto</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase">Realny Zysk (Dziś)</p>
+                                                <p className={`text-3xl font-black tracking-tighter whitespace-nowrap ${isLoss ? 'text-rose-500' : 'text-indigo-400'}`}>
+                                                    {isLoss ? '' : '+'}{new Intl.NumberFormat('pl-PL').format(RealProfit)} zł
+                                                </p>
+                                                <p className="text-[8px] text-slate-500 uppercase font-black tracking-widest">Gotówka po kosztach</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase">Real ROI</p>
+                                                <div className="flex items-end gap-2">
+                                                    <p className={`text-3xl font-black tracking-tighter ${currentRoi > 20 ? 'text-emerald-400' : currentRoi > 10 ? 'text-amber-400' : 'text-rose-400'}`}>
+                                                        {currentRoi.toFixed(1)}%
+                                                    </p>
+                                                </div>
+                                                <p className="text-[8px] text-slate-500 uppercase font-black tracking-widest">Zwrot z wydanego PLN</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Wykres */}
-                                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                                    <div className="w-full h-[350px] min-w-[500px]">
+                                <div className="bg-slate-50 rounded-3xl p-6 border border-slate-200/50 shadow-sm">
+                                    <div className="w-full h-[350px] min-w-full">
                                         <ProjectBurnChart
                                             invoices={invoices}
                                             transactions={transactions}
                                             budgetEstimated={budgetEstimated}
                                         />
                                     </div>
-                                    <p className="text-[10px] text-slate-400 mt-4 text-center italic font-medium">
-                                        * Wykres prezentuje dynamikę przychodów, kosztów (Netto) oraz narastający zysk projektu na osi czasu.
+                                    <p className="text-[10px] text-slate-400 mt-6 text-center italic font-bold tracking-tight uppercase opacity-50">
+                                        * Vector 101.1 Protocol: Dynamika Paliwa i Skarbca na osi czasu.
                                     </p>
                                 </div>
                             </div>
@@ -183,11 +211,17 @@ export function ProjectAnalysisDialog({
     )
 }
 
-// Komponent pomocniczy dla tooltipów (jeśli brak w ui)
 function TooltipHelp({ content }: { content: string }) {
     return (
-        <span className="cursor-help text-slate-400" title={content}>
-            ⓘ
-        </span>
+        <TooltipProvider>
+            <Tooltip delayDuration={300}>
+                <TooltipTrigger asChild>
+                    <Info className="w-3.5 h-3.5 text-slate-400 cursor-help hover:text-blue-500 transition-colors" />
+                </TooltipTrigger>
+                <TooltipContent className="bg-slate-900 text-white text-[10px] max-w-[200px] border-slate-800 shadow-xl px-3 py-2 rounded-xl">
+                    {content}
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
     )
 }

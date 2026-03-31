@@ -271,20 +271,20 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                         return (
                                             <>
                                                 <div className="flex items-center gap-1">
-                                                    <p className="text-sm font-black text-emerald-600 uppercase tracking-tight">Realny Wpływ (Netto)</p>
-                                                    <TooltipHelp content="Kwota, która faktycznie trafi na Twoje konto po odjęciu kaucji gwarancyjnych (zazwyczaj 10%). To jest Twoja realna baza operacyjna." />
+                                                    <p className="text-sm font-black text-emerald-600 uppercase tracking-tight italic">Realny Limit Operacyjny (Paliwo)</p>
+                                                    <TooltipHelp content="Twoja realna baza operacyjna po odliczeniu kaucji (90% kontraktu). Na jej bazie planuj wydatki i marżę." />
                                                 </div>
-                                                <p className="text-2xl font-black text-slate-900 leading-tight">
+                                                <p className="text-2xl font-black text-slate-900 leading-tight tracking-tighter">
                                                     {formatPln(realRevenue)}
                                                 </p>
                                                 <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest">
-                                                    Suma kontraktu: {formatPln(budgetVal)}
+                                                    Potencjał Fakturowania: {formatPln(budgetVal)}
                                                 </p>
                                                 
                                                 {totalRate > 0 && (
                                                     <div className="mt-1 flex flex-col items-start lg:items-end text-right">
-                                                        <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
-                                                            🔒 W tym kaucje: {formatPln(retentionAmount)} ({(totalRate * 100).toFixed(0)}%)
+                                                        <p className="text-[10px] text-slate-400 font-black flex items-center gap-1 uppercase tracking-tighter">
+                                                            🔒 Skarbiec (Kaucja): {formatPln(retentionAmount)} ({(totalRate * 100).toFixed(0)}%)
                                                         </p>
                                                     </div>
                                                 )}
