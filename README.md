@@ -15,7 +15,8 @@ Witaj w **Sig ERP** – Twoim cyfrowym biurze, które pilnuje pieniędzy, termin
 - **Skanowanie Seryjne**: Masz paczkę faktur? Wrzucasz je wszystkie naraz, a system przetworzy je w tle.
 
 ### 🏗️ Zarządzanie Budowami (Inwestycje)
-- **Zdrowie Projektu**: Widzisz na żywo, czy budowa zarabia, czy koszty wymknęły się spod kontroli.
+- **Zdrowie Projektu (Wektor 101)**: Widzisz na żywo realny wpływ gotówki (**Real Inflow 90%**) zamiast "pustych milionów". System automatycznie odejmuje kaucje od budżetów, pokazując Ci faktyczny limit operacyjny.
+- **Podwójny Pasek Postępu**: Wizualizacja rozdzielona na gotówkę dostępną (Zielony) oraz kaucję zamrożoną (Szary 🔒).
 - **Skarbiec Kaucji**: Pilnujemy pieniędzy zamrożonych u inwestorów. Przypomnimy Ci o nich, zanim termin zwrotu minie.
 
 ### 🧾 Integracja KSeF (Bramka KSeF Inbox)

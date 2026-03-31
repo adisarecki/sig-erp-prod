@@ -259,32 +259,36 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
 
                             <div className="flex items-center justify-between lg:justify-end w-full lg:w-auto gap-3 pl-9 lg:pl-0">
                                 <div className="flex flex-col items-start lg:items-end lg:mr-4">
-                                    <div className="flex items-center gap-1">
-                                        <p className="text-sm font-medium text-slate-500">Szacowany Budżet (Netto)</p>
-                                        <TooltipHelp content="Wartość netto całego kontraktu lub Twojej oferty. Pozwala śledzić, jaki procent zlecenia został już zafakturowany." />
-                                    </div>
-                                    <p className="text-lg font-bold text-slate-800">{formatPln(Number(project.budgetEstimated))}</p>
-                                    
-                                    {/* VECTOR 101: DYNAMIC RETENTION & REAL REVENUE */}
+                                    {/* VECTOR 101: RECALIBRATION TO REAL INFLOW */}
                                     {(() => {
                                         const budgetVal = Number(project.budgetEstimated);
                                         const shortRate = project.retentionShortTermRate || 0;
                                         const longRate = project.retentionLongTermRate || 0;
-                                        const totalRate = shortRate + longRate;
+                                        const totalRate = shortRate + longRate || 0.1; // Default 10% if not specified
                                         const retentionAmount = budgetVal * totalRate;
                                         const realRevenue = budgetVal - retentionAmount;
 
-                                        if (totalRate <= 0) return null;
-
                                         return (
-                                            <div className="mt-1 flex flex-col items-start lg:items-end text-right">
-                                                <p className="text-xs text-slate-400 font-medium flex items-center gap-1">
-                                                    🔒 Kaucje gwarancyjne: {formatPln(retentionAmount)} ({(totalRate * 100).toFixed(1)}%)
+                                            <>
+                                                <div className="flex items-center gap-1">
+                                                    <p className="text-sm font-black text-emerald-600 uppercase tracking-tight">Realny Wpływ (Netto)</p>
+                                                    <TooltipHelp content="Kwota, która faktycznie trafi na Twoje konto po odjęciu kaucji gwarancyjnych (zazwyczaj 10%). To jest Twoja realna baza operacyjna." />
+                                                </div>
+                                                <p className="text-2xl font-black text-slate-900 leading-tight">
+                                                    {formatPln(realRevenue)}
                                                 </p>
-                                                <p className="text-xs text-emerald-600 font-bold mt-0.5">
-                                                    💰 Realny wpływ (Netto): {formatPln(realRevenue)}
+                                                <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest">
+                                                    Suma kontraktu: {formatPln(budgetVal)}
                                                 </p>
-                                            </div>
+                                                
+                                                {totalRate > 0 && (
+                                                    <div className="mt-1 flex flex-col items-start lg:items-end text-right">
+                                                        <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                                                            🔒 W tym kaucje: {formatPln(retentionAmount)} ({(totalRate * 100).toFixed(0)}%)
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </>
                                         );
                                     })()}
                                 </div>
@@ -303,6 +307,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                             transactionDate: typeof t.transactionDate === 'string' ? t.transactionDate : (t.transactionDate as Date).toISOString()
                                         }))}
                                         budgetEstimated={Number(project.budgetEstimated)}
+                                        retentionRate={(project.retentionShortTermRate || 0) + (project.retentionLongTermRate || 0) || 0.1}
                                     />
                                 </div>
                             </div>

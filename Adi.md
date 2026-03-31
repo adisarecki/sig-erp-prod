@@ -10,7 +10,7 @@ System **SIG ERP** nie jest zwykłą bazą danych. To Twój firewall finansowy. 
 - **Podatku dochodowego (CIT 9%)**: System automatycznie odkłada rezerwę na każdą zarobioną złotówkę.
 - **VATu do zapłaty**: Pilnujemy Twojego długu wobec państwa.
 - **Tax Shield (Tarcza)**: System wykrywa Twoje zakupy (np. od **POLON-ALFA S.A.**) i natychmiastowo dodaje zawarty w nich VAT do Twojej tarczy, zwiększając kwotę "Safe to Spend" w czasie rzeczywistym.
-- **Real Revenue Transparency (Vector 101)**: W widoku listy projektów widzisz teraz nie tylko szacowany budżet, ale realny wpływ pieniędzy po odjęciu kaucji gwarancyjnych. To chroni Cię przed planowaniem wydatków w oparciu o "puste miliony".
+- **Real Revenue Transparency (Vector 101)**: System automatycznie rekalibruje Twoje projekty na **Realny Wpływ (90%)**. Dashboard i listy projektów nie pokazują już pełnych budżetów jako bazy, ale kwoty pomniejszone o kaucje. To chroni Cię przed planowaniem wydatków w oparciu o "puste miliony", które są zamrożone u inwestorów. Widzisz prawdę o gotówce, a nie obietnice z faktur.
 - **Retention Fork (Vector 102.2)**: Jeśli podpiszesz aneks zmieniający stawki kaucji, system zapyta Cię o zasięg zmian. Możesz chronić historię (Opcja A) lub zaktualizować cały projekt wstecz (Opcja B), aby bilans Skarbca zawsze zgadzał się z aktualną umową.
 
 ---
