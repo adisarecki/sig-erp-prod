@@ -475,7 +475,7 @@ export class KSeFService {
         const netAmount = new Decimal(fa.P_13_1 || 0).plus(fa.P_13_2 || 0).plus(fa.P_13_3 || 0);
         const grossAmount = new Decimal(fa.P_15 || 0);
 
-        const bankAccount = fa.Platnosc?.RachunekBankowy?.NrRB || fa.Platnosc?.NrRB || null;
+        const bankAccount = fa.Platnosc?.RachunekBankowy?.NrRB || fa.Platnosc?.NrRB || faktura.Podmiot1?.DaneKontaktowe?.NrRB || null;
         const addressL1 = faktura.Podmiot1?.Adres?.AdresL1 || '';
         const addressL2 = faktura.Podmiot1?.Adres?.AdresL2 || '';
         const fullAddress = `${addressL1}${addressL1 && addressL2 ? ', ' : ''}${addressL2}`.trim();

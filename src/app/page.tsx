@@ -33,10 +33,10 @@ const formatPln = (value: number | string | Decimal) => {
 
 
 
-export default async function DashboardPage({ 
-  searchParams 
-}: { 
-  searchParams: Promise<{ period?: string; year?: string }> 
+export default async function DashboardPage({
+  searchParams
+}: {
+  searchParams: Promise<{ period?: string; year?: string }>
 }) {
   const params = await searchParams
   const period = params.period || 'ALL'
@@ -99,8 +99,8 @@ export default async function DashboardPage({
   const retentions = retentionsSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
 
   const enrichmentNotifications = await (prisma as any).notification.findMany({
-    where: { 
-      tenantId, 
+    where: {
+      tenantId,
       type: 'ENRICHMENT_PROPOSAL',
       isRead: false
     },
@@ -110,13 +110,13 @@ export default async function DashboardPage({
   // POBRANIE WPROWADZONYCH FAKTUR Z ZALEDGŁOŚCIAMI Z PRISMA (KSeF + Sync)
   const prismaUnpaidInvoices = await prisma.invoice.findMany({
     where: {
-        tenantId,
-        paymentStatus: "UNPAID",
-        status: "ACTIVE"
+      tenantId,
+      paymentStatus: "UNPAID",
+      status: "ACTIVE"
     },
     include: { contractor: true }
   })
-  
+
   const unpaidTotalAmountGross = prismaUnpaidInvoices.reduce((sum, inv) => sum.plus(new Decimal(inv.amountGross || 0)), new Decimal(0));
   const unpaidKsefAmountGross = prismaUnpaidInvoices.filter(inv => inv.ksefId).reduce((sum, inv) => sum.plus(new Decimal(inv.amountGross || 0)), new Decimal(0));
 
@@ -136,10 +136,10 @@ export default async function DashboardPage({
     const txDate = new Date(tx.transactionDate)
     if (startDate && txDate < startDate) return
     if (endDate && txDate > endDate) return
-    
+
     const isIncome = tx.type === 'PRZYCHÓD' || tx.type === 'INCOME' || tx.type === 'SPRZEDAŻ' || tx.type === 'REVENUE'
     const isExpense = tx.type === 'KOSZT' || tx.type === 'EXPENSE' || tx.type === 'ZAKUP' || tx.type === 'WYDATEK'
-    
+
     if (isIncome) {
       realCashIncomes = realCashIncomes.plus(new Decimal(tx.amount))
     } else if (isExpense) {
@@ -185,7 +185,7 @@ export default async function DashboardPage({
   let uncollectedRevenue = new Decimal(0)
   let totalFrozenRetentionValue = new Decimal(0)
   let releasedRetentionValue = new Decimal(0)
-  
+
   // Nowe kaucje ze Skarbca
   retentions.forEach((ret: any) => {
     if (ret.status === 'ACTIVE') {
@@ -194,7 +194,7 @@ export default async function DashboardPage({
       else totalFrozenRetentionValue = totalFrozenRetentionValue.plus(new Decimal(ret.amount))
     }
   })
-  
+
   let cumulativeIncomeNet = new Decimal(0)
   let cumulativeCostNet = new Decimal(0)
 
@@ -202,7 +202,7 @@ export default async function DashboardPage({
     const amountGross = new Decimal(inv.amountGross)
     const amountNet = new Decimal(inv.amountNet)
     const issueDate = new Date(inv.issueDate)
-    
+
     // Filtrowanie (Vector 023)
     const isWithinRange = (!startDate || issueDate >= startDate) && (!endDate || issueDate <= endDate)
 
@@ -211,38 +211,38 @@ export default async function DashboardPage({
 
     // Logika Memoriałowa (Skumulowany Zysk)
     if (isWithinRange) {
-        if (isInvIncome) {
-          cumulativeIncomeNet = cumulativeIncomeNet.plus(amountNet)
-        } else if (isInvExpense) {
-          cumulativeCostNet = cumulativeCostNet.plus(amountNet)
-        }
+      if (isInvIncome) {
+        cumulativeIncomeNet = cumulativeIncomeNet.plus(amountNet)
+      } else if (isInvExpense) {
+        cumulativeCostNet = cumulativeCostNet.plus(amountNet)
+      }
     }
 
     // AGREGACJA VAT (MEMORIAŁOWA - VECTOR 098)
     // Liczymy VAT ze wszystkich faktur w wybranym okresie (Accrual Basis)
     if (isWithinRange) {
-        const vat = amountGross.minus(amountNet)
-        if (isInvIncome) {
-            vatIncome = vatIncome.plus(vat)
-        } else if (isInvExpense) {
-            vatCost = vatCost.plus(vat)
-            if (inv.projectId) {
-                projectVatCost = projectVatCost.plus(vat)
-            } else {
-                generalVatCost = generalVatCost.plus(vat)
-            }
+      const vat = amountGross.minus(amountNet)
+      if (isInvIncome) {
+        vatIncome = vatIncome.plus(vat)
+      } else if (isInvExpense) {
+        vatCost = vatCost.plus(vat)
+        if (inv.projectId) {
+          projectVatCost = projectVatCost.plus(vat)
+        } else {
+          generalVatCost = generalVatCost.plus(vat)
         }
+      }
     }
 
     if (inv.status === 'PAID') {
-       // Kaucje (Stary system - opcjonalnie)
-       if (inv.retainedAmount) {
-         const releaseDate = inv.retentionReleaseDate ? new Date(inv.retentionReleaseDate) : null
-         if (releaseDate && releaseDate <= thirtyDaysFromNow) releasedRetentionValue = releasedRetentionValue.plus(new Decimal(inv.retainedAmount))
-         else totalFrozenRetentionValue = totalFrozenRetentionValue.plus(new Decimal(inv.retainedAmount))
-       }
+      // Kaucje (Stary system - opcjonalnie)
+      if (inv.retainedAmount) {
+        const releaseDate = inv.retentionReleaseDate ? new Date(inv.retentionReleaseDate) : null
+        if (releaseDate && releaseDate <= thirtyDaysFromNow) releasedRetentionValue = releasedRetentionValue.plus(new Decimal(inv.retainedAmount))
+        else totalFrozenRetentionValue = totalFrozenRetentionValue.plus(new Decimal(inv.retainedAmount))
+      }
     } else {
-       if (inv.type === 'SPRZEDAŻ') uncollectedRevenue = uncollectedRevenue.plus(amountNet)
+      if (inv.type === 'SPRZEDAŻ') uncollectedRevenue = uncollectedRevenue.plus(amountNet)
     }
   })
 
@@ -252,11 +252,11 @@ export default async function DashboardPage({
   // Przychody i Koszty Netto (Cash-Based derived from Transactions - VAT component from Invoices)
   const realCashIncomesNet = realCashIncomes.minus(vatIncome)
   const realCashCostsNet = realCashCosts.minus(vatCost)
-  
+
   // Rozbicie Kosztów Netto
   const totalGeneralCostsNet = totalGeneralCosts.minus(generalVatCost)
   const projectCostsNet = realCashCostsNet.minus(totalGeneralCostsNet)
-  
+
   // Marża i Zysk (Netto)
   const projectMarginSumNet = realCashIncomesNet.minus(projectCostsNet)
   const netProfit = projectMarginSumNet.minus(totalGeneralCostsNet)
@@ -266,17 +266,17 @@ export default async function DashboardPage({
   // CENTRALNE MAPOWANIE VAT (DNA Vector 099)
   // netVat: Suma(vatCost) - Suma(vatIncome). Dodatni = Nadpłata/Shield, Ujemny = Dług.
   const netVat = vatCost.minus(vatIncome)
-  
+
   // VAT Liability for Safe to Spend: Tylko gdy vatIncome > vatCost (mamy dług)
   const vatLiability = Decimal.max(0, vatIncome.minus(vatCost))
-  
+
   const TAX_RESERVE_PERCENT = new Decimal(CIT_RATE)
   // Rezerwa dochodowa CIT liczona od Net Profit (DNA Vector 011/013)
   const incomeTaxReserve = netProfit.gt(0) ? netProfit.times(TAX_RESERVE_PERCENT) : new Decimal(0)
-  
+
   const totalReserve = incomeTaxReserve.plus(vatLiability).plus(unpaidTotalAmountGross) // Wliczając zaległe faktury do rezerwy "Safe to Spend"
   const cleanCash = globalBilans.minus(totalReserve)
-  
+
   const totalDebtRemaining = legacyDebts.reduce((sum, d) => sum.plus(new Decimal(d.remainingAmount || 0)), new Decimal(0))
   const totalProjectBudgets = projects.reduce((sum, p) => sum.plus(new Decimal(p.budgetEstimated || 0)), new Decimal(0))
   const totalStageBudgets = allStages.filter(s => projects.some(p => p.id === s.projectId)).reduce((sum, s) => sum.plus(new Decimal(s.budgetEstimated || 0)), new Decimal(0))
@@ -297,18 +297,18 @@ export default async function DashboardPage({
   unpaidIncomes.forEach(inv => {
     const invDueDate = new Date(inv.dueDate)
     if (invDueDate < now) overdueAmount = overdueAmount.plus(new Decimal(inv.amountGross))
-    
+
     if (invDueDate <= thirtyDaysFromNow) {
-        allAlerts.push({
-            id: inv.id,
-            title: `Wpływ: ${inv.externalId || 'Faktura'}`,
-            amount: Number(inv.amountGross),
-            date: invDueDate,
-            type: invDueDate < now ? 'ZALEGŁA' : 'Oczekujący wpływ',
-            contractor: contractorsMap[inv.contractorId] || 'Nieznany',
-            isIncome: true,
-            invoiceNumber: inv.externalId
-        })
+      allAlerts.push({
+        id: inv.id,
+        title: `Wpływ: ${inv.externalId || 'Faktura'}`,
+        amount: Number(inv.amountGross),
+        date: invDueDate,
+        type: invDueDate < now ? 'ZALEGŁA' : 'Oczekujący wpływ',
+        contractor: contractorsMap[inv.contractorId] || 'Nieznany',
+        isIncome: true,
+        invoiceNumber: inv.externalId
+      })
     }
   })
 
@@ -321,34 +321,34 @@ export default async function DashboardPage({
     if (invDueDate < now) overdueAmount = overdueAmount.plus(new Decimal(inv.amountGross || 0))
 
     if (invDueDate <= thirtyDaysFromNow) {
-        allAlerts.push({
-            id: inv.id,
-            title: `Koszt: ${inv.invoiceNumber || inv.ksefId || 'Faktura'}`,
-            amount: Number(inv.amountGross),
-            date: invDueDate,
-            type: invDueDate < now ? 'ZALEGŁA' : 'Do zapłaty',
-            contractor: inv.contractor?.name || 'Nieznany',
-            isIncome: false,
-            invoiceNumber: inv.invoiceNumber || inv.ksefId || undefined
-        })
+      allAlerts.push({
+        id: inv.id,
+        title: `Koszt: ${inv.invoiceNumber || inv.ksefId || 'Faktura'}`,
+        amount: Number(inv.amountGross),
+        date: invDueDate,
+        type: invDueDate < now ? 'ZALEGŁA' : 'Do zapłaty',
+        contractor: inv.contractor?.name || 'Nieznany',
+        isIncome: false,
+        invoiceNumber: inv.invoiceNumber || inv.ksefId || undefined
+      })
     }
   })
 
   activeInstallments.forEach(di => {
     const dDate = new Date(di.dueDate)
     if (dDate < now) overdueAmount = overdueAmount.plus(new Decimal(di.amount))
-    
+
     if (dDate <= thirtyDaysFromNow) {
-        allAlerts.push({
-            id: di.id,
-            title: `Rata długu`,
-            amount: Number(di.amount),
-            date: dDate,
-            type: 'Zobowiązanie ratalne',
-            contractor: 'WIERZYCIEL',
-            isIncome: false,
-            isDebtInstallment: true
-        })
+      allAlerts.push({
+        id: di.id,
+        title: `Rata długu`,
+        amount: Number(di.amount),
+        date: dDate,
+        type: 'Zobowiązanie ratalne',
+        contractor: 'WIERZYCIEL',
+        isIncome: false,
+        isDebtInstallment: true
+      })
     }
   })
 
@@ -358,7 +358,7 @@ export default async function DashboardPage({
     dayDate.setDate(dayDate.getDate() + i)
     let optIncome = new Decimal(0); let realIncome = new Decimal(0); let commonCosts = new Decimal(0)
     let dynamicRetention = new Decimal(0)
-    
+
     unpaidIncomes.forEach(inv => {
       const dDate = new Date(inv.dueDate)
       if (dDate <= dayDate) optIncome = optIncome.plus(new Decimal(inv.amountGross))
@@ -407,9 +407,9 @@ export default async function DashboardPage({
   // Formatted Strings for UI
   const formattedNetCash = formatPln(globalBilans); // Płynna Gotówka to stan konta (Gross)
   const formattedCfExpenses30d = formatPln(cfExpenses30d);
-  const formattedTaxReserve = formatPln(totalReserve); 
+  const formattedTaxReserve = formatPln(totalReserve);
   const formattedNetProfit = formatPln(netProfit);
-  const formattedCfIncomes30d = formatPln(cfIncomes30d); 
+  const formattedCfIncomes30d = formatPln(cfIncomes30d);
   const formattedCleanCash = formatPln(cleanCash);
   const formattedNetVat = formatPln(netVat.abs());
   const isVatOverpaid = netVat.gte(0);
@@ -441,20 +441,20 @@ export default async function DashboardPage({
       </div>
 
       {showRealityAlert && (
-          <div className="bg-rose-600 text-white p-6 rounded-3xl shadow-2xl border-4 border-rose-400 animate-in fade-in zoom-in duration-500 flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div className="bg-white/20 p-3 rounded-2xl">
-                <AlertCircle className="w-10 h-10" />
-              </div>
-              <div>
-                <h3 className="text-xl font-black uppercase tracking-widest">ALARM PŁYNNOŚCI: REALISTA</h3>
-                <p className="text-base font-medium opacity-90">Uwzględniając 14-dniowe opóźnienia wpłat, bilans 30-dniowy spada na: <span className="font-bold border-b-2 border-white">{formatPln(realisticBalance30d)}</span></p>
-              </div>
+        <div className="bg-rose-600 text-white p-6 rounded-3xl shadow-2xl border-4 border-rose-400 animate-in fade-in zoom-in duration-500 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div className="bg-white/20 p-3 rounded-2xl">
+              <AlertCircle className="w-10 h-10" />
             </div>
-            <Link href={`/finance?status=UNPAID&sort=dueDate_ASC${selectedYear ? `&year=${selectedYear}` : ''}`}>
-              <Button variant="outline" className="bg-white text-rose-600 border-none font-bold hover:bg-rose-50 px-8 h-12 rounded-xl shadow-lg">Zarządzaj Kosztami</Button>
-            </Link>
+            <div>
+              <h3 className="text-xl font-black uppercase tracking-widest">ALARM PŁYNNOŚCI: REALISTA</h3>
+              <p className="text-base font-medium opacity-90">Uwzględniając 14-dniowe opóźnienia wpłat, bilans 30-dniowy spada na: <span className="font-bold border-b-2 border-white">{formatPln(realisticBalance30d)}</span></p>
+            </div>
           </div>
+          <Link href={`/finance?status=UNPAID&sort=dueDate_ASC${selectedYear ? `&year=${selectedYear}` : ''}`}>
+            <Button variant="outline" className="bg-white text-rose-600 border-none font-bold hover:bg-rose-50 px-8 h-12 rounded-xl shadow-lg">Zarządzaj Kosztami</Button>
+          </Link>
+        </div>
       )}
 
       {/* LEAKAGE DETECTION SECTION */}
@@ -472,10 +472,10 @@ export default async function DashboardPage({
               <TooltipHelp content="Pieniądze na koncie, które możesz bezpiecznie wydać po odliczeniu przyszłych podatków i VAT." />
             </div>
             {/* KSeF SYNC - VECTOR 059 */}
-            <KSeFSyncButton 
-                hasToken={!!tenant?.ksefToken} 
-                variant="outline" 
-                className="bg-white/10 border-white/20 hover:bg-white/20 text-white" 
+            <KSeFSyncButton
+              hasToken={!!tenant?.ksefToken}
+              variant="outline"
+              className="bg-white/10 border-white/20 hover:bg-white/20 text-white"
             />
           </div>
           <p className={`text-6xl font-black tracking-tighter mt-4 drop-shadow-sm ${getFinancialColor(cleanCash)}`}>
@@ -496,7 +496,7 @@ export default async function DashboardPage({
             </div>
             <div>
               <div className="flex items-center gap-1 mb-1">
-              <p className={`text-sm font-medium mb-1 uppercase tracking-tighter ${getFinancialColor(incomeTaxReserve.negated())}`}>Rezerwa Podatkowa CIT (9%)</p>
+                <p className={`text-sm font-medium mb-1 uppercase tracking-tighter ${getFinancialColor(incomeTaxReserve.negated())}`}>Rezerwa Podatkowa CIT (9%)</p>
                 <TooltipHelp content="Szacunkowa kwota 9% podatku dochodowego od Twojego zysku netto. Nie wydawaj tych pieniędzy." />
               </div>
               <p className={`font-bold text-xl ${getFinancialColor(incomeTaxReserve.negated())}`}>-{formatPln(incomeTaxReserve)}</p>
@@ -628,10 +628,10 @@ export default async function DashboardPage({
 
         {/* SKARBIEC KAUCJI (NEW - VAULT COMPONENT) */}
         <div className="lg:col-span-1">
-          <RetentionVault 
-            retentions={retentions} 
-            projects={projects} 
-            contractors={contractors} 
+          <RetentionVault
+            retentions={retentions}
+            projects={projects}
+            contractors={contractors}
             invoices={allInvoices}
           />
         </div>
@@ -679,7 +679,7 @@ export default async function DashboardPage({
           <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
             <span className="font-semibold text-slate-700">Prognoza 'Realista' (30D):</span>
             <span className={`text-xl font-bold ${realisticBalance30d.gte(0) ? 'text-green-600' : 'text-red-600'}`}>
-               {formatPln(realisticBalance30d)}
+              {formatPln(realisticBalance30d)}
             </span>
           </div>
         </div>
@@ -697,34 +697,34 @@ export default async function DashboardPage({
             ) : (
               sortedAlerts.map((alert, idx) => (
                 <div key={idx} className={`flex flex-col gap-3 p-4 rounded-xl border transition-colors ${alert.date < now ? 'border-rose-300 bg-rose-50/50' : 'border-slate-100 hover:border-slate-200 bg-slate-50/50'}`}>
-                   <div className="flex gap-4">
-                     <div className={`p-3 rounded-lg flex items-center justify-center shrink-0 ${alert.isIncome ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
-                       <CalendarDays className="w-5 h-5" />
-                     </div>
-                     <div className="flex-1 min-w-0 flex flex-col justify-center">
-                       <p className="font-semibold text-slate-900 truncate" title={alert.title}>{alert.title}</p>
-                       <p className="text-sm text-slate-500">{alert.contractor} • <span className={alert.isIncome ? 'text-green-600 font-medium' : 'text-slate-700 font-medium'}>
-                         {alert.date.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' })}
-                       </span>
-                       </p>
-                     </div>
-                     <div className={`flex flex-col justify-center items-end shrink-0 font-bold ${alert.date < now ? 'text-rose-600' : (alert.isIncome ? 'text-green-600' : 'text-slate-800')}`}>
-                       {alert.isIncome ? '+' : '-'}{formatPln(alert.amount)}
-                     </div>
-                   </div>
+                  <div className="flex gap-4">
+                    <div className={`p-3 rounded-lg flex items-center justify-center shrink-0 ${alert.isIncome ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
+                      <CalendarDays className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                      <p className="font-semibold text-slate-900 truncate" title={alert.title}>{alert.title}</p>
+                      <p className="text-sm text-slate-500">{alert.contractor} • <span className={alert.isIncome ? 'text-green-600 font-medium' : 'text-slate-700 font-medium'}>
+                        {alert.date.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' })}
+                      </span>
+                      </p>
+                    </div>
+                    <div className={`flex flex-col justify-center items-end shrink-0 font-bold ${alert.date < now ? 'text-rose-600' : (alert.isIncome ? 'text-green-600' : 'text-slate-800')}`}>
+                      {alert.isIncome ? '+' : '-'}{formatPln(alert.amount)}
+                    </div>
+                  </div>
 
-                   {alert.id && (
-                     <div className="flex justify-end pt-2 border-t border-slate-200/50 border-dashed">
-                       <ConfirmPaymentButton 
-                         invoiceId={alert.isDebtInstallment ? undefined : alert.id} 
-                         installmentId={alert.isDebtInstallment ? alert.id : undefined}
-                         isInstallment={alert.isDebtInstallment}
-                         amountGross={alert.amount}
-                         isIncome={!!alert.isIncome}
-                       />
-                     </div>
-                   )}
-                 </div>
+                  {alert.id && (
+                    <div className="flex justify-end pt-2 border-t border-slate-200/50 border-dashed">
+                      <ConfirmPaymentButton
+                        invoiceId={alert.isDebtInstallment ? undefined : alert.id}
+                        installmentId={alert.isDebtInstallment ? alert.id : undefined}
+                        isInstallment={alert.isDebtInstallment}
+                        amountGross={alert.amount}
+                        isIncome={!!alert.isIncome}
+                      />
+                    </div>
+                  )}
+                </div>
               ))
             )}
           </div>
@@ -733,92 +733,92 @@ export default async function DashboardPage({
       <div className="grid gap-8 lg:grid-cols-2">
         {/* LISTA OSTATNICH FAKTUR (Nowa Sekcja) */}
         <div className="bg-white border text-slate-900 border-slate-200 shadow-sm rounded-3xl p-8">
-           <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3 text-slate-900">
-                <div className="p-2 bg-slate-100 rounded-xl">
-                  <TrendingUp className="w-6 h-6" />
-                </div>
-                <h2 className="text-xl font-black uppercase tracking-tight">Ostatnie Dokumenty</h2>
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3 text-slate-900">
+              <div className="p-2 bg-slate-100 rounded-xl">
+                <TrendingUp className="w-6 h-6" />
               </div>
-              <Link href="/finance">
-                <Button variant="ghost" className="text-sm font-bold text-slate-500 hover:text-slate-900 border border-slate-200">Zobacz wszystko →</Button>
-              </Link>
-           </div>
-           
-           <div className="space-y-4">
-             {recentInvoices.map((inv) => (
-               <div key={inv.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50/30 hover:bg-slate-50 transition-all">
-                  <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-xl ${inv.type === 'SPRZEDAŻ' ? 'bg-green-100 text-green-600' : 'bg-rose-100 text-rose-600'}`}>
-                      {inv.type === 'SPRZEDAŻ' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
-                    </div>
-                    <div>
-                      <p className="font-bold text-slate-900">{inv.contractor?.name}</p>
-                      <p className="text-xs text-slate-500 font-medium">{inv.externalId || inv.description || 'Dokument Finansowy'} • {inv.project?.name || 'Ogólny'}</p>
-                    </div>
+              <h2 className="text-xl font-black uppercase tracking-tight">Ostatnie Dokumenty</h2>
+            </div>
+            <Link href="/finance">
+              <Button variant="ghost" className="text-sm font-bold text-slate-500 hover:text-slate-900 border border-slate-200">Zobacz wszystko →</Button>
+            </Link>
+          </div>
+
+          <div className="space-y-4">
+            {recentInvoices.map((inv) => (
+              <div key={inv.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50/30 hover:bg-slate-50 transition-all">
+                <div className="flex items-center gap-4">
+                  <div className={`p-3 rounded-xl ${inv.type === 'SPRZEDAŻ' ? 'bg-green-100 text-green-600' : 'bg-rose-100 text-rose-600'}`}>
+                    {inv.type === 'SPRZEDAŻ' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
                   </div>
-                  
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <CurrencyDisplay 
-                        gross={inv.amountGross} 
-                        net={inv.amountNet} 
-                        isIncome={inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE'} 
-                        className={`font-black text-lg ${ (inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE') ? 'text-green-600' : 'text-slate-900'}`} 
-                      />
-                      <p className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full mt-1 inline-block ${inv.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
-                        {inv.status === 'PAID' ? 'Opłacona' : 'Nieopłacona'}
-                      </p>
-                    </div>
-                    
-                    {inv.status !== 'PAID' && (
-                       <ConfirmPaymentButton 
-                          invoiceId={inv.id}
-                          invoiceNumber={inv.externalId || 'Dokument'}
-                          amountGross={Number(inv.amountGross)}
-                          isIncome={inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE'}
-                       />
-                    )}
+                  <div>
+                    <p className="font-bold text-slate-900">{inv.contractor?.name}</p>
+                    <p className="text-xs text-slate-500 font-medium">{inv.externalId || inv.description || 'Dokument Finansowy'} • {inv.project?.name || 'Ogólny'}</p>
                   </div>
-               </div>
-             ))}
-           </div>
+                </div>
+
+                <div className="flex items-center gap-6">
+                  <div className="text-right">
+                    <CurrencyDisplay
+                      gross={inv.amountGross}
+                      net={inv.amountNet}
+                      isIncome={inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE'}
+                      className={`font-black text-lg ${(inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE') ? 'text-green-600' : 'text-slate-900'}`}
+                    />
+                    <p className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full mt-1 inline-block ${inv.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
+                      {inv.status === 'PAID' ? 'Opłacona' : 'Nieopłacona'}
+                    </p>
+                  </div>
+
+                  {inv.status !== 'PAID' && (
+                    <ConfirmPaymentButton
+                      invoiceId={inv.id}
+                      invoiceNumber={inv.externalId || 'Dokument'}
+                      amountGross={Number(inv.amountGross)}
+                      isIncome={inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE'}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* VECTOR 099: Smart Enrichment Proposals */}
         <div className="lg:col-span-1 space-y-8">
-           {enrichmentNotifications.length > 0 && (
-             <EnrichmentProposalWidget notifications={enrichmentNotifications} />
-           )}
+          {enrichmentNotifications.length > 0 && (
+            <EnrichmentProposalWidget notifications={enrichmentNotifications} />
+          )}
 
-           {/* LOGIKA DNA (Szybki Podgląd Zasad) */}
-           <div className="bg-slate-900 text-white border border-slate-800 shadow-2xl rounded-3xl p-8 relative overflow-hidden group">
-           <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
+          {/* LOGIKA DNA (Szybki Podgląd Zasad) */}
+          <div className="bg-slate-900 text-white border border-slate-800 shadow-2xl rounded-3xl p-8 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
               <Lock className="w-48 h-48" />
-           </div>
-           <div className="relative z-10 h-full flex flex-col justify-between">
+            </div>
+            <div className="relative z-10 h-full flex flex-col justify-between">
               <div>
                 <h3 className="text-xl font-black uppercase tracking-widest text-indigo-400 mb-6">Zasady SYSTEM_DNA</h3>
                 <ul className="space-y-4">
-                   <li className="flex items-start gap-3">
-                      <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                      <p className="text-sm font-medium text-slate-300"><b>Cash is King</b>: Bilans liczony tylko z zaksięgowanych transakcji.</p>
-                   </li>
-                   <li className="flex items-start gap-3">
-                      <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                      <p className="text-sm font-medium text-slate-300"><b>Tax Guard</b>: Rezerwa 9% CIT + VAT Netto blokowana na starcie.</p>
-                   </li>
-                   <li className="flex items-start gap-3">
-                      <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                      <p className="text-sm font-medium text-slate-300"><b>Realista</b>: Automatyczne przesunięcie wpływów o 14 dni w symulacji.</p>
-                   </li>
+                  <li className="flex items-start gap-3">
+                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                    <p className="text-sm font-medium text-slate-300"><b>Cash is King</b>: Bilans liczony tylko z zaksięgowanych transakcji.</p>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                    <p className="text-sm font-medium text-slate-300"><b>Tax Guard</b>: Rezerwa 9% CIT + VAT Netto blokowana na starcie.</p>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                    <p className="text-sm font-medium text-slate-300"><b>Realista</b>: Automatyczne przesunięcie wpływów o 14 dni w symulacji.</p>
+                  </li>
                 </ul>
               </div>
               <div className="mt-8 pt-8 border-t border-slate-800">
-                 <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Wersja Systemu: Fort Knox &bull; Ekstraklasa 2026</p>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Wersja Systemu: Fort Knox &bull; Ekstraklasa 2026</p>
               </div>
             </div>
-         </div>
+          </div>
         </div>
       </div>
     </div>

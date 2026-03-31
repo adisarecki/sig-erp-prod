@@ -5,9 +5,9 @@ import { KSeFService, KSeFInvoiceHeader } from '@/lib/ksef/ksefService';
 
 /**
  * GET /api/ksef/sync
- * VECTOR 103: Shallow Sync (Strefa Buforowa)
- * Fetches invoice metadata from KSeF without creating final records.
- * Supports 'from' and 'to' query parameters.
+ * VECTOR 103: KSeF Gatekeeper (Strefa Buforowa)
+ * Fetches metadata from KSeF and populates the KsefInvoice (Inbox) buffer table.
+ * Does NOT create final 'Invoice' or 'Transaction' records.
  */
 export async function GET(req: NextRequest) {
     try {
@@ -26,8 +26,9 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ success: false, error: `Błąd autoryzacji: ${err.message}` }, { status: 401 });
         }
 
-        console.log(`[KSeF_SHALLOW_SYNC] Fetching metadata from ${from || 'default'} to ${to || 'now'}`);
+        console.log(`[KSeF_GATEKEEPER] Shallow sync from ${from || 'default'} to ${to || 'now'} for tenant ${tenantId}`);
 
+        // 1. Fetch metadata headers from KSeF
         const invoiceList: KSeFInvoiceHeader[] = await ksefService.fetchInvoiceMetadata({ 
             accessToken: sessionToken,
             dateType: 'PermanentStorage',
@@ -44,68 +45,84 @@ export async function GET(req: NextRequest) {
             });
         }
 
-        // 1. Get all KSeF IDs already finalized in the Invoice table
+        // 2. Absolute Duplicate Shield (Vector 098.1)
+        // Get all KSeF IDs already finalized in the main Invoice table
         const finalizedInvoices = await prisma.invoice.findMany({
             where: { tenantId, ksefId: { not: null } },
             select: { ksefId: true }
         });
         const finalizedIds = new Set(finalizedInvoices.map(i => i.ksefId));
 
-        // 2. Get all KSeF IDs in the buffer table (to detect REJECTED status)
-        const bufferedInvoices = await prisma.ksefInvoice.findMany({
+        // Get those already in the buffer
+        const existingBuffer = await prisma.ksefInvoice.findMany({
             where: { tenantId },
-            select: { ksefNumber: true, status: true }
+            select: { ksefNumber: true }
         });
-        const rejectedIds = new Set(bufferedInvoices.filter(i => i.status === 'REJECTED').map(i => i.ksefNumber));
-        const importedIds = new Set(bufferedInvoices.filter(i => i.status === 'IMPORTED').map(i => i.ksefNumber));
+        const bufferedIds = new Set(existingBuffer.map(i => i.ksefNumber));
 
-        // 3. Filter and Enrich results for Frontend Display
-        const filteredInvoices = invoiceList.filter(item => {
+        // 3. Filter only NEW invoices (not in Invoice table AND not in Buffer)
+        const newInvoices = invoiceList.filter(item => {
             const ksefId = (item as any).ksefNumber || item.invoiceReferenceNumber;
-            // Ignore if already imported (in Invoice or KsefInvoice marked IMPORTED) or explicitly rejected
-            return !finalizedIds.has(ksefId) && !rejectedIds.has(ksefId) && !importedIds.has(ksefId);
-        }).map(item => {
-            const direction = (item as any)._apiDirection || "EXPENSE";
-            const isIncome = direction === "INCOME";
-            let nip = '0000000000';
-            let name = 'Nieznany Kontrahent';
-
-            if (isIncome) {
-                const buyer = (item as any).buyer || item.subject2;
-                nip = String((buyer as any)?.identifier?.value || '0000000000');
-                name = String(buyer?.name || 'Nieznany Kontrahent');
-            } else {
-                const seller = (item as any).seller || item.subject1;
-                nip = String((seller as any)?.nip || '0000000000');
-                name = String(seller?.name || 'Nieznany Kontrahent');
-            }
-
-            return {
-                ...item,
-                ksefId: (item as any).ksefNumber || item.invoiceReferenceNumber,
-                direction,
-                nip,
-                name,
-                issueDate: item.issueDate,
-                amountNet: item.netAmount || 0,
-                amountGross: item.grossAmount || 0,
-            };
+            return !finalizedIds.has(ksefId) && !bufferedIds.has(ksefId);
         });
 
-        console.log(`[KSeF_SHALLOW_SYNC] Found ${invoiceList.length} total, returning ${filteredInvoices.length} filtered.`);
+        console.log(`[KSeF_GATEKEEPER] Found ${invoiceList.length} total, ${newInvoices.length} are new for Inbox.`);
+
+        // 4. Batch Process NEW Invoices: Fetch Detail XML & Upsert into Buffer
+        const processedCount = 0;
+        const results = [];
+
+        // For small batches (typical sync), we can fetch XML now. For huge batches, we might want to delegate this.
+        // Given the "Wizjoner" requirement, we'll try to populate the buffer now.
+        for (const meta of newInvoices) {
+            const ksefId = (meta as any).ksefNumber || meta.invoiceReferenceNumber;
+            
+            try {
+                // Fetch full detail for the buffer (includes XML)
+                const detail = await ksefService.fetchAndParse(ksefId, { accessToken: sessionToken });
+                
+                const bufferRecord = await prisma.ksefInvoice.create({
+                    data: {
+                        tenantId,
+                        ksefNumber: ksefId,
+                        invoiceNumber: detail.invoiceNumber,
+                        issueDate: detail.issueDate,
+                        counterpartyNip: detail.sellerNip, // For purchase invoices, issuer is seller
+                        counterpartyName: detail.sellerName,
+                        netAmount: detail.netAmount,
+                        vatAmount: detail.vatAmount,
+                        grossAmount: detail.grossAmount,
+                        rawXml: detail.rawXml,
+                        status: 'PENDING'
+                    }
+                });
+                
+                results.push(bufferRecord);
+            } catch (err: any) {
+                console.warn(`[KSeF_GATEKEEPER] Failed to fetch/buffer ${ksefId}:`, err.message);
+            }
+        }
+
+        // Return current PENDING items in the Inbox
+        const currentInbox = await prisma.ksefInvoice.findMany({
+            where: { tenantId, status: 'PENDING' },
+            orderBy: { issueDate: 'desc' }
+        });
 
         return NextResponse.json({
             success: true,
-            count: filteredInvoices.length,
-            invoices: filteredInvoices,
-            message: `Pobrano listę faktur z KSeF (${filteredInvoices.length} nowych).`
+            totalFound: invoiceList.length,
+            newBuffered: results.length,
+            inboxCount: currentInbox.length,
+            invoices: currentInbox,
+            message: `Zaktualizowano Inbox KSeF. Nowe: ${results.length}, Razem oczekujących: ${currentInbox.length}.`
         });
 
     } catch (error: unknown) {
         const err = error as Error;
         console.error("[KSeF_API_SYNC_ERROR]", err);
         return NextResponse.json(
-            { success: false, error: err.message || "Wystąpił błąd podczas synchronizacji z KSeF." },
+            { success: false, error: err.message || "Wystąpił błąd podczas synchronizacji z Inboxem KSeF." },
             { status: 500 }
         );
     }

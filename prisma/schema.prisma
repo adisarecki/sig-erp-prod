@@ -400,8 +400,8 @@ model Notification {
 }
 
 enum KsefInvoiceStatus {
-  UNVERIFIED
-  IMPORTED
+  PENDING
+  ACCEPTED
   REJECTED
 }
 
@@ -418,7 +418,7 @@ model KsefInvoice {
   vatAmount       Decimal            @db.Decimal(12, 2)
   grossAmount     Decimal            @db.Decimal(12, 2)
   rawXml          String             @db.Text
-  status          KsefInvoiceStatus  @default(UNVERIFIED)
+  status          KsefInvoiceStatus  @default(PENDING)
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
