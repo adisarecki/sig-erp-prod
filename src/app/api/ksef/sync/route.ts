@@ -59,11 +59,47 @@ export async function GET(req: NextRequest) {
             select: { ksefNumber: true }
         });
         const bufferedIds = new Set(existingBuffer.map(i => i.ksefNumber));
+        
+        // --- SECOND LINE OF DEFENSE (Vector 098.3) ---
+        // Get all invoice numbers from current list to check for business duplicates (Number + Contractor NIP)
+        const allInvoiceNumbers = invoiceList.map(i => i.invoiceNumber).filter(Boolean) as string[];
+        const potentialDuplicates = await prisma.invoice.findMany({
+            where: {
+                tenantId,
+                invoiceNumber: { in: allInvoiceNumbers }
+            },
+            select: {
+                invoiceNumber: true,
+                contractor: { select: { nip: true } }
+            }
+        });
+        
+        const businessDuplicates = new Set(
+            potentialDuplicates
+                .filter(inv => inv.contractor?.nip && inv.invoiceNumber)
+                .map(inv => `${inv.contractor.nip}_${inv.invoiceNumber}`)
+        );
 
-        // 3. Filter only NEW invoices (not in Invoice table AND not in Buffer)
+        // 3. Filter only NEW invoices (not in Invoice table AND not in Buffer AND no business dupe)
         const newInvoices = invoiceList.filter(item => {
             const ksefId = (item as any).ksefNumber || item.invoiceReferenceNumber;
-            return !finalizedIds.has(ksefId) && !bufferedIds.has(ksefId);
+            const invoiceNumber = item.invoiceNumber;
+            const sellerNip = (item as any).sellerNip || (item as any).issuerReferenceNumber; // Context dependent
+
+            // First Line: KSeF ID
+            if (finalizedIds.has(ksefId) || bufferedIds.has(ksefId)) return false;
+
+            // Second Line: Business Logic (Number + NIP)
+            // Note: If sync metadata doesn't have NIP, we'll catch it in the Import Phase 2.
+            if (invoiceNumber && (item as any).sellerNip) {
+                const key = `${(item as any).sellerNip}_${invoiceNumber}`;
+                if (businessDuplicates.has(key)) {
+                    console.warn(`[KSeF_SHIELD] Business Duplicate Blocked: ${key}`);
+                    return false;
+                }
+            }
+
+            return true;
         });
 
         console.log(`[KSeF_GATEKEEPER] Found ${invoiceList.length} total, ${newInvoices.length} are new for Inbox.`);

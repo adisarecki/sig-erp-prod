@@ -82,6 +82,22 @@ export async function POST(req: NextRequest) {
                 const { compareAndNotify } = await import("@/lib/finance/contractorEnricher");
                 await compareAndNotify(detail, tenantId);
 
+                // --- SECOND LINE OF DEFENSE (Vector 098.3) ---
+                // If contractor found, check matching invoice number (Business Logic Anchor)
+                const businessDuplicate = await prisma.invoice.findFirst({
+                    where: {
+                        contractorId: contractor.id,
+                        invoiceNumber: detail.invoiceNumber
+                    }
+                });
+
+                if (businessDuplicate) {
+                    console.warn(`[KSeF_SHIELD] Business Logic Anchor Triggered: Duplicate Blocked for ${contractor.id} / ${detail.invoiceNumber}`);
+                    stats.skipped++;
+                    results.push({ ksefId, success: false, error: "Faktura o tym numerze została już zaksięgowana dla tego kontrahenta." });
+                    continue;
+                }
+
                 // 5. Hardened Duplicate Shield (Vector 098.2): Atomic Presence Check
                 // Even with findUnique above, we use catch for P2002 to be absolutely sure.
                 let newInvoice;
