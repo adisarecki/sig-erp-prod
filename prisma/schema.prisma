@@ -173,7 +173,7 @@ model Invoice {
   dueDate      DateTime
   status       String        @default("ACTIVE") // DRAFT, ACTIVE, PAID, PARTIALLY_PAID, REVERSED
   paymentStatus String       @default("UNPAID")
-  ksefId       String?       @unique
+  ksefId       String?
   ksefType     String?
   invoiceNumber String?
   externalId   String?
@@ -192,6 +192,7 @@ model Invoice {
   @@index([tenantId])
   @@index([tenantId, dueDate])
   @@index([tenantId, status])
+  @@unique([ksefId])
   @@unique([tenantId, contractorId, externalId, type])
 }
 

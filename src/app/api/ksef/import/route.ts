@@ -82,24 +82,36 @@ export async function POST(req: NextRequest) {
                 const { compareAndNotify } = await import("@/lib/finance/contractorEnricher");
                 await compareAndNotify(detail, tenantId);
 
-                // 5. Create Final Invoice Record
-                const newInvoice = await prisma.invoice.create({
-                    data: {
-                        tenantId,
-                        contractorId: contractor.id,
-                        ksefId,
-                        invoiceNumber: detail.invoiceNumber,
-                        type: 'EXPENSE',
-                        amountNet: detail.netAmount,
-                        amountGross: detail.grossAmount,
-                        taxRate: detail.netAmount.isZero() ? new Decimal(0) : detail.vatAmount.div(detail.netAmount).toDecimalPlaces(4),
-                        issueDate: detail.issueDate,
-                        dueDate: detail.dueDate,
-                        paymentStatus: 'UNPAID',
-                        status: 'ACTIVE',
-                        ksefType: detail.ksefType
+                // 5. Hardened Duplicate Shield (Vector 098.2): Atomic Presence Check
+                // Even with findUnique above, we use catch for P2002 to be absolutely sure.
+                let newInvoice;
+                try {
+                    newInvoice = await prisma.invoice.create({
+                        data: {
+                            tenantId,
+                            contractorId: contractor.id,
+                            ksefId,
+                            invoiceNumber: detail.invoiceNumber,
+                            type: 'EXPENSE',
+                            amountNet: detail.netAmount,
+                            amountGross: detail.grossAmount,
+                            taxRate: detail.netAmount.isZero() ? new Decimal(0) : detail.vatAmount.div(detail.netAmount).toDecimalPlaces(4),
+                            issueDate: detail.issueDate,
+                            dueDate: detail.dueDate,
+                            paymentStatus: 'UNPAID',
+                            status: 'ACTIVE',
+                            ksefType: detail.ksefType
+                        }
+                    });
+                } catch (dbErr: any) {
+                    if (dbErr.code === 'P2002') {
+                        console.warn(`[KSeF_SHIELD] DB unique constraint hit for ${ksefId}. Blocking duplicate.`);
+                        stats.skipped++;
+                        results.push({ ksefId, success: false, error: "Vector 098 Triggered: Double Billing Blocked" });
+                        continue;
                     }
-                });
+                    throw dbErr;
+                }
 
                 // 6. Update Buffer Status to ACCEPTED
                 await prisma.ksefInvoice.update({
