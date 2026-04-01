@@ -98,6 +98,13 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
     - **Financial Master (PG)**: Agregaty Dashboardu MUSZĄ pochodzić z `LedgerService` (Postgres). Zakaz sumowania z Firestore dla wskaźników KPI.
     - **Operational Master (FS)**: Środki trwałe (Asset registry) zapisywane najpierw do FS. Konsekwencje finansowe zakupu -> synchronicznie do PG Ledger.
     - **Write Guards**: Mechanizm `assertAuthorityWrite` blokuje próby zapisu do bazy będącej mirror'em dla danej domeny.
+- **Vector 110 (Financial Transparency – Invoice Drill-Down)**:
+    - **Interactive Details Modal**: Kliknięcie na pola kwot (Przychody, Koszty, Marża) otwiera tabelaryczny breakdown wszystkich faktur powiązanych z projektem.
+    - **Columns**: Data | Nr Faktury | Kwota Netto | Kwota Brutto | Kontrahent | Typ Faktury.
+    - **Subsumming**: Modal pokazuje szczegóły netto i brutto RAZEM (suma wszystkich faktur) na dole.
+    - **Filter Logic**: Przychody = `['SPRZEDAŻ', 'INCOME', 'REVENUE', 'PRZYCHÓD']` | Koszty = `['KOSZT', 'EXPENSE', 'ZAKUP', 'WYDATEK']` | Marża = obie razem.
+    - **UX Signal**: Hover effect (opacity-75) + cursor-pointer na kwotach sygnalizuje interaktywność.
+    - **Implementation**: Komponent `ProjectFinancialDetailsModal.tsx` renderowany w `InteractiveProjectList.tsx`.
 - **Vector 110: Stability-First Mode**:
     - **Philosophy**: Najwyższym priorytetem jest determinizm i integralność procesów biznesowych (A-F).
     - **PG-First Rule**: Wszystkie akcje finansowe (Faktury, Płatności, Rozliczenia) MUSZĄ najpierw zapisać stan w PostgreSQL (Master), a dopiero po sukcesie wykonać synchronizację lustra Firestore (Mirror).

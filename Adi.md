@@ -42,6 +42,26 @@ Sig ERP rośnie razem z Twoją firmą. Oto nasze strategiczne kroki:
 Jeśli w banku coś się nie zgadza, system zapali **Czerwoną Lampkę (Red Light)**. Każda złotówka ma swoje miejsce, a Ty masz pełną przejrzystość – nawet jeśli nie znasz się na programowaniu.
 
 ---
+
+## 🔍 5. Przejrzystość w Liczbach (Vector 110)
+
+Często patrzysz na ekran i widzisz: "Przychody: 100 000 zł" lub "Koszty: -11 685,00 zł" – ale nie masz pojęcia, z czego się składają.
+
+**Nowe rozwiązanie**: Każda liczba na karcie projektu jest teraz **klikalna**. Kliknij na kwotę przychodu, kosztu lub marży – otworzy się tabela ze wszystkimi fakturami:
+
+```
+Data       | Nr Faktury | Netto      | Brutto     | Dostawca         | Typ
+---------- | ---------- | ---------- | ---------- | --------------- | --------
+2026-03-15 | FV/2026/1  | 10 000,00  | 12 300,00  | ABC Construction | SPRZEDAŻ
+2026-03-10 | FA/2026/5  | -5 000,00  | -6 150,00  | Steel Supplier   | KOSZT
+                                     ...
+=========================================================================
+Razem:     | —          | 5 000,00   | 6 150,00   | —                | —
+```
+
+Dzięki temu wiesz **dokładnie**, dlaczego projekt zarabia lub traci pieniądze.
+
+---
 *Dla techników: Szczegółowe zasady budowy znajdują się w [AI_look.md](./docs/AI_look.md).*
 
 **Sig ERP – Twoja firma pod pełną kontrolą.**
