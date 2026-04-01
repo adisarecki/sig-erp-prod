@@ -185,17 +185,22 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                 const tooltipContent = (
                     <div className="space-y-3 text-left">
                         <div>
-                            <p className="font-bold text-emerald-300 mb-1">💚 PALIWO (Dostępne):</p>
-                            <p className="text-lg font-black text-emerald-200">{formatPln(totalGlobalRealRevenue)}</p>
-                            <p className="text-xs text-slate-300 mt-1">Pieniądze, które możesz teraz wydać</p>
+                            <p className="font-bold text-blue-300 mb-1">📋 CAŁKOWITA UMOWA (Wszystkie Projekty):</p>
+                            <p className="text-lg font-black text-blue-200">{formatPln(totalGlobalRealRevenue + totalGlobalRetention)}</p>
+                            <p className="text-xs text-slate-300 mt-1">Suma wartości wszystkich kontraktów</p>
                         </div>
                         <div className="border-t border-slate-600 pt-2">
-                            <p className="font-bold text-amber-300 mb-1">🔒 KAUCJE (U Klientów):</p>
+                            <p className="font-bold text-amber-300 mb-1">🔒 KAUCJE (Zabezpieczenia):</p>
                             <p className="text-lg font-black text-amber-200">{formatPln(totalGlobalRetention)}</p>
                             <p className="text-xs text-slate-300 mt-1">Zatrzymane u kontraktorów - będą zwrócone</p>
                         </div>
                         <div className="border-t border-slate-600 pt-2">
-                            <p className="font-bold text-blue-300 mb-2">📊 ROZBICIE PO PROJEKTACH:</p>
+                            <p className="font-bold text-emerald-300 mb-1">💚 DOSTĘPNE (Rzeczywista Płynność):</p>
+                            <p className="text-lg font-black text-emerald-200">{formatPln(totalGlobalRealRevenue)}</p>
+                            <p className="text-xs text-slate-300 mt-1">Pieniądze gotowe do operacyjnego wydania</p>
+                        </div>
+                        <div className="border-t border-slate-600 pt-2">
+                            <p className="font-bold text-sky-300 mb-2">📊 ROZBICIE PO PROJEKTACH:</p>
                             <div className="space-y-1 max-h-[200px] overflow-y-auto">
                                 {projects.map((p) => {
                                     const pBudget = Number(p.budgetEstimated);
@@ -230,7 +235,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                             <div className="flex-1">
                                 <div className="flex items-center gap-2">
                                     <p className="text-sm font-bold uppercase text-blue-700 tracking-wider">
-                                        Realny Limit Operacyjny (PALIWO) – WSZYSTKIE PROJEKTY
+                                        Dostępne do Operacyjnego Wydania
                                     </p>
                                     <TooltipHelp content={tooltipContent} />
                                 </div>
@@ -238,7 +243,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                     {formatPln(totalGlobalRealRevenue)}
                                 </p>
                                 <p className="text-xs font-semibold text-slate-500 mt-2 uppercase tracking-widest">
-                                    Base Operational Liquidity (90%) – Suma wszystkich projektów
+                                    Rzeczywista Płynność Operacyjna – Suma wszystkich projektów (pomniejszona o kaucje)
                                 </p>
                             </div>
                         </div>
@@ -359,18 +364,20 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                         const projectTooltip = (
                                             <div className="space-y-2 text-left">
                                                 <div>
-                                                    <p className="font-bold text-emerald-300 mb-0.5">💚 PALIWO</p>
-                                                    <p className="text-sm font-black text-emerald-200">{formatPln(realRevenue)}</p>
-                                                    <p className="text-xs text-slate-300">Budget faktycznie do wydania (90%)</p>
+                                                    <p className="font-bold text-blue-300 mb-0.5">📋 UMOWA (Całkowita)</p>
+                                                    <p className="text-sm font-black text-blue-200">{formatPln(budgetVal)}</p>
+                                                    <p className="text-xs text-slate-300">Całkowita kwota kontraktu (bez odliczeń)</p>
                                                 </div>
                                                 <div className="border-t border-slate-600 pt-2">
-                                                    <p className="font-bold text-amber-300 mb-0.5">🔒 KAUCJA</p>
+                                                    <p className="font-bold text-amber-300 mb-0.5">🔒 KAUCJA (Zabezpieczenie)</p>
                                                     <p className="text-sm font-black text-amber-200">{formatPln(retentionAmount)}</p>
                                                     <p className="text-xs text-slate-300">Zatrzymane u: <strong>{project.contractor?.name || 'N/A'}</strong></p>
-                                                    <p className="text-xs text-slate-300">({(totalRate * 100).toFixed(0)}% budżetu)</p>
+                                                    <p className="text-xs text-slate-300">({(totalRate * 100).toFixed(0)}% umowy)</p>
                                                 </div>
                                                 <div className="border-t border-slate-600 pt-2">
-                                                    <p className="text-xs text-slate-300">📊 Budget całkowity: <strong>{formatPln(budgetVal)}</strong></p>
+                                                    <p className="font-bold text-emerald-300 mb-0.5">💚 DOSTĘPNE (Paliwo)</p>
+                                                    <p className="text-sm font-black text-emerald-200">{formatPln(realRevenue)}</p>
+                                                    <p className="text-xs text-slate-300">Rzeczywiste do wydania teraz</p>
                                                 </div>
                                             </div>
                                         );

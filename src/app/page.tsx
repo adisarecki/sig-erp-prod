@@ -504,7 +504,7 @@ export default async function DashboardPage({
             return (
               <>
                 <p className="text-3xl font-black mt-4 text-slate-900 tracking-tighter">{formatPln(totalProjectRealInflow)}</p>
-                <p className="text-[10px] mt-2 text-emerald-600 font-extrabold uppercase tracking-widest">Base operational liquidity (90%).</p>
+                <p className="text-[10px] mt-2 text-emerald-600 font-extrabold uppercase tracking-widest">Dostępne do Operacyjnego Wydania (pomniejszone o kaucje)</p>
               </>
             );
           })()}
