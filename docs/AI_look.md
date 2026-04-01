@@ -112,6 +112,12 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
     - **Math Integrity**: Żaden fallback do default 10% - respect user-configured rates absolutnie.
     - **Dual-DB Sync**: Pisanie do POSTGRES (SSoT), mirror na FIRESTORE z guaranteed field update.
     - **UI Consistency**: Dashboard (`page.tsx`) i Projects List (`InteractiveProjectList.tsx`) obie używają ten sam failsafe logic - zero risk rozbiezności.
+- **Vector 112 (Transparent Contract Hierarchy)**:
+    - **UX Hierarchy**: Tooltip pokazuje hierarchię kontraktu: 📋 UMOWA (Całkowita kwota) → 🔒 KAUCJA (Zabezpieczenie) → 💚 DOSTĘPNE (Rzeczywista płynność)
+    - **Label Clarity**: Zmiana z "Base operational liquidity (90%)" na "Dostępne do Operacyjnego Wydania" (unika mylącego oznaczenia %)
+    - **Pro ERP Standard**: Nowoczesne ERP'y (SAP, Oracle, AXE) używają "Available for Operations" - nasz system podąża tą praktyką
+    - **UX Signal**: Kliknięcie na kwoty (przychody/koszty/marża) otwiera modal ze szczegółami faktur - transparentność bez możliwości błędu
+    - **Implementation**: Komponenty `InteractiveProjectList.tsx` (global summary card + project cards) i `ProjectFinancialDetailsModal.tsx` (modal pull)
 - **Vector 110: Stability-First Mode**:
     - **Philosophy**: Najwyższym priorytetem jest determinizm i integralność procesów biznesowych (A-F).
     - **PG-First Rule**: Wszystkie akcje finansowe (Faktury, Płatności, Rozliczenia) MUSZĄ najpierw zapisać stan w PostgreSQL (Master), a dopiero po sukcesie wykonać synchronizację lustra Firestore (Mirror).
