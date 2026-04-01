@@ -145,20 +145,20 @@ export default async function DashboardPage({
   const tenantDebtInstallments = allDebtInstallments.filter(di => debtIds.includes(di.debtId))
 
   // Special aggregates (will be moved to LedgerService in next refinement)
-  const totalGeneralCostsNet = await prisma.ledgerEntry.aggregate({
+  const totalGeneralCostsNet = await (prisma as any).ledgerEntry.aggregate({
     where: { tenantId, type: 'EXPENSE', projectId: null },
     _sum: { amount: true }
-  }).then(res => new Decimal(String(res._sum.amount || 0)).abs());
+  }).then((res: any) => new Decimal(String(res._sum.amount || 0)).abs());
 
-  const projectMarginSumNet = await prisma.ledgerEntry.aggregate({
+  const projectMarginSumNet = await (prisma as any).ledgerEntry.aggregate({
     where: { tenantId, type: { in: ['INCOME', 'EXPENSE'] }, NOT: { projectId: null } },
     _sum: { amount: true }
-  }).then(res => new Decimal(String(res._sum.amount || 0)));
+  }).then((res: any) => new Decimal(String(res._sum.amount || 0)));
 
-  const realCashCostsNet = await prisma.ledgerEntry.aggregate({
+  const realCashCostsNet = await (prisma as any).ledgerEntry.aggregate({
     where: { tenantId, type: 'EXPENSE', source: { in: ['BANK_PAYMENT', 'SHADOW_COST'] } },
     _sum: { amount: true }
-  }).then(res => new Decimal(String(res._sum.amount || 0)).abs());
+  }).then((res: any) => new Decimal(String(res._sum.amount || 0)).abs());
 
   const uncollectedRevenue = allInvoices
     .filter((inv: any) => (inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME') && inv.status !== 'PAID')
@@ -306,7 +306,7 @@ export default async function DashboardPage({
   // @ts-ignore
   let latestBankAnchor = null;
   try {
-    latestBankAnchor = await prisma.bankBalanceState.findFirst({
+    latestBankAnchor = await (prisma as any).bankBalanceState.findFirst({
       where: { tenantId },
       orderBy: { verificationTimestamp: 'desc' }
     });
