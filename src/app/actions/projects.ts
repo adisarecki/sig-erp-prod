@@ -23,7 +23,16 @@ export async function getProjects() {
         .get()
 
     return snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() as any }))
+        .map(doc => {
+            const data = doc.data() as any;
+            // Failsafe: Ensure retention rates are numbers (not null/undefined)
+            return {
+                id: doc.id,
+                ...data,
+                retentionShortTermRate: Number(data.retentionShortTermRate ?? 0),
+                retentionLongTermRate: Number(data.retentionLongTermRate ?? 0),
+            };
+        })
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }
 
@@ -324,8 +333,8 @@ export async function updateProject(
                 }
             })
 
-            // 2. Mirror Sync (FIRESTORE)
-            await adminDb.collection("projects").doc(id).set({
+            // 2. Mirror Sync (FIRESTORE) - Use update() instead of set() for 0 values
+            const updateData: any = {
                 name: data.name,
                 budgetEstimated: budget,
                 retentionShortTermRate: retShort,
@@ -333,7 +342,9 @@ export async function updateProject(
                 estimatedCompletionDate: estimatedCompletionDate ? estimatedCompletionDate.toISOString() : null,
                 warrantyPeriodYears: warrantyPeriodYears,
                 updatedAt: new Date().toISOString()
-            }, { merge: true })
+            };
+            
+            await adminDb.collection("projects").doc(id).update(updateData);
 
             if (budget > 0 && (retShort > 0 || retLong > 0)) {
                 await syncRetentionsFromProject(
