@@ -40,8 +40,6 @@ model Tenant {
   assets             Asset[]
 }
 
-// ... existing code ...
-
 model BankBalanceState {
   id                    String   @id @default(uuid())
   tenantId              String
@@ -70,7 +68,7 @@ model User {
   email         String   @unique
   passwordHash  String
   firstName     String
-  lastName      String
+  lastName     String
   roleId        String
   role          Role     @relation(fields: [roleId], references: [id])
   auditLogs     AuditLog[]
@@ -220,8 +218,6 @@ model Invoice {
   @@unique([contractorId, invoiceNumber])
   @@unique([tenantId, contractorId, externalId, type])
 }
-
-// ... existing code ...
 
 model LegacyDebt {
   id              String   @id @default(uuid())
@@ -488,7 +484,7 @@ model KsefInvoice {
 model BankInbox {
   id                String   @id @default(uuid())
   tenantId          String
-  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+  tenant                Tenant   @relation(fields: [tenantId], references: [id])
   date              DateTime
   amount            Decimal  @db.Decimal(12, 2)
   rawType           String   // Col 5: Opis operacji

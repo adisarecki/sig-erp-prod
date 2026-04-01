@@ -304,10 +304,15 @@ export default async function DashboardPage({
   // Formatted Strings for UI
   // POBRANIE NAJNOWSZEJ KOTWICY SALDA (Vector 106)
   // @ts-ignore
-  const latestBankAnchor = await prisma.bankBalanceState.findFirst({
-    where: { tenantId },
-    orderBy: { verificationTimestamp: 'desc' }
-  })
+  let latestBankAnchor = null;
+  try {
+    latestBankAnchor = await prisma.bankBalanceState.findFirst({
+      where: { tenantId },
+      orderBy: { verificationTimestamp: 'desc' }
+    });
+  } catch (err) {
+    console.error("CRITICAL: BankBalanceState table missing or query failed. Graceful fallback activated.", err);
+  }
 
   const verifiedBalance = latestBankAnchor ? new Decimal(String(latestBankAnchor.verifiedBalance)) : null
   

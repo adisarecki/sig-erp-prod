@@ -234,15 +234,19 @@ export class ReconciliationEngine {
         const status = delta.isZero() ? 'VERIFIED_STABLE' : 'DISCREPANCY_ALERT';
 
         // Update the Anchor
-        // @ts-ignore
-        await prisma.bankBalanceState.create({
-            data: {
-                tenantId,
-                verifiedBalance: physicalBalance,
-                source: "PKO_BP_CSV",
-                verificationTimestamp: new Date()
-            }
-        });
+        try {
+            // @ts-ignore
+            await prisma.bankBalanceState.create({
+                data: {
+                    tenantId,
+                    verifiedBalance: physicalBalance,
+                    source: "PKO_BP_CSV",
+                    verificationTimestamp: new Date()
+                }
+            });
+        } catch (err) {
+            console.error("CRITICAL: Failed to update BankBalanceState anchor. Tables might be missing.", err);
+        }
 
         return {
             ledgerSum,
