@@ -5,12 +5,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { ShieldAlert, DownloadCloud, Loader2, CheckCircle2 } from "lucide-react"
 import { approvePendingContractor } from "@/app/actions/ksef"
+import { createAssetFromKsef } from "@/app/actions/assets"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
+import { PackagePlus } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initialInvoices: any[], pendingContractors: any[] }) {
     const [isSyncing, setIsSyncing] = useState(false)
     const [syncMessage, setSyncMessage] = useState("")
     const [actionId, setActionId] = useState<string | null>(null)
+    const [isAssetCreating, setIsAssetCreating] = useState<string | null>(null)
+    const router = useRouter()
     
     // Zmienne stanu dla Date Range z domyślnym okresem 7 dni
     const [dateFrom, setDateFrom] = useState(() => {
@@ -88,6 +93,32 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
         if (!result.success) {
             alert(result.error)
             setActionId(null)
+        }
+    }
+
+    const handleCreateAsset = async (inv: any) => {
+        setIsAssetCreating(inv.id)
+        try {
+            const res = await createAssetFromKsef(inv.id, {
+                name: `ŚT: ${inv.counterpartyName} - ${inv.invoiceNumber}`,
+                category: 'equipment', // Default for 'one-click'
+                purchaseDate: inv.issueDate,
+                purchaseNet: Number(inv.amountGross) / 1.23, // Simple approximation if detailed VAT not here
+                purchaseGross: Number(inv.amountGross),
+                vatAmount: Number(inv.amountGross) - (Number(inv.amountGross) / 1.23),
+                invoiceId: inv.id,
+                status: 'ACTIVE'
+            } as any)
+
+            if (res.success) {
+                router.push('/assets')
+            } else {
+                alert(res.error)
+            }
+        } catch (error: any) {
+            alert("Błąd: " + error.message)
+        } finally {
+            setIsAssetCreating(null)
         }
     }
 
@@ -177,6 +208,7 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
                                     <th className="p-4 text-[10px] uppercase font-black tracking-widest text-slate-400">Wystawiono</th>
                                     <th className="p-4 text-[10px] uppercase font-black tracking-widest text-slate-400 text-right">Brutto</th>
                                     <th className="p-4 text-[10px] uppercase font-black tracking-widest text-slate-400 text-right">Status KSeF</th>
+                                    <th className="p-4 text-slate-400"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -226,6 +258,21 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
                                             }`}>
                                                 {inv.paymentStatus === 'PAID' ? 'Opłacono' : 'Zaległa'}
                                             </span>
+                                        </td>
+                                        <td className="p-4 text-right">
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm"
+                                                onClick={() => handleCreateAsset(inv)}
+                                                disabled={isAssetCreating === inv.id}
+                                                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[10px] uppercase tracking-widest border-indigo-100 rounded-lg h-8"
+                                            >
+                                                {isAssetCreating === inv.id ? (
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                ) : (
+                                                    <><PackagePlus className="w-3 h-3 mr-1" /> Środek Trwały</>
+                                                )}
+                                            </Button>
                                         </td>
                                     </tr>
                                 ))}

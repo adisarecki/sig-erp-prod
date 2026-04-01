@@ -21,6 +21,7 @@ import { RetentionVault } from "@/components/finance/RetentionVault"
 import { PendingInvoicesWidget } from "@/components/dashboard/PendingInvoicesWidget"
 import { getVatBalanceColor, getFinancialColor } from "@/lib/utils/financeMapper"
 import { EnrichmentProposalWidget } from "@/components/dashboard/EnrichmentProposalWidget"
+import { getFinancialSnapshot } from "@/lib/finance/ledger-service"
 
 // Inicjalizacja Firebase Admin dla Dashboardu
 initFirebaseAdmin();
@@ -117,170 +118,66 @@ export default async function DashboardPage({
     include: { contractor: true }
   })
 
-  const unpaidTotalAmountGross = prismaUnpaidInvoices.reduce((sum, inv) => sum.plus(new Decimal(inv.amountGross || 0)), new Decimal(0));
-  const unpaidKsefAmountGross = prismaUnpaidInvoices.filter(inv => inv.ksefId).reduce((sum, inv) => sum.plus(new Decimal(inv.amountGross || 0)), new Decimal(0));
+  // --- VECTOR 109: CORE LEDGER FETCH (SSoT) ---
+  const ledgerSnapshot = await getFinancialSnapshot(tenantId);
+  
+  // 1. REAL CASH (Gotówka Operacyjna)
+  const realCashBalance = ledgerSnapshot.realCashBalance;
 
-  // Filtrowanie i Mapy (In-Memory Processing)
-  const debtIds = legacyDebts.map(d => d.id)
-  const tenantDebtInstallments = allDebtInstallments.filter(di => debtIds.includes(di.debtId))
+  // 2. FUEL (Paliwo / Marża) - Wynik memoriałowy netto (Incomes - Expenses)
+  const fuelAccrualNet = ledgerSnapshot.fuelAccrualNet;
+
+  // 3. VAULT (Skarbiec Kaucji)
+  const vaultValue = ledgerSnapshot.vaultValue;
+
+  // 4. VAT SHIELD (Tarcza VAT)
+  const vatShieldBalance = ledgerSnapshot.vatBalance;
+
+  // --- VECTOR 107 REFACTOR: LEGACY MANUAL AGGREGATION REMOVED ---
+  // The ledgerEntries fetch and manual filtering is replaced by LedgerService.
+
+  const unpaidTotalAmountGross = ledgerSnapshot.unpaidInvoicesGross;
+
+  // Re-enable contractors mapping (needed for other UI parts)
   const contractorsMap: Record<string, string> = {}
   contractors.forEach((c: any) => { contractorsMap[c.id] = c.name })
+  const debtIds = legacyDebts.map(d => d.id)
+  const tenantDebtInstallments = allDebtInstallments.filter(di => debtIds.includes(di.debtId))
 
-  // AGREGACJA TRANSAKCJI I FAKTUR (UNIFIED VIEW - Vector 097)
-  let realCashIncomes = new Decimal(0)
-  let realCashCosts = new Decimal(0)
-  let totalGeneralCosts = new Decimal(0)
+  // Special aggregates (will be moved to LedgerService in next refinement)
+  const totalGeneralCostsNet = await prisma.ledgerEntry.aggregate({
+    where: { tenantId, type: 'EXPENSE', projectId: null },
+    _sum: { amount: true }
+  }).then(res => new Decimal(String(res._sum.amount || 0)).abs());
 
-  // 1. Zliczanie z Transakcji (Bank/Manual)
-  transactions.forEach(tx => {
-    const txDate = new Date(tx.transactionDate)
-    if (startDate && txDate < startDate) return
-    if (endDate && txDate > endDate) return
+  const projectMarginSumNet = await prisma.ledgerEntry.aggregate({
+    where: { tenantId, type: { in: ['INCOME', 'EXPENSE'] }, NOT: { projectId: null } },
+    _sum: { amount: true }
+  }).then(res => new Decimal(String(res._sum.amount || 0)));
 
-    const isIncome = tx.type === 'PRZYCHÓD' || tx.type === 'INCOME' || tx.type === 'SPRZEDAŻ' || tx.type === 'REVENUE'
-    const isExpense = tx.type === 'KOSZT' || tx.type === 'EXPENSE' || tx.type === 'ZAKUP' || tx.type === 'WYDATEK'
+  const realCashCostsNet = await prisma.ledgerEntry.aggregate({
+    where: { tenantId, type: 'EXPENSE', source: { in: ['BANK_PAYMENT', 'SHADOW_COST'] } },
+    _sum: { amount: true }
+  }).then(res => new Decimal(String(res._sum.amount || 0)).abs());
 
-    if (isIncome) {
-      realCashIncomes = realCashIncomes.plus(new Decimal(tx.amount))
-    } else if (isExpense) {
-      const amount = new Decimal(tx.amount)
-      realCashCosts = realCashCosts.plus(amount)
-      if (tx.classification === 'GENERAL_COST' || !tx.projectId) {
-        totalGeneralCosts = totalGeneralCosts.plus(amount)
-      }
-    }
-  })
+  const uncollectedRevenue = allInvoices
+    .filter((inv: any) => (inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME') && inv.status !== 'PAID')
+    .reduce((sum: Decimal, inv: any) => sum.plus(new Decimal(inv.amountNet)), new Decimal(0))
 
-  // 2. Zliczanie z Faktur Nieopłaconych (Zobowiązania - by Dashboard match Finance)
-  // Unikamy podwójnego liczenia faktur już opłaconych (które są w transactions)
-  allInvoices.forEach(inv => {
-    if (inv.status === 'PAID') return; // Te są już w transactions
-
-    const issueDate = new Date(inv.issueDate)
-    if (startDate && issueDate < startDate) return
-    if (endDate && issueDate > endDate) return
-
-    const isIncome = inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE'
-    const isExpense = inv.type === 'KOSZT' || inv.type === 'ZAKUP' || inv.type === 'EXPENSE'
-
-    if (isIncome) {
-      // Opcjonalnie: możemy doliczyć oczekiwane przychody do bilansu, ale zostawiamy Cash Basis dla przychodów
-    } else if (isExpense) {
-      const amount = new Decimal(inv.amountGross) // Liczymy Brutto dla bilansu gotówkowego/bezpieczeństwa
-      realCashCosts = realCashCosts.plus(amount)
-      if (!inv.projectId) {
-        totalGeneralCosts = totalGeneralCosts.plus(amount)
-      }
-    }
-  })
-
-  const projectCosts = realCashCosts.minus(totalGeneralCosts)
-  const projectMarginSum = realCashIncomes.minus(projectCosts)
-
-  // AGREGACJA VAT (Z FAKTUR OPŁACONYCH)
-  let vatIncome = new Decimal(0)
-  let vatCost = new Decimal(0)
-  let projectVatCost = new Decimal(0)
-  let generalVatCost = new Decimal(0)
-  let uncollectedRevenue = new Decimal(0)
-  let totalFrozenRetentionValue = new Decimal(0)
-  let releasedRetentionValue = new Decimal(0)
-
-  // Nowe kaucje ze Skarbca
-  retentions.forEach((ret: any) => {
-    if (ret.status === 'ACTIVE') {
-      const expiryDate = new Date(ret.expiryDate)
-      if (expiryDate <= thirtyDaysFromNow) releasedRetentionValue = releasedRetentionValue.plus(new Decimal(ret.amount))
-      else totalFrozenRetentionValue = totalFrozenRetentionValue.plus(new Decimal(ret.amount))
-    }
-  })
-
-  let cumulativeIncomeNet = new Decimal(0)
-  let cumulativeCostNet = new Decimal(0)
-
-  allInvoices.forEach(inv => {
-    const amountGross = new Decimal(inv.amountGross)
-    const amountNet = new Decimal(inv.amountNet)
-    const issueDate = new Date(inv.issueDate)
-
-    // Filtrowanie (Vector 023)
-    const isWithinRange = (!startDate || issueDate >= startDate) && (!endDate || issueDate <= endDate)
-
-    const isInvIncome = inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE'
-    const isInvExpense = inv.type === 'KOSZT' || inv.type === 'ZAKUP' || inv.type === 'EXPENSE'
-
-    // Logika Memoriałowa (Skumulowany Zysk)
-    if (isWithinRange) {
-      if (isInvIncome) {
-        cumulativeIncomeNet = cumulativeIncomeNet.plus(amountNet)
-      } else if (isInvExpense) {
-        cumulativeCostNet = cumulativeCostNet.plus(amountNet)
-      }
-    }
-
-    // AGREGACJA VAT (MEMORIAŁOWA - VECTOR 098)
-    // Liczymy VAT ze wszystkich faktur w wybranym okresie (Accrual Basis)
-    if (isWithinRange) {
-      const vat = amountGross.minus(amountNet)
-      if (isInvIncome) {
-        vatIncome = vatIncome.plus(vat)
-      } else if (isInvExpense) {
-        vatCost = vatCost.plus(vat)
-        if (inv.projectId) {
-          projectVatCost = projectVatCost.plus(vat)
-        } else {
-          generalVatCost = generalVatCost.plus(vat)
-        }
-      }
-    }
-
-    if (inv.status === 'PAID') {
-      // Kaucje (Stary system - opcjonalnie)
-      if (inv.retainedAmount) {
-        const releaseDate = inv.retentionReleaseDate ? new Date(inv.retentionReleaseDate) : null
-        if (releaseDate && releaseDate <= thirtyDaysFromNow) releasedRetentionValue = releasedRetentionValue.plus(new Decimal(inv.retainedAmount))
-        else totalFrozenRetentionValue = totalFrozenRetentionValue.plus(new Decimal(inv.retainedAmount))
-      }
-    } else {
-      if (inv.type === 'SPRZEDAŻ') uncollectedRevenue = uncollectedRevenue.plus(amountNet)
-    }
-  })
-
-  const cumulativeAccrualProfit = cumulativeIncomeNet.minus(cumulativeCostNet)
-
-  // Wyniki Główne (Logika DNA Vector 011)
-  // Przychody i Koszty Netto (Cash-Based derived from Transactions - VAT component from Invoices)
-  const realCashIncomesNet = realCashIncomes.minus(vatIncome)
-  const realCashCostsNet = realCashCosts.minus(vatCost)
-
-  // Rozbicie Kosztów Netto
-  const totalGeneralCostsNet = totalGeneralCosts.minus(generalVatCost)
-  const projectCostsNet = realCashCostsNet.minus(totalGeneralCostsNet)
-
-  // Marża i Zysk (Netto)
-  const projectMarginSumNet = realCashIncomesNet.minus(projectCostsNet)
-  const netProfit = projectMarginSumNet.minus(totalGeneralCostsNet)
-
-  // Metryki Globalne
-  const globalBilans = realCashIncomes.minus(realCashCosts)
-  // CENTRALNE MAPOWANIE VAT (DNA Vector 099)
-  // netVat: Suma(vatCost) - Suma(vatIncome). Dodatni = Nadpłata/Shield, Ujemny = Dług.
-  const netVat = vatCost.minus(vatIncome)
-
-  // VAT Liability for Safe to Spend: Tylko gdy vatIncome > vatCost (mamy dług)
-  const vatLiability = Decimal.max(0, vatIncome.minus(vatCost))
-
-  const TAX_RESERVE_PERCENT = new Decimal(CIT_RATE)
-  // Rezerwa dochodowa CIT liczona od Net Profit (DNA Vector 011/013)
-  const incomeTaxReserve = netProfit.gt(0) ? netProfit.times(TAX_RESERVE_PERCENT) : new Decimal(0)
-
-  const totalReserve = incomeTaxReserve.plus(vatLiability).plus(unpaidTotalAmountGross) // Wliczając zaległe faktury do rezerwy "Safe to Spend"
-  const cleanCash = globalBilans.minus(totalReserve)
+  const releasedRetentionValue = new Decimal(0)
+  const totalReserve = unpaidTotalAmountGross.plus(Decimal.max(0, vatShieldBalance.times(-1)))
+  const cumulativeAccrualProfit = fuelAccrualNet
+  const netVat = vatShieldBalance
 
   const totalDebtRemaining = legacyDebts.reduce((sum, d) => sum.plus(new Decimal(d.remainingAmount || 0)), new Decimal(0))
   const totalProjectBudgets = projects.reduce((sum, p) => sum.plus(new Decimal(p.budgetEstimated || 0)), new Decimal(0))
   const totalStageBudgets = allStages.filter(s => projects.some(p => p.id === s.projectId)).reduce((sum, s) => sum.plus(new Decimal(s.budgetEstimated || 0)), new Decimal(0))
   const plannedMargin = totalProjectBudgets.minus(totalStageBudgets)
+  
+  const globalBilans = ledgerSnapshot.realCashBalance;
+  const netProfit = fuelAccrualNet
+  const cleanCash = ledgerSnapshot.safeToSpend;
+  const totalFrozenRetentionValue = vaultValue
 
 
   // LOGIKA WYKRESU I ALERTÓW

@@ -99,7 +99,7 @@ export class ReconciliationEngine {
      * VECTOR 105: Auto-classify Shadow Costs as DirectExpense.
      */
     private static async processDirectExpense(inboxItem: any) {
-        await prisma.transaction.create({
+        const transaction = await prisma.transaction.create({
             data: {
                 tenantId: inboxItem.tenantId,
                 amount: inboxItem.amount,
@@ -110,6 +110,20 @@ export class ReconciliationEngine {
                 source: "BANK_IMPORT",
                 status: "ACTIVE",
                 classification: "DirectExpense" // Vector 105 Protocol
+            }
+        });
+
+        // --- VECTOR 107: Central Ledger Entry (SSoT) ---
+        // @ts-ignore
+        await prisma.ledgerEntry.create({
+            data: {
+                tenantId: inboxItem.tenantId,
+                projectId: null, // Direct Expenses are usually General
+                source: "SHADOW_COST",
+                sourceId: transaction.id,
+                amount: inboxItem.amount, // Negative if it's an expense
+                type: "EXPENSE",
+                date: inboxItem.date
             }
         });
 
@@ -173,6 +187,20 @@ export class ReconciliationEngine {
                     invoiceId: invoice.id,
                     transactionId: transaction.id,
                     amountApplied: paidAmount
+                }
+            });
+
+            // --- VECTOR 107: Central Ledger Entry (Compensating Cash Entry) ---
+            // @ts-ignore
+            await tx.ledgerEntry.create({
+                data: {
+                    tenantId: invoice.tenantId,
+                    projectId: invoice.projectId,
+                    source: "BANK_PAYMENT",
+                    sourceId: transaction.id,
+                    amount: inboxItem.amount, // Positive for INCOME, Negative for EXPENSE
+                    type: invoice.type === "SPRZEDAŻ" ? "INCOME" : "EXPENSE",
+                    date: inboxItem.date
                 }
             });
 

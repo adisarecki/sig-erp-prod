@@ -7,11 +7,12 @@ Ten plik jest „DNA” technologicznego systemu SIG ERP. Jest przeznaczony wył
 ## 🏗️ 1. Architektura i Stack Techniczny
 
 - **Framework**: Next.js 15.2.8 (App Router), React 19, Tailwind 4.
-- **Bazy Danych (Dual-Sync)**: 
-    - **Firestore**: Szybki NoSQL jako Primary SSoT.
-    - **PostgreSQL (Prisma)**: Secondary SSoT dla analityki i SQL Integrity.
+- **Bazy Danych (Data Authority Model - Vector 109)**: 
+    - **PostgreSQL (Prisma - LedgerEntry)**: ABSOLUTNE Jedyne Źródło Prawdy (SSoT) dla wszystkich wskaźników finansowych. Firestore jest dla finansów WYŁĄCZNIE lustrem odczytu (`LEDGER_DERIVED`).
+    - **Firestore (Operational Primary)**: Nadrzędne źródło dla danych technicznych/operacyjnych środków trwałych (Assets) oraz cache dla szybkich operacji UI.
+    - **PostgreSQL (Prisma - Master Entities)**: SSoT dla kontrahentów, projektów i ramy strukturalnej systemu.
 - **AI**: Gemini 3.0 Flash (OCR & Analiza) via `@google/generative-ai`.
-- **Finanse**: `decimal.js` wykorzystywany w `financeMapper.ts` (SSoT dla obliczeń).
+- **Finanse**: `decimal.js` wykorzystywany w `financeMapper.ts` oraz w Central Ledgerze.
 
 ### 🔴 Lazy Initialization (Build Safety)
 Inicjalizacja `firebaseAdmin.ts` MUSI być leniwa (gettery), aby uniknąć błędów podczas buildu na Vercelu (brak envs).
@@ -73,6 +74,35 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
         - `VERIFIED_STABLE`: Delta wynosi 0. System jest zsynchronizowany z bankiem.
         - `DISCREPANCY_ALERT`: Delta > 0. Wykryto lukę w księgowaniu / brakujące transakcje.
     - **UI Enkapsulacja**: Usunięcie importów z Dashboard/Project views. Centralizacja w `/finance/verify-balance`.
+- **Vector 107 (Central Ledger Engine)**:
+    - **SSoT**: Tabela `LedgerEntry` staje się ostatecznym źródłem prawdy. Wszystkie wskaźniki (Real Cash, Fuel, Vault) są sumowane WYŁĄCZNIE z tej tabeli.
+    - **Mapping Principles (Signs)**:
+        - `INCOME`: Przychód netto z faktury (+).
+        - `EXPENSE`: Koszt netto z faktury/shadow (-).
+        - `VAT_SHIELD`: Kwota VAT. Dodatnia (+) dla zakupów (tarcza), ujemna (-) dla sprzedaży (dług).
+        - `RETENTION_LOCK`: Kwota kaucji (+). Zamrożona w wirtualnym "Skarbcu".
+    - **Flow**:
+        - `createInvoice`: Synchroniczne `createMany` (Net, VAT, Retention).
+        - `executeAutoMatch` (Payment): Generowanie `BANK_PAYMENT` entry (Cash Flow).
+- **Vector 107: Asset Management Engine (Hardened)**:
+    - **SSoT Strategy**: Dual-Sync mandatory. Write once to Firestore (NoSQL) and mirror to Prisma (Postgres).
+    - **Asset Hardening**: Expanded operational fields (VIN, Registration, Insurance, Tech Inspection).
+    - **Duplicate Shield**: Tier 1 (Invoice bound) + Tier 2 (Name/Date/Value bound) unique markers.
+    - **KSeF Synergy**: 1-click conversion from Invoice to Asset.
+- **Vector 108: Dual-DB Consistency Engine**:
+    - **Authority Layer**: FS (Operational Primary for Assets) -> SQL (Analytical Reconciler).
+    - **Audit Engine**: `SyncAuditRecord` in SQL tracks field-level drift.
+    - **Sync Health**: Dashboard `/finance/sync-health` with Side-by-Side Diff View for manual repair.
+- **Vector 109: Data Authority Finalization**:
+    - **Lock Down**: Wyeliminowanie "dual-primary". Każda domena danych ma jednego właściciela (Master).
+    - **Financial Master (PG)**: Agregaty Dashboardu MUSZĄ pochodzić z `LedgerService` (Postgres). Zakaz sumowania z Firestore dla wskaźników KPI.
+    - **Operational Master (FS)**: Środki trwałe (Asset registry) zapisywane najpierw do FS. Konsekwencje finansowe zakupu -> synchronicznie do PG Ledger.
+    - **Write Guards**: Mechanizm `assertAuthorityWrite` blokuje próby zapisu do bazy będącej mirror'em dla danej domeny.
+- **Vector 110: Stability-First Mode**:
+    - **Philosophy**: Najwyższym priorytetem jest determinizm i integralność procesów biznesowych (A-F).
+    - **PG-First Rule**: Wszystkie akcje finansowe (Faktury, Płatności, Rozliczenia) MUSZĄ najpierw zapisać stan w PostgreSQL (Master), a dopiero po sukcesie wykonać synchronizację lustra Firestore (Mirror).
+    - **Atomic Transactions**: Wykorzystanie `prisma.$transaction` dla każdego zdarzenia biznesowego, aby objąć zapis encji Master oraz wpis do Ledgera w jedną niepodzielną operację.
+    - **Integrity Monitor**: Regularna weryfikacja dryfu (FS vs PG) za pomocą `IntegrityMonitor`.
 - **Regex Entity Engine**: Wyciąganie NIP/IBAN z opisów bankowych z lookaheadami.
 
 ---
@@ -91,6 +121,9 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
 | **103** | KSeF Gatekeeper | Inbox buffer (KsefInvoice) for selective document import approval. |
 | **104** | Bank Reconciliation | PKO BP 2-level automated settlement engine (Vector 104). |
 | **106** | Financial Truth | UI Decoupling and Bank Balance Anchor (Vector 106). |
+| **107.A** | Asset Module | 1-click KSeF to Asset conversion and Dual-Sync Registry. |
+| **116** | Data Authority | Vector 109: Final lock of write direction and domain ownership. |
+| **110** | Stability-First | PG-First logic enforcement & Atomic Transactions (Vector 110). |
 
 ---
 *Plik utrzymywany przez Antigravity dla kolejnych sesji AI.*

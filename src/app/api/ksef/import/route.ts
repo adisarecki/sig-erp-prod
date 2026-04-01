@@ -5,6 +5,7 @@ import { KSeFService } from '@/lib/ksef/ksefService';
 import Decimal from 'decimal.js';
 import { syncContractorToFirestore, syncInvoiceToFirestore } from '@/lib/finance/sync-utils';
 import { recalculateProjectBudget } from '@/app/actions/projects';
+import { randomUUID } from 'crypto';
 
 /**
  * POST /api/ksef/import
@@ -39,119 +40,107 @@ export async function POST(req: NextRequest) {
                 // 1. Absolute Duplicate Shield (Vector 098.1)
                 const existing = await prisma.invoice.findUnique({ where: { ksefId } });
                 if (existing) {
-                    console.warn(`[KSeF_SHIELD] Vector 098 Triggered: Double Billing Blocked for ${ksefId}`);
                     stats.skipped++;
                     continue;
                 }
 
                 // 2. Load from Inbox Buffer (PENDING)
-                const buffered = await prisma.ksefInvoice.findUnique({ 
-                    where: { ksefNumber: ksefId } 
-                });
-
+                const buffered = await prisma.ksefInvoice.findUnique({ where: { ksefNumber: ksefId } });
                 if (!buffered) {
-                    console.warn(`[KSeF_IMPORT] Missing buffer record for ${ksefId}`);
                     stats.errors++;
                     continue;
                 }
 
-                // 3. Fetch Full Details if buffer is incomplete or we need the most recent XML
-                // (Already has XML, but we fetch detail to get the structure for Enrichment)
                 const detail = await ksefService.fetchAndParse(ksefId, { accessToken: sessionToken });
-
-                // 4. Contractor Sync & Enrichment (Vector 094 / 099)
                 const nip = detail.sellerNip;
                 const name = detail.sellerName;
                 
-                let contractor = await prisma.contractor.findUnique({ where: { tenantId_nip: { tenantId, nip } } });
-
-                if (!contractor) {
-                    contractor = await prisma.contractor.create({
-                        data: { 
-                            tenantId, 
-                            nip, 
-                            name, 
-                            status: 'ACTIVE', 
-                            type: 'DOSTAWCA' // Assume expense for purchase sync (Subject2)
-                        }
-                    });
-                    await syncContractorToFirestore(contractor);
-                }
-
-                // Smart Enrichment Check (Vector 099)
-                const { compareAndNotify } = await import("@/lib/finance/contractorEnricher");
-                await compareAndNotify(detail, tenantId);
-
-                // --- SECOND LINE OF DEFENSE (Vector 098.3) ---
-                // If contractor found, check matching invoice number (Business Logic Anchor)
-                const businessDuplicate = await prisma.invoice.findFirst({
-                    where: {
-                        contractorId: contractor.id,
-                        invoiceNumber: detail.invoiceNumber
+                // --- FINANCIAL MASTER WRITE (POSTGRES - Vector 110) ---
+                const dbResult = await prisma.$transaction(async (tx: any) => {
+                    // A. Contractor Resolution
+                    let contractor = await tx.contractor.findUnique({ where: { tenantId_nip: { tenantId, nip } } });
+                    let isNewContractor = false;
+                    if (!contractor) {
+                        const newCtrId = randomUUID();
+                        contractor = await tx.contractor.create({
+                            data: { id: newCtrId, tenantId, nip, name, status: 'ACTIVE', type: 'DOSTAWCA' }
+                        });
+                        isNewContractor = true;
                     }
-                });
 
-                if (businessDuplicate) {
-                    console.warn(`[KSeF_SHIELD] Business Logic Anchor Triggered: Duplicate Blocked for ${contractor.id} / ${detail.invoiceNumber}`);
-                    stats.skipped++;
-                    results.push({ ksefId, success: false, error: "Faktura o tym numerze została już zaksięgowana dla tego kontrahenta." });
-                    continue;
-                }
+                    // B. Business Duplicate Anchor (Vector 098.3)
+                    const businessDuplicate = await tx.invoice.findFirst({
+                        where: { contractorId: contractor.id, invoiceNumber: detail.invoiceNumber }
+                    });
+                    if (businessDuplicate) throw new Error(`DUBEL_BIZNESOWY: ${detail.invoiceNumber}`);
 
-                // 5. Hardened Duplicate Shield (Vector 098.2): Atomic Presence Check
-                // Even with findUnique above, we use catch for P2002 to be absolutely sure.
-                let newInvoice;
-                try {
-                    newInvoice = await prisma.invoice.create({
+                    // C. Atomic Invoice Creation
+                    const invoiceId = randomUUID();
+                    const invoice = await tx.invoice.create({
                         data: {
+                            id: invoiceId,
                             tenantId,
                             contractorId: contractor.id,
                             ksefId,
                             invoiceNumber: detail.invoiceNumber,
                             type: 'EXPENSE',
-                            amountNet: detail.netAmount,
-                            amountGross: detail.grossAmount,
-                            taxRate: detail.netAmount.isZero() ? new Decimal(0) : detail.vatAmount.div(detail.netAmount).toDecimalPlaces(4),
+                            amountNet: detail.netAmount.toNumber(),
+                            amountGross: detail.grossAmount.toNumber(),
+                            taxRate: detail.netAmount.isZero() ? 0 : detail.vatAmount.div(detail.netAmount).toDecimalPlaces(4).toNumber(),
                             issueDate: detail.issueDate,
                             dueDate: detail.dueDate,
-                            paymentStatus: 'UNPAID',
                             status: 'ACTIVE',
                             ksefType: detail.ksefType
                         }
                     });
-                } catch (dbErr: any) {
-                    if (dbErr.code === 'P2002') {
-                        console.warn(`[KSeF_SHIELD] DB unique constraint hit for ${ksefId}. Blocking duplicate.`);
-                        stats.skipped++;
-                        results.push({ ksefId, success: false, error: "Vector 098 Triggered: Double Billing Blocked" });
-                        continue;
-                    }
-                    throw dbErr;
+
+                    // D. Central Ledger Entry (SSoT - Vector 109)
+                    const { recordInvoiceToLedger } = await import("@/lib/finance/ledger-manager");
+                    await recordInvoiceToLedger({
+                        tenantId,
+                        invoiceId: invoiceId,
+                        amountNet: detail.netAmount,
+                        vatAmount: detail.vatAmount,
+                        type: 'EXPENSE',
+                        date: detail.issueDate
+                    }, tx);
+
+                    // E. Update Buffer Status
+                    await tx.ksefInvoice.update({
+                        where: { ksefNumber: ksefId },
+                        data: { status: 'ACCEPTED' }
+                    });
+
+                    return { invoice, contractorId: contractor.id, isNewContractor };
+                });
+
+                // --- OPERATIONAL MIRROR SYNC (FIRESTORE) ---
+                if (dbResult.isNewContractor) {
+                    const cSnap = await prisma.contractor.findUnique({ where: { id: dbResult.contractorId } });
+                    if (cSnap) await syncContractorToFirestore(cSnap);
                 }
 
-                // 6. Update Buffer Status to ACCEPTED
-                await prisma.ksefInvoice.update({
-                    where: { ksefNumber: ksefId },
-                    data: { status: 'ACCEPTED' as any } // Cast to handle lint/runtime-sync delay
-                });
-
-                // 7. Sync to Firestore & Recalculate (Vector 101/096)
                 await syncInvoiceToFirestore({
-                    ...newInvoice,
-                    amountNet: newInvoice.amountNet.toNumber(),
-                    amountGross: newInvoice.amountGross.toNumber(),
-                    taxRate: newInvoice.taxRate.toNumber()
+                    ...dbResult.invoice,
+                    amountNet: Number(dbResult.invoice.amountNet),
+                    amountGross: Number(dbResult.invoice.amountGross),
+                    taxRate: Number(dbResult.invoice.taxRate)
                 });
 
-                // If invoice is linked to a project in the future, we'd call recalculate here.
-                // For now, it updates the global income/expense pool for Dashboard Health (Wector 101.1).
+                // Enrichment Check (Non-critical operational data)
+                try {
+                    const { compareAndNotify } = await import("@/lib/finance/contractorEnricher");
+                    await compareAndNotify(detail, tenantId);
+                } catch ( enrichmentErr ) {
+                    console.warn("[KSEF_ENRICHMENT_WARN]", enrichmentErr);
+                }
 
                 stats.imported++;
                 results.push({ ksefId, success: true });
-
             } catch (err: any) {
-                console.error(`[IMPORT_ITEM_ERROR] ${ksefId}:`, err.message);
+                console.error(`[KSEF_IMPORT_ITEM_ERROR] ${ksefId}:`, err.message);
                 stats.errors++;
+                results.push({ ksefId, success: false, error: err.message });
             }
         }
 

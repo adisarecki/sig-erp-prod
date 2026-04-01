@@ -4,10 +4,13 @@ import { revalidatePath } from "next/cache"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { getAdminDb } from "@/lib/firebaseAdmin"
 import prisma from "@/lib/prisma"
+import { assertAuthorityWrite } from "@/lib/authority/guards"
+import { randomUUID } from "crypto"
 import Decimal from "decimal.js"
 import { syncRetentionsFromProject } from "./retentions"
 import { createNotification } from "./notifications"
 import { syncInvoiceToFirestore } from "@/lib/finance/sync-utils"
+import { getProjectFinancials } from "@/lib/finance/ledger-service"
 
 /**
  * POBIERANIE - Dashboard i Lista Projektów
@@ -87,10 +90,32 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
             }
         }
 
-        const newProjectRef = adminDb.collection("projects").doc()
-        const projectId = newProjectRef.id
+        // 1. Financial Master Write (POSTGRES - Vector 109)
+        await assertAuthorityWrite('PROJECT', 'CREATE', 'POSTGRES');
 
-        await newProjectRef.set({
+        const projectId = randomUUID();
+
+        await (prisma as any).project.create({
+            data: {
+                id: projectId,
+                tenant: { connect: { id: tenantId } },
+                name,
+                contractor: { connect: { id: contractorId } },
+                object: { connect: { id: targetObjectId } },
+                type: "NOWY",
+                status: "PLANNED",
+                lifecycleStatus: "ACTIVE",
+                budgetEstimated: budgetEstimated,
+                budgetUsed: 0,
+                retentionShortTermRate: retShort,
+                retentionLongTermRate: retLong,
+                estimatedCompletionDate: estimatedCompletionDate,
+                warrantyPeriodYears: warrantyPeriodYears,
+            }
+        })
+
+        // 2. Operational Mirror Sync (FIRESTORE)
+        await adminDb.collection("projects").doc(projectId).set({
             tenantId,
             name,
             contractorId,
@@ -107,42 +132,16 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
             updatedAt: new Date().toISOString()
         })
 
-        try {
-            console.log(`[PROJECT_SYNC] Creating Project ${projectId} | RetShort: ${retShort} | RetLong: ${retLong}`)
-            await (prisma as any).project.create({
-                data: {
-                    id: projectId,
-                    tenant: { connect: { id: tenantId } },
-                    name,
-                    contractor: { connect: { id: contractorId } },
-                    object: { connect: { id: targetObjectId } },
-                    type: "NOWY",
-                    status: "PLANNED",
-                    lifecycleStatus: "ACTIVE",
-                    budgetEstimated: budgetEstimated,
-                    budgetUsed: 0,
-                    retentionShortTermRate: retShort,
-                    retentionLongTermRate: retLong,
-                    estimatedCompletionDate: estimatedCompletionDate,
-                    warrantyPeriodYears: warrantyPeriodYears,
-                }
-            })
-
-            // Sync Retentions
-            if (budgetEstimated > 0 && (retShort > 0 || retLong > 0)) {
-                await syncRetentionsFromProject(
-                    projectId, 
-                    budgetEstimated, 
-                    retShort, 
-                    retLong, 
-                    estimatedCompletionDate, 
-                    warrantyPeriodYears
-                )
-            }
-        } catch (prismaError) {
-            console.error("[PROJECT_PRISMA_SYNC_ERROR] Rollback Firestore...", prismaError)
-            await newProjectRef.delete()
-            throw new Error("Błąd zapisu w relacyjnej bazie (Prisma). Projekt został wycofany z Firestore (Dual-Sync Drift Protection).")
+        // 3. Post-Process Side Effects (Sync Retentions)
+        if (budgetEstimated > 0 && (retShort > 0 || retLong > 0)) {
+            await syncRetentionsFromProject(
+                projectId, 
+                budgetEstimated, 
+                retShort, 
+                retLong, 
+                estimatedCompletionDate, 
+                warrantyPeriodYears
+            )
         }
 
         try {
@@ -160,8 +159,8 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
 }
 
 /**
- * REKALKULACJA BUDŻETU PROJEKTU (DNA Vector 096)
- * Sumuje wszystkie powiązane koszty (Invoices + Transactions) i aktualizuje budgetUsed.
+ * REKALKULACJA BUDŻETU PROJEKTU (DNA Vector 109 / Ledger-First)
+ * Sumuje wszystkie powiązane koszty z PostgreSQL LedgerEntry i aktualizuje budgetUsed.
  */
 export async function recalculateProjectBudget(projectId: string) {
     if (!projectId) return;
@@ -169,46 +168,29 @@ export async function recalculateProjectBudget(projectId: string) {
     try {
         const tenantId = await getCurrentTenantId()
         
-        // 1. Sumuj faktury kosztowe (EXPENSE/KOSZT) - Netto
-        const invoices = await prisma.invoice.findMany({
-            where: {
-                projectId,
-                tenantId,
-                type: { in: ['EXPENSE', 'KOSZT', 'ZAKUP'] }
-            },
-            select: { amountNet: true }
-        })
-        const invoicesTotal = invoices.reduce((sum, inv) => sum.plus(inv.amountNet), new Decimal(0))
+        // 1. Get Financials from Ledger SSoT (Vector 109)
+        const financials = await getProjectFinancials(tenantId, projectId);
+        const totalUsed = financials.expense; // budgetUsed is typically the sum of all expenses linked to project
 
-        // 2. Sumuj transakcje bankowe kosztowe (EXPENSE/KOSZT) - Netto
-        // Bank import transactions are usually Net = Gross = amount or handled via classification
-        const transactions = await prisma.transaction.findMany({
-            where: {
-                projectId,
-                tenantId,
-                type: { in: ['EXPENSE', 'KOSZT', 'WYDATEK'] },
-                status: 'ACTIVE'
-            },
-            select: { amount: true }
-        })
-        const transactionsTotal = transactions.reduce((sum, tx) => sum.plus(new Decimal(tx.amount)), new Decimal(0))
-
-        const totalUsed = invoicesTotal.plus(transactionsTotal)
-
-        // 3. Update Project
-        await prisma.project.update({
+        // 2. Update Project (Authoritative Write to POSTGRES)
+        await assertAuthorityWrite('PROJECT', 'RECALC_BUDGET', 'POSTGRES', projectId);
+        
+        await (prisma as any).project.update({
             where: { id: projectId },
-            data: { budgetUsed: totalUsed }
+            data: { 
+                budgetUsed: totalUsed.toNumber(),
+                updatedAt: new Date()
+            }
         })
 
-        // 4. Firestore Mirror Update
+        // 3. Firestore Mirror Update (Secondary Read-Model Cache)
         const adminDb = getAdminDb()
         await adminDb.collection("projects").doc(projectId).update({
             budgetUsed: totalUsed.toNumber(),
             updatedAt: new Date().toISOString()
         })
 
-        console.log(`[BUDGET_RECALC] Project: ${projectId} | Total Used: ${totalUsed.toNumber()} PLN`)
+        console.log(`[BUDGET_RECALC_LEDGER] Project: ${projectId} | Total Used (from Ledger): ${totalUsed.toNumber()} PLN`)
         
         revalidatePath("/projects")
         revalidatePath("/finance")
@@ -327,15 +309,8 @@ export async function updateProject(
             const warrantyPeriodYears = parseInt(warrantyRaw)
             const estimatedCompletionDate = estCompletionRaw ? new Date(estCompletionRaw) : null
 
-            await adminDb.collection("projects").doc(id).update({
-                name: data.name,
-                budgetEstimated: budget,
-                retentionShortTermRate: retShort,
-                retentionLongTermRate: retLong,
-                estimatedCompletionDate: estimatedCompletionDate ? estimatedCompletionDate.toISOString() : null,
-                warrantyPeriodYears: warrantyPeriodYears,
-                updatedAt: new Date().toISOString()
-            })
+            // 1. Master Write (POSTGRES)
+            await assertAuthorityWrite('PROJECT', 'UPDATE', 'POSTGRES', id);
 
             await (prisma as any).project.update({
                 where: { id },
@@ -348,6 +323,17 @@ export async function updateProject(
                     warrantyPeriodYears: warrantyPeriodYears,
                 }
             })
+
+            // 2. Mirror Sync (FIRESTORE)
+            await adminDb.collection("projects").doc(id).set({
+                name: data.name,
+                budgetEstimated: budget,
+                retentionShortTermRate: retShort,
+                retentionLongTermRate: retLong,
+                estimatedCompletionDate: estimatedCompletionDate ? estimatedCompletionDate.toISOString() : null,
+                warrantyPeriodYears: warrantyPeriodYears,
+                updatedAt: new Date().toISOString()
+            }, { merge: true })
 
             if (budget > 0 && (retShort > 0 || retLong > 0)) {
                 await syncRetentionsFromProject(

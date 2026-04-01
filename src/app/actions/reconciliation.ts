@@ -2,23 +2,26 @@
 
 import prisma from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
+import { recordLedgerEntry } from "@/lib/finance/ledger-manager"
+import { getAdminDb } from "@/lib/firebaseAdmin"
+import { randomUUID } from "crypto"
 import Decimal from "decimal.js"
 import { ReconciliationEngine } from "@/lib/reconciliation"
 import { getCurrentTenantId } from "@/lib/tenant"
 
-
 /**
  * Reconciles a bank transaction with one or more invoices.
  * Creates Transaction records and immutable InvoicePayment records.
- * APPEND-ONLY: Records are never updated or deleted.
+ * PG-First (Vector 110)
  */
 export async function reconcileBankTransaction(
     bankTransactionId: string,
     splits: { invoiceId: string, amount: string }[]
 ) {
     const tenantId = await getCurrentTenantId()
+    const adminDb = getAdminDb()
 
-    await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
         const bankTrans = await tx.bankTransactionRaw.findUnique({
             where: { id: bankTransactionId },
             include: { bankAccount: true }
@@ -36,15 +39,18 @@ export async function reconcileBankTransaction(
             throw new Error("Suma rozliczeń przewyższa kwotę przelewu.")
         }
 
-        // For each split, create a Transaction and an immutable InvoicePayment entry
+        const processedInvoices: string[] = [];
+
         for (const split of splits) {
             const amount = new Decimal(split.amount)
+            const transactionId = randomUUID();
 
-            // 1. Create Ledger Transaction (Append-Only)
-            const transaction = await tx.transaction.create({
+            // 1. Create Transaction (PG-Master)
+            await tx.transaction.create({
                 data: {
+                    id: transactionId,
                     tenantId,
-                    amount: amount,
+                    amount: amount.toNumber(),
                     classification: "PROJECT_COST",
                     type: amount.gt(0) ? "PRZYCHÓD" : "KOSZT",
                     transactionDate: bankTrans.bookingDate,
@@ -55,17 +61,26 @@ export async function reconcileBankTransaction(
                 }
             })
 
-            // 2. Create immutable InvoicePayment link (N:M join)
-            // No updatedAt field – record is permanent
+            // 2. Ledger recording (Vector 109)
+            await recordLedgerEntry({
+                tenantId,
+                source: 'BANK_PAYMENT',
+                sourceId: transactionId,
+                amount: amount,
+                type: amount.gt(0) ? 'INCOME' : 'EXPENSE',
+                date: bankTrans.bookingDate
+            }, tx);
+
+            // 3. Create immutable InvoicePayment link
             await tx.invoicePayment.create({
                 data: {
                     invoiceId: split.invoiceId,
-                    transactionId: transaction.id,
-                    amountApplied: amount
+                    transactionId: transactionId,
+                    amountApplied: amount.toNumber()
                 }
             })
 
-            // 3. Recalculate and update Invoice status based on all payments
+            // 4. Update Invoice status
             const invoice = await tx.invoice.findUnique({
                 where: { id: split.invoiceId },
                 include: { payments: true }
@@ -73,25 +88,39 @@ export async function reconcileBankTransaction(
 
             if (invoice) {
                 const totalPaid = invoice.payments.reduce(
-                    (acc, p) => acc.plus(p.amountApplied),
+                    (acc, p) => acc.plus(new Decimal(p.amountApplied)),
                     new Decimal(0)
-                ).plus(amount)
-
-                const newStatus = totalPaid.gte(invoice.amountGross) ? "PAID" : "PARTIALLY_PAID"
-
+                )
+                const newStatus = totalPaid.gte(new Decimal(invoice.amountGross)) ? "PAID" : "PARTIALLY_PAID"
                 await tx.invoice.update({
                     where: { id: invoice.id },
                     data: { status: newStatus }
                 })
+                processedInvoices.push(invoice.id);
             }
         }
 
-        // 4. Update Bank Transaction status to PAIRED
+        // 5. Update Bank Transaction status
         await tx.bankTransactionRaw.update({
             where: { id: bankTransactionId },
             data: { status: "PAIRED" }
         })
+
+        return { processedInvoices };
     })
+
+    // --- OPERATIONAL MIRROR SYNC (FIRESTORE) ---
+    const fsBatch = adminDb.batch();
+    for (const invId of result.processedInvoices) {
+        const inv = await prisma.invoice.findUnique({ where: { id: invId } });
+        if (inv) {
+            fsBatch.update(adminDb.collection("invoices").doc(inv.id), {
+                status: inv.status,
+                updatedAt: new Date().toISOString()
+            });
+        }
+    }
+    await fsBatch.commit();
 
     revalidatePath("/finance/reconciliation")
     revalidatePath("/")
@@ -99,13 +128,13 @@ export async function reconcileBankTransaction(
 
 /**
  * Reversal mechanism for erroneous reconciliations.
- * Creates a new correcting Transaction + InvoicePayment.
- * NEVER deletes or modifies existing records.
+ * PG-First (Vector 110)
  */
 export async function reverseReconciliation(invoicePaymentId: string) {
     const tenantId = await getCurrentTenantId()
+    const adminDb = getAdminDb()
 
-    await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
         const original = await tx.invoicePayment.findUnique({
             where: { id: invoicePaymentId },
             include: {
@@ -116,12 +145,15 @@ export async function reverseReconciliation(invoicePaymentId: string) {
 
         if (!original) throw new Error("Nie znaleziono rekordu płatności.")
 
-        // Create correcting (reversal) transaction with negative amount
         const reversalAmount = new Decimal(original.amountApplied.toString()).negated()
-        const reversalTx = await tx.transaction.create({
+        const reversalTxId = randomUUID();
+
+        // 1. Reversal Transaction
+        await tx.transaction.create({
             data: {
+                id: reversalTxId,
                 tenantId,
-                amount: reversalAmount,
+                amount: reversalAmount.toNumber(),
                 type: "KOREKTA",
                 transactionDate: new Date(),
                 category: "ROZLICZENIE_KORYGUJĄCE",
@@ -132,29 +164,38 @@ export async function reverseReconciliation(invoicePaymentId: string) {
             }
         })
 
-        // Create immutable reversal InvoicePayment
+        // 2. Ledger Recording (Negative entry)
+        await recordLedgerEntry({
+            tenantId,
+            source: 'BANK_PAYMENT',
+            sourceId: reversalTxId,
+            amount: reversalAmount,
+            type: reversalAmount.gt(0) ? 'INCOME' : 'EXPENSE',
+            date: new Date()
+        }, tx);
+
+        // 3. Create immutable reversal InvoicePayment
         await tx.invoicePayment.create({
             data: {
                 invoiceId: original.invoiceId,
-                transactionId: reversalTx.id,
-                amountApplied: reversalAmount
+                transactionId: reversalTxId,
+                amountApplied: reversalAmount.toNumber()
             }
         })
 
-        // Recalculate invoice status
+        // 4. Recalculate invoice status
         const invoice = await tx.invoice.findUnique({
             where: { id: original.invoiceId },
             include: { payments: true }
         })
 
+        let newStatus = "ACTIVE"
         if (invoice) {
             const totalPaid = invoice.payments.reduce(
-                (acc, p) => acc.plus(p.amountApplied),
+                (acc, p) => acc.plus(new Decimal(p.amountApplied)),
                 new Decimal(0)
-            ).plus(reversalAmount)
-
-            let newStatus = "ACTIVE"
-            if (totalPaid.gte(invoice.amountGross)) newStatus = "PAID"
+            )
+            if (totalPaid.gte(new Decimal(invoice.amountGross))) newStatus = "PAID"
             else if (totalPaid.gt(0)) newStatus = "PARTIALLY_PAID"
 
             await tx.invoice.update({
@@ -162,7 +203,15 @@ export async function reverseReconciliation(invoicePaymentId: string) {
                 data: { status: newStatus }
             })
         }
+        
+        return { invoiceId: original.invoiceId, newStatus };
     })
+
+    // --- MIRROR SYNC ---
+    await adminDb.collection("invoices").doc(result.invoiceId).update({
+        status: result.newStatus,
+        updatedAt: new Date().toISOString()
+    });
 
     revalidatePath("/finance/reconciliation")
     revalidatePath("/")

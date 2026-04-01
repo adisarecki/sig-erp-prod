@@ -9,6 +9,9 @@ import prisma from "@/lib/prisma"
 import { recalculateProjectBudget } from "./projects"
 import { syncRetentionsFromProject } from "./retentions"
 import { syncInvoiceToFirestore } from "../../lib/finance/sync-utils"
+import { recordInvoiceToLedger, recordLedgerEntry } from "@/lib/finance/ledger-manager"
+import { assertFinancialMasterWrite } from "@/lib/authority/guards"
+import { randomUUID } from "crypto"
 
 
 export async function deleteInvoice(id: string): Promise<{ success: boolean, error?: string }> {
@@ -67,50 +70,102 @@ export async function deleteInvoice(id: string): Promise<{ success: boolean, err
         return { success: false, error: error instanceof Error ? error.message : "Błąd podczas usuwania dokumentu." }
     }
 }
-
 export async function markInvoiceAsPaid(id: string, paymentDateOverride?: string): Promise<{ success: boolean, error?: string }> {
     try {
-        const adminDb = getAdminDb()
-        const tenantId = await getCurrentTenantId()
-
-        // 1. Pobierz dane faktury z Prisma (SSoT dla relacji)
-        const invoice = await prisma.invoice.findUnique({
-            where: { id, tenantId },
-            include: { contractor: true }
-        })
-
-        if (!invoice) throw new Error("Nie znaleziono dokumentu.")
-        if (invoice.status === "PAID") return { success: true }
+        const adminDb = getAdminDb();
+        const tenantId = await getCurrentTenantId();
+        
+        // 1. Financial Master Write (POSTGRES - Vector 109)
+        await assertFinancialMasterWrite('MARK_PAID', id);
 
         const paymentDate = paymentDateOverride ? new Date(paymentDateOverride) : new Date()
-        const amountGross = Number(invoice.amountGross)
 
-        // 2. Resilient Firestore Update / Sync-on-Demand
-        // W KSeF Stage 1 faktury mogą istnieć TYLKO w Prisma. Musimy je "wstrzyknąć" do Firestore przed opłaceniem.
+        const result = await prisma.$transaction(async (tx: any) => {
+            // A. Pobierz fakturę wewnątrz transakcji
+            const invoice = await tx.invoice.findFirst({
+                where: { id, tenantId },
+                include: { contractor: true }
+            })
+
+            if (!invoice) throw new Error("Nie znaleziono dokumentu.")
+            if (invoice.status === "PAID") return { alreadyPaid: true, invoice }
+
+            const amountGross = Number(invoice.amountGross)
+            const isIncome = invoice.type === "REVENUE" || invoice.type === "INCOME" || invoice.type === "SPRZEDAŻ"
+
+            // B. Update Invoice status
+            const updatedInvoice = await tx.invoice.update({
+                where: { id },
+                data: { status: "PAID", paymentStatus: "PAID" },
+                include: { contractor: true }
+            })
+
+            // C. Record in Central Ledger (PROPER ORDER)
+            await recordLedgerEntry({
+                tenantId,
+                projectId: updatedInvoice.projectId || undefined,
+                source: 'BANK_PAYMENT',
+                sourceId: id,
+                amount: new Decimal(updatedInvoice.amountGross).mul(isIncome ? 1 : -1),
+                type: isIncome ? 'INCOME' : 'EXPENSE',
+                date: paymentDate
+            }, tx); // Pass transaction client if possible (recordLedgerEntry should support it)
+
+            // D. Create Transaction record in Prisma
+            const classification = updatedInvoice.projectId ? "PROJECT_COST" : "GENERAL_COST"
+            const prismaTrans = await tx.transaction.create({
+                data: {
+                    tenant: { connect: { id: tenantId } },
+                    project: updatedInvoice.projectId ? { connect: { id: updatedInvoice.projectId } } : undefined,
+                    classification,
+                    amount: amountGross,
+                    type: isIncome ? "INCOME" : "EXPENSE",
+                    transactionDate: paymentDate,
+                    category: isIncome ? "SPRZEDAŻ" : "ZAKUP",
+                    description: `Płatność (SSoT): ${updatedInvoice.invoiceNumber || updatedInvoice.ksefId || 'Bez numeru'}`,
+                    status: "ACTIVE",
+                    source: "INVOICE"
+                }
+            })
+
+            // E. Link Payment
+            await tx.invoicePayment.create({
+                data: {
+                    invoiceId: id,
+                    transactionId: prismaTrans.id,
+                    amountApplied: amountGross
+                }
+            })
+
+            return { alreadyPaid: false, invoice: updatedInvoice, transaction: prismaTrans }
+        })
+
+        if (result.alreadyPaid) return { success: true }
+
+        // 2. Operational Mirror Sync (FIRESTORE)
+        const isIncome = result.invoice.type === "REVENUE" || result.invoice.type === "INCOME" || result.invoice.type === "SPRZEDAŻ"
+        const fsType = result.invoice.type === 'REVENUE' ? 'SPRZEDAŻ' : 'EXPENSE'
+        
         await adminDb.runTransaction(async (transaction) => {
             const invoiceRef = adminDb.collection("invoices").doc(id)
             const snap = await transaction.get(invoiceRef)
 
             if (!snap.exists) {
-                // Skrócone mapowanie typu SQL -> Firestore
-                const fsType = invoice.type === 'REVENUE' ? 'SPRZEDAŻ' : 'EXPENSE'
-                
-                // Zadanie: Tworzenie lustrzanego odbicia w Firestore
                 transaction.set(invoiceRef, {
                     tenantId,
-                    contractorId: invoice.contractorId,
-                    projectId: invoice.projectId || '',
+                    contractorId: result.invoice.contractorId,
+                    projectId: result.invoice.projectId || '',
                     type: fsType,
-                    amountNet: Number(invoice.amountNet),
-                    amountGross: amountGross,
-                    taxRate: Number(invoice.taxRate),
-                    issueDate: invoice.issueDate.toISOString(),
-                    dueDate: invoice.dueDate.toISOString(),
+                    amountNet: Number(result.invoice.amountNet),
+                    amountGross: Number(result.invoice.amountGross),
+                    taxRate: Number(result.invoice.taxRate),
+                    issueDate: result.invoice.issueDate.toISOString(),
+                    dueDate: result.invoice.dueDate.toISOString(),
                     status: "PAID",
-                    externalId: invoice.invoiceNumber || invoice.ksefId,
-                    createdAt: invoice.createdAt.toISOString(),
+                    externalId: result.invoice.invoiceNumber || result.invoice.ksefId,
+                    createdAt: result.invoice.createdAt.toISOString(),
                     updatedAt: paymentDate.toISOString(),
-                    ksefId: invoice.ksefId
+                    ksefId: result.invoice.ksefId
                 })
             } else {
                 transaction.update(invoiceRef, {
@@ -119,79 +174,22 @@ export async function markInvoiceAsPaid(id: string, paymentDateOverride?: string
                 })
             }
 
-            // Stwórz transakcję finansową (Ledger) w Firestore
-            const transRef = adminDb.collection("transactions").doc()
-            const isIncome = invoice.type === "REVENUE" || invoice.type === "INCOME" || invoice.type === "SPRZEDAŻ"
-            const classification = invoice.projectId ? "PROJECT_COST" : "GENERAL_COST"
-            
+            const transRef = adminDb.collection("transactions").doc(result.transaction.id)
             transaction.set(transRef, {
                 tenantId,
-                projectId: invoice.projectId || null,
-                classification,
-                amount: amountGross,
+                projectId: result.invoice.projectId || null,
+                classification: result.transaction.classification,
+                amount: Number(result.invoice.amountGross),
                 type: isIncome ? "INCOME" : "EXPENSE",
                 transactionDate: paymentDate.toISOString(),
                 category: isIncome ? "SPRZEDAŻ" : "ZAKUP",
-                description: `Płatność (KSeF): ${invoice.invoiceNumber || invoice.ksefId || 'Bez numeru'}`,
+                description: result.transaction.description,
                 status: "ACTIVE",
                 source: "INVOICE",
                 invoiceId: id,
                 createdAt: paymentDate.toISOString(),
                 updatedAt: paymentDate.toISOString()
             })
-        })
-
-        // 3. Prisma Sync (Update status and link to created transaction)
-        await prisma.$transaction(async (tx) => {
-            // Update Invoice
-            const updatedInvoice = await tx.invoice.update({
-                where: { id },
-                data: { status: "PAID", paymentStatus: "PAID" },
-                include: { contractor: true }
-            })
-
-            // Armored Dual-Sync to Firestore
-            await syncInvoiceToFirestore({
-                ...updatedInvoice,
-                amountNet: updatedInvoice.amountNet.toNumber(),
-                amountGross: updatedInvoice.amountGross.toNumber(),
-                taxRate: updatedInvoice.taxRate.toNumber(),
-                issueDate: updatedInvoice.issueDate.toISOString(),
-                dueDate: updatedInvoice.dueDate.toISOString()
-            });
-
-            // Find the Firestore transaction we just created
-            const transSnap = await adminDb.collection("transactions").where("invoiceId", "==", id).limit(1).get()
-            if (!transSnap.empty) {
-                const tDoc = transSnap.docs[0]
-                const tData = tDoc.data()
-                
-                // Create Transaction in Prisma
-                const prismaTrans = await tx.transaction.create({
-                    data: {
-                        id: tDoc.id,
-                        tenant: { connect: { id: tenantId } },
-                        project: invoice.projectId ? { connect: { id: invoice.projectId } } : undefined,
-                        classification: tData.classification,
-                        amount: amountGross,
-                        type: tData.type,
-                        transactionDate: paymentDate,
-                        category: tData.category,
-                        description: tData.description,
-                        status: "ACTIVE",
-                        source: "INVOICE"
-                    }
-                })
-
-                // Create InvoicePayment link
-                await tx.invoicePayment.create({
-                    data: {
-                        invoiceId: id,
-                        transactionId: prismaTrans.id,
-                        amountApplied: amountGross
-                    }
-                })
-            }
         })
 
         revalidatePath("/finance")
@@ -325,230 +323,76 @@ export async function addIncomeInvoice(formData: FormData) {
         }
 
 
-        const txResult = await adminDb.runTransaction(async (transaction) => {
-            let finalContractorId = contractorId
-            let finalProjectId = (projectIdRaw === "none" || projectIdRaw === "NONE" || projectIdRaw === "GENERAL" || projectIdRaw === "INTERNAL") ? "" : (projectId || "")
+        // 1. Financial Master Write (POSTGRES - Vector 109)
+        await assertFinancialMasterWrite('CREATE_INCOME_INVOICE', description || 'MANUAL');
 
-            // --- 0. PROJEKT (Quick Add) ---
-            const isNewProject = formData.get("isNewProject") === "true"
-            const newProjectName = formData.get("newProjectName") as string
+        const result = await prisma.$transaction(async (tx: any) => {
+            let finalContractorId = contractorId;
+            let finalProjectId = projectId;
 
-            if (isNewProject && newProjectName) {
-                const projectRef = adminDb.collection("projects").doc()
-                transaction.set(projectRef, {
-                    tenantId,
-                    name: newProjectName,
-                    contractorId: finalContractorId || null,
-                    status: "PLANNED",
-                    budgetEstimated: 0,
-                    createdAt: new Date().toISOString()
-                })
-                finalProjectId = projectRef.id
-            }
-
-            // 1. Jeśli to nowy kontrahent, sprawdź czy NIP już istnieje (Intelligent Upsert)
-            // Szukamy po NIP w Firestore i Prisma, aby uniknąć błędów unikalności
-            if (isNewContractor) {
+            // --- A. KONTRAHENT (Quick Add) ---
+            if (isNewContractor && newContractorName) {
+                // Intelligent Upsert (Check by NIP)
                 if (newContractorNip) {
-                    // Firestore Check
-                    const existingContractorQuery = await adminDb.collection("contractors")
-                        .where("tenantId", "==", tenantId)
-                        .where("nip", "==", newContractorNip)
-                        .limit(1)
-                        .get()
-                    
-                    if (!existingContractorQuery.empty) {
-                        finalContractorId = existingContractorQuery.docs[0].id
-                    } else {
-                        // Prisma Check (Backup for Dual-Sync Drift)
-                        const prismaContractor = await prisma.contractor.findFirst({
-                            where: { tenantId, nip: newContractorNip }
-                        })
-                        if (prismaContractor) {
-                            finalContractorId = prismaContractor.id
-                        }
+                    const existing = await tx.contractor.findFirst({ where: { tenantId, nip: newContractorNip } });
+                    if (existing) {
+                        finalContractorId = existing.id;
                     }
                 }
 
-                // Jeśli nadal nie mamy ID, stwórz nowego
-                if (!finalContractorId) {
-                    const contractorRef = adminDb.collection("contractors").doc()
-                    transaction.set(contractorRef, {
-                        tenantId,
-                        name: newContractorName,
-                        nip: newContractorNip || null,
-                        address: newContractorAddress || null,
-                        type: "INWESTOR",
-                        status: "ACTIVE",
-                        createdAt: new Date().toISOString()
-                    })
-                    finalContractorId = contractorRef.id
-
-                    // Opcjonalnie stwórz domyślny obiekt
-                    const objectRef = adminDb.collection("objects").doc()
-                    transaction.set(objectRef, {
-                        contractorId: finalContractorId,
-                        name: "Siedziba Główna",
-                        address: newContractorAddress || null
-                    })
-                }
-
-                // Jeśli projekt był nowy, przypisz mu nowo utworzonego kontrahenta
-                if (isNewProject && finalProjectId) {
-                    transaction.update(adminDb.collection("projects").doc(finalProjectId), {
-                        contractorId: finalContractorId
-                    })
-                }
-            }
-
-            // 2. Zapisujemy Fakturę
-            const invoiceRef = adminDb.collection("invoices").doc()
-            transaction.set(invoiceRef, {
-                tenantId,
-                contractorId: finalContractorId,
-                projectId: finalProjectId,
-                type: "SPRZEDAŻ",
-                amountNet: amountNet.toNumber(),
-                amountGross: amountGross.toNumber(),
-                taxRate: taxRate.toNumber(),
-                issueDate: issueDate.toISOString(),
-                dueDate: dueDate.toISOString(),
-                status: isPaidImmediately ? "PAID" : "ACTIVE",
-                externalId: description,
-                retainedAmount: retainedAmount ? retainedAmount.toNumber() : null,
-                retentionReleaseDate: retentionReleaseDate ? retentionReleaseDate.toISOString() : null,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            })
-
-            // 3. Transakcja powiązana (Tylko jeśli opłacono od razu)
-            if (isPaidImmediately) {
-                const transRef = adminDb.collection("transactions").doc()
-                const classificationValue = (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (finalProjectId ? "PROJECT_COST" : "GENERAL_COST")
-                transaction.set(transRef, {
-                    tenantId,
-                    projectId: finalProjectId || null,
-                    classification: classificationValue,
-                    amount: amountGross.toNumber(),
-                    type: "PRZYCHÓD",
-                    transactionDate: issueDate.toISOString(),
-                    category: category || "SPRZEDAŻ_TOWARU",
-                    description: `Wpływ z Faktury: ${description || 'Brak wpisanego numeru'}`,
-                    status: "ACTIVE",
-                    source: "INVOICE",
-                    invoiceId: invoiceRef.id,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                })
-            }
-            return { invoiceId: invoiceRef.id, contractorId: finalContractorId, projectId: finalProjectId }
-        })
-
-        // 4. Prisma Sync
-        try {
-            let prismaContractorId = txResult.contractorId
-            if (isNewContractor) {
-                const existingPrismaContractor = await prisma.contractor.findFirst({
-                    where: { 
-                        tenantId,
-                        OR: [
-                            { id: txResult.contractorId },
-                            { nip: newContractorNip }
-                        ]
-                    }
-                })
-
-                if (existingPrismaContractor) {
-                    prismaContractorId = existingPrismaContractor.id
-                } else {
-                    await prisma.contractor.create({
+                if (!finalContractorId || finalContractorId === 'new') {
+                    finalContractorId = randomUUID();
+                    await tx.contractor.create({
                         data: {
-                            id: txResult.contractorId,
+                            id: finalContractorId,
                             tenant: { connect: { id: tenantId } },
                             name: newContractorName,
                             nip: newContractorNip || null,
                             address: newContractorAddress || null,
                             type: "INWESTOR",
-                            status: "ACTIVE"
-                        }
-                    })
-                    
-                    await prisma.object.create({
-                        data: {
-                            contractor: { connect: { id: txResult.contractorId } },
-                            name: "Siedziba Główna",
-                            address: newContractorAddress || null
-                        }
-                    })
-                }
-            }
-
-            // --- SELF-LEARNING (Bank Account) ---
-            if (prismaContractorId && bankAccountNumber && bankAccountNumber.length >= 10) {
-                const contractor = await prisma.contractor.findUnique({
-                    where: { id: prismaContractorId }
-                });
-                
-                if (contractor && !(contractor as any).bankAccounts.includes(bankAccountNumber)) {
-                    await (prisma.contractor as any).update({
-                        where: { id: prismaContractorId },
-                        data: { bankAccounts: { push: bankAccountNumber } }
-                    });
-
-                    // Firestore Sync
-                    await adminDb.collection("contractors").doc(prismaContractorId).update({
-                        bankAccounts: Array.from(new Set([...((contractor as any).bankAccounts || []), bankAccountNumber]))
-                    });
-                }
-            }
-
-            // --- PROJEKT (Find-or-Create) ---
-            const isNewProject = formData.get("isNewProject") === "true"
-            const newProjectName = formData.get("newProjectName") as string
-
-            if (isNewProject && txResult.projectId && newProjectName) {
-                const existingPrismaProject = await prisma.project.findUnique({
-                    where: { id: txResult.projectId }
-                })
-                if (!existingPrismaProject) {
-                    let targetObjectId: string | undefined
-                    const existingObject = await prisma.object.findFirst({
-                        where: { contractorId: prismaContractorId }
-                    })
-                    
-                    if (existingObject) {
-                        targetObjectId = existingObject.id
-                    } else {
-                        const newObj = await prisma.object.create({
-                            data: {
-                                contractor: { connect: { id: prismaContractorId } },
-                                name: "Siedziba Główna"
+                            status: "ACTIVE",
+                            objects: {
+                                create: {
+                                    name: "Siedziba Główna",
+                                    address: newContractorAddress || null
+                                }
                             }
-                        })
-                        targetObjectId = newObj.id
-                    }
-
-                    await prisma.project.create({
-                        data: {
-                            id: txResult.projectId,
-                            tenant: { connect: { id: tenantId } },
-                            name: newProjectName,
-                            contractor: { connect: { id: prismaContractorId } },
-                            object: { connect: { id: targetObjectId! } },
-                            type: "INWESTYCJA",
-                            status: "PLANNED",
-                            budgetEstimated: 0
                         }
-                    })
+                    });
                 }
             }
 
-            await prisma.invoice.create({
+            // --- B. PROJEKT (Quick Add) ---
+            const isNewProject = formData.get("isNewProject") === "true";
+            const newProjectName = formData.get("newProjectName") as string;
+
+            if (isNewProject && newProjectName) {
+                finalProjectId = randomUUID();
+                // Find or create default object for contractor to link project
+                const contractorObj = await tx.object.findFirst({ where: { contractorId: finalContractorId } });
+                
+                await tx.project.create({
+                    data: {
+                        id: finalProjectId,
+                        tenant: { connect: { id: tenantId } },
+                        name: newProjectName,
+                        contractor: { connect: { id: finalContractorId } },
+                        object: { connect: { id: contractorObj?.id } }, // Fallback handled by Prisma if possible or we'd need to create one
+                        type: "INWESTYCJA",
+                        status: "PLANNED",
+                        budgetEstimated: 0
+                    }
+                });
+            }
+
+            // --- C. FAKTURA ---
+            const invoiceId = randomUUID();
+            const invoice = await tx.invoice.create({
                 data: {
-                    id: txResult.invoiceId,
+                    id: invoiceId,
                     tenant: { connect: { id: tenantId } },
-                    contractor: { connect: { id: prismaContractorId } },
-                    project: txResult.projectId ? { connect: { id: txResult.projectId } } : undefined,
+                    contractor: { connect: { id: finalContractorId } },
+                    project: finalProjectId ? { connect: { id: finalProjectId } } : undefined,
                     type: "SPRZEDAŻ",
                     amountNet: amountNet.toNumber(),
                     amountGross: amountGross.toNumber(),
@@ -560,92 +404,129 @@ export async function addIncomeInvoice(formData: FormData) {
                     retainedAmount: retainedAmount ? retainedAmount.toNumber() : null,
                     retentionReleaseDate
                 }
-            })
+            });
 
-            // --- VECTOR 097: Automatic Retention Entry ---
-            if (retainedAmount && retainedAmount.greaterThan(0) && retentionReleaseDate) {
-                const retentionRef = adminDb.collection("retentions").doc()
-                const retentionData = {
-                    tenantId,
-                    projectId: txResult.projectId || null,
-                    contractorId: prismaContractorId,
-                    invoiceId: txResult.invoiceId,
-                    amount: retainedAmount.toNumber(),
-                    type: "SHORT_TERM", // Default for direct invoice retentions
-                    expiryDate: retentionReleaseDate.toISOString(),
-                    source: "INVOICE",
-                    description: `Kaucja z faktury: ${description || txResult.invoiceId}`,
-                    status: "ACTIVE",
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                }
-                await retentionRef.set(retentionData)
+            // --- D. LEDGER ENTRIES (Truth) ---
+            await recordInvoiceToLedger({
+                tenantId,
+                projectId: finalProjectId || undefined,
+                invoiceId: invoiceId,
+                amountNet: amountNet,
+                vatAmount: amountGross.minus(amountNet),
+                retainedAmount: retainedAmount ? retainedAmount : undefined,
+                type: 'INCOME',
+                date: issueDate
+            }, tx);
 
-                await prisma.retention.create({
-                    data: {
-                        id: retentionRef.id,
-                        tenant: { connect: { id: tenantId } },
-                        project: txResult.projectId ? { connect: { id: txResult.projectId } } : undefined,
-                        contractor: { connect: { id: prismaContractorId } },
-                        // @ts-ignore - Prisma types might be stale
-                        invoice: { connect: { id: txResult.invoiceId } },
-                        amount: retainedAmount.toNumber(),
-                        type: "SHORT_TERM",
-                        expiryDate: retentionReleaseDate,
-                        source: "INVOICE",
-                        description: `Kaucja z faktury: ${description || txResult.invoiceId}`,
-                        status: "ACTIVE"
-                    }
-                })
-            }
-
+            // --- E. IMMEDIATE PAYMENT (If applicable) ---
+            let transactionId: string | undefined;
             if (isPaidImmediately) {
-                const transSnap = await adminDb.collection("transactions").where("invoiceId", "==", txResult.invoiceId).limit(1).get()
-                if (!transSnap.empty) {
-                    const tDoc = transSnap.docs[0]
-                    // 3a. Tworzymy Transakcję w Prisma
-                    const prismaTrans = await prisma.transaction.create({
-                        data: {
-                            id: tDoc.id,
-                            tenant: { connect: { id: tenantId } },
-                            project: txResult.projectId ? { connect: { id: txResult.projectId } } : undefined,
-                            classification: (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (txResult.projectId ? "PROJECT_COST" : "GENERAL_COST"),
-                            amount: amountGross.toNumber(),
-                            type: "PRZYCHÓD",
-                            transactionDate: issueDate,
-                            category: category || "SPRZEDAŻ_TOWARU",
-                            description: `Wpływ z Faktury: ${description || 'Brak wpisanego numeru'}`,
-                            status: "ACTIVE",
-                            source: "INVOICE"
-                        }
-                    })
+                transactionId = randomUUID();
+                const classificationValue = (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (finalProjectId ? "PROJECT_COST" : "GENERAL_COST");
+                
+                const prismaTrans = await tx.transaction.create({
+                    data: {
+                        id: transactionId,
+                        tenant: { connect: { id: tenantId } },
+                        project: finalProjectId ? { connect: { id: finalProjectId } } : undefined,
+                        classification: classificationValue,
+                        amount: amountGross.toNumber(),
+                        type: "PRZYCHÓD",
+                        transactionDate: issueDate,
+                        category: category || "SPRZEDAŻ_TOWARU",
+                        description: `Wpływ z Faktury: ${description || 'Brak wpisanego numeru'}`,
+                        status: "ACTIVE",
+                        source: "INVOICE"
+                    }
+                });
 
-                    // 3b. Tworzymy powiązanie InvoicePayment (Ledger logic)
-                    await prisma.invoicePayment.create({
-                        data: {
-                            invoiceId: txResult.invoiceId,
-                            transactionId: prismaTrans.id,
-                            amountApplied: amountGross.toNumber()
-                        }
-                    })
+                await tx.invoicePayment.create({
+                    data: {
+                        invoiceId: invoiceId,
+                        transactionId: transactionId,
+                        amountApplied: amountGross.toNumber()
+                    }
+                });
+
+                await recordLedgerEntry({
+                    tenantId,
+                    projectId: finalProjectId || undefined,
+                    source: 'BANK_PAYMENT',
+                    sourceId: invoiceId,
+                    amount: amountGross,
+                    type: 'INCOME',
+                    date: issueDate
+                }, tx);
+            }
+
+            return { invoice, finalContractorId, finalProjectId, transactionId };
+        });
+
+        // 2. Operational Mirror Sync (FIRESTORE)
+        const fsBatch = adminDb.batch();
+        
+        // Sync Contractor (if new)
+        if (isNewContractor) {
+            const cSnap = await prisma.contractor.findUnique({ where: { id: result.finalContractorId }, include: { objects: true } });
+            if (cSnap) {
+                fsBatch.set(adminDb.collection("contractors").doc(cSnap.id), {
+                    tenantId, name: cSnap.name, nip: cSnap.nip, address: cSnap.address, 
+                    type: cSnap.type, status: cSnap.status, createdAt: new Date().toISOString()
+                });
+                if (cSnap.objects[0]) {
+                    fsBatch.set(adminDb.collection("objects").doc(cSnap.objects[0].id), {
+                        contractorId: cSnap.id, name: cSnap.objects[0].name, address: cSnap.objects[0].address
+                    });
                 }
             }
-        } catch (prismaError: unknown) {
-            // Rollback Firebase
-            await adminDb.collection("invoices").doc(txResult.invoiceId).delete()
-            if (isNewContractor) {
-                await adminDb.collection("contractors").doc(txResult.contractorId).delete()
-                const objQuery = await adminDb.collection("objects").where("contractorId", "==", txResult.contractorId).get()
-                for (const doc of objQuery.docs) {
-                    await doc.ref.delete()
-                }
-            }
-            const orphans = await adminDb.collection("transactions").where("invoiceId", "==", txResult.invoiceId).get()
-            for (const doc of orphans.docs) {
-                await doc.ref.delete()
-            }
-            throw new Error("Błąd synchronizacji relacyjnej (Prisma). Dane w Firebase zostały wycofane. " + (prismaError instanceof Error ? prismaError.message : "Nieznany błąd"))
         }
+
+        // Sync Project (if new)
+        if (formData.get("isNewProject") === "true" && result.finalProjectId) {
+            const pSnap = await prisma.project.findUnique({ where: { id: result.finalProjectId } });
+            if (pSnap) {
+                fsBatch.set(adminDb.collection("projects").doc(pSnap.id), {
+                    tenantId, name: pSnap.name, contractorId: result.finalContractorId, status: pSnap.status,
+                    budgetEstimated: 0, createdAt: new Date().toISOString()
+                });
+            }
+        }
+
+        // Sync Invoice
+        fsBatch.set(adminDb.collection("invoices").doc(result.invoice.id), {
+            tenantId,
+            contractorId: result.finalContractorId,
+            projectId: result.finalProjectId || '',
+            type: "SPRZEDAŻ",
+            amountNet: Number(result.invoice.amountNet),
+            amountGross: Number(result.invoice.amountGross),
+            taxRate: Number(result.invoice.taxRate),
+            issueDate: result.invoice.issueDate.toISOString(),
+            dueDate: result.invoice.dueDate.toISOString(),
+            status: result.invoice.status,
+            externalId: description,
+            retainedAmount: result.invoice.retainedAmount ? Number(result.invoice.retainedAmount) : null,
+            retentionReleaseDate: result.invoice.retentionReleaseDate ? result.invoice.retentionReleaseDate.toISOString() : null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        });
+
+        // Sync Transaction
+        if (result.transactionId) {
+            const tSnap = await prisma.transaction.findUnique({ where: { id: result.transactionId } });
+            if (tSnap) {
+                fsBatch.set(adminDb.collection("transactions").doc(tSnap.id), {
+                    tenantId, projectId: result.finalProjectId || null,
+                    classification: tSnap.classification, amount: Number(tSnap.amount),
+                    type: "PRZYCHÓD", transactionDate: tSnap.transactionDate.toISOString(),
+                    category: tSnap.category, description: tSnap.description,
+                    status: "ACTIVE", source: "INVOICE", invoiceId: result.invoice.id,
+                    createdAt: new Date().toISOString()
+                });
+            }
+        }
+
+        await fsBatch.commit();
 
         revalidatePath("/")
         revalidatePath("/projects")
@@ -679,22 +560,12 @@ export async function addCostInvoice(formData: FormData) {
         let newContractorNip = (formData.get("newContractorNip") as string || "").replace(/\s/g, "")
         let newContractorAddress = formData.get("newContractorAddress") as string || ""
 
-        // Heuristic: If address looks like a NIP and nip is empty, swap them
-        if (!newContractorNip && /^\d{10}$/.test(newContractorAddress.trim())) {
-            newContractorNip = newContractorAddress.trim()
-            newContractorAddress = ""
-        }
-
         if (!amountNetStr || !dateStr || !dueDateStr) {
             throw new Error("Pola Kwota i Daty są bezwzględnie wymagane.")
         }
 
         if (!contractorId && !isNewContractor) {
             throw new Error("Musisz wybrać istniejącego kontrahenta lub dodać nowego.")
-        }
-
-        if (isNewContractor && !newContractorName) {
-            throw new Error("Nazwa nowego kontrahenta jest wymagana.")
         }
 
         if (!validateNonZero(amountNetStr)) {
@@ -705,304 +576,88 @@ export async function addCostInvoice(formData: FormData) {
         const amountNet = new Decimal(amountNetStr)
         const taxRate = new Decimal(taxRateStr)
         const amountGross = new Decimal(amountGrossStr)
-
         const issueDate = new Date(dateStr)
         const dueDate = new Date(dueDateStr)
-
-
         const isPaidImmediately = (formData.get("isPaidImmediately") === "true") || (dateStr === dueDateStr)
 
-        // --- TARCZA ANTY-DUBEL (Anti-Double Shield) Vector 098.3 ---
-        // Shield aktywuje się tylko jeśli podano nr faktury lub ksefId.
-        const ksefId = formData.get("ksefId") as string;
-        if (ksefId) {
-            const ksefDuplicate = await prisma.invoice.findUnique({ where: { ksefId } });
-            if (ksefDuplicate) throw new Error(`TARCZA ANTY-DUBEL (Tier 1): Faktura o KSeF ID ${ksefId} już istnieje!`);
-        }
-
-        if (description && contractorId) {
-            const compositeDuplicate = await prisma.invoice.findUnique({
-                where: { 
-                    contractorId_invoiceNumber: { 
-                        contractorId, 
-                        invoiceNumber: description 
-                    } 
-                }
-            });
-
-            if (compositeDuplicate) {
-                throw new Error(`TARCZA ANTY-DUBEL (Tier 2): Faktura nr ${description} od tego dostawcy już została zaksięgowana!`)
-            }
-        }
-
-        // retention
         const retainedAmountStr = formData.get("retainedAmount") as string
         const retentionReleaseDateStr = formData.get("retentionReleaseDate") as string
         const retainedAmount = retainedAmountStr ? new Decimal(retainedAmountStr) : null
         const retentionReleaseDate = retentionReleaseDateStr ? new Date(retentionReleaseDateStr) : null
 
-        const txResult = await adminDb.runTransaction(async (transaction) => {
-            let finalContractorId = contractorId
-            let finalProjectId = (projectId === "none" || projectId === "NONE" || projectId === "GENERAL" || projectId === "INTERNAL" || !projectId) ? "" : projectId
+        // --- TARCZA ANTY-DUBEL (Vector 098.3) ---
+        const ksefId = formData.get("ksefId") as string;
+        if (ksefId) {
+            const ksefDuplicate = await prisma.invoice.findUnique({ where: { ksefId } });
+            if (ksefDuplicate) throw new Error(`TARCZA ANTY-DUBEL: Faktura o KSeF ID ${ksefId} już istnieje!`);
+        }
 
-            // --- 0. PROJEKT (Quick Add) ---
-            const isNewProject = formData.get("isNewProject") === "true"
-            const newProjectName = formData.get("newProjectName") as string
+        // 1. Financial Master Write (POSTGRES - Vector 109)
+        await assertFinancialMasterWrite('CREATE_COST_INVOICE', description || 'MANUAL');
 
-            if (isNewProject && newProjectName) {
-                const projectRef = adminDb.collection("projects").doc()
-                transaction.set(projectRef, {
-                    tenantId,
-                    name: newProjectName,
-                    contractorId: finalContractorId || null, // Will be updated if contractor is also new?
-                    status: "PLANNED",
-                    budgetEstimated: 0,
-                    createdAt: new Date().toISOString()
-                })
-                finalProjectId = projectRef.id
-            }
+        const result = await prisma.$transaction(async (tx: any) => {
+            let finalContractorId = contractorId;
+            let finalProjectId = (projectId === "none" || projectId === "NONE" || projectId === "GENERAL" || projectId === "INTERNAL" || !projectId) ? "" : projectId;
 
-            // 1. Jeśli to nowy kontrahent, sprawdź czy NIP już istnieje
-            if (isNewContractor) {
+            // --- A. KONTRAHENT (Quick Add) ---
+            if (isNewContractor && newContractorName) {
                 if (newContractorNip) {
-                    // Firestore Check
-                    const existingContractorQuery = await adminDb.collection("contractors")
-                        .where("tenantId", "==", tenantId)
-                        .where("nip", "==", newContractorNip)
-                        .limit(1)
-                        .get()
-                    
-                    if (!existingContractorQuery.empty) {
-                        finalContractorId = existingContractorQuery.docs[0].id
-                    } else {
-                        // Prisma Check (Backup for Dual-Sync Drift)
-                        const prismaContractor = await prisma.contractor.findFirst({
-                            where: { tenantId, nip: newContractorNip }
-                        })
-                        if (prismaContractor) {
-                            finalContractorId = prismaContractor.id
-                        }
+                    const existing = await tx.contractor.findFirst({ where: { tenantId, nip: newContractorNip } });
+                    if (existing) {
+                        finalContractorId = existing.id;
                     }
                 }
 
-                // Jeśli nadal nie mamy ID, stwórz nowego
-                if (!finalContractorId) {
-                    const contractorRef = adminDb.collection("contractors").doc()
-                    transaction.set(contractorRef, {
-                        tenantId,
-                        name: newContractorName,
-                        nip: newContractorNip || null,
-                        address: newContractorAddress || null,
-                        type: "DOSTAWCA",
-                        status: "ACTIVE",
-                        createdAt: new Date().toISOString()
-                    })
-                    finalContractorId = contractorRef.id
-
-                    // Opcjonalnie stwórz domyślny obiekt
-                    const objectRef = adminDb.collection("objects").doc()
-                    transaction.set(objectRef, {
-                        contractorId: finalContractorId,
-                        name: "Siedziba Główna",
-                        address: newContractorAddress || null
-                    })
-                }
-                
-                // Jeśli projekt był nowy, przypisz mu nowo utworzonego kontrahenta
-                if (isNewProject && finalProjectId) {
-                    transaction.update(adminDb.collection("projects").doc(finalProjectId), {
-                        contractorId: finalContractorId
-                    })
-                }
-            }
-
-            // 2. Zapisujemy Fakturę
-            const invoiceRef = adminDb.collection("invoices").doc()
-            transaction.set(invoiceRef, {
-                tenantId,
-                contractorId: finalContractorId,
-                projectId: finalProjectId,
-                type: "EXPENSE",
-                amountNet: amountNet.toNumber(),
-                amountGross: amountGross.toNumber(),
-                taxRate: taxRate.toNumber(),
-                issueDate: issueDate.toISOString(),
-                dueDate: dueDate.toISOString(),
-                status: isPaidImmediately ? "PAID" : "ACTIVE",
-                externalId: description,
-                retainedAmount: retainedAmount ? retainedAmount.toNumber() : null,
-                retentionReleaseDate: retentionReleaseDate ? retentionReleaseDate.toISOString() : null,
-                createdAt: new Date().toISOString()
-            })
-
-            const isGeneralCost = !finalProjectId || finalProjectId === "GENERAL" || finalProjectId === "NONE" || finalProjectId === ""
-            const classificationValue = (projectId === "INTERNAL") ? "INTERNAL_COST" : (!isGeneralCost ? "PROJECT_COST" : "GENERAL_COST")
-            const safeProjectId = isGeneralCost ? null : finalProjectId
-
-            // 3. Transakcja powiązana
-            if (isPaidImmediately) {
-                const transRef = adminDb.collection("transactions").doc()
-                transaction.set(transRef, {
-                    tenantId,
-                    projectId: safeProjectId,
-                    classification: classificationValue,
-                    amount: amountGross.toNumber(),
-                    type: "EXPENSE",
-                    transactionDate: issueDate.toISOString(),
-                    category: category || "KOSZT_FIRMOWY",
-                    description: `Wydatek Netto: ${amountNet.toString()} | Faktura: ${description || 'Brak wpisanego numeru'}`,
-                    status: "ACTIVE",
-                    source: "INVOICE",
-                    invoiceId: invoiceRef.id,
-                    createdAt: new Date().toISOString()
-                })
-            }
-
-            return { 
-                invoiceId: invoiceRef.id, 
-                contractorId: finalContractorId,
-                isGeneralCost,
-                safeProjectId,
-                classificationValue
-            }
-        })
-
-        // 4. Prisma Sync
-        // Uwaga: Jeśli contractor jest nowy, Prisma może go jeszcze nie mieć jeśli sync nie jest atomowy.
-        // Ale tutaj używamy IDs z Firestore, więc powinno być OK jeśli Prisma dostanie dane.
-        // Wypadałoby zsynchronizować też Contractora jeśli jest nowy.
-        // 4. Prisma Sync Rollback Wrapper
-        try {
-            let prismaContractorId = txResult.contractorId
-
-            // --- KONTRAHENT (Find-or-Create) ---
-            if (isNewContractor) {
-                // Szukamy po NIP w Prisma (Ignorujemy spacje w NIP-ie zapisanym w bazie jeśli to możliwe, 
-                // ale tu zrobimy po prostu findFirst po zgrubnym dopasowaniu)
-                const existingPrismaContractor = await prisma.contractor.findFirst({
-                    where: { 
-                        tenantId,
-                        OR: [
-                            { id: txResult.contractorId },
-                            { nip: newContractorNip }
-                        ]
-                    }
-                })
-
-                if (existingPrismaContractor) {
-                    prismaContractorId = existingPrismaContractor.id
-                } else {
-                    // Tworzymy nowego jeśli nie znaleziono
-                    await prisma.contractor.create({
+                if (!finalContractorId || finalContractorId === 'new') {
+                    finalContractorId = randomUUID();
+                    await tx.contractor.create({
                         data: {
-                            id: txResult.contractorId,
+                            id: finalContractorId,
                             tenant: { connect: { id: tenantId } },
                             name: newContractorName,
                             nip: newContractorNip || null,
                             address: newContractorAddress || null,
                             type: "DOSTAWCA",
-                            status: "ACTIVE"
-                        }
-                    })
-                    
-                    // Obiekt domyślny
-                    await prisma.object.create({
-                        data: {
-                            contractor: { connect: { id: txResult.contractorId } },
-                            name: "Siedziba Główna",
-                            address: newContractorAddress || null
-                        }
-                    })
-                }
-            } else {
-                // Jeśli wybieramy z listy, upewnijmy się że kontrahent istnieje w Prisma (Auto-Heal)
-                const check = await prisma.contractor.findUnique({ where: { id: txResult.contractorId } })
-                if (!check) {
-                    const fsDoc = await adminDb.collection("contractors").doc(txResult.contractorId).get()
-                    if (fsDoc.exists) {
-                        const d = fsDoc.data()!
-                        await prisma.contractor.create({
-                            data: {
-                                id: txResult.contractorId,
-                                tenant: { connect: { id: d.tenantId } },
-                                name: d.name,
-                                nip: d.nip || null,
-                                address: d.address || null,
-                                type: d.type || "DOSTAWCA"
+                            status: "ACTIVE",
+                            objects: {
+                                create: {
+                                    name: "Siedziba Główna",
+                                    address: newContractorAddress || null
+                                }
                             }
-                        })
-                    }
+                        }
+                    });
                 }
             }
 
-            // --- SELF-LEARNING (Bank Account) ---
-            if (prismaContractorId && bankAccountNumber && bankAccountNumber.length >= 10) {
-                const contractor = await prisma.contractor.findUnique({
-                    where: { id: prismaContractorId }
+            // --- B. PROJEKT (Quick Add) ---
+            const isNewProject = formData.get("isNewProject") === "true";
+            const newProjectName = formData.get("newProjectName") as string;
+            if (isNewProject && newProjectName) {
+                finalProjectId = randomUUID();
+                const contractorObj = await tx.object.findFirst({ where: { contractorId: finalContractorId } });
+                await tx.project.create({
+                    data: {
+                        id: finalProjectId,
+                        tenant: { connect: { id: tenantId } },
+                        name: newProjectName,
+                        contractor: { connect: { id: finalContractorId } },
+                        object: { connect: { id: contractorObj?.id } },
+                        type: "WYKONAWSTWO",
+                        status: "PLANNED",
+                        budgetEstimated: 0
+                    }
                 });
-                
-                if (contractor && !(contractor as any).bankAccounts.includes(bankAccountNumber)) {
-                    await (prisma.contractor as any).update({
-                        where: { id: prismaContractorId },
-                        data: { bankAccounts: { push: bankAccountNumber } }
-                    });
-
-                    // Firestore Sync
-                    await adminDb.collection("contractors").doc(prismaContractorId).update({
-                        bankAccounts: Array.from(new Set([...((contractor as any).bankAccounts || []), bankAccountNumber]))
-                    });
-                }
             }
 
-            // --- PROJEKT (Find-or-Create) ---
-            const isNewProject = formData.get("isNewProject") === "true"
-            const newProjectName = formData.get("newProjectName") as string
-
-            if (isNewProject && txResult.safeProjectId && newProjectName) {
-                const existingPrismaProject = await prisma.project.findUnique({
-                    where: { id: txResult.safeProjectId }
-                })
-                if (!existingPrismaProject) {
-                    // Musimy mieć objectId. Szukamy dowolnego obiektu dla tego kontrahenta lub tworzymy domyślny.
-                    let targetObjectId: string | undefined
-                    const existingObject = await prisma.object.findFirst({
-                        where: { contractorId: prismaContractorId }
-                    })
-                    
-                    if (existingObject) {
-                        targetObjectId = existingObject.id
-                    } else {
-                        // Tworzymy techniczny obiekt "Siedziba Główna" dla relacji
-                        const newObj = await prisma.object.create({
-                            data: {
-                                contractor: { connect: { id: prismaContractorId } },
-                                name: "Siedziba Główna"
-                            }
-                        })
-                        targetObjectId = newObj.id
-                    }
-
-                    await prisma.project.create({
-                        data: {
-                            id: txResult.safeProjectId,
-                            tenant: { connect: { id: tenantId } },
-                            name: newProjectName,
-                            contractor: { connect: { id: prismaContractorId } },
-                            object: { connect: { id: targetObjectId! } },
-                            type: "INWESTYCJA",
-                            status: "PLANNED",
-                            budgetEstimated: 0
-                        }
-                    })
-                }
-            }
-
-            await prisma.invoice.create({
+            // --- C. FAKTURA ---
+            const invoiceId = randomUUID();
+            const invoice = await tx.invoice.create({
                 data: {
-                    id: txResult.invoiceId,
+                    id: invoiceId,
                     tenant: { connect: { id: tenantId } },
-                    contractor: { connect: { id: prismaContractorId } },
-                    project: (txResult.safeProjectId as string | null) ? { connect: { id: txResult.safeProjectId as string } } : undefined,
+                    contractor: { connect: { id: finalContractorId } },
+                    project: finalProjectId ? { connect: { id: finalProjectId } } : undefined,
                     type: "EXPENSE",
                     amountNet: amountNet.toNumber(),
                     amountGross: amountGross.toNumber(),
@@ -1014,90 +669,124 @@ export async function addCostInvoice(formData: FormData) {
                     retainedAmount: retainedAmount ? retainedAmount.toNumber() : null,
                     retentionReleaseDate
                 }
-            })
+            });
 
-            // --- VECTOR 097: Automatic Retention Entry ---
-            if (retainedAmount && retainedAmount.greaterThan(0) && retentionReleaseDate) {
-                const retentionRef = adminDb.collection("retentions").doc()
-                const retentionData = {
-                    tenantId,
-                    projectId: txResult.safeProjectId || null,
-                    contractorId: prismaContractorId,
-                    invoiceId: txResult.invoiceId,
-                    amount: retainedAmount.toNumber(),
-                    type: "SHORT_TERM", 
-                    expiryDate: retentionReleaseDate.toISOString(),
-                    source: "INVOICE",
-                    description: `Kaucja z faktury: ${description || txResult.invoiceId}`,
-                    status: "ACTIVE",
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                }
-                await retentionRef.set(retentionData)
+            // --- D. LEDGER ENTRIES ---
+            await recordInvoiceToLedger({
+                tenantId,
+                projectId: finalProjectId || undefined,
+                invoiceId: invoiceId,
+                amountNet: amountNet,
+                vatAmount: amountGross.minus(amountNet),
+                retainedAmount: retainedAmount ? retainedAmount : undefined,
+                type: 'EXPENSE',
+                date: issueDate
+            }, tx);
 
-                await prisma.retention.create({
-                    data: {
-                        id: retentionRef.id,
-                        tenant: { connect: { id: tenantId } },
-                        project: txResult.safeProjectId ? { connect: { id: txResult.safeProjectId as string } } : undefined,
-                        contractor: { connect: { id: prismaContractorId } },
-                        // @ts-ignore - Prisma types might be stale
-                        invoice: { connect: { id: txResult.invoiceId } },
-                        amount: retainedAmount.toNumber(),
-                        type: "SHORT_TERM",
-                        expiryDate: retentionReleaseDate,
-                        source: "INVOICE",
-                        description: `Kaucja z faktury: ${description || txResult.invoiceId}`,
-                        status: "ACTIVE"
-                    }
-                })
-            }
-
+            // --- E. PAYMENT ---
+            let transactionId: string | undefined;
             if (isPaidImmediately) {
-                const transSnap = await adminDb.collection("transactions").where("invoiceId", "==", txResult.invoiceId).limit(1).get()
-                if (!transSnap.empty) {
-                    const tDoc = transSnap.docs[0]
-                    const prismaTrans = await prisma.transaction.create({
-                        data: {
-                            id: tDoc.id,
-                            tenant: { connect: { id: tenantId } },
-                            project: txResult.safeProjectId ? { connect: { id: txResult.safeProjectId as string } } : undefined,
-                            classification: txResult.classificationValue,
-                            amount: amountGross.toNumber(),
-                            type: "EXPENSE",
-                            transactionDate: issueDate,
-                            category: category || "KOSZT_FIRMOWY",
-                            description: `Faktura: ${description || 'Brak wpisanego numeru'}`,
-                            status: "ACTIVE",
-                            source: "INVOICE"
-                        }
-                    })
+                transactionId = randomUUID();
+                const classificationValue = (projectId === "INTERNAL") ? "INTERNAL_COST" : (finalProjectId ? "PROJECT_COST" : "GENERAL_COST");
+                
+                await tx.transaction.create({
+                    data: {
+                        id: transactionId,
+                        tenant: { connect: { id: tenantId } },
+                        project: finalProjectId ? { connect: { id: finalProjectId } } : undefined,
+                        classification: classificationValue,
+                        amount: amountGross.toNumber(),
+                        type: "KOSZT",
+                        transactionDate: issueDate,
+                        category: category || "KOSZT_FIRMOWY",
+                        description: `Zakup (Faktura): ${description || 'Bez numeru'}`,
+                        status: "ACTIVE",
+                        source: "INVOICE"
+                    }
+                });
 
-                    await prisma.invoicePayment.create({
-                        data: {
-                            invoiceId: txResult.invoiceId,
-                            transactionId: prismaTrans.id,
-                            amountApplied: amountGross.toNumber()
-                        }
-                    })
+                await tx.invoicePayment.create({
+                    data: {
+                        invoiceId: invoiceId,
+                        transactionId: transactionId,
+                        amountApplied: amountGross.toNumber()
+                    }
+                });
+
+                await recordLedgerEntry({
+                    tenantId,
+                    projectId: finalProjectId || undefined,
+                    source: 'BANK_PAYMENT',
+                    sourceId: invoiceId,
+                    amount: amountGross,
+                    type: 'EXPENSE',
+                    date: issueDate
+                }, tx);
+            }
+
+            return { invoice, finalContractorId, finalProjectId, transactionId };
+        });
+
+        // 2. Operational Mirror Sync (FIRESTORE)
+        const fsBatch = adminDb.batch();
+        if (isNewContractor) {
+            const cSnap = await prisma.contractor.findUnique({ where: { id: result.finalContractorId }, include: { objects: true } });
+            if (cSnap) {
+                fsBatch.set(adminDb.collection("contractors").doc(cSnap.id), {
+                    tenantId, name: cSnap.name, nip: cSnap.nip, address: cSnap.address, 
+                    type: "DOSTAWCA", status: cSnap.status, createdAt: new Date().toISOString()
+                });
+                if (cSnap.objects[0]) {
+                    fsBatch.set(adminDb.collection("objects").doc(cSnap.objects[0].id), {
+                        contractorId: cSnap.id, name: cSnap.objects[0].name, address: cSnap.objects[0].address
+                    });
                 }
             }
-        } catch (prismaError: unknown) {
-            // Rollback w Firebase
-            await adminDb.collection("invoices").doc(txResult.invoiceId).delete()
-            if (isNewContractor) {
-                await adminDb.collection("contractors").doc(txResult.contractorId).delete()
-                const objQuery = await adminDb.collection("objects").where("contractorId", "==", txResult.contractorId).get()
-                for (const doc of objQuery.docs) {
-                    await doc.ref.delete()
-                }
-            }
-            const orphans = await adminDb.collection("transactions").where("invoiceId", "==", txResult.invoiceId).get()
-            for (const doc of orphans.docs) {
-                await doc.ref.delete()
-            }
-            throw new Error("Błąd synchronizacji relacyjnej (Prisma). Transakcja wycofana. " + (prismaError instanceof Error ? prismaError.message : "Nieznany błąd"))
         }
+
+        if (formData.get("isNewProject") === "true" && result.finalProjectId) {
+            const pSnap = await prisma.project.findUnique({ where: { id: result.finalProjectId } });
+            if (pSnap) {
+                fsBatch.set(adminDb.collection("projects").doc(pSnap.id), {
+                    tenantId, name: pSnap.name, contractorId: result.finalContractorId, status: pSnap.status,
+                    budgetEstimated: 0, createdAt: new Date().toISOString()
+                });
+            }
+        }
+
+        fsBatch.set(adminDb.collection("invoices").doc(result.invoice.id), {
+            tenantId,
+            contractorId: result.finalContractorId,
+            projectId: result.finalProjectId || '',
+            type: "EXPENSE",
+            amountNet: Number(result.invoice.amountNet),
+            amountGross: Number(result.invoice.amountGross),
+            taxRate: Number(result.invoice.taxRate),
+            issueDate: result.invoice.issueDate.toISOString(),
+            dueDate: result.invoice.dueDate.toISOString(),
+            status: result.invoice.status,
+            externalId: description,
+            retainedAmount: result.invoice.retainedAmount ? Number(result.invoice.retainedAmount) : null,
+            retentionReleaseDate: result.invoice.retentionReleaseDate ? result.invoice.retentionReleaseDate.toISOString() : null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        });
+
+        if (result.transactionId) {
+            const tSnap = await prisma.transaction.findUnique({ where: { id: result.transactionId } });
+            if (tSnap) {
+                fsBatch.set(adminDb.collection("transactions").doc(tSnap.id), {
+                    tenantId, projectId: result.finalProjectId || null,
+                    classification: tSnap.classification, amount: Number(tSnap.amount),
+                    type: "KOSZT", transactionDate: tSnap.transactionDate.toISOString(),
+                    category: tSnap.category, description: tSnap.description,
+                    status: "ACTIVE", source: "INVOICE", invoiceId: result.invoice.id,
+                    createdAt: new Date().toISOString()
+                });
+            }
+        }
+
+        await fsBatch.commit();
 
         revalidatePath("/")
         revalidatePath("/projects")

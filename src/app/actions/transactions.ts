@@ -7,24 +7,25 @@ import prisma from "@/lib/prisma"
 import Decimal from "decimal.js"
 import { recalculateProjectBudget } from "./projects"
 import { syncRetentionsFromProject } from "./retentions"
+import { recordLedgerEntry } from "@/lib/finance/ledger-manager"
+import { assertFinancialMasterWrite } from "@/lib/authority/guards"
+import { randomUUID } from "crypto"
 
 export async function deleteTransaction(id: string): Promise<{ success: boolean, error?: string }> {
     try {
+        const tenantId = await getCurrentTenantId()
         const adminDb = getAdminDb()
 
-        // 1. Usuwanie z Firestore
+        // 1. PG-Master Delete
+        await assertFinancialMasterWrite('DELETE_TRANSACTION', id);
+        await prisma.transaction.delete({ where: { id, tenantId } })
+
+        // 2. FS-Mirror Sync
         await adminDb.collection("transactions").doc(id).delete()
 
-        // 2. Usuwanie z Prisma
-        await prisma.transaction.delete({ where: { id } })
-
-        try {
-            revalidatePath("/finance")
-            revalidatePath("/projects")
-            revalidatePath("/")
-        } catch (e) {
-            console.warn("[TRANSACTIONS] Revalidation warning (ignored):", e)
-        }
+        revalidatePath("/finance")
+        revalidatePath("/projects")
+        revalidatePath("/")
 
         return { success: true }
     } catch (error: any) {
@@ -51,12 +52,46 @@ export async function addTransaction(formData: FormData): Promise<{ success: boo
         const tenantId = await getCurrentTenantId()
         const amount = Number(amountStr)
         const transactionDate = new Date(dateStr)
-
         const projectId = (!rawProjectId || rawProjectId === "none" || rawProjectId === "NONE" || rawProjectId === "GENERAL" || rawProjectId === "INTERNAL") ? null : rawProjectId;
         const classification = projectId ? "PROJECT_COST" : "GENERAL_COST";
 
-        // 1. Firestore Save
-        const docRef = await adminDb.collection("transactions").add({
+        // 1. Financial Master Write (POSTGRES)
+        await assertFinancialMasterWrite('CREATE_TRANSACTION', description || 'MANUAL');
+        
+        const transactionId = randomUUID();
+        
+        await prisma.$transaction(async (tx: any) => {
+            // A. Create Transaction
+            await tx.transaction.create({
+                data: {
+                    id: transactionId,
+                    tenantId,
+                    projectId,
+                    classification,
+                    amount: amount,
+                    type,
+                    transactionDate,
+                    category,
+                    status: "ACTIVE",
+                    source,
+                    description: description || null
+                }
+            });
+
+            // B. record to Ledger
+            await recordLedgerEntry({
+                tenantId,
+                projectId: projectId || undefined,
+                source: source === 'BANK_PAYMENT' ? 'BANK_PAYMENT' : 'SHADOW_COST',
+                sourceId: transactionId,
+                amount: new Decimal(amount).mul(type === 'PRZYCHÓD' || type === 'INCOME' ? 1 : -1),
+                type: type === 'PRZYCHÓD' || type === 'INCOME' ? 'INCOME' : 'EXPENSE',
+                date: transactionDate
+            }, tx);
+        });
+
+        // 2. Operational Mirror Sync (FIRESTORE)
+        await adminDb.collection("transactions").doc(transactionId).set({
             tenantId,
             projectId,
             classification,
@@ -69,32 +104,11 @@ export async function addTransaction(formData: FormData): Promise<{ success: boo
             description: description || null,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
-        })
+        });
 
-        // 2. Prisma Sync
-        await prisma.transaction.create({
-            data: {
-                id: docRef.id,
-                tenantId,
-                projectId,
-                classification,
-                amount: amount,
-                type,
-                transactionDate,
-                category,
-                status: "ACTIVE",
-                source,
-                description: description || null
-            }
-        })
-
-        try {
-            revalidatePath("/")
-            revalidatePath("/projects")
-            revalidatePath("/finance")
-        } catch (e) {
-            console.warn("[TRANSACTIONS] Revalidation warning (ignored):", e)
-        }
+        revalidatePath("/")
+        revalidatePath("/projects")
+        revalidatePath("/finance")
 
         return { success: true }
     } catch (error: any) {
