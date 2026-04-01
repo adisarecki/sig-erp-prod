@@ -498,7 +498,7 @@ export default async function DashboardPage({
           {(() => {
             const totalProjectRealInflow = projects.reduce((sum, p) => {
               const budget = new Decimal(p.budgetEstimated || 0);
-              const rate = (p.retentionShortTermRate || 0) + (p.retentionLongTermRate || 0) || 0.1;
+              const rate = (p.retentionShortTermRate || 0) + (p.retentionLongTermRate || 0);
               return sum.plus(budget.times(new Decimal(1 - rate)));
             }, new Decimal(0));
             return (
