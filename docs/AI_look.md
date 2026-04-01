@@ -56,6 +56,23 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
 - **Vector 103 (Gatekeeper Flow)**: Nowy standard importu. Zamiast zapisu bezpośrednio do bazy `Invoice`, dane wpadają do tymczasowej tabeli `KsefInvoice` (Inbox). Dopiero po akceptacji Wizjonera (Deep Sync), są migrowane do właściwych struktur finansowych.
 - **Vector 058 (Serializable Actions)**: Server Actions zwracają `{ success, results, error }`.
 - **Vector 061 (Bank CSV)**: Obsługa `win1250` i separatora `;` dla PKO BP.
+- **Vector 104 (Bank Reconciliation Engine)**: Silnik rozliczeniowy PKO BP.
+    - **Mapping**: Col 0 (Data), Col 3 (Kwota), Col 6 (Nadawca/Odbiorca), Col 8 (Tytuł).
+    - **Level 1**: Regex match `/(FV|FA|FAKTURA|RACH)\s?[\w\d\/]+/i` on Col 8.
+    - **Level 2**: Fuzzy match Col 6 + Exact Amount on Col 3.
+- **Vector 105 (Data Authority Hierarchy)**:
+    - **Master**: KSeF (XML) – nadrzędne źródło metadanych księgowych (NIP, Kwoty, Rachunek).
+    - **Reconciler**: Bank CSV – służy wyłącznie do parowania i oznaczania faktur jako PAID.
+    - **Shadow Costs**: Automatyczna klasyfikacja jako `DirectExpense` dla ZUS, US, Żabka, Tax oparta na nazwie kontrahenta.
+- **Vector 098.3 (Double-Shield Anchor)**: Dwustopniowa walidacja unikalności: Tier 1 (ksefId) + Tier 2 (contractorId + invoiceNumber).
+- **Vector 106 (Financial Truth & UI Decoupling)**:
+    - **Philosophy**: Przejście z modelu "Data Entry" na "State Verification".
+    - **Absolute Anchor**: Fizyczne saldo z wyciągu bankowego (PKO BP Col 9) jest nadrzędną prawdą.
+    - **Integrity Engine**: Funkcja `verifyIntegrity` porównuje sumę ledgerów (`ledgerSum`) z fizycznym saldem (`physicalBalance`).
+    - **Status Machine**:
+        - `VERIFIED_STABLE`: Delta wynosi 0. System jest zsynchronizowany z bankiem.
+        - `DISCREPANCY_ALERT`: Delta > 0. Wykryto lukę w księgowaniu / brakujące transakcje.
+    - **UI Enkapsulacja**: Usunięcie importów z Dashboard/Project views. Centralizacja w `/finance/verify-balance`.
 - **Regex Entity Engine**: Wyciąganie NIP/IBAN z opisów bankowych z lookaheadami.
 
 ---
@@ -72,6 +89,8 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
 | **102.2** | Retention Fork | Decision Modal for Future vs Retroactive retention recalculation. |
 | **099** | Smart Enrichment | Contractor data (IBAN/Address) enriched from XML via Enrichment Proposals. |
 | **103** | KSeF Gatekeeper | Inbox buffer (KsefInvoice) for selective document import approval. |
+| **104** | Bank Reconciliation | PKO BP 2-level automated settlement engine (Vector 104). |
+| **106** | Financial Truth | UI Decoupling and Bank Balance Anchor (Vector 106). |
 
 ---
 *Plik utrzymywany przez Antigravity dla kolejnych sesji AI.*

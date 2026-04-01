@@ -23,6 +23,7 @@ const InvoiceScanner = dynamic(() => import("@/components/finance/InvoiceScanner
     ssr: false,
     loading: () => <div className="animate-pulse bg-slate-100 h-9 w-24 rounded-lg" />
 })
+import Link from "next/link"
 import { TrendingUp, TrendingDown, ScanLine, DownloadCloud, History, Loader2, Trash2, AlertTriangle, Info } from "lucide-react"
 import {
     Dialog,
@@ -121,43 +122,6 @@ export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps)
                 <span>Szybkie Akcje</span>
             </div>
 
-            {/* Skanuj Fakturę – AI Module: Cyan */}
-            <div className="flex items-center gap-1.5">
-                <div className="p-1.5 bg-cyan-50 rounded-lg text-cyan-600">
-                    <ScanLine className="w-4 h-4" />
-                </div>
-                <div className="text-xs text-slate-400 leading-tight hidden lg:block">
-                    Skan AI<br />/ OCR
-                </div>
-                <InvoiceScanner />
-            </div>
-
-            <div className="w-px bg-slate-100 hidden sm:block" />
-
-            {/* Dodaj Przychód – Standard: Emerald Green */}
-            <div className="flex items-center gap-1.5">
-                <div className="p-1.5 bg-emerald-50 rounded-lg text-emerald-600">
-                    <TrendingUp className="w-4 h-4" />
-                </div>
-                <div className="text-xs text-slate-400 leading-tight hidden lg:block">
-                    Faktura sprzedażowa<br />/ Wpływ
-                </div>
-                <RegisterIncomeModal projects={projects} contractors={contractors} />
-            </div>
-
-            <div className="w-px bg-slate-100 hidden sm:block" />
-
-            {/* Dodaj Koszt – Standard: Orange */}
-            <div className="flex items-center gap-1.5 pr-2">
-                <div className="p-1.5 bg-orange-50 rounded-lg text-orange-500">
-                    <TrendingDown className="w-4 h-4" />
-                </div>
-                <div className="text-xs text-slate-400 leading-tight hidden lg:block">
-                    Faktura zakupowa<br />/ Wydatek
-                </div>
-                <RegisterCostModal projects={projects} contractors={contractors} />
-            </div>
-
             <div className="w-px bg-slate-100 hidden sm:block" />
 
             {/* Dług Historyczny – Fort Knox: Rose/Slate */}
@@ -173,37 +137,16 @@ export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps)
 
             <div className="w-px bg-slate-100 hidden sm:block" />
 
-            {/* Import Bankowy – Foundation: Indigo */}
-            <div 
-                className={`flex items-center gap-3 pl-2 group relative transition-all rounded-xl p-1 ${isDragging ? 'bg-indigo-50 ring-2 ring-indigo-200 shadow-inner' : ''}`}
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={handleDrop}
-            >
-                <div className="flex items-center gap-1.5">
-                    <div className="p-1.5 bg-indigo-50 rounded-lg text-indigo-600 group-hover:bg-indigo-100 transition-colors">
-                        <DownloadCloud className="w-4 h-4" />
-                    </div>
-                    <div className="text-xs text-slate-400 leading-tight hidden lg:block">
-                        Import<br />Bankowy (CSV)
-                    </div>
-                </div>
-                <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    onChange={handleFileUpload}
-                />
-                <button 
-                  type="button"
-                  disabled={isImporting}
-                  className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-all active:scale-95 shadow-sm shadow-indigo-200 flex items-center gap-2 disabled:opacity-50"
-                  onClick={() => fileInputRef.current?.click()}
+            {/* CENTRALA FINANSOWA – Vector 106 Node */}
+            <Link href="/finance/verify-balance">
+                <Button 
+                  variant="outline"
+                  className="h-9 px-4 bg-indigo-50 border-indigo-100 text-indigo-700 hover:bg-indigo-100 rounded-xl font-bold text-xs transition-all active:scale-95 flex items-center gap-2"
                 >
-                    {isImporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <DownloadCloud className="w-3 h-3" />}
-                    {isImporting ? "Importowanie..." : "Importuj wyciąg"}
-                </button>
-            </div>
+                    <DownloadCloud className="w-3 h-3" />
+                    Weryfikuj Saldo i Import
+                </Button>
+            </Link>
 
             <div className="w-px bg-slate-100 hidden sm:block" />
 

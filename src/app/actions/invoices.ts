@@ -302,19 +302,25 @@ export async function addIncomeInvoice(formData: FormData) {
         const retainedAmount = retainedAmountStr ? new Decimal(retainedAmountStr) : null
         const retentionReleaseDate = retentionReleaseDateStr ? new Date(retentionReleaseDateStr) : null
 
-        // --- TARCZA ANTY-DUBEL (Anti-Double Shield) ---
-        // Firestore manual unique check
-        if (description) {
-            const duplicateQuery = await adminDb.collection("invoices")
-                .where("tenantId", "==", tenantId)
-                .where("contractorId", "==", contractorId)
-                .where("externalId", "==", description)
-                .where("type", "==", "SPRZEDAŻ")
-                .limit(1)
-                .get()
+        // --- TARCZA ANTY-DUBEL (Anti-Double Shield) Vector 098.3 ---
+        // Tier 1: Check ksefId (if provided)
+        const ksefId = formData.get("ksefId") as string;
+        if (ksefId) {
+            const ksefDuplicate = await prisma.invoice.findUnique({ where: { ksefId } });
+            if (ksefDuplicate) throw new Error(`TARCZA ANTY-DUBEL (Tier 1): Faktura o KSeF ID ${ksefId} już istnieje!`);
+        }
 
-            if (!duplicateQuery.empty) {
-                throw new Error(`TARCZA ANTY-DUBEL: Faktura o numerze ${description} od tego kontrahenta już istnieje w systemie! (Dublowanie zablokowane)`)
+        // Tier 2: Composite Key Check [contractorId, invoiceNumber]
+        if (description && contractorId) {
+            const compositeDuplicate = await prisma.invoice.findFirst({
+                where: { 
+                    contractorId,
+                    invoiceNumber: description
+                }
+            });
+
+            if (compositeDuplicate) {
+                throw new Error(`TARCZA ANTY-DUBEL (Tier 2): Faktura nr ${description} dla tego kontrahenta już istnieje!`)
             }
         }
 
@@ -706,19 +712,26 @@ export async function addCostInvoice(formData: FormData) {
 
         const isPaidImmediately = (formData.get("isPaidImmediately") === "true") || (dateStr === dueDateStr)
 
-        // --- TARCZA ANTY-DUBEL (Anti-Double Shield) ---
-        // Shield aktywuje się tylko jeśli podano nr faktury (externalId).
-        // Dopasowano do NoSQL logic
-        if (description) {
-            const duplicateQuery = await adminDb.collection("invoices")
-                .where("tenantId", "==", tenantId)
-                .where("externalId", "==", description)
-                .where("type", "==", "EXPENSE")
-                .limit(1)
-                .get()
+        // --- TARCZA ANTY-DUBEL (Anti-Double Shield) Vector 098.3 ---
+        // Shield aktywuje się tylko jeśli podano nr faktury lub ksefId.
+        const ksefId = formData.get("ksefId") as string;
+        if (ksefId) {
+            const ksefDuplicate = await prisma.invoice.findUnique({ where: { ksefId } });
+            if (ksefDuplicate) throw new Error(`TARCZA ANTY-DUBEL (Tier 1): Faktura o KSeF ID ${ksefId} już istnieje!`);
+        }
 
-            if (!duplicateQuery.empty) {
-                throw new Error(`TARCZA ANTY-DUBEL: Faktura nr ${description} od tego dostawcy już została zaksięgowana!`)
+        if (description && contractorId) {
+            const compositeDuplicate = await prisma.invoice.findUnique({
+                where: { 
+                    contractorId_invoiceNumber: { 
+                        contractorId, 
+                        invoiceNumber: description 
+                    } 
+                }
+            });
+
+            if (compositeDuplicate) {
+                throw new Error(`TARCZA ANTY-DUBEL (Tier 2): Faktura nr ${description} od tego dostawcy już została zaksięgowana!`)
             }
         }
 

@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic"
 import Decimal from 'decimal.js'
 import prisma from "@/lib/prisma"
 import { KSeFSyncButton } from "@/components/finance/KSeFSyncButton"
-import { AlertCircle, ArrowDownRight, ArrowUpRight, CalendarDays, Wallet, BadgeDollarSign, TrendingUp, TrendingDown, Lock, History } from 'lucide-react'
+import { AlertCircle, ArrowDownRight, ArrowUpRight, CalendarDays, Wallet, BadgeDollarSign, TrendingUp, TrendingDown, Lock, History, Landmark, CheckCircle2 } from 'lucide-react'
 import { TooltipHelp } from '@/components/ui/TooltipHelp'
 import { MoneyPieChart } from '@/components/dashboard/MoneyPieChart'
 import { QuickActionsBar } from '@/components/finance/QuickActionsBar'
@@ -405,12 +405,26 @@ export default async function DashboardPage({
   ]
 
   // Formatted Strings for UI
-  const formattedNetCash = formatPln(globalBilans); // Płynna Gotówka to stan konta (Gross)
+  // POBRANIE NAJNOWSZEJ KOTWICY SALDA (Vector 106)
+  // @ts-ignore
+  const latestBankAnchor = await prisma.bankBalanceState.findFirst({
+    where: { tenantId },
+    orderBy: { verificationTimestamp: 'desc' }
+  })
+
+  const verifiedBalance = latestBankAnchor ? new Decimal(String(latestBankAnchor.verifiedBalance)) : null
+  
+  const delta = verifiedBalance ? globalBilans.minus(verifiedBalance).abs() : null
+  const financialIntegrityStatus = delta !== null ? (delta.isZero() ? 'VERIFIED_STABLE' : 'DISCREPANCY_ALERT') : 'NOT_VERIFIED'
+
+  const formattedNetCash = formatPln(globalBilans);
   const formattedCfExpenses30d = formatPln(cfExpenses30d);
   const formattedTaxReserve = formatPln(totalReserve);
   const formattedNetProfit = formatPln(netProfit);
   const formattedCfIncomes30d = formatPln(cfIncomes30d);
   const formattedCleanCash = formatPln(cleanCash);
+  const formattedVerifiedBalance = verifiedBalance ? formatPln(verifiedBalance) : "BRAK DANYCH"
+
   const formattedNetVat = formatPln(netVat.abs());
   const isVatOverpaid = netVat.gte(0);
   const vatStatusColor = getVatBalanceColor(netVat);
@@ -429,7 +443,7 @@ export default async function DashboardPage({
       <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight italic">Ekstraklasa Management</h1>
-          <p className="text-slate-500 font-medium">System Operacyjny Firmy • <span className="text-slate-900 uppercase font-bold text-xs bg-slate-100 px-2 py-1 rounded">Precyzja Gotówkowa</span></p>
+          <p className="text-slate-500 font-medium">System Operacyjny Firmy • <span className="text-slate-900 uppercase font-bold text-xs bg-slate-100 px-2 py-1 rounded">Prawda Finansowa (Anchor)</span></p>
         </div>
         <div className="flex flex-col items-end gap-3">
           <TimeFilterTabs availableYears={availableYears} currentYear={selectedYear} />
@@ -460,16 +474,25 @@ export default async function DashboardPage({
       {/* LEAKAGE DETECTION SECTION */}
       <LeakageAlerts alerts={leakageAlerts} />
 
-      {/* WSKAŹNIK BEZPIECZNEJ WYPŁATY - HERO SECTION */}
+      {/* POTWIERDZONE SALDO BANKOWE - VECTOR 106 HERO SECTION */}
       <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-black text-white p-8 rounded-3xl shadow-xl relative overflow-hidden border border-slate-800">
         <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none">
-          <BadgeDollarSign className="w-48 h-48 text-indigo-300" />
+          <Landmark className="w-48 h-48 text-indigo-300" />
         </div>
         <div className="relative z-10">
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-3">
-              <h2 className="text-xl font-medium text-slate-300 tracking-wide uppercase">Czysta Gotówka (Safe to Spend)</h2>
-              <TooltipHelp content="Pieniądze na koncie, które możesz bezpiecznie wydać po odliczeniu przyszłych podatków i VAT." />
+              <h2 className="text-xl font-medium text-slate-300 tracking-wide uppercase flex items-center gap-2">
+                Potwierdzone Saldo Bankowe (PKO BP)
+                {financialIntegrityStatus === 'VERIFIED_STABLE' ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                ) : financialIntegrityStatus === 'DISCREPANCY_ALERT' ? (
+                  <AlertCircle className="w-5 h-5 text-rose-400" />
+                ) : (
+                  <div className="w-2 h-2 rounded-full bg-slate-500" />
+                )}
+              </h2>
+              <TooltipHelp content="Saldo pobrane bezpośrednio z ostatniego wyciągu bankowego (Anchor). Jest to absolutna podstawa Twojej płynności." />
             </div>
             {/* KSeF SYNC - VECTOR 059 */}
             <KSeFSyncButton
@@ -478,17 +501,29 @@ export default async function DashboardPage({
               className="bg-white/10 border-white/20 hover:bg-white/20 text-white"
             />
           </div>
-          <p className={`text-6xl font-black tracking-tighter mt-4 drop-shadow-sm ${getFinancialColor(cleanCash)}`}>
-            {formattedCleanCash}
-          </p>
+          <div className="flex items-end gap-4 mt-4">
+            <p className="text-6xl font-black tracking-tighter drop-shadow-sm text-indigo-100">
+              {formattedVerifiedBalance}
+            </p>
+            <div className="pb-2">
+              <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border ${financialIntegrityStatus === 'VERIFIED_STABLE' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
+                {financialIntegrityStatus}
+              </span>
+            </div>
+          </div>
+
           <div className="flex gap-6 mt-6 border-t border-slate-700/50 pt-6">
             <div>
-              <p className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-tighter">Bilans (Brutto)</p>
+              <p className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-tighter italic">Czysta Gotówka (Safe to Spend)</p>
+              <p className={`font-bold text-xl ${getFinancialColor(cleanCash)}`}>{formattedCleanCash}</p>
+            </div>
+            <div>
+              <p className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-tighter">Bilans Systemowy (Ledger)</p>
               <p className={`font-bold text-xl ${getFinancialColor(globalBilans)}`}>{formattedNetCash}</p>
             </div>
             <div>
               <p className={`text-sm font-medium mb-1 uppercase tracking-tighter ${vatStatusColor}`}>
-                {isVatOverpaid ? 'Nadpłata VAT (Shield)' : 'Zobowiązanie VAT (Dług)'}
+                {isVatOverpaid ? 'Nadpłata VAT' : 'Dług VAT'}
               </p>
               <p className={`font-bold text-xl ${vatStatusColor}`}>
                 {isVatOverpaid ? '+' : '-'}{formattedNetVat}
@@ -496,20 +531,9 @@ export default async function DashboardPage({
             </div>
             <div>
               <div className="flex items-center gap-1 mb-1">
-                <p className={`text-sm font-medium mb-1 uppercase tracking-tighter ${getFinancialColor(incomeTaxReserve.negated())}`}>Rezerwa Podatkowa CIT (9%)</p>
-                <TooltipHelp content="Szacunkowa kwota 9% podatku dochodowego od Twojego zysku netto. Nie wydawaj tych pieniędzy." />
-              </div>
-              <p className={`font-bold text-xl ${getFinancialColor(incomeTaxReserve.negated())}`}>-{formatPln(incomeTaxReserve)}</p>
-            </div>
-            <div>
-              <div className="flex items-center gap-1 mb-1">
-                <p className={`text-sm font-medium uppercase tracking-tighter ${getFinancialColor(unpaidTotalAmountGross.negated())}`}>Koszty do Opłacenia</p>
-                <TooltipHelp content="Suma zaległych faktur manualnych oraz z KSeF, odliczana od Czystej Gotówki." />
+                <p className={`text-sm font-medium uppercase tracking-tighter ${getFinancialColor(unpaidTotalAmountGross.negated())}`}>Faktury do Zapłaty</p>
               </div>
               <p className={`font-bold text-[18px] mt-0.5 ${getFinancialColor(unpaidTotalAmountGross.negated())}`}>-{formatPln(unpaidTotalAmountGross)}</p>
-              <p className="text-[10px] text-blue-400/80 mt-0.5 font-bold uppercase tracking-wider">
-                w tym {formatPln(unpaidKsefAmountGross)} z KSeF
-              </p>
             </div>
           </div>
         </div>

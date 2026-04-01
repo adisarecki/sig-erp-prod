@@ -84,7 +84,7 @@ export function ProjectAnalysisDialog({
                                         <div className="space-y-1">
                                             <div className="flex items-center gap-2">
                                                 <p className="text-xs font-black uppercase tracking-widest text-emerald-600 italic">Realny Limit Operacyjny (Paliwo)</p>
-                                                <TooltipHelp content="Calculated Net Liquidity: Twoja realna baza operacyjna po odliczeniu kaucji. Na jej bazie planuj wydatki i marżę (90% kontraktu)." />
+                                                <TooltipHelp content="Net liquidity for operational spending (90%)" />
                                             </div>
                                             <p className="text-3xl font-black text-slate-900 tracking-tighter">
                                                 {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(NetOperatingLimit)}
@@ -101,8 +101,8 @@ export function ProjectAnalysisDialog({
                                         </div>
                                     </div>
 
-                                    {/* DoubleLayerProgressBar Engine */}
-                                    <div className="relative w-full h-8 bg-slate-200 rounded-2xl overflow-hidden shadow-inner flex border-2 border-slate-100">
+                                    {/* DoubleLayerProgressBar Engine (Vector 101.1) */}
+                                    <div className="relative w-full h-10 bg-slate-200 rounded-2xl overflow-hidden shadow-inner flex border-2 border-slate-100">
                                         {/* Status: Active Inflow (Paliwo zużyte) */}
                                         <div 
                                             className="h-full bg-emerald-500 z-10 transition-all duration-1000 shadow-[0_0_20px_rgba(16,185,129,0.3)] flex items-center justify-center text-[10px] font-black text-white px-2"
@@ -114,31 +114,34 @@ export function ProjectAnalysisDialog({
                                         {/* Status: Available Area (Paliwo wolne) */}
                                         <div className="flex-1 h-full bg-slate-200" />
                                         
-                                        {/* Status: LOCKED ZONE (Skarbiec / Kaucja) */}
+                                        {/* Status: LOCKED ZONE (Skarbiec / Kaucja) - Vector 101.1 Visuals */}
                                         <div 
-                                            className="h-full bg-slate-400/30 opacity-60 flex items-center justify-center border-l-2 border-slate-300/50"
-                                            style={{ width: `${retentionRate * 100}%` }}
+                                            className="h-full bg-slate-400 opacity-80 flex items-center justify-center border-l-2 border-slate-500/50 relative"
+                                            style={{ 
+                                                width: `${retentionRate * 100}%`,
+                                                backgroundImage: 'linear-gradient(45deg, #94a3b8 25%, transparent 25%, transparent 50%, #94a3b8 50%, #94a3b8 75%, transparent 75%, transparent)',
+                                                backgroundSize: '12px 12px'
+                                            }}
                                         >
-                                            <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:4px_4px]" />
-                                            <Lock className="w-4 h-4 text-slate-500 opacity-60 z-20" />
+                                            <Lock className="w-5 h-5 text-slate-800 z-20" />
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-3 mt-4">
                                         <div className="flex flex-col">
-                                            <p className="text-[9px] font-black text-emerald-600 uppercase">Obecne Paliwo:</p>
+                                            <p className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">Obecne Paliwo:</p>
                                             <p className="font-bold text-slate-800">{new Intl.NumberFormat('pl-PL').format(NetInflowActual)} zł</p>
                                         </div>
                                         <div className="flex flex-col items-center">
-                                            <p className="text-[9px] font-black text-rose-500 uppercase">Pozostało Paliwa:</p>
+                                            <p className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Pozostało Paliwa:</p>
                                             <p className="font-bold text-slate-800">{new Intl.NumberFormat('pl-PL').format(remainingNetOperatingLimit)} zł</p>
                                         </div>
                                         <div className="flex flex-col items-end">
                                             <div className="flex items-center gap-1">
-                                                <p className="text-[9px] font-black text-slate-500 uppercase">Skarbiec (Kaucja):</p>
-                                                <TooltipHelp content="Contractual Retention: Pieniądze zamrożone jako zabezpieczenie. Pracują dopiero po zwolnieniu (aneks/koniec gwarancji)." />
+                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">Skarbiec (Kaucja):</p>
+                                                <TooltipHelp content="Contractual retention funds (10%)" />
                                             </div>
-                                            <p className="font-bold text-slate-500">{new Intl.NumberFormat('pl-PL').format(SkarbiecNominal)} zł</p>
+                                            <p className="font-bold text-slate-600">{new Intl.NumberFormat('pl-PL').format(SkarbiecNominal)} zł</p>
                                         </div>
                                     </div>
                                 </div>

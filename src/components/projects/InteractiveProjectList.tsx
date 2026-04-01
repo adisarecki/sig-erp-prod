@@ -272,7 +272,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                             <>
                                                 <div className="flex items-center gap-1">
                                                     <p className="text-sm font-black text-emerald-600 uppercase tracking-tight italic">Realny Limit Operacyjny (Paliwo)</p>
-                                                    <TooltipHelp content="Twoja realna baza operacyjna po odliczeniu kaucji (90% kontraktu). Na jej bazie planuj wydatki i marżę." />
+                                                    <TooltipHelp content="Net liquidity for operational spending (90%)" />
                                                 </div>
                                                 <p className="text-2xl font-black text-slate-900 leading-tight tracking-tighter">
                                                     {formatPln(realRevenue)}
@@ -286,6 +286,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                                         <p className="text-[10px] text-slate-400 font-black flex items-center gap-1 uppercase tracking-tighter">
                                                             🔒 Skarbiec (Kaucja): {formatPln(retentionAmount)} ({(totalRate * 100).toFixed(0)}%)
                                                         </p>
+                                                        <TooltipHelp content="Contractual retention funds (10%)" />
                                                     </div>
                                                 )}
                                             </>

@@ -10,9 +10,24 @@ Witaj w **Sig ERP** – Twoim cyfrowym biurze, które pilnuje pieniędzy, termin
 - **Przeciągnij i Upuść**: Wrzucasz wyciąg CSV z banku, a system automatycznie rozpoznaje Twoich dostawców, dopasowuje przelewy do faktur i **sam oznacza je jako OPŁACONE**.
 - **Wykrywanie Firm**: System uczy się numerów kont Twoich kontrahentów – przy kolejnych przelewach już wie, komu płacisz.
 
+### 🏦 Przewodnik po Rozliczeniach Bankowych (Vector 104/105)
+System Sig ERP wykorzystuje inteligentny silnik parowania wyciągów PKO BP:
+1. **Hierarchia Danych (Master/Reconciler)**: KSeF jest jedynym źródłem faktur księgowych. Wyciąg bankowy służy wyłącznie do **rozliczania** (zmiana statusu na PAID).
+2. **Auto-Match (Regex)**: Silnik szuka fraz takich jak `FV`, `FA`, `FAKTURA` w tytule przelewu (Col 8). Jeśli numer się zgadza – faktura jest opłacana automatycznie.
+3. **Shadow Costs (Direct Expense)**: Wydatki bezfakturowe (ZUS, US, Żabka, Tax) są automatycznie klasyfikowane jako `DirectExpense` i trafiają bezpośrednio do księgi transakcji.
+4. **Tarcza Anty-Dubel**: System blokuje próby ponownego zaksięgowania tej samej faktury (Double-Shield Validation).
+
 ### 🤖 Szybkie Skanowanie Faktur (AI)
 - **Skanuj & Zapomnij**: Wrzucasz PDF lub zdjęcie faktury – nasza Sztuczna Inteligencja sama odczyta NIP, kwoty i daty.
 - **Skanowanie Seryjne**: Masz paczkę faktur? Wrzucasz je wszystkie naraz, a system przetworzy je w tle.
+
+### 🏦 Centrala Weryfikacji Salda (Vector 106)
+Nowy standard "Prawdy Finansowej" w Sig ERP:
+1. **Absolutna Kotwica (Anchor)**: System nie tylko liczy pieniądze – on je weryfikuje. Fizyczne saldo z Twojego banku (PKO BP) jest nadrzędnym źródłem prawdy.
+2. **Weryfikacja Integralności**: Zamiast importu "gdzie popadnie", używasz centralnego modułu **VerifyBalance**. System porównuje stan konta z księgami i wystawia certyfikat zgodności (`VERIFIED_STABLE`) lub ostrzeżenie o rozbieżności.
+3. **Automatyka Rozliczeń**:
+    - **Auto-Match**: Dopasowanie faktur z KSeF po numerze (Regex).
+    - **Shadow Costs**: Automatyczne księgowanie ZUS, podatków i drobnych wydatków (Żabka, Tax) bez potrzeby posiadania faktury.
 
 ### 🏗️ Zarządzanie Budowami (Inwestycje)
 - **Architektura Płynności (Wektor 101.1)**: System priorytetyzuje **Paliwo (Realny Limit Operacyjny)** – Twoją faktyczną gotówkę netto (90%).
@@ -36,9 +51,9 @@ Plan strategiczny mający na celu przywrócenie pełnej integralności danych pr
 
 ## 💡 Instrukcja "Na Start"
 
-- **Pasek Szybkich Akcji**: To Twoje centrum dowodzenia. Stąd dodasz fakturę, zaimportujesz wyciąg lub sprawdzisz projekt.
+- **Centrala Finansowa**: To Twój najważniejszy punkt kontrolny. Tu wgrywasz wyciągi i sprawdzasz, czy system "widzi" to samo co bank.
 - **Konto Bankowe**: Przed pierwszym importem dodaj swój numer konta firmowego w ustawieniach.
-- **Safe to Spend**: Zawsze spójrz na tę liczbę na pulpicie – to ona mówi Ci, ile pieniędzy masz naprawdę do dyspozycji.
+- **Potwierdzone Saldo**: Zawsze spójrz na tę liczbę połączoną z Salda Bankowym – ona mówi Ci, ile pieniędzy masz naprawdę do dyspozycji.
 
 ---
 **Sig ERP – Twoja firma pod pełną kontrolą.**

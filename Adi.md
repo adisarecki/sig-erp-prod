@@ -6,11 +6,13 @@ Witaj Adi. Ten dokument to Twoje Centrum Dowodzenia. Zapomnij o wersjach Node.js
 
 ## 💰 1. Gdzie jest moja kasa? (Filozofia Profit First)
 
-System **SIG ERP** nie jest zwykłą bazą danych. To Twój firewall finansowy. Najważniejszą liczbą, jaką tu zobaczysz, jest **Safe to Spend**. To pieniądze, które realnie możesz wypłacić z firmy po odliczeniu:
-- **Podatku dochodowego (CIT 9%)**: System automatycznie odkłada rezerwę na każdą zarobioną złotówkę.
-- **VATu do zapłaty**: Pilnujemy Twojego długu wobec państwa.
-- **Tax Shield (Tarcza)**: System wykrywa Twoje zakupy (np. od **POLON-ALFA S.A.**) i natychmiastowo dodaje zawarty w nich VAT do Twojej tarczy, zwiększając kwotę "Safe to Spend" w czasie rzeczywistym.
-- **Architektura Płynności (Vector 101.1)**: System eliminuje dysonans między fakturowaniem a realną gotówką. Twój Dashboard i Projekty priorytetyzują **Paliwo (Realny Limit Operacyjny)** – Twoją faktyczną bazę operacyjną (90%). Pozostałe 10% to **Skarbiec (Kaucja 🔒)**, który wizualnie blokujemy na pasku postępu. To chroni Cię przed planowaniem wydatków w oparciu o "puste miliony", które są zamrożone u inwestorów. Widzisz prawdę o płynności (Liquidity-First), a nie tylko obietnice z faktur.
+System **SIG ERP** nie jest zwykłą bazą danych. To Twój firewall finansowy. Najważniejszą liczbą, jaką tu zobaczysz, jest **Potwierdzone Saldo Bankowe**. To Twoja **Absolutna Kotwica (Vector 106)**.
+
+System już nie tylko "zgaduje" Twoją sytuację na podstawie wpisanych faktur. Teraz **fizyczny stan konta z banku** jest jedyną prawdą. Jeśli wgrasz wyciąg, a system wyliczy inną kwotę niż masz w PKO BP, natychmiast poinformujemy Cię o rozbieżności. Dzięki temu masz 100% pewności, że to, co widzisz na ekranie, ma pokrycie w realnej gotówce.
+
+Oprócz tego pilnujemy Twojej płynności poprzez:
+- **Safe to Spend**: Pieniądze, które realnie możesz wydać po odliczeniu rezerw podatkowych i nadchodzących kosztów.
+- **Architektura Płynności (Vector 101.1)**: System eliminuje dysonans między fakturowaniem a realną gotówką. Twój Dashboard i Projekty priorytetyzują **Paliwo (Realny Limit Operacyjny)** – Twoją faktyczną bazę operacyjną (90%). Pozostałe 10% to **Skarbiec (Kaucja 🔒)**, który wizualnie blokujemy na pasku postępu.
 - **Retention Fork (Vector 102.2)**: Jeśli podpiszesz aneks zmieniający stawki kaucji, system zapyta Cię o zasięg zmian. Możesz chronić historię (Opcja A) lub zaktualizować cały projekt wstecz (Opcja B), aby bilans Skarbca zawsze zgadzał się z aktualną umową.
 
 ---
