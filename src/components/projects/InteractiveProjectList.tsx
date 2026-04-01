@@ -161,6 +161,40 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                 </span>
             </div>
 
+            {/* GLOBAL SUMMARY: Realny Limit Operacyjny (suma wszystkich projektów) */}
+            {projects.length > 0 && (() => {
+                const totalGlobalRealRevenue = projects.reduce((sum, project) => {
+                    const budgetVal = Number(project.budgetEstimated);
+                    const shortRate = project.retentionShortTermRate || 0;
+                    const longRate = project.retentionLongTermRate || 0;
+                    const totalRate = shortRate + longRate || 0.1;
+                    const retentionAmount = budgetVal * totalRate;
+                    const realRevenue = budgetVal - retentionAmount;
+                    return sum + realRevenue;
+                }, 0);
+
+                return (
+                    <div className="border-2 border-blue-300 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-6 shadow-md">
+                        <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 text-blue-600 text-2xl">
+                                🔒
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm font-bold uppercase text-blue-700 tracking-wider">
+                                    Realny Limit Operacyjny (PALIWO) – WSZYSTKIE PROJEKTY
+                                </p>
+                                <p className="text-4xl font-black text-slate-900 mt-2 leading-tight">
+                                    {formatPln(totalGlobalRealRevenue)}
+                                </p>
+                                <p className="text-xs font-semibold text-slate-500 mt-2 uppercase tracking-widest">
+                                    Base Operational Liquidity (90%) – Suma wszystkich projektów
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
             {projects.map((project) => {
                 const invoices = project.invoices || []
                 const transactions = project.transactions || []
@@ -262,34 +296,32 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
 
                             <div className="flex items-center justify-between lg:justify-end w-full lg:w-auto gap-3 pl-9 lg:pl-0">
                                 <div className="flex flex-col items-start lg:items-end lg:mr-4">
-                                    {/* VECTOR 101: RECALIBRATION TO REAL INFLOW */}
+                                    {/* VECTOR 101: INDIVIDUAL PROJECT RETENTION */}
                                     {(() => {
                                         const budgetVal = Number(project.budgetEstimated);
                                         const shortRate = project.retentionShortTermRate || 0;
                                         const longRate = project.retentionLongTermRate || 0;
-                                        const totalRate = shortRate + longRate || 0.1; // Default 10% if not specified
+                                        const totalRate = shortRate + longRate || 0.1;
                                         const retentionAmount = budgetVal * totalRate;
                                         const realRevenue = budgetVal - retentionAmount;
 
                                         return (
                                             <>
-                                                <div className="flex items-center gap-1">
-                                                    <p className="text-sm font-black text-emerald-600 uppercase tracking-tight italic">Realny Limit Operacyjny (Paliwo)</p>
-                                                    <TooltipHelp content="Net liquidity for operational spending (90%)" />
-                                                </div>
-                                                <p className="text-2xl font-black text-slate-900 leading-tight tracking-tighter">
-                                                    {formatPln(realRevenue)}
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                                                    Paliwo tego projektu
                                                 </p>
-                                                <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest">
-                                                    Potencjał Fakturowania: {formatPln(budgetVal)}
+                                                <p className="text-lg font-bold text-emerald-600 leading-tight">
+                                                    {formatPln(realRevenue)}
                                                 </p>
                                                 
                                                 {totalRate > 0 && (
-                                                    <div className="mt-1 flex flex-col items-start lg:items-end text-right">
-                                                        <p className="text-[10px] text-slate-400 font-black flex items-center gap-1 uppercase tracking-tighter">
-                                                            🔒 Skarbiec (Kaucja): {formatPln(retentionAmount)} ({(totalRate * 100).toFixed(0)}%)
-                                                        </p>
-                                                        <TooltipHelp content="Contractual retention funds (10%)" />
+                                                    <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-2">
+                                                        <span className="text-lg">🔒</span>
+                                                        <div>
+                                                            <p className="text-xs font-bold text-amber-700 uppercase">Kaucja</p>
+                                                            <p className="text-sm font-bold text-amber-800">{formatPln(retentionAmount)}</p>
+                                                            <p className="text-[10px] text-amber-600">({(totalRate * 100).toFixed(0)}%)</p>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </>
