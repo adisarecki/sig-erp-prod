@@ -167,7 +167,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                     const budgetVal = Number(project.budgetEstimated);
                     const shortRate = project.retentionShortTermRate ?? 0;
                     const longRate = project.retentionLongTermRate ?? 0;
-                    const totalRate = shortRate + longRate > 0 ? shortRate + longRate : 0.1;
+                    const totalRate = shortRate + longRate;
                     const retentionAmount = budgetVal * totalRate;
                     const realRevenue = budgetVal - retentionAmount;
                     return sum + realRevenue;
@@ -177,7 +177,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                     const budgetVal = Number(project.budgetEstimated);
                     const shortRate = project.retentionShortTermRate ?? 0;
                     const longRate = project.retentionLongTermRate ?? 0;
-                    const totalRate = shortRate + longRate > 0 ? shortRate + longRate : 0.1;
+                    const totalRate = shortRate + longRate;
                     const retentionAmount = budgetVal * totalRate;
                     return sum + retentionAmount;
                 }, 0);
@@ -352,7 +352,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                         const budgetVal = Number(project.budgetEstimated);
                                         const shortRate = project.retentionShortTermRate ?? 0;
                                         const longRate = project.retentionLongTermRate ?? 0;
-                                        const totalRate = shortRate + longRate > 0 ? shortRate + longRate : 0.1;
+                                        const totalRate = shortRate + longRate;
                                         const retentionAmount = budgetVal * totalRate;
                                         const realRevenue = budgetVal - retentionAmount;
 
