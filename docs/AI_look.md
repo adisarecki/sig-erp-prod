@@ -105,6 +105,13 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
     - **Filter Logic**: Przychody = `['SPRZEDAŻ', 'INCOME', 'REVENUE', 'PRZYCHÓD']` | Koszty = `['KOSZT', 'EXPENSE', 'ZAKUP', 'WYDATEK']` | Marża = obie razem.
     - **UX Signal**: Hover effect (opacity-75) + cursor-pointer na kwotach sygnalizuje interaktywność.
     - **Implementation**: Komponent `ProjectFinancialDetailsModal.tsx` renderowany w `InteractiveProjectList.tsx`.
+- **Vector 111 (Retention Rate Integrity Engine)**:
+    - **Problem**: Firestore `set({...}, {merge: true})` z wartościami 0 były czasem ignorowane (0 jest "falsy" w JS).
+    - **Solution**: Zamiana na `update()` dla explicit field overwrite - gwarantuje że 0% kaucji będzie zawsze zapisane.
+    - **Failsafe**: `getProjects()` konwertuje null/undefined retention rates na 0: `Number(data.retentionShortTermRate ?? 0)`.
+    - **Math Integrity**: Żaden fallback do default 10% - respect user-configured rates absolutnie.
+    - **Dual-DB Sync**: Pisanie do POSTGRES (SSoT), mirror na FIRESTORE z guaranteed field update.
+    - **UI Consistency**: Dashboard (`page.tsx`) i Projects List (`InteractiveProjectList.tsx`) obie używają ten sam failsafe logic - zero risk rozbiezności.
 - **Vector 110: Stability-First Mode**:
     - **Philosophy**: Najwyższym priorytetem jest determinizm i integralność procesów biznesowych (A-F).
     - **PG-First Rule**: Wszystkie akcje finansowe (Faktury, Płatności, Rozliczenia) MUSZĄ najpierw zapisać stan w PostgreSQL (Master), a dopiero po sukcesie wykonać synchronizację lustra Firestore (Mirror).

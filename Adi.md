@@ -62,6 +62,24 @@ Razem:     | —          | 5 000,00   | 6 150,00   | —                | —
 Dzięki temu wiesz **dokładnie**, dlaczego projekt zarabia lub traci pieniądze.
 
 ---
-*Dla techników: Szczegółowe zasady budowy znajdują się w [AI_look.md](./docs/AI_look.md).*
 
-**Sig ERP – Twoja firma pod pełną kontrolą.**
+## 🔐 6. Dokładne Liczby, Bez Zgadywania (Vector 111)
+
+Problem który naprawili\u015bmy: System czasem ignorowa\u0142 warto\u015bci r\u00f3wne 0 (bo 0 jest \"falsy\" w JavaScript). Je\u015bli ustawi\u0142e\u015b **0% kaucji**, to czasem pokazywa\u0142 10%! 🐛
+
+**Nowe zabezpieczenie (Vector 111 - Retention Rate Integrity)**:
+- ✅ Firestore zapisuje teraz z `update()` zamiast `.set()` - gwarantuje precyzj\u0119
+- ✅ Failsafe: ka\u017cda null/undefined warto\u015b\u0107 konwertowana na dok\u0142adnie 0
+- ✅ Dashboard i lista projekt\u00f3w u\u017cywaj\u0105 tej samej logiki - ZAWSZE si\u0119 zgadzaj\u0105
+- ✅ **Brak defaultowania do 10%** - respect dla Twoich decyzji
+
+**Rezultat praktyczny**:
+```
+Nowowiejskiego 2: 0% kaucji → 330 000 zł paliwa (100% bud\u017cetu)
+Kopaina MARCEL:  10% kaucji → 90 000 zł paliwa (90% bud\u017cetu)
+```
+
+**\u015bwi\u0119te to co ustawi\u0142e\u015b - system SI\u0118 nie wymyśla domyśln\u0105ch wartości!**
+
+---
+*Dla technik\u00f3w: Szczeg\u00f3\u0142owe zasady budowy znajduj\u0105 si\u0119 w [AI_look.md](./docs/AI_look.md).*\n\n**Sig ERP \u2013 Twoja firma pod pe\u0142n\u0105 kontrol\u0105.**

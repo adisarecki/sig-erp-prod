@@ -17,7 +17,12 @@ System Sig ERP wykorzystuje inteligentny silnik parowania wyciągów PKO BP:
 3. **Shadow Costs (Direct Expense)**: Wydatki bezfakturowe (ZUS, US, Żabka, Tax) są automatycznie klasyfikowane jako `DirectExpense` i trafiają bezpośrednio do księgi transakcji.
 4. **Tarcza Anty-Dubel**: System blokuje próby ponownego zaksięgowania tej samej faktury (Double-Shield Validation).
 
-### 📊 Drążenie w Szczegóły Finansowe
+### � Dokładne Liczby (bez Defaults)
+- **Kaucje**: Sys wykazuje dokładnie to co ustawiłeś - 0%, 5%, 10%, 30%, bez defaultowania.
+- **Paliwo Projektu**: Liczmy z precyzją - jeśli 0% kaucji, to paliwo = 100% budżetu (nie 90%).
+- **Failsafe Integrity**: Wartości null/undefined są konwertowane na 0 zarówno w Firestore jak i Postgres - zero rozbiezności.
+
+### �📊 Drążenie w Szczegóły Finansowe
 - **Kliknięcie = Przejrzystość**: Każda liczba na karcie projektu (Przychody, Koszty, Marża) jest klikalna.
 - **Tabela Faktur**: Po kliknięciu zobaczysz wszystkie faktury z datą, numerem, kwotą netto/brutto i dostawcą.
 - **Zrozumienie Marż**: Zamiast patrzeć na suche liczby (np. "-11 685,00 zł"), widzisz dokładnie które faktury składają się na tę kwotę – i dlaczego.
