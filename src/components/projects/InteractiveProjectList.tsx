@@ -165,13 +165,61 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
             {projects.length > 0 && (() => {
                 const totalGlobalRealRevenue = projects.reduce((sum, project) => {
                     const budgetVal = Number(project.budgetEstimated);
-                    const shortRate = project.retentionShortTermRate || 0;
-                    const longRate = project.retentionLongTermRate || 0;
-                    const totalRate = shortRate + longRate || 0.1;
+                    const shortRate = project.retentionShortTermRate ?? 0;
+                    const longRate = project.retentionLongTermRate ?? 0;
+                    const totalRate = shortRate + longRate > 0 ? shortRate + longRate : 0.1;
                     const retentionAmount = budgetVal * totalRate;
                     const realRevenue = budgetVal - retentionAmount;
                     return sum + realRevenue;
                 }, 0);
+
+                const totalGlobalRetention = projects.reduce((sum, project) => {
+                    const budgetVal = Number(project.budgetEstimated);
+                    const shortRate = project.retentionShortTermRate ?? 0;
+                    const longRate = project.retentionLongTermRate ?? 0;
+                    const totalRate = shortRate + longRate > 0 ? shortRate + longRate : 0.1;
+                    const retentionAmount = budgetVal * totalRate;
+                    return sum + retentionAmount;
+                }, 0);
+
+                const tooltipContent = (
+                    <div className="space-y-3 text-left">
+                        <div>
+                            <p className="font-bold text-emerald-300 mb-1">💚 PALIWO (Dostępne):</p>
+                            <p className="text-lg font-black text-emerald-200">{formatPln(totalGlobalRealRevenue)}</p>
+                            <p className="text-xs text-slate-300 mt-1">Pieniądze, które możesz teraz wydać</p>
+                        </div>
+                        <div className="border-t border-slate-600 pt-2">
+                            <p className="font-bold text-amber-300 mb-1">🔒 KAUCJE (U Klientów):</p>
+                            <p className="text-lg font-black text-amber-200">{formatPln(totalGlobalRetention)}</p>
+                            <p className="text-xs text-slate-300 mt-1">Zatrzymane u kontraktorów - będą zwrócone</p>
+                        </div>
+                        <div className="border-t border-slate-600 pt-2">
+                            <p className="font-bold text-blue-300 mb-2">📊 ROZBICIE PO PROJEKTACH:</p>
+                            <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                                {projects.map((p) => {
+                                    const pBudget = Number(p.budgetEstimated);
+                                    const pShort = p.retentionShortTermRate ?? 0;
+                                    const pLong = p.retentionLongTermRate ?? 0;
+                                    const pTotalRate = pShort + pLong > 0 ? pShort + pLong : 0.1;
+                                    const pRetention = pBudget * pTotalRate;
+                                    const pRealRevenue = pBudget - pRetention;
+                                    return (
+                                        <div key={p.id} className="text-xs bg-slate-700 bg-opacity-50 p-1.5 rounded">
+                                            <div className="flex justify-between items-center">
+                                                <span className="font-semibold text-slate-200">{p.name}</span>
+                                            </div>
+                                            <div className="flex gap-2 mt-0.5 text-slate-300">
+                                                <span>💚 {formatPln(pRealRevenue)}</span>
+                                                <span>🔒 {formatPln(pRetention)}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                );
 
                 return (
                     <div className="border-2 border-blue-300 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-6 shadow-md">
@@ -180,9 +228,12 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                 🔒
                             </div>
                             <div className="flex-1">
-                                <p className="text-sm font-bold uppercase text-blue-700 tracking-wider">
-                                    Realny Limit Operacyjny (PALIWO) – WSZYSTKIE PROJEKTY
-                                </p>
+                                <div className="flex items-center gap-2">
+                                    <p className="text-sm font-bold uppercase text-blue-700 tracking-wider">
+                                        Realny Limit Operacyjny (PALIWO) – WSZYSTKIE PROJEKTY
+                                    </p>
+                                    <TooltipHelp content={tooltipContent} />
+                                </div>
                                 <p className="text-4xl font-black text-slate-900 mt-2 leading-tight">
                                     {formatPln(totalGlobalRealRevenue)}
                                 </p>
@@ -299,17 +350,39 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                     {/* VECTOR 101: INDIVIDUAL PROJECT RETENTION */}
                                     {(() => {
                                         const budgetVal = Number(project.budgetEstimated);
-                                        const shortRate = project.retentionShortTermRate || 0;
-                                        const longRate = project.retentionLongTermRate || 0;
-                                        const totalRate = shortRate + longRate || 0.1;
+                                        const shortRate = project.retentionShortTermRate ?? 0;
+                                        const longRate = project.retentionLongTermRate ?? 0;
+                                        const totalRate = shortRate + longRate > 0 ? shortRate + longRate : 0.1;
                                         const retentionAmount = budgetVal * totalRate;
                                         const realRevenue = budgetVal - retentionAmount;
 
+                                        const projectTooltip = (
+                                            <div className="space-y-2 text-left">
+                                                <div>
+                                                    <p className="font-bold text-emerald-300 mb-0.5">💚 PALIWO</p>
+                                                    <p className="text-sm font-black text-emerald-200">{formatPln(realRevenue)}</p>
+                                                    <p className="text-xs text-slate-300">Budget faktycznie do wydania (90%)</p>
+                                                </div>
+                                                <div className="border-t border-slate-600 pt-2">
+                                                    <p className="font-bold text-amber-300 mb-0.5">🔒 KAUCJA</p>
+                                                    <p className="text-sm font-black text-amber-200">{formatPln(retentionAmount)}</p>
+                                                    <p className="text-xs text-slate-300">Zatrzymane u: <strong>{project.contractor?.name || 'N/A'}</strong></p>
+                                                    <p className="text-xs text-slate-300">({(totalRate * 100).toFixed(0)}% budżetu)</p>
+                                                </div>
+                                                <div className="border-t border-slate-600 pt-2">
+                                                    <p className="text-xs text-slate-300">📊 Budget całkowity: <strong>{formatPln(budgetVal)}</strong></p>
+                                                </div>
+                                            </div>
+                                        );
+
                                         return (
                                             <>
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
-                                                    Paliwo tego projektu
-                                                </p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                                                        Paliwo tego projektu
+                                                    </p>
+                                                    <TooltipHelp content={projectTooltip} />
+                                                </div>
                                                 <p className="text-lg font-bold text-emerald-600 leading-tight">
                                                     {formatPln(realRevenue)}
                                                 </p>
