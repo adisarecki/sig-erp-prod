@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma"
 const db = prisma as any;
+export const dynamic = "force-dynamic";
 import { 
     ShieldCheck, 
     AlertTriangle, 

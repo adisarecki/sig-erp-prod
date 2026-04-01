@@ -1,5 +1,6 @@
 import { getCurrentTenantId } from "@/lib/tenant"
 import prisma from "@/lib/prisma"
+export const dynamic = "force-dynamic";
 import { AssetsTable } from "@/components/assets/AssetsTable"
 import { Button } from "@/components/ui/button"
 import { Plus, PackageSearch, TrendingDown, ClipboardCheck } from "lucide-react"
