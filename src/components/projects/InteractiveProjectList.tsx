@@ -12,6 +12,7 @@ import { EditProjectModal } from "@/components/projects/EditProjectModal"
 import { ClosureProjectModal } from "@/components/projects/ClosureProjectModal"
 import { RegisterIncomeModal } from "@/components/finance/RegisterIncomeModal"
 import { RegisterCostModal } from "@/components/finance/RegisterCostModal"
+import { ProjectFinancialDetailsModal } from "@/components/projects/ProjectFinancialDetailsModal"
 import { TrendingUp, PlusCircle, MinusCircle } from "lucide-react"
 import { TooltipHelp } from "@/components/ui/TooltipHelp"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
@@ -47,6 +48,8 @@ interface InteractiveProjectListProps {
 
 export function InteractiveProjectList({ projects, contractors, isArchivedView = false }: InteractiveProjectListProps) {
     const [selectedIds, setSelectedIds] = useState<string[]>([])
+    const [financialModalState, setFinancialModalState] = useState<{ projectId: string; projectName: string; fieldType: 'REVENUES' | 'COSTS' | 'MARGIN' } | null>(null)
+    
     const toggleSelection = (id: string) => {
         setSelectedIds(prev =>
             prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -316,15 +319,33 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
 
                         <div className={`p-6 border-t flex flex-wrap gap-3 ${selectedIds.includes(project.id) ? 'bg-slate-50/50' : 'bg-slate-50'}`}>
                             <div className="flex-1 flex flex-col md:flex-row gap-6">
-                                <div>
+                                <div 
+                                    className="cursor-pointer hover:opacity-75 transition-opacity"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFinancialModalState({ projectId: project.id, projectName: project.name, fieldType: 'REVENUES' });
+                                    }}
+                                >
                                     <p className="text-sm font-medium text-slate-500 mb-1">Zaksięgowane Przychody</p>
                                     <CurrencyDisplay gross={totalInvoicedGross} net={totalInvoicedNet} isIncome={true} className="text-xl font-bold text-slate-800" />
                                 </div>
-                                <div>
+                                <div 
+                                    className="cursor-pointer hover:opacity-75 transition-opacity"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFinancialModalState({ projectId: project.id, projectName: project.name, fieldType: 'COSTS' });
+                                    }}
+                                >
                                     <p className="text-sm font-medium text-slate-500 mb-1">Poniesione Koszty</p>
                                     <CurrencyDisplay gross={totalCostsGross} net={totalCostsNet} isIncome={false} className="text-xl font-bold text-red-600" />
                                 </div>
-                                <div className="md:pl-6 md:border-l md:border-slate-200">
+                                <div 
+                                    className="md:pl-6 md:border-l md:border-slate-200 cursor-pointer hover:opacity-75 transition-opacity"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFinancialModalState({ projectId: project.id, projectName: project.name, fieldType: 'MARGIN' });
+                                    }}
+                                >
                                     <p className="text-sm font-medium text-slate-500 mb-1">Obecna Marża Zysku (Netto)</p>
                                     <CurrencyDisplay gross={currentMarginGross} net={currentMarginNet} isIncome={true} className={`text-2xl font-bold ${isLoss ? 'text-red-600' : 'text-green-600'}`} />
                                 </div>
@@ -367,6 +388,48 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                 onClearSelection={() => setSelectedIds([])}
                 actions={isArchivedView ? archivedActions : activeActions}
             />
+
+            {/* Render Financial Details Modal */}
+            {financialModalState && (
+                <ProjectFinancialDetailsModal
+                    isOpen={!!financialModalState}
+                    onClose={() => setFinancialModalState(null)}
+                    projectName={financialModalState.projectName}
+                    fieldType={financialModalState.fieldType}
+                    invoices={projects.find(p => p.id === financialModalState.projectId)?.invoices.map(inv => ({
+                        type: inv.type,
+                        amountNet: Number(inv.amountNet),
+                        amountGross: Number(inv.amountGross || inv.amountNet),
+                        issueDate: inv.issueDate,
+                        invoiceNumber: (inv as any).invoiceNumber,
+                        contractorName: (inv as any).contractorName
+                    })) || []}
+                    totalInvoicedNet={projects.find(p => p.id === financialModalState.projectId)?.invoices
+                        .filter((inv) => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE' || inv.type === 'PRZYCHÓD')
+                        .reduce((sum: number, inv) => sum + Number(inv.amountNet), 0) || 0}
+                    totalInvoicedGross={projects.find(p => p.id === financialModalState.projectId)?.invoices
+                        .filter((inv) => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE' || inv.type === 'PRZYCHÓD')
+                        .reduce((sum: number, inv) => sum + Number(inv.amountGross || inv.amountNet), 0) || 0}
+                    totalCostsNet={projects.find(p => p.id === financialModalState.projectId)?.invoices
+                        .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'ZAKUP' || inv.type === 'WYDATEK')
+                        .reduce((sum: number, inv) => sum + Number(inv.amountNet), 0) || 0}
+                    totalCostsGross={projects.find(p => p.id === financialModalState.projectId)?.invoices
+                        .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'ZAKUP' || inv.type === 'WYDATEK')
+                        .reduce((sum: number, inv) => sum + Number(inv.amountGross || inv.amountNet), 0) || 0}
+                    currentMarginNet={(projects.find(p => p.id === financialModalState.projectId)?.invoices
+                        .filter((inv) => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE' || inv.type === 'PRZYCHÓD')
+                        .reduce((sum: number, inv) => sum + Number(inv.amountNet), 0) || 0) - 
+                        (projects.find(p => p.id === financialModalState.projectId)?.invoices
+                        .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'ZAKUP' || inv.type === 'WYDATEK')
+                        .reduce((sum: number, inv) => sum + Number(inv.amountNet), 0) || 0)}
+                    currentMarginGross={(projects.find(p => p.id === financialModalState.projectId)?.invoices
+                        .filter((inv) => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE' || inv.type === 'PRZYCHÓD')
+                        .reduce((sum: number, inv) => sum + Number(inv.amountGross || inv.amountNet), 0) || 0) - 
+                        (projects.find(p => p.id === financialModalState.projectId)?.invoices
+                        .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'ZAKUP' || inv.type === 'WYDATEK')
+                        .reduce((sum: number, inv) => sum + Number(inv.amountGross || inv.amountNet), 0) || 0)}
+                />
+            )}
         </div>
     )
 }
