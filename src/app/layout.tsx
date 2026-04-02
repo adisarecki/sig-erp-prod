@@ -24,16 +24,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pl" className={cn("font-sans", geist.variable)}>
-      <body className={`${inter.className} overflow-x-hidden`}>
+      <body className={cn(inter.className, "min-h-screen bg-slate-50")}>
         <Gatekeeper>
           <ToasterProvider />
-          <div className="flex min-h-screen bg-slate-50 w-full max-w-full overflow-x-hidden">
-            <div className="hidden md:flex">
+          <div className="relative flex min-h-screen">
+            {/* Desktop Sidebar */}
+            <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-40">
               <Sidebar />
-            </div>
-            <div className="flex-1 flex flex-col min-w-0">
+            </aside>
+
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col md:pl-64 min-w-0 min-h-screen">
               <Navbar />
-              <main className="flex-1 p-4 md:p-6 overflow-x-hidden">
+              <main className="flex-1 overflow-x-hidden">
                 {children}
               </main>
             </div>

@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { X } from "lucide-react"
+import { TableWrapper } from "@/components/layout/TableWrapper"
 
 interface Invoice {
   type: string
@@ -77,7 +78,7 @@ export function ProjectFinancialDetailsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-none sm:max-w-4xl max-h-[96vh] sm:max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">
             {title} – {projectName}
@@ -93,8 +94,8 @@ export function ProjectFinancialDetailsModal({
               {invoices.filter(inv => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE' || inv.type === 'PRZYCHÓD').length === 0 ? (
                 <p className="text-slate-400 text-sm italic">Brak faktur przychodu</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm border-collapse">
+                <TableWrapper>
+                  <table className="w-full text-sm border-collapse min-w-[600px]">
                     <thead>
                       <tr className="border-b border-slate-300 bg-emerald-50">
                         <th className="text-left px-3 py-2 font-semibold text-slate-700">Data</th>
@@ -108,17 +109,17 @@ export function ProjectFinancialDetailsModal({
                       {invoices
                         .filter(inv => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE' || inv.type === 'PRZYCHÓD')
                         .map((inv, idx) => (
-                          <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50">
-                            <td className="px-3 py-2">{formatDate(inv.issueDate)}</td>
+                           <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50">
+                            <td className="px-3 py-2 whitespace-nowrap">{formatDate(inv.issueDate)}</td>
                             <td className="px-3 py-2 font-mono text-xs">{inv.invoiceNumber || '-'}</td>
                             <td className="text-right px-3 py-2 text-emerald-600 font-semibold">{formatPln(inv.amountNet)}</td>
                             <td className="text-right px-3 py-2 text-emerald-600 font-semibold">{formatPln(inv.amountGross || inv.amountNet)}</td>
-                            <td className="px-3 py-2 text-slate-600">{inv.contractorName || '-'}</td>
+                            <td className="px-3 py-2 text-slate-600 truncate max-w-[150px]">{inv.contractorName || '-'}</td>
                           </tr>
                         ))}
                     </tbody>
                   </table>
-                </div>
+                </TableWrapper>
               )}
               <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <span className="font-semibold text-slate-700">Razem Przychody:</span>
@@ -141,8 +142,8 @@ export function ProjectFinancialDetailsModal({
               {invoices.filter(inv => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'ZAKUP' || inv.type === 'WYDATEK').length === 0 ? (
                 <p className="text-slate-400 text-sm italic">Brak faktur kosztów</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm border-collapse">
+                <TableWrapper>
+                  <table className="w-full text-sm border-collapse min-w-[600px]">
                     <thead>
                       <tr className="border-b border-slate-300 bg-red-50">
                         <th className="text-left px-3 py-2 font-semibold text-slate-700">Data</th>
@@ -156,17 +157,17 @@ export function ProjectFinancialDetailsModal({
                       {invoices
                         .filter(inv => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'ZAKUP' || inv.type === 'WYDATEK')
                         .map((inv, idx) => (
-                          <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50">
-                            <td className="px-3 py-2">{formatDate(inv.issueDate)}</td>
+                           <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50">
+                            <td className="px-3 py-2 whitespace-nowrap">{formatDate(inv.issueDate)}</td>
                             <td className="px-3 py-2 font-mono text-xs">{inv.invoiceNumber || '-'}</td>
                             <td className="text-right px-3 py-2 text-red-600 font-semibold">{formatPln(inv.amountNet)}</td>
                             <td className="text-right px-3 py-2 text-red-600 font-semibold">{formatPln(inv.amountGross || inv.amountNet)}</td>
-                            <td className="px-3 py-2 text-slate-600">{inv.contractorName || '-'}</td>
+                            <td className="px-3 py-2 text-slate-600 truncate max-w-[150px]">{inv.contractorName || '-'}</td>
                           </tr>
                         ))}
                     </tbody>
                   </table>
-                </div>
+                </TableWrapper>
               )}
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <span className="font-semibold text-slate-700">Razem Koszty:</span>
@@ -211,8 +212,8 @@ export function ProjectFinancialDetailsModal({
               <p className="text-slate-400 text-center py-8">Brak faktur dla tej kategorii</p>
             ) : (
               <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm border-collapse">
+                <TableWrapper>
+                  <table className="w-full text-sm border-collapse min-w-[700px]">
                     <thead>
                       <tr className={`border-b border-slate-300 ${fieldType === 'REVENUES' ? 'bg-emerald-50' : 'bg-red-50'}`}>
                         <th className="text-left px-3 py-2 font-semibold text-slate-700">Data</th>
@@ -226,7 +227,7 @@ export function ProjectFinancialDetailsModal({
                     <tbody>
                       {filteredInvoices.map((inv, idx) => (
                         <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50">
-                          <td className="px-3 py-2">{formatDate(inv.issueDate)}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{formatDate(inv.issueDate)}</td>
                           <td className="px-3 py-2 font-mono text-xs text-slate-600">{inv.invoiceNumber || '-'}</td>
                           <td className={`text-right px-3 py-2 font-semibold ${fieldType === 'REVENUES' ? 'text-emerald-600' : 'text-red-600'}`}>
                             {formatPln(inv.amountNet)}
@@ -234,9 +235,9 @@ export function ProjectFinancialDetailsModal({
                           <td className={`text-right px-3 py-2 font-semibold ${fieldType === 'REVENUES' ? 'text-emerald-600' : 'text-red-600'}`}>
                             {formatPln(inv.amountGross || inv.amountNet)}
                           </td>
-                          <td className="px-3 py-2 text-slate-600">{inv.contractorName || '-'}</td>
+                          <td className="px-3 py-2 text-slate-600 truncate max-w-[150px]">{inv.contractorName || '-'}</td>
                           <td className="px-3 py-2">
-                            <span className={`text-xs px-2 py-1 rounded font-semibold ${fieldType === 'REVENUES' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                             <span className={`text-[10px] px-2 py-1 rounded font-semibold ${fieldType === 'REVENUES' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
                               {inv.type}
                             </span>
                           </td>
@@ -244,7 +245,7 @@ export function ProjectFinancialDetailsModal({
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </TableWrapper>
 
                 <div className={`border-2 rounded-lg p-4 flex justify-between items-center ${fieldType === 'REVENUES' ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
                   <span className={`font-bold text-lg ${fieldType === 'REVENUES' ? 'text-emerald-600' : 'text-red-600'}`}>

@@ -165,6 +165,20 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
 
 ---
 
+## 📱 8. Responsive System & Layout Primitives (Vector 117)
+
+### Core Strategy:
+- **Responsive Shell**: Split layout logic in `layout.tsx`. Persistent Sidebar (Desktop) vs `MobileNav` (Sheet-based Drawer).
+- **Client Isolation**: `MobileNav` and `Sheet` components are "use client" to avoid converting the root layout to a client component.
+- **Drawer Pattern**: High-density forms (Register Income/Cost) and tables use the `max-w-none h-[92vh] sm:h-auto` pattern for a native-like bottom drawer experience on small screens.
+
+### Layout Primitives:
+1. **<PageContainer />**: Standardized wrapper for page content. Handles responsive padding (`px-4 sm:px-6 md:px-8`) and consistent max-width.
+2. **<TableWrapper />**: Essential for accessibility. Enforces `overflow-x-auto` with a clean border/shadow, preventing layout blowouts from wide financial tables.
+3. **Dialog Hardening**: `dialog.tsx` (shadcn) updated with responsive positioning classes. Centers for desktop, anchors to bottom for mobile.
+
+---
+
 ## 🧪 6. Founder Acceptance Flows (A-F)
 Mandatory verification checklist for every deployment:
 - **Flow A (Structure)**: Contractor → Project → Retention setup.

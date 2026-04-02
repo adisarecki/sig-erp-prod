@@ -250,7 +250,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                     </Button>
                 )}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[650px] rounded-2xl max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
+            <DialogContent className="max-w-none sm:max-w-[650px] rounded-2xl h-[92vh] sm:h-auto overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
                 <DialogHeader>
                     <div className="flex items-center justify-between pr-8">
                         <div>

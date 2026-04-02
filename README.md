@@ -57,7 +57,10 @@ Nowy standard "Prawdy Finansowej" w Sig ERP:
 - **Czysta Baza**: Niechciane dokumenty możesz odrzucić jednym kliknięciem, aby nie zaśmiecały Twojego widoku w przyszłości.
 
 ### 📱 Mobilne Centrum Dowodzenia (Vector 117)
-- **Pełna Responsywność**: System adaptuje się do ekranów telefonów (360px-430px). Sidebar ustępuje miejsca wysuwanemu menu (Drawer), a modale zajmują cały ekran, co ułatwia pracę w terenie.
+- **Hardened Mobile Shell**: Pełna adaptacja do telefonów (360px-430px) bez błędów layoutu.
+- **Responsive Navigation**: Sidebar na komputerze zamienia się w wysuwaną szufladę (Drawer/Sheet) na telefonie.
+- **Smart Data Display**: Finanse i listy projektów zoptymalizowane pod małe ekrany z obsługą przewijania tabel (`TableWrapper`).
+- **Native-Like Modals**: Wszystkie formularze (Przychód, Koszt, KSeF) otwierają się jako wygodne "szuflady" dolne na urządzeniach mobilnych.
 
 ---
 

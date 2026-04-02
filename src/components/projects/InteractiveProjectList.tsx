@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { Archive, Pause, Play, Trash2, Building2, MapPin, Clock, ChevronRight, Plus, Filter, Search, Download, Trash, Layers } from "lucide-react"
 import { FloatingActionBar } from "@/components/ui/FloatingActionBar"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { bulkUpdateProjectLifecycle } from "@/app/actions/projectsBulk"
 import { deleteProject, deleteSelectedProjects } from "@/app/actions/projects"
@@ -16,6 +17,7 @@ import { ProjectFinancialDetailsModal } from "@/components/projects/ProjectFinan
 import { TrendingUp, PlusCircle, MinusCircle } from "lucide-react"
 import { TooltipHelp } from "@/components/ui/TooltipHelp"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
+import { PageContainer } from "@/components/layout/PageContainer"
 
 // Typ pomocniczy dla formattera PLN
 const formatPln = (value: number) => {
@@ -148,7 +150,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
     ]
 
     return (
-        <div className="grid gap-6">
+        <PageContainer className="grid gap-6">
             <div className="border border-slate-200 bg-white rounded-xl px-4 py-3 flex items-center gap-4 shadow-sm">
                 <input
                     type="checkbox"
@@ -284,7 +286,10 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                             toggleSelection(project.id);
                         }}
                     >
-                        <div className={`p-6 border-b flex flex-col lg:flex-row justify-between items-start gap-4 lg:gap-0 ${selectedIds.includes(project.id) ? 'bg-blue-50/30' : ''}`}>
+                        <div className={cn(
+                            "p-4 sm:p-6 border-b flex flex-col lg:flex-row justify-between items-start gap-4 lg:gap-0",
+                            selectedIds.includes(project.id) ? "bg-blue-50/30" : "bg-white"
+                        )}>
                             <div className="flex items-start gap-4">
                                 <input
                                     type="checkbox"
@@ -342,16 +347,21 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                             </button>
                                         </div>
                                     </div>
-                                    <p className="text-slate-500 mt-1 text-sm">
-                                        Inwestor: <strong className="text-slate-700">{project.contractor.name}</strong> •
-                                        Obiekt: <strong className="text-slate-700">{project.object.name}</strong>
-                                        ({project.object.address})
+                                    <p className="text-slate-500 mt-2 text-xs sm:text-sm leading-relaxed">
+                                        <span className="inline-flex items-center gap-1.5 mr-3">
+                                            <Building2 className="w-3.5 h-3.5" />
+                                            {project.contractor.name}
+                                        </span>
+                                        <span className="inline-flex items-center gap-1.5">
+                                            <MapPin className="w-3.5 h-3.5" />
+                                            {project.object.name}
+                                        </span>
                                     </p>
                                 </div>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between lg:justify-end w-full lg:w-auto gap-4 pl-9 lg:pl-0">
-                                <div className="flex flex-col items-start lg:items-end lg:mr-4 w-full sm:w-auto">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between lg:justify-end w-full lg:w-auto gap-4 pl-0 sm:pl-9 lg:pl-0">
+                                <div className="flex flex-col items-start lg:items-end lg:mr-4 w-full sm:w-auto bg-slate-50 sm:bg-transparent p-3 sm:p-0 rounded-xl">
                                     {/* VECTOR 101: INDIVIDUAL PROJECT RETENTION */}
                                     {(() => {
                                         const budgetVal = Number(project.budgetEstimated);
@@ -366,41 +376,33 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                                 <div>
                                                     <p className="font-bold text-blue-300 mb-0.5">📋 UMOWA (Całkowita)</p>
                                                     <p className="text-sm font-black text-blue-200">{formatPln(budgetVal)}</p>
-                                                    <p className="text-xs text-slate-300">Całkowita kwota kontraktu (bez odliczeń)</p>
                                                 </div>
                                                 <div className="border-t border-slate-600 pt-2">
-                                                    <p className="font-bold text-amber-300 mb-0.5">🔒 KAUCJA (Zabezpieczenie)</p>
-                                                    <p className="text-sm font-black text-amber-200">{formatPln(retentionAmount)}</p>
-                                                    <p className="text-xs text-slate-300">Zatrzymane u: <strong>{project.contractor?.name || 'N/A'}</strong></p>
-                                                    <p className="text-xs text-slate-300">({(totalRate * 100).toFixed(0)}% umowy)</p>
-                                                </div>
-                                                <div className="border-t border-slate-600 pt-2">
-                                                    <p className="font-bold text-emerald-300 mb-0.5">💚 DOSTĘPNE (Paliwo)</p>
+                                                    <p className="font-bold text-emerald-300 mb-0.5">💚 DOSTĘPNE</p>
                                                     <p className="text-sm font-black text-emerald-200">{formatPln(realRevenue)}</p>
-                                                    <p className="text-xs text-slate-300">Rzeczywiste do wydania teraz</p>
                                                 </div>
                                             </div>
                                         );
 
                                         return (
-                                            <div className="flex flex-col items-start lg:items-end">
-                                                <div className="flex items-center gap-2 whitespace-nowrap">
-                                                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
-                                                        Paliwo tego projektu
+                                            <div className="flex flex-col items-start lg:items-end w-full sm:w-auto">
+                                                <div className="flex items-center justify-between sm:justify-end gap-2 w-full">
+                                                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest whitespace-nowrap">
+                                                        Paliwo projektu
                                                     </p>
                                                     <TooltipHelp content={projectTooltip} />
                                                 </div>
-                                                <p className="text-lg font-bold text-emerald-600 leading-tight">
+                                                <p className="text-xl sm:text-lg font-black text-emerald-600 leading-tight mt-0.5">
                                                     {formatPln(realRevenue)}
                                                 </p>
                                                 
                                                 {totalRate > 0 && (
-                                                    <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 flex items-center gap-2 w-full sm:w-auto">
-                                                        <span className="text-base">🔒</span>
-                                                        <div className="whitespace-nowrap overflow-hidden">
-                                                            <p className="text-[10px] font-bold text-amber-700 uppercase leading-none">Kaucja</p>
-                                                            <div className="flex items-center gap-1">
-                                                                <p className="text-sm font-bold text-amber-800">{formatPln(retentionAmount)}</p>
+                                                    <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 flex items-center gap-2 w-full">
+                                                        <span className="text-sm">🔒</span>
+                                                        <div className="flex-1 flex justify-between items-center sm:items-start sm:flex-col overflow-hidden">
+                                                            <p className="text-[9px] font-bold text-amber-700 uppercase leading-none">Kaucja</p>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <p className="text-xs font-bold text-amber-800">{formatPln(retentionAmount)}</p>
                                                                 <p className="text-[10px] text-amber-600 font-medium">({(totalRate * 100).toFixed(0)}%)</p>
                                                             </div>
                                                         </div>
@@ -431,51 +433,51 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                             </div>
                         </div>
 
-                        <div className={`p-6 border-t flex flex-wrap gap-3 ${selectedIds.includes(project.id) ? 'bg-slate-50/50' : 'bg-slate-50'}`}>
-                            <div className="flex-1 flex flex-col md:flex-row gap-6">
+                        <div className={`p-4 sm:p-6 border-t flex flex-col gap-4 ${selectedIds.includes(project.id) ? 'bg-slate-50/50' : 'bg-slate-50'}`}>
+                            <div className="flex flex-col md:flex-row gap-6">
                                 <div 
-                                    className="cursor-pointer hover:opacity-75 transition-opacity"
+                                    className="flex-1 cursor-pointer hover:opacity-75 transition-opacity bg-white p-3 rounded-xl border border-slate-100 sm:border-none sm:p-0 sm:bg-transparent"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setFinancialModalState({ projectId: project.id, projectName: project.name, fieldType: 'REVENUES' });
                                     }}
                                 >
-                                    <p className="text-sm font-medium text-slate-500 mb-1">Zaksięgowane Przychody</p>
-                                    <CurrencyDisplay gross={totalInvoicedGross} net={totalInvoicedNet} isIncome={true} className="text-xl font-bold text-slate-800" />
+                                    <p className="text-[10px] sm:text-sm font-bold sm:font-medium text-slate-500 uppercase sm:normal-case tracking-wider sm:tracking-normal mb-1">Przychody</p>
+                                    <CurrencyDisplay gross={totalInvoicedGross} net={totalInvoicedNet} isIncome={true} className="text-lg sm:text-xl font-black sm:font-bold text-slate-800" />
                                 </div>
                                 <div 
-                                    className="cursor-pointer hover:opacity-75 transition-opacity"
+                                    className="flex-1 cursor-pointer hover:opacity-75 transition-opacity bg-white p-3 rounded-xl border border-slate-100 sm:border-none sm:p-0 sm:bg-transparent"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setFinancialModalState({ projectId: project.id, projectName: project.name, fieldType: 'COSTS' });
                                     }}
                                 >
-                                    <p className="text-sm font-medium text-slate-500 mb-1">Poniesione Koszty</p>
-                                    <CurrencyDisplay gross={totalCostsGross} net={totalCostsNet} isIncome={false} className="text-xl font-bold text-red-600" />
+                                    <p className="text-[10px] sm:text-sm font-bold sm:font-medium text-slate-500 uppercase sm:normal-case tracking-wider sm:tracking-normal mb-1">Koszty</p>
+                                    <CurrencyDisplay gross={totalCostsGross} net={totalCostsNet} isIncome={false} className="text-lg sm:text-xl font-black sm:font-bold text-red-600" />
                                 </div>
                                 <div 
-                                    className="md:pl-6 md:border-l md:border-slate-200 cursor-pointer hover:opacity-75 transition-opacity"
+                                    className="flex-1 md:pl-6 md:border-l md:border-slate-200 cursor-pointer hover:opacity-75 transition-opacity bg-white p-3 rounded-xl border border-slate-100 sm:border-none sm:p-0 sm:bg-transparent"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setFinancialModalState({ projectId: project.id, projectName: project.name, fieldType: 'MARGIN' });
                                     }}
                                 >
-                                    <p className="text-sm font-medium text-slate-500 mb-1">Obecna Marża Zysku (Netto)</p>
-                                    <CurrencyDisplay gross={currentMarginGross} net={currentMarginNet} isIncome={true} className={`text-2xl font-bold ${isLoss ? 'text-red-600' : 'text-green-600'}`} />
+                                    <p className="text-[10px] sm:text-sm font-bold sm:font-medium text-slate-500 uppercase sm:normal-case tracking-wider sm:tracking-normal mb-1">Marża (Netto)</p>
+                                    <CurrencyDisplay gross={currentMarginGross} net={currentMarginNet} isIncome={true} className={`text-xl sm:text-2xl font-black ${isLoss ? 'text-red-600' : 'text-green-600'}`} />
                                 </div>
                             </div>
 
                             {/* Akcje finansowe */}
                             {!isArchivedView && (
-                                <div className="flex items-center gap-2 mt-4 md:mt-0" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-2 sm:mt-0" onClick={(e) => e.stopPropagation()}>
                                     <RegisterIncomeModal
                                         projects={projects.map(p => ({ id: p.id, name: p.name, contractorId: p.contractorId }))}
                                         contractors={contractors}
                                         lockedProjectId={project.id}
                                         trigger={
-                                            <Button variant="outline" className="border-emerald-500 text-emerald-700 hover:bg-emerald-50 gap-2 h-9">
+                                            <Button variant="outline" className="flex-1 sm:flex-none border-emerald-500 text-emerald-700 hover:bg-emerald-50 gap-2 h-10 sm:h-9 text-xs sm:text-sm font-bold uppercase sm:normal-case">
                                                 <PlusCircle className="w-4 h-4" />
-                                                Dodaj Przychód
+                                                Przychód
                                             </Button>
                                         }
                                     />
@@ -484,9 +486,9 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                         contractors={contractors}
                                         lockedProjectId={project.id}
                                         trigger={
-                                            <Button variant="outline" className="border-rose-500 text-rose-700 hover:bg-rose-50 gap-2 h-9">
+                                            <Button variant="outline" className="flex-1 sm:flex-none border-rose-500 text-rose-700 hover:bg-rose-50 gap-2 h-10 sm:h-9 text-xs sm:text-sm font-bold uppercase sm:normal-case">
                                                 <MinusCircle className="w-4 h-4" />
-                                                Dodaj Koszt
+                                                Koszt
                                             </Button>
                                         }
                                     />
@@ -544,6 +546,6 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                         .reduce((sum: number, inv) => sum + Number(inv.amountGross || inv.amountNet), 0) || 0)}
                 />
             )}
-        </div>
+        </PageContainer>
     )
 }

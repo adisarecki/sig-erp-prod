@@ -179,7 +179,7 @@ export function KSeFInboxModal({ isOpen, onClose, onImportSuccess }: KSeFInboxMo
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-5xl bg-white border-none p-0 overflow-hidden rounded-[40px] shadow-2xl">
+            <DialogContent className="max-w-none sm:max-w-5xl bg-white border-none p-0 overflow-hidden sm:rounded-[40px] shadow-2xl">
                 <div className="flex flex-col h-[90vh]">
                     {/* Header: Bramka KSeF */}
                     <div className="bg-slate-900 text-white p-10 relative overflow-hidden">
@@ -188,53 +188,53 @@ export function KSeFInboxModal({ isOpen, onClose, onImportSuccess }: KSeFInboxMo
                         </div>
 
                         <div className="relative z-10 flex justify-between items-start">
-                            <div className="flex items-center gap-6">
-                                <div className="p-4 bg-indigo-600 rounded-[28px] shadow-xl shadow-indigo-500/20">
-                                    <ShieldCheck className="w-10 h-10 text-white" />
+                            <div className="flex items-center gap-4 sm:gap-6">
+                                <div className="p-3 sm:p-4 bg-indigo-600 rounded-2xl sm:rounded-[28px] shadow-xl shadow-indigo-500/20">
+                                    <ShieldCheck className="w-6 h-6 sm:w-10 sm:h-10 text-white" />
                                 </div>
                                 <div className="space-y-1">
-                                    <h2 className="text-3xl font-black tracking-tighter italic">BRAMKA KSeF INBOX</h2>
-                                    <p className="text-indigo-300 font-bold uppercase tracking-widest text-xs flex items-center gap-2">
-                                        <ShieldCheck className="w-3 h-3" /> Vector 103: Strefa Buforowa Aktywna
+                                    <h2 className="text-xl sm:text-3xl font-black tracking-tighter italic">BRAMKA KSeF INBOX</h2>
+                                    <p className="text-indigo-300 font-bold uppercase tracking-widest text-[10px] flex items-center gap-2">
+                                        <ShieldCheck className="w-3 h-3" /> Vector 103
                                     </p>
                                 </div>
                             </div>
                             <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-white/10 transition-all text-slate-400">
-                                <X className="w-8 h-8" />
+                                <X className="w-6 h-6 sm:w-8 sm:h-8" />
                             </Button>
                         </div>
 
-                        <div className="mt-10 flex items-end gap-6 bg-white/5 p-6 rounded-[32px] border border-white/10">
+                        <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-end gap-4 sm:gap-6 bg-white/5 p-4 sm:p-6 rounded-2xl sm:rounded-[32px] border border-white/10">
                             <div className="space-y-2 flex-1">
-                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300 pl-1">Zakres Płytkiej Synchronizacji (Od)</label>
+                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300 pl-1">Zakres (Od)</label>
                                 <div className="relative">
                                     <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
                                     <Input 
                                         type="date" 
                                         value={dateFrom} 
                                         onChange={(e) => setDateFrom(e.target.value)}
-                                        className="pl-12 h-14 bg-white/10 border-white/10 rounded-2xl focus:ring-2 focus:ring-indigo-500 font-bold text-white text-lg" 
+                                        className="pl-12 h-12 sm:h-14 bg-white/10 border-white/10 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-indigo-500 font-bold text-white text-sm sm:text-lg" 
                                     />
                                 </div>
                             </div>
                             <div className="space-y-2 flex-1">
-                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300 pl-1">Zakres Płytkiej Synchronizacji (Do)</label>
+                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300 pl-1">Zakres (Do)</label>
                                 <div className="relative">
                                     <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
                                     <Input 
                                         type="date" 
                                         value={dateTo} 
                                         onChange={(e) => setDateTo(e.target.value)}
-                                        className="pl-12 h-14 bg-white/10 border-white/10 rounded-2xl focus:ring-2 focus:ring-indigo-500 font-bold text-white text-lg" 
+                                        className="pl-12 h-12 sm:h-14 bg-white/10 border-white/10 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-indigo-500 font-bold text-white text-sm sm:text-lg" 
                                     />
                                 </div>
                             </div>
                             <Button 
                                 onClick={fetchInbox} 
                                 disabled={isLoading || !isRangeValid}
-                                className={`h-14 px-10 font-black rounded-2xl shadow-xl transition-all active:scale-95 flex items-center gap-3 ${!isRangeValid ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-50' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'}`}
+                                className={`h-12 sm:h-14 px-6 sm:px-10 font-black rounded-xl sm:rounded-2xl shadow-xl transition-all active:scale-95 flex items-center gap-3 ${!isRangeValid ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-50' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'}`}
                             >
-                                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <><Search className="w-6 h-6" /> Sync Inbox</>}
+                                {isLoading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : <><Search className="w-5 h-5 sm:w-6 sm:h-6" /> Sync</>}
                             </Button>
                         </div>
                     </div>
@@ -290,35 +290,34 @@ export function KSeFInboxModal({ isOpen, onClose, onImportSuccess }: KSeFInboxMo
                                             >
                                                 <div className={`w-8 h-8 rounded-[12px] border-2 flex items-center justify-center transition-all ${selectedIds.has(inv.ksefNumber) ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-200' : 'border-slate-200 group-hover:border-indigo-300'}`}>
                                                     {selectedIds.has(inv.ksefNumber) && <Check className="w-5 h-5 text-white" strokeWidth={4} />}
-                                                </div>
-
-                                                <div className="flex-1 grid grid-cols-12 gap-6 items-center">
-                                                    <div className="col-span-2">
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-2">
+                                                                  <div className="flex-1 flex flex-col sm:grid sm:grid-cols-12 gap-4 sm:gap-6 items-start sm:items-center min-w-0">
+                                                    <div className="sm:col-span-2">
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
                                                             <Calendar className="w-3 h-3" /> Data
                                                         </p>
-                                                        <p className="text-base font-black text-slate-900">{new Date(inv.issueDate).toLocaleDateString('pl-PL')}</p>
+                                                        <p className="text-sm sm:text-base font-black text-slate-900">{new Date(inv.issueDate).toLocaleDateString('pl-PL')}</p>
                                                     </div>
                                                     
-                                                    <div className="col-span-5 border-l border-slate-100 pl-6">
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">Kontrahent (Dostawca)</p>
-                                                        <p className="text-base font-black text-slate-900 truncate tracking-tight">{inv.counterpartyName}</p>
-                                                        <p className="text-[11px] font-mono text-slate-500 font-bold bg-slate-50 px-2 py-0.5 rounded-full inline-block mt-1">NIP: {inv.counterpartyNip}</p>
+                                                    <div className="sm:col-span-5 sm:border-l sm:border-slate-100 sm:pl-6 w-full min-w-0">
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">Dostawca</p>
+                                                        <p className="text-sm sm:text-base font-black text-slate-900 truncate tracking-tight">{inv.counterpartyName}</p>
+                                                        <p className="text-[10px] sm:text-[11px] font-mono text-slate-500 font-bold bg-slate-50 px-2 py-0.5 rounded-full inline-block mt-0.5">NIP: {inv.counterpartyNip}</p>
                                                     </div>
- 
-                                                    <div className="col-span-3 border-l border-slate-100 pl-6">
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">Nr Faktury</p>
-                                                        <p className="text-base font-bold text-slate-700 truncate tracking-tight">{inv.invoiceNumber}</p>
-                                                        <p className="text-[9px] font-mono text-slate-400 truncate tracking-tighter uppercase mt-1">KSeF: {inv.ksefNumber}</p>
+  
+                                                    <div className="sm:col-span-3 sm:border-l sm:border-slate-100 sm:pl-6 w-full min-w-0">
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">Faktura</p>
+                                                        <p className="text-sm sm:text-base font-bold text-slate-700 truncate tracking-tight">{inv.invoiceNumber}</p>
+                                                        <p className="text-[8px] sm:text-[9px] font-mono text-slate-400 truncate tracking-tighter uppercase mt-0.5">ID: {inv.ksefNumber.slice(-8)}...</p>
                                                     </div>
- 
-                                                    <div className="col-span-2 text-right">
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Brutto</p>
-                                                        <p className="text-xl font-black text-slate-900 tracking-tighter">
+  
+                                                    <div className="sm:col-span-2 sm:text-right w-full sm:w-auto">
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Brutto</p>
+                                                        <p className="text-lg sm:text-xl font-black text-slate-900 tracking-tighter">
                                                             {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(inv.grossAmount)}
                                                         </p>
                                                     </div>
                                                 </div>
+                               </div>
                                             </motion.div>
                                         ))}
                                     </AnimatePresence>
@@ -328,29 +327,29 @@ export function KSeFInboxModal({ isOpen, onClose, onImportSuccess }: KSeFInboxMo
                     </div>
 
                     {/* Footer: Bramka Actions */}
-                    <div className="bg-white p-10 border-t border-slate-100 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] flex items-center justify-between gap-8 rounded-b-[40px]">
-                        <div className="flex items-center gap-8">
-                            <div className="space-y-1">
+                    <div className="bg-white p-6 sm:p-10 border-t border-slate-100 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] flex flex-col sm:flex-row items-center justify-between gap-6 sm:gap-8 sm:rounded-b-[40px]">
+                        <div className="flex items-center justify-between sm:justify-start w-full sm:w-auto gap-8">
+                            <div className="space-y-0.5 sm:space-y-1">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Oczekujące:</p>
-                                <p className="text-3xl font-black text-indigo-600 tracking-tighter italic">{selectedIds.size}</p>
+                                <p className="text-2xl sm:text-3xl font-black text-indigo-600 tracking-tighter italic">{selectedIds.size}</p>
                             </div>
                             {selectedIds.size > 0 && (
                                 <Button 
                                     variant="ghost" 
                                     onClick={handleReject}
-                                    className="h-14 px-6 text-rose-500 hover:text-rose-600 hover:bg-rose-50 font-black uppercase tracking-widest text-[10px] rounded-2xl"
+                                    className="h-10 sm:h-14 px-4 sm:px-6 text-rose-500 hover:text-rose-600 hover:bg-rose-50 font-black uppercase tracking-widest text-[9px] sm:text-[10px] rounded-xl sm:rounded-2xl"
                                 >
-                                    <Trash2 className="w-5 h-5 mr-2" />
-                                    Odrzuć z Bramki
+                                    <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                                    Odrzuć
                                 </Button>
                             )}
                         </div>
 
-                        <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto">
                             <Button 
                                 variant="outline" 
                                 onClick={onClose}
-                                className="h-16 px-10 border-slate-200 text-slate-500 font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-slate-50 transition-all"
+                                className="flex-1 sm:flex-none h-12 sm:h-16 px-6 sm:px-10 border-slate-200 text-slate-500 font-black uppercase tracking-widest text-[10px] sm:text-xs rounded-xl sm:rounded-2xl hover:bg-slate-50 transition-all"
                                 disabled={isSettling}
                             >
                                 Anuluj
@@ -358,12 +357,12 @@ export function KSeFInboxModal({ isOpen, onClose, onImportSuccess }: KSeFInboxMo
                             <Button 
                                 onClick={handleSettle}
                                 disabled={selectedIds.size === 0 || isSettling}
-                                className="h-16 px-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-2xl shadow-indigo-600/30 disabled:opacity-50 transition-all active:scale-95 flex items-center gap-4"
+                                className="flex-[2] sm:flex-none h-12 sm:h-16 px-8 sm:px-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-widest text-[10px] sm:text-xs rounded-xl sm:rounded-2xl shadow-2xl shadow-indigo-600/30 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-3 sm:gap-4"
                             >
                                 {isSettling ? (
-                                    <><Loader2 className="w-6 h-6 animate-spin" /> KSIĘGOWANIE...</>
+                                    <><Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> ...</>
                                 ) : (
-                                    <><ArrowUpRight className="w-6 h-6" /> Zaksięguj Wybrane</>
+                                    <><ArrowUpRight className="w-5 h-5 sm:w-6 sm:h-6" /> Zaksięguj</>
                                 )}
                             </Button>
                         </div>

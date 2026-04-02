@@ -123,7 +123,11 @@ System teraz pokazuje te trzy warstwy zawsze w takiej samej kolejności - co spr
 
 ## 📱 8. Mobilna Ewolucja (Vector 117)
 
-W Sig ERP nie ma kompromisów. System jest już w pełni responsywny. Na telefonie zamiast bocznego paska masz wygodną wysuwaną szufladę, a wszystkie tabele i modale (KSeF, Projekty) dopasowują się do całego ekranu, aby nic nie uciekało poza margines. Zostało to wdrożone bez ingerencji w Twoją "pancerną" logikę biznesową.
+Sig ERP jest teraz w pełni operacyjny na Twoim telefonie. Wdrożyliśmy **Hardened Mobile Shell**:
+- 🍔 **Szuflada Nawigacyjna**: Zamiast bocznego paska, na mobile masz szybki dostęp przez ikonę menu (Sheet UI).
+- 📱 **Inteligentne Tabele**: Wszystkie dane finansowe w KSeF i Projektach mają teraz asystenta przewijania (`TableWrapper`). Nic nie ucieka poza ekran.
+- 📐 **Płynne Modale**: Okna dodawania kosztów i przychodów na telefonie zachowują się jak natywne aplikacje (Bottom Drawer).
+- 🛡️ **Zero Ryzyka**: Wszystkie zmiany są czysto wizualne (Tailwind 4 + Shadcn). Twoja "pancerna" logika biznesowa Vector 110/116 pozostała nietknięta.
 
 ---
 

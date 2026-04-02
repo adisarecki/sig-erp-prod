@@ -211,7 +211,7 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
                 )}
             </DialogTrigger>
             <DialogContent
-                className="sm:max-w-[600px] rounded-2xl border-slate-200"
+                className="max-w-none sm:max-w-[600px] rounded-2xl border-slate-200 h-[92vh] sm:h-auto overflow-y-auto"
                 onInteractOutside={(e) => e.preventDefault()}
             >
                 <DialogHeader>
