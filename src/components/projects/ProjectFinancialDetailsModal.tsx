@@ -120,16 +120,16 @@ export function ProjectFinancialDetailsModal({
                   </table>
                 </div>
               )}
-              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex justify-between items-center">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <span className="font-semibold text-slate-700">Razem Przychody:</span>
-                <div className="flex gap-6">
+                <div className="flex gap-4 sm:gap-6 w-full sm:w-auto justify-between sm:justify-end">
                   <div className="text-right">
-                    <p className="text-xs text-slate-500">Netto</p>
-                    <p className="text-lg font-bold text-emerald-600">{formatPln(totalInvoicedNet)}</p>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold">Netto</p>
+                    <p className="text-base sm:text-lg font-bold text-emerald-600">{formatPln(totalInvoicedNet)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-slate-500">Brutto</p>
-                    <p className="text-lg font-bold text-emerald-600">{formatPln(totalInvoicedGross)}</p>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold">Brutto</p>
+                    <p className="text-base sm:text-lg font-bold text-emerald-600">{formatPln(totalInvoicedGross)}</p>
                   </div>
                 </div>
               </div>
@@ -168,16 +168,16 @@ export function ProjectFinancialDetailsModal({
                   </table>
                 </div>
               )}
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex justify-between items-center">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <span className="font-semibold text-slate-700">Razem Koszty:</span>
-                <div className="flex gap-6">
+                <div className="flex gap-4 sm:gap-6 w-full sm:w-auto justify-between sm:justify-end">
                   <div className="text-right">
-                    <p className="text-xs text-slate-500">Netto</p>
-                    <p className="text-lg font-bold text-red-600">{formatPln(totalCostsNet)}</p>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold">Netto</p>
+                    <p className="text-base sm:text-lg font-bold text-red-600">{formatPln(totalCostsNet)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-slate-500">Brutto</p>
-                    <p className="text-lg font-bold text-red-600">{formatPln(totalCostsGross)}</p>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold">Brutto</p>
+                    <p className="text-base sm:text-lg font-bold text-red-600">{formatPln(totalCostsGross)}</p>
                   </div>
                 </div>
               </div>
@@ -185,19 +185,19 @@ export function ProjectFinancialDetailsModal({
 
             {/* MARŻA */}
             <div className={`border-2 rounded-lg p-4 ${currentMarginNet < 0 ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
-              <span className={`font-bold text-lg ${currentMarginNet < 0 ? 'text-red-600' : 'text-green-600'}`}>
+              <p className={`font-bold text-lg ${currentMarginNet < 0 ? 'text-red-600' : 'text-green-600'}`}>
                 Obecna Marża (Zysk/Strata):
-              </span>
-              <div className="flex gap-6 mt-2">
-                <div className="text-right">
-                  <p className="text-xs text-slate-500">Netto</p>
-                  <p className={`text-2xl font-bold ${currentMarginNet < 0 ? 'text-red-600' : 'text-green-600'}`}>
+              </p>
+              <div className="flex gap-6 mt-3">
+                <div className="text-left flex-1 sm:flex-initial">
+                  <p className="text-[10px] text-slate-500 uppercase font-bold">Netto</p>
+                  <p className={`text-xl sm:text-2xl font-black ${currentMarginNet < 0 ? 'text-red-600' : 'text-green-600'}`}>
                     {formatPln(currentMarginNet)}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-slate-500">Brutto</p>
-                  <p className={`text-2xl font-bold ${currentMarginGross < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                <div className="text-left flex-1 sm:flex-initial">
+                  <p className="text-[10px] text-slate-500 uppercase font-bold">Brutto</p>
+                  <p className={`text-xl sm:text-2xl font-black ${currentMarginGross < 0 ? 'text-red-600' : 'text-green-600'}`}>
                     {formatPln(currentMarginGross)}
                   </p>
                 </div>

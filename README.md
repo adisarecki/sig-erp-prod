@@ -56,6 +56,9 @@ Nowy standard "Prawdy Finansowej" w Sig ERP:
 - **Pełna Kontrola**: Sam decydujesz, które faktury mają stać się kosztem firmy. Zaznaczasz wybrane, a system resztę zrobi za Ciebie (pobierze XML, uzupełni dane kontrahenta i przeliczy budżet).
 - **Czysta Baza**: Niechciane dokumenty możesz odrzucić jednym kliknięciem, aby nie zaśmiecały Twojego widoku w przyszłości.
 
+### 📱 Mobilne Centrum Dowodzenia (Vector 117)
+- **Pełna Responsywność**: System adaptuje się do ekranów telefonów (360px-430px). Sidebar ustępuje miejsca wysuwanemu menu (Drawer), a modale zajmują cały ekran, co ułatwia pracę w terenie.
+
 ---
 
 ## 🧼 2. Operacja Czysta Kasa (Faza 0)

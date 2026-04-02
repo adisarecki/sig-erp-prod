@@ -38,6 +38,8 @@ model Tenant {
   bankBalanceStates  BankBalanceState[]
   ledgerEntries      LedgerEntry[]
   assets             Asset[]
+  contractorBankAccounts ContractorBankAccount[]
+  identityConflicts  IdentityConflictRecord[]
 }
 
 model BankBalanceState {
@@ -91,7 +93,8 @@ model Contractor {
   type         String    @default("INWESTOR") // INWESTOR, DOSTAWCA, HURTOWNIA
   status       String    @default("ACTIVE")
   creditRating Int?
-  bankAccounts String[]  @default([])
+  bankAccounts String[]  @default([]) // Deprecated in favor of accounts (Vector 116)
+  accounts     ContractorBankAccount[]
   objects      Object[]
   contacts     Contact[]
   projects     Project[]
@@ -626,4 +629,39 @@ model SyncAuditRecord {
   note            String?
 
   @@unique([entityType, entityId])
+}
+enum BankAccountSource {
+  KSEF
+  BANK_MATCH
+  MANUAL
+}
+
+model ContractorBankAccount {
+  id           String            @id @default(uuid())
+  tenantId     String
+  tenant       Tenant            @relation(fields: [tenantId], references: [id])
+  contractorId String
+  contractor   Contractor        @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  iban         String
+  source       BankAccountSource @default(MANUAL)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([tenantId, iban])
+  @@index([tenantId])
+  @@index([contractorId])
+}
+
+model IdentityConflictRecord {
+  id                    String   @id @default(uuid())
+  tenantId              String
+  tenant                Tenant   @relation(fields: [tenantId], references: [id])
+  iban                  String
+  detectedContractorId  String
+  existingContractorId  String
+  details               String?  @db.Text
+  createdAt             DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([iban])
 }

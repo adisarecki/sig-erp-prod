@@ -130,6 +130,14 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
     - **Normalization**: Wszystkie daty są normalizowane do `Europe/Warsaw` (`YYYY-MM-DD`) przed walidacją, co eliminuje błędy DST i drift UTC.
     - **Server-Side Authority**: Backend (/api/ksef/*) samodzielnie wymusza limit 90 dni, niezależnie od stanu UI.
     - **Logging**: Każda operacja KSeF loguje `raw_input`, `normalized_range` i `calculation_result` for auditing.
+- **Vector 116 (Contractor Intelligence Engine - HARDENED)**:
+    - **Objective**: Unified Identity Resolution Layer mapping IBANs to NIPs.
+    - **Constraints**: Tenant-scoped uniqueness (`@@unique([tenantId, iban])`).
+    - **NIP Validation**: Mandatory 10-digit check + Mathematical Checksum validation.
+    - **Conflict Protocol (Fail-Hard)**: Re-assignment of IBAN to different Contractor triggers `IdentityConflictRecord`.
+    - **Normalization**: Advanced stripping of legal forms (Sp. z o.o., S.A.) and Polish diacritics.
+    - **Idempotency**: Atomic `upsert` on identity links ensures zero redundant writes.
+    - **Layer Isolation**: Identity Resolution is decoupled from Financial Truth (Vector 107/110).
 
 ---
 
@@ -148,10 +156,12 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
 | **104** | Bank Reconciliation | PKO BP 2-level automated settlement engine (Vector 104). |
 | **106** | Financial Truth | UI Decoupling and Bank Balance Anchor (Vector 106). |
 | **107.A** | Asset Module | 1-click KSeF to Asset conversion (Vector 115).|
-| **116** | Data Authority | Vector 109: Final lock of write direction and domain ownership. |
+| **109** | Data Authority | Vector 109: Final lock of write direction and domain ownership. |
 | **110** | Stability-First | PG-First logic enforcement & Atomic Transactions (Vector 110). |
 | **111** | Drill-Down | Financial Transparency - Drill-Down (Vector 111). |
 | **114** | Date Engine | Authoritative Warsaw-based date validation (Vector 114). |
+| **116** | Contractor Intelligence | HARDENED Identity Resolution Layer (NIP Checksum & Conflict Protocol). |
+| **117** | Mobile Responsive Shell | HARDENED Mobile Drawer, Top App Bar & Full-Screen Modal Strategy. |
 
 ---
 

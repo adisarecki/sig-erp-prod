@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { KsefParsedInvoice } from "@/lib/ksef/ksefService";
+import { ContractorResolutionService } from "./contractorResolutionService";
 
 export interface EnrichmentDiff {
     field: string;
@@ -43,6 +44,15 @@ export async function compareAndNotify(invoice: KsefParsedInvoice, tenantId: str
         const dbAccounts = (contractor.bankAccounts as string[] || []).map(a => a.replace(/\s+/g, ''));
         
         if (xmlAccount && !dbAccounts.includes(xmlAccount)) {
+            // VECTOR 116: Authoritative Identity Resolution
+            await ContractorResolutionService.linkIbanToContractor(
+                tenantId,
+                contractor.id,
+                xmlAccount,
+                "KSEF",
+                prisma
+            );
+
             diffs.push({
                 field: 'bankAccount',
                 oldValue: contractor.bankAccounts.length > 0 ? contractor.bankAccounts : ['Brak'],

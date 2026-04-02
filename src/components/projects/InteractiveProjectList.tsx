@@ -227,23 +227,23 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                 );
 
                 return (
-                    <div className="border-2 border-blue-300 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-6 shadow-md">
-                        <div className="flex items-start gap-3">
-                            <div className="flex-shrink-0 text-blue-600 text-2xl">
+                    <div className="border-2 border-blue-300 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-4 md:p-6 shadow-md">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                            <div className="flex-shrink-0 text-blue-600 text-3xl sm:text-2xl">
                                 🔒
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                    <p className="text-sm font-bold uppercase text-blue-700 tracking-wider">
+                                    <p className="text-xs sm:text-sm font-bold uppercase text-blue-700 tracking-wider truncate">
                                         Dostępne do Operacyjnego Wydania
                                     </p>
                                     <TooltipHelp content={tooltipContent} />
                                 </div>
-                                <p className="text-4xl font-black text-slate-900 mt-2 leading-tight">
+                                <p className="text-3xl sm:text-4xl font-black text-slate-900 mt-1 sm:mt-2 leading-tight truncate">
                                     {formatPln(totalGlobalRealRevenue)}
                                 </p>
-                                <p className="text-xs font-semibold text-slate-500 mt-2 uppercase tracking-widest">
-                                    Rzeczywista Płynność Operacyjna – Suma wszystkich projektów (pomniejszona o kaucje)
+                                <p className="text-[10px] sm:text-xs font-semibold text-slate-500 mt-1 sm:mt-2 uppercase tracking-widest leading-relaxed">
+                                    Rzeczywista Płynność Operacyjna – Suma wszystkich projektów
                                 </p>
                             </div>
                         </div>
@@ -350,8 +350,8 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between lg:justify-end w-full lg:w-auto gap-3 pl-9 lg:pl-0">
-                                <div className="flex flex-col items-start lg:items-end lg:mr-4">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between lg:justify-end w-full lg:w-auto gap-4 pl-9 lg:pl-0">
+                                <div className="flex flex-col items-start lg:items-end lg:mr-4 w-full sm:w-auto">
                                     {/* VECTOR 101: INDIVIDUAL PROJECT RETENTION */}
                                     {(() => {
                                         const budgetVal = Number(project.budgetEstimated);
@@ -383,9 +383,9 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                         );
 
                                         return (
-                                            <>
-                                                <div className="flex items-center gap-2">
-                                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                                            <div className="flex flex-col items-start lg:items-end">
+                                                <div className="flex items-center gap-2 whitespace-nowrap">
+                                                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
                                                         Paliwo tego projektu
                                                     </p>
                                                     <TooltipHelp content={projectTooltip} />
@@ -395,20 +395,22 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                                 </p>
                                                 
                                                 {totalRate > 0 && (
-                                                    <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-2">
-                                                        <span className="text-lg">🔒</span>
-                                                        <div>
-                                                            <p className="text-xs font-bold text-amber-700 uppercase">Kaucja</p>
-                                                            <p className="text-sm font-bold text-amber-800">{formatPln(retentionAmount)}</p>
-                                                            <p className="text-[10px] text-amber-600">({(totalRate * 100).toFixed(0)}%)</p>
+                                                    <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 flex items-center gap-2 w-full sm:w-auto">
+                                                        <span className="text-base">🔒</span>
+                                                        <div className="whitespace-nowrap overflow-hidden">
+                                                            <p className="text-[10px] font-bold text-amber-700 uppercase leading-none">Kaucja</p>
+                                                            <div className="flex items-center gap-1">
+                                                                <p className="text-sm font-bold text-amber-800">{formatPln(retentionAmount)}</p>
+                                                                <p className="text-[10px] text-amber-600 font-medium">({(totalRate * 100).toFixed(0)}%)</p>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}
-                                            </>
+                                            </div>
                                         );
                                     })()}
                                 </div>
-                                <div className="flex items-center gap-2 lg:border-l lg:border-slate-100 lg:pl-4 h-full" data-dialog="true">
+                                <div className="flex items-center gap-2 lg:border-l lg:border-slate-100 lg:pl-4 h-full w-full sm:w-auto" data-dialog="true">
                                     <ProjectAnalysisDialog
                                         projectName={project.name}
                                         invoices={project.invoices.map((inv) => ({

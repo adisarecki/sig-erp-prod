@@ -3,6 +3,7 @@ import { getCurrentTenantId } from '@/lib/tenant';
 import prisma from '@/lib/prisma';
 import { KSeFService, KSeFInvoiceHeader } from '@/lib/ksef/ksefService';
 import { validateRange } from '@/lib/ksef/ksefDateUtils';
+import { compareAndNotify } from '@/lib/finance/contractorEnricher';
 
 /**
  * GET /api/ksef/sync
@@ -153,6 +154,9 @@ export async function GET(req: NextRequest) {
                     }
                 });
                 
+                // VECTOR 116: Auto-link IBAN & Enrich Identity
+                await compareAndNotify(detail, tenantId);
+
                 results.push(bufferRecord);
             } catch (err: any) {
                 console.warn(`[KSeF_GATEKEEPER] Failed to fetch/buffer ${ksefId}:`, err.message);

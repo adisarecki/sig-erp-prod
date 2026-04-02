@@ -323,7 +323,6 @@ export default async function DashboardPage({
   const formattedCfExpenses30d = formatPln(cfExpenses30d);
   const formattedTaxReserve = formatPln(totalReserve);
   const formattedNetProfit = formatPln(netProfit);
-  const formattedCfIncomes30d = formatPln(cfIncomes30d);
   const formattedCleanCash = formatPln(cleanCash);
   const formattedVerifiedBalance = verifiedBalance ? formatPln(verifiedBalance) : "BRAK DANYCH"
 

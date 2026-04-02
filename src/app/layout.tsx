@@ -28,10 +28,12 @@ export default function RootLayout({
         <Gatekeeper>
           <ToasterProvider />
           <div className="flex min-h-screen bg-slate-50 w-full max-w-full overflow-x-hidden">
-            <Sidebar />
+            <div className="hidden md:flex">
+              <Sidebar />
+            </div>
             <div className="flex-1 flex flex-col min-w-0">
               <Navbar />
-              <main className="flex-1 p-6 overflow-x-hidden">
+              <main className="flex-1 p-4 md:p-6 overflow-x-hidden">
                 {children}
               </main>
             </div>

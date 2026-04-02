@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from "@/lib/prisma";
 import { getCurrentTenantId } from "@/lib/tenant";
 import { PkoBpCsvAdapter } from "@/lib/bank/pko-bp-adapter";
+import { ContractorResolutionService } from "@/lib/finance/contractorResolutionService";
 
 /**
  * DNA Vector 104: PKO BP Bank Statement Ingestion.
@@ -21,7 +22,19 @@ export async function POST(req: Request) {
         // Logic: Persist all new entries to BankInbox
         let createdCount = 0;
         for (const tx of transactions) {
-            // Optional: Check if already exists based on title, date, amount (basic dedup)
+            // VECTOR 116.1: Real-time Identity Resolution during Import
+            const resolution = await ContractorResolutionService.resolveFromBankTransaction(
+                tenantId,
+                {
+                    iban: (tx as any).iban || (tx as any).accountNumber,
+                    counterpartyName: tx.counterpartyName,
+                    description: tx.rawType + " " + (tx.title || ""),
+                    title: tx.title,
+                    amount: tx.amount
+                },
+                prisma
+            );
+
             await prisma.bankInbox.create({
                 data: {
                     tenantId,
@@ -30,7 +43,9 @@ export async function POST(req: Request) {
                     rawType: tx.rawType,
                     counterpartyName: tx.counterpartyName,
                     title: tx.title,
-                    status: 'NEW'
+                    status: resolution.confidence === 100 ? 'AUTO_MATCHED' : (resolution.contractorId ? 'SUGGESTED' : 'NEW'),
+                    suggestionId: resolution.contractorId,
+                    matchConfidence: resolution.confidence
                 }
             });
             createdCount++;

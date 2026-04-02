@@ -1,4 +1,4 @@
-﻿# SIG ERP â€“ Strategia i Wizja (Adi.md)
+# SIG ERP â€“ Strategia i Wizja (Adi.md)
 
 Witaj Adi. Ten dokument to Twoje Centrum Dowodzenia. Zapomnij o wersjach Node.js czy Prisma. To jest miejsce, gdzie odpowiadamy na najwaĹĽniejsze pytania: â€žGdzie jest moja kasa?â€ť oraz â€žJak chronimy TwojÄ… pĹ‚ynnoĹ›Ä‡ finansowÄ…?â€ť.
 
@@ -118,6 +118,12 @@ Projekt: Kopania MARCEL
 System teraz pokazuje te trzy warstwy zawsze w takiej samej kolejności - co sprawia, że żaden współwłaściciel nie ma wątpliwości co do realnej płynności. Klikniecie na dowolną kwotę (przychody/koszty/marża) otwiera tabelę ze wszystkimi fakturami - pełna transparentność.
 
 **Nowoczesny ERP (SAP, Oracle) używa właśnie takiego modelu** - nasz system podąża najlepszymi praktykami branżowymi.
+
+---
+
+## 📱 8. Mobilna Ewolucja (Vector 117)
+
+W Sig ERP nie ma kompromisów. System jest już w pełni responsywny. Na telefonie zamiast bocznego paska masz wygodną wysuwaną szufladę, a wszystkie tabele i modale (KSeF, Projekty) dopasowują się do całego ekranu, aby nic nie uciekało poza margines. Zostało to wdrożone bez ingerencji w Twoją "pancerną" logikę biznesową.
 
 ---
 

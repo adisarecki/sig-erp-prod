@@ -8,13 +8,15 @@ import type { ParsedBankTransaction } from "@/lib/pko-parser"
 import Decimal from "decimal.js"
 import { randomUUID } from "crypto"
 import { recordLedgerEntry } from "@/lib/finance/ledger-manager"
+import { ContractorResolutionService } from "@/lib/finance/contractorResolutionService"
+
 
 /**
  * V2: Smart Import with Decisions & Reconciliation
  */
 export async function importBankStatementV2(
     decisions: any[], 
-    bankAccountId: string
+    _bankAccountId?: string // Prefixed with _ to silence lint or handled optionally
 ): Promise<{ success: boolean, results?: any, error?: string }> {
     try {
         const adminDb = getAdminDb()
@@ -53,18 +55,15 @@ export async function importBankStatementV2(
                         contractorId = newCtr.id
                     }
 
-                    // B. IBAN Auto-Learning
+                    // B. IBAN Auto-Learning (Vector 116: Advanced Intelligence)
                     if (contractorId && tx.iban) {
-                        const contractor = await txPrisma.contractor.findUnique({ where: { id: contractorId } })
-                        if (contractor) {
-                            const currentAccounts = contractor.bankAccounts as string[] || []
-                            if (!currentAccounts.includes(tx.iban)) {
-                                await txPrisma.contractor.update({
-                                    where: { id: contractorId },
-                                    data: { bankAccounts: { push: tx.iban } } as any
-                                })
-                            }
-                        }
+                        await ContractorResolutionService.linkIbanToContractor(
+                            tenantId, 
+                            contractorId, 
+                            tx.iban, 
+                            "BANK_MATCH", 
+                            txPrisma
+                        );
                     }
 
                     // C. Create Transaction record
