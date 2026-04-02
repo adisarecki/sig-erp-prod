@@ -63,7 +63,7 @@ export function KSeFInboxModal({ isOpen, onClose, onImportSuccess }: KSeFInboxMo
         return new Date().toISOString().split('T')[0]
     })
 
-    // VECTOR 111.1: Authoritative Date Validation logic (SSoT)
+    // VECTOR 114: Authoritative Date Validation logic (SSoT)
     const range = validateRange(dateFrom, dateTo);
     const isRangeValid = range.isValid;
     const diffDays = range.days;

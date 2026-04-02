@@ -84,7 +84,7 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
     - **Flow**:
         - `createInvoice`: Synchroniczne `createMany` (Net, VAT, Retention).
         - `executeAutoMatch` (Payment): Generowanie `BANK_PAYMENT` entry (Cash Flow).
-- **Vector 107: Asset Management Engine (Hardened)**:
+- **Vector 115: Asset Management Engine (Hardened)**:
     - **SSoT Strategy**: Dual-Sync mandatory. Write once to Firestore (NoSQL) and mirror to Prisma (Postgres).
     - **Asset Hardening**: Expanded operational fields (VIN, Registration, Insurance, Tech Inspection).
     - **Duplicate Shield**: Tier 1 (Invoice bound) + Tier 2 (Name/Date/Value bound) unique markers.
@@ -98,21 +98,21 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
     - **Financial Master (PG)**: Agregaty Dashboardu MUSZĄ pochodzić z `LedgerService` (Postgres). Zakaz sumowania z Firestore dla wskaźników KPI.
     - **Operational Master (FS)**: Środki trwałe (Asset registry) zapisywane najpierw do FS. Konsekwencje finansowe zakupu -> synchronicznie do PG Ledger.
     - **Write Guards**: Mechanizm `assertAuthorityWrite` blokuje próby zapisu do bazy będącej mirror'em dla danej domeny.
-- **Vector 110 (Financial Transparency – Invoice Drill-Down)**:
+- **Vector 111 (Financial Transparency – Invoice Drill-Down)**:
     - **Interactive Details Modal**: Kliknięcie na pola kwot (Przychody, Koszty, Marża) otwiera tabelaryczny breakdown wszystkich faktur powiązanych z projektem.
     - **Columns**: Data | Nr Faktury | Kwota Netto | Kwota Brutto | Kontrahent | Typ Faktury.
     - **Subsumming**: Modal pokazuje szczegóły netto i brutto RAZEM (suma wszystkich faktur) na dole.
     - **Filter Logic**: Przychody = `['SPRZEDAŻ', 'INCOME', 'REVENUE', 'PRZYCHÓD']` | Koszty = `['KOSZT', 'EXPENSE', 'ZAKUP', 'WYDATEK']` | Marża = obie razem.
     - **UX Signal**: Hover effect (opacity-75) + cursor-pointer na kwotach sygnalizuje interaktywność.
     - **Implementation**: Komponent `ProjectFinancialDetailsModal.tsx` renderowany w `InteractiveProjectList.tsx`.
-- **Vector 111 (Retention Rate Integrity Engine)**:
+- **Vector 112 (Retention Rate Integrity Engine)**:
     - **Problem**: Firestore `set({...}, {merge: true})` z wartościami 0 były czasem ignorowane (0 jest "falsy" w JS).
     - **Solution**: Zamiana na `update()` dla explicit field overwrite - gwarantuje że 0% kaucji będzie zawsze zapisane.
     - **Failsafe**: `getProjects()` konwertuje null/undefined retention rates na 0: `Number(data.retentionShortTermRate ?? 0)`.
     - **Math Integrity**: Żaden fallback do default 10% - respect user-configured rates absolutnie.
     - **Dual-DB Sync**: Pisanie do POSTGRES (SSoT), mirror na FIRESTORE z guaranteed field update.
     - **UI Consistency**: Dashboard (`page.tsx`) i Projects List (`InteractiveProjectList.tsx`) obie używają ten sam failsafe logic - zero risk rozbiezności.
-- **Vector 112 (Transparent Contract Hierarchy)**:
+- **Vector 113 (Transparent Contract Hierarchy)**:
     - **UX Hierarchy**: Tooltip pokazuje hierarchię kontraktu: 📋 UMOWA (Całkowita kwota) → 🔒 KAUCJA (Zabezpieczenie) → 💚 DOSTĘPNE (Rzeczywista płynność)
     - **Label Clarity**: Zmiana z "Base operational liquidity (90%)" na "Dostępne do Operacyjnego Wydania" (unika mylącego oznaczenia %)
     - **Pro ERP Standard**: Nowoczesne ERP'y (SAP, Oracle, AXE) używają "Available for Operations" - nasz system podąża tą praktyką
@@ -124,12 +124,12 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
     - **Atomic Transactions**: Wykorzystanie `prisma.$transaction` dla każdego zdarzenia biznesowego, aby objąć zapis encji Master oraz wpis do Ledgera w jedną niepodzielną operację.
     - **Integrity Monitor**: Regularna weryfikacja dryfu (FS vs PG) za pomocą `IntegrityMonitor`.
 - **Regex Entity Engine**: Wyciąganie NIP/IBAN z opisów bankowych z lookaheadami.
-- **Vector 111.1 (Hardened Date Engine)**:
+- **Vector 114 (Hardened Date Engine)**:
     - **Philosophy**: Logika dat KSeF jest "authoritative" i scentralizowana.
     - **SSoT**: Moduł `ksefDateUtils.ts` jest jedynym źródłem prawdy dla obliczeń kalendarzowych.
     - **Normalization**: Wszystkie daty są normalizowane do `Europe/Warsaw` (`YYYY-MM-DD`) przed walidacją, co eliminuje błędy DST i drift UTC.
     - **Server-Side Authority**: Backend (/api/ksef/*) samodzielnie wymusza limit 90 dni, niezależnie od stanu UI.
-    - **Logging**: Każda operacja KSeF loguje `raw_input`, `normalized_range` i `calculation_result` dla celów audytowych.
+    - **Logging**: Każda operacja KSeF loguje `raw_input`, `normalized_range` i `calculation_result` for auditing.
 
 ---
 
@@ -147,10 +147,30 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
 | **103** | KSeF Gatekeeper | Inbox buffer (KsefInvoice) for selective document import approval. |
 | **104** | Bank Reconciliation | PKO BP 2-level automated settlement engine (Vector 104). |
 | **106** | Financial Truth | UI Decoupling and Bank Balance Anchor (Vector 106). |
-| **107.A** | Asset Module | 1-click KSeF to Asset conversion and Dual-Sync Registry. |
+| **107.A** | Asset Module | 1-click KSeF to Asset conversion (Vector 115).|
 | **116** | Data Authority | Vector 109: Final lock of write direction and domain ownership. |
 | **110** | Stability-First | PG-First logic enforcement & Atomic Transactions (Vector 110). |
-| **111.1** | Hardened Date Engine | Authoritative Warsaw-based date validation (Vector 111.1). |
+| **111** | Drill-Down | Financial Transparency - Drill-Down (Vector 111). |
+| **114** | Date Engine | Authoritative Warsaw-based date validation (Vector 114). |
+
+---
+
+## 🧪 6. Founder Acceptance Flows (A-F)
+Mandatory verification checklist for every deployment:
+- **Flow A (Structure)**: Contractor → Project → Retention setup.
+- **Flow B (Income)**: Sales Invoice → LedgerEntry → Dashboard (Liquidity Update).
+- **Flow C (Cost)**: Cost Invoice → LedgerEntry → VAT Shield calculation.
+- **Flow D (Settlement)**: Bank CSV → Match Engine → Invoice Status: PAID.
+- **Flow E (Integrity)**: KSeF Inbox → Approval → Duplicate Shield Check.
+- **Flow F (Recovery)**: Sync Drift detection → Manual Repair via Sync Health.
+
+---
+
+## 🚀 7. Deployment Discipline
+From now on, no architectural update is considered complete without:
+- **Database Consistency**: Successful `prisma migrate deploy` on production (Vercel).
+- **Dual-DB Audit**: Verified side-by-side consistency check (Postgres vs Firestore).
+- **Integrity Seal**: Running `verify-stabilization.ts` script to ensure Vector 110 compliance.
 
 ---
 *Plik utrzymywany przez Antigravity dla kolejnych sesji AI.*

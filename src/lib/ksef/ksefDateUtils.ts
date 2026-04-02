@@ -1,5 +1,5 @@
 /**
- * VECTOR 111.1: KSeF Hardened Date Engine
+ * VECTOR 114: KSeF Hardened Date Engine
  * Centralne źródło prawdy dla logiki dat w strefie Europe/Warsaw.
  * Eliminuje błędy przesunięć UTC, DST (czas letni/zimowy) i driftu kalendarzowego.
  */
@@ -76,10 +76,10 @@ export function formatForKsef(date: Date | string, isEnd = false): string {
     timeZone: 'Europe/Warsaw',
     timeZoneName: 'shortOffset'
   });
-  
+
   const parts = tzFormatter.formatToParts(d);
   const tzPart = parts.find(p => p.type === 'timeZoneName')?.value || '';
-  
+
   // Formatowanie offsetu: GMT+2 -> +02:00, GMT-5 -> -05:00
   let offset = tzPart.replace('GMT', '').replace('UTC', '');
   if (!offset.includes(':')) {

@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
         const from = searchParams.get('from') || undefined;
         const to = searchParams.get('to') || undefined;
 
-        // VECTOR 111.1: Authoritative Date Validation & Structured Logging
+        // VECTOR 114: Authoritative Date Validation & Structured Logging
         if (from && to) {
             const range = validateRange(from, to);
             

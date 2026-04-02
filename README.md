@@ -44,7 +44,7 @@ Nowy standard "Prawdy Finansowej" w Sig ERP:
 - **Double-Layer Locking System**: Pasek postępu posiada stałą, wizualną barierę dla **Skarbca (Kaucja 🔒)**. Widzisz, ile pieniędzy jest zamrożonych długoterminowo, co chroni Cię przed błędnym planowaniem marży.
 - **Interaktywne Tooltipy**: Każda kluczowa metryka posiada podpowiedź wyjaśniającą jej znaczenie dla Twojej płynności (Liquidity-First).
 
-### 🧮 Przejrzysta Hierarchia Kontraktu (Vector 112)
+### 🧮 Przejrzysta Hierarchia Kontraktu (Vector 113)
 - **Trzy Warstwy Wizualne**: 📋 UMOWA (pełna wartość) → 🔒 KAUCJA (zabezpieczenie) → 💚 DOSTĘPNE (gotówka do operacyjnego wydania)
 - **Hover Tooltips**: Każde tooltip pokazuje całą hierarchię - eliminuje dwuznaczność co do tego, ile pieniędzy rzeczywiście masz do dyspozycji
 - **Przykład Praktyczny**: "Umowę mam na 330k, 0% kaucji, mogę wydać 330k" (bez mylenia z domyślnym 10%)
@@ -52,7 +52,7 @@ Nowy standard "Prawdy Finansowej" w Sig ERP:
 
 ### 🧾 Integracja KSeF (Bramka KSeF Inbox)
 - **Bramka (Gatekeeper)**: System nie importuje faktur "w ciemno". Po kliknięciu pobierania, otwiera się **Inbox KSeF**, gdzie przeglądasz wykryte dokumenty.
-- **Inteligentne Zakresy (Hardened Date Engine - Vector 111.1)**: System sam pilnuje limitów MF. Możesz pobierać dane z zakresu do 90 dni, a silnik automatycznie koryguje przesunięcia czasu (letni/zimowy) i strefy czasowe, gwarantując 100% spójności z polskim kalendarzem.
+- **Inteligentne Zakresy (Hardened Date Engine - Vector 114)**: System sam pilnuje limitów MF. Możesz pobierać dane z zakresu do 90 dni, a silnik automatycznie koryguje przesunięcia czasu (letni/zimowy) i strefy czasowe, gwarantując 100% spójności z polskim kalendarzem.
 - **Pełna Kontrola**: Sam decydujesz, które faktury mają stać się kosztem firmy. Zaznaczasz wybrane, a system resztę zrobi za Ciebie (pobierze XML, uzupełni dane kontrahenta i przeliczy budżet).
 - **Czysta Baza**: Niechciane dokumenty możesz odrzucić jednym kliknięciem, aby nie zaśmiecały Twojego widoku w przyszłości.
 

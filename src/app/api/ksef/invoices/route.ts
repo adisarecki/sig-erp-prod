@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
         const dateFrom = searchParams.get('dateFrom') || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const dateTo = searchParams.get('dateTo') || new Date().toISOString();
 
-        // VECTOR 111.1: Authoritative Date Validation & Structured Logging
+        // VECTOR 114: Authoritative Date Validation & Structured Logging
         const range = validateRange(dateFrom, dateTo);
         
         console.log(`[KSeF_API_LOG]
