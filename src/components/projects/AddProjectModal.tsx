@@ -138,6 +138,20 @@ export function AddProjectModal({ contractors }: AddProjectModalProps) {
                         />
                     </div>
 
+                    <div className="space-y-1.5 pt-2 border-t border-slate-100 mt-2">
+                        <label className="text-[10px] font-black uppercase text-slate-500">Podstawa naliczania kaucji</label>
+                        <div className="flex gap-4 mt-2">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="retentionBase" value="GROSS" defaultChecked className="w-4 h-4 text-blue-600" />
+                                <span className="text-sm font-medium">BRUTTO (Domyślne)</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="retentionBase" value="NET" className="w-4 h-4 text-blue-600" />
+                                <span className="text-sm font-medium">NETTO</span>
+                            </label>
+                        </div>
+                    </div>
+
                     <DialogFooter>
                         <button
                             type="submit"

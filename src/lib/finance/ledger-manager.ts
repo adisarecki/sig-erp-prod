@@ -25,9 +25,31 @@ export interface LedgerEntryInput {
 }
 
 /**
+ * [VECTOR 117] Sign Authority
+ * Strictly applies signs based on business logic. 
+ * Prevents sign reversal errors from UI or legacy data.
+ */
+export function applyFinancialSign(amount: Decimal | number, type: LedgerType): Decimal {
+  const absVal = new Decimal(String(amount)).abs();
+  switch (type) {
+    case 'INCOME':
+      return absVal; // Positive
+    case 'EXPENSE':
+      return absVal.mul(-1); // Negative
+    case 'VAT_SHIELD':
+      // VAT Shield is (+) for Expenses (refund expectation) 
+      // and (-) for Income (debt expectation).
+      // This is handled in recordInvoiceToLedger more explicitly.
+      return new Decimal(String(amount)); 
+    case 'RETENTION_LOCK':
+      return absVal; // Always positive (Vaulted)
+    default:
+      return new Decimal(String(amount));
+  }
+}
+
+/**
  * Records a financial event in the Central Ledger (PostgreSQL).
- * Also handles mirroring to the relational Transaction table and 
- * creating 'LEDGER_DERIVED' snapshots for UI efficiency.
  */
 export async function recordLedgerEntry(input: LedgerEntryInput, txClient?: any) {
   // 1. Guardrail Check (Vector 109)
@@ -41,7 +63,7 @@ export async function recordLedgerEntry(input: LedgerEntryInput, txClient?: any)
         projectId: input.projectId,
         source: input.source,
         sourceId: input.sourceId,
-        amount: new Decimal(String(input.amount)),
+        amount: applyFinancialSign(input.amount, input.type),
         type: input.type,
         date: input.date
       }
@@ -79,20 +101,23 @@ export async function recordInvoiceToLedger(params: {
         projectId,
         source: 'INVOICE',
         sourceId: invoiceId,
-        amount: new Decimal(String(amountNet)).mul(type === 'INCOME' ? 1 : -1),
+        amount: applyFinancialSign(amountNet, type === 'INCOME' ? 'INCOME' : 'EXPENSE'),
         type: type === 'INCOME' ? 'INCOME' : 'EXPENSE',
         date
       }
     }));
 
     // 2. VAT Entry (Vector 099 signs)
+    // INCOME -> VAT Debt (Negative)
+    // EXPENSE -> VAT Shield (Positive)
+    const vatSignMultiplier = type === 'INCOME' ? -1 : 1;
     entries.push(await tx.ledgerEntry.create({
       data: {
         tenantId,
         projectId,
         source: 'INVOICE',
         sourceId: invoiceId,
-        amount: new Decimal(String(vatAmount)).mul(type === 'INCOME' ? -1 : 1),
+        amount: new Decimal(String(vatAmount)).abs().mul(vatSignMultiplier),
         type: 'VAT_SHIELD',
         date
       }
@@ -106,7 +131,7 @@ export async function recordInvoiceToLedger(params: {
           projectId,
           source: 'INVOICE',
           sourceId: invoiceId,
-          amount: new Decimal(String(retainedAmount)),
+          amount: new Decimal(String(retainedAmount)).abs(),
           type: 'RETENTION_LOCK',
           date
         }

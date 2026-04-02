@@ -25,6 +25,7 @@ interface EditProjectModalProps {
         retentionLongTermRate?: number
         estimatedCompletionDate?: string | Date
         warrantyPeriodYears?: number
+        retentionBase?: 'NET' | 'GROSS'
     }
 }
 
@@ -45,6 +46,7 @@ export function EditProjectModal({ project }: EditProjectModalProps) {
     const [retLong, setRetLong] = useState(getRateAsPercent(project.retentionLongTermRate))
     const [estCompletion, setEstCompletion] = useState("")
     const [warranty, setWarranty] = useState((project.warrantyPeriodYears || 0).toString())
+    const [retBase, setRetBase] = useState(project.retentionBase || "GROSS")
 
     // Reset form when project prop changes or modal opens
     useEffect(() => {
@@ -54,6 +56,7 @@ export function EditProjectModal({ project }: EditProjectModalProps) {
             setRetShort(getRateAsPercent(project.retentionShortTermRate))
             setRetLong(getRateAsPercent(project.retentionLongTermRate))
             setWarranty((project.warrantyPeriodYears || 0).toString())
+            setRetBase(project.retentionBase || "GROSS")
 
             if (project.estimatedCompletionDate) {
                 const date = new Date(project.estimatedCompletionDate)
@@ -67,7 +70,8 @@ export function EditProjectModal({ project }: EditProjectModalProps) {
     const ratesChanged = () => {
         const dbRetShort = getRateAsPercent(project.retentionShortTermRate);
         const dbRetLong = getRateAsPercent(project.retentionLongTermRate);
-        return retShort !== dbRetShort || retLong !== dbRetLong;
+        const dbRetBase = project.retentionBase || "GROSS";
+        return retShort !== dbRetShort || retLong !== dbRetLong || retBase !== dbRetBase;
     }
 
     async function handleSubmit(e: React.FormEvent) {
@@ -91,6 +95,7 @@ export function EditProjectModal({ project }: EditProjectModalProps) {
                 retentionLongTermRate: retLong,
                 estimatedCompletionDate: estCompletion,
                 warrantyPeriodYears: warranty,
+                retentionBase: retBase,
                 mode
             })
 
@@ -203,6 +208,34 @@ export function EditProjectModal({ project }: EditProjectModalProps) {
                                     onChange={(e) => setWarranty(e.target.value)}
                                     className="font-bold"
                                 />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5 pt-2 border-t border-slate-100 mt-2">
+                            <Label className="text-[10px] font-black uppercase text-slate-500">Podstawa naliczania kaucji</Label>
+                            <div className="flex gap-4 mt-2">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input 
+                                        type="radio" 
+                                        name="edit-retentionBase" 
+                                        value="GROSS" 
+                                        checked={retBase === 'GROSS'} 
+                                        onChange={() => setRetBase('GROSS')}
+                                        className="w-4 h-4 text-blue-600" 
+                                    />
+                                    <span className="text-sm font-medium">BRUTTO</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input 
+                                        type="radio" 
+                                        name="edit-retentionBase" 
+                                        value="NET" 
+                                        checked={retBase === 'NET'} 
+                                        onChange={() => setRetBase('NET')}
+                                        className="w-4 h-4 text-blue-600" 
+                                    />
+                                    <span className="text-sm font-medium">NETTO</span>
+                                </label>
                             </div>
                         </div>
 

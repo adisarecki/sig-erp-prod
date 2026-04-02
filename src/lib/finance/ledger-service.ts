@@ -56,10 +56,14 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
     .filter((e: any) => e.type === 'VAT_SHIELD')
     .reduce((sum: Decimal, e: any) => sum.plus(new Decimal(String(e.amount))), new Decimal(0));
 
-  // 3. Safe to Spend calculation (Vector 099/101/109 logic)
+  // 3. Safe to Spend calculation (Vector 117 Logic)
+  // Formula: Real Cash - (VAT Debt if any) - (Retention Vaults)
+  // VAT Balance < 0 means we owe money (Debt).
+  const vatDebt = vatBalance.lt(0) ? vatBalance.abs() : new Decimal(0);
+  
   const safeToSpend = realCashBalance
-    .minus(unpaidTotalGross)
-    .plus(vatBalance.lt(0) ? vatBalance : new Decimal(0));
+    .minus(vatDebt)
+    .minus(vaultValue); // Locked retention is strictly not spendable
 
   return {
     realCashBalance,
@@ -83,19 +87,19 @@ export async function getProjectFinancials(tenantId: string, projectId: string) 
   });
 
   const income = entries
-    .filter((e: any) => e.type === 'INCOME')
+    .filter((e: any) => e.type === 'INCOME') // Strictly Net Income (+)
     .reduce((sum: Decimal, e: any) => sum.plus(new Decimal(String(e.amount))), new Decimal(0));
 
   const expense = entries
-    .filter((e: any) => e.type === 'EXPENSE')
-    .reduce((sum: Decimal, e: any) => sum.plus(new Decimal(String(e.amount)).abs()), new Decimal(0));
+    .filter((e: any) => e.type === 'EXPENSE') // Strictly Net Expense (-)
+    .reduce((sum: Decimal, e: any) => sum.plus(new Decimal(String(e.amount))), new Decimal(0));
 
   return {
     income,
-    expense,
-    margin: income.minus(expense),
+    expense: expense.abs(), // UI expects positive expense for display
+    margin: income.plus(expense), // Mathematically Net Margin (Vector 117)
     lockedRetention: entries
       .filter((e: any) => e.type === 'RETENTION_LOCK')
-      .reduce((sum: Decimal, e: any) => sum.plus(new Decimal(String(e.amount))), new Decimal(0))
+      .reduce((sum: Decimal, e: any) => sum.plus(new Decimal(String(e.amount)).abs()), new Decimal(0))
   };
 }

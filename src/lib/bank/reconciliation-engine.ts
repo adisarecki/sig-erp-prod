@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import Decimal from "decimal.js";
 import { normalizeText, calculateSimilarity } from "../reconciliation";
+import { performLiquidityCheckPost } from "../finance/liquidity-alerts";
 
 export class ReconciliationEngine {
     /**
@@ -27,7 +28,7 @@ export class ReconciliationEngine {
 
         for (const item of inboxItems) {
             // VECTOR 105: SHADOW COSTS (Direct debits)
-            if (this.isShadowCost(item.counterpartyName, item.title)) {
+            if (this.isShadowCost(item.counterpartyName, item.title || "")) {
                 await this.processDirectExpense(item);
                 continue;
             }
@@ -140,26 +141,80 @@ export class ReconciliationEngine {
     /**
      * Executes automatic reconciliation (Auto-Match).
      * Updates Invoice status and creates ledger entries.
+     * 
+     * [VECTOR 117] Retention-Aware Auto-Match
+     * Calculates expected payment amount based on retentionBase (NET or GROSS)
+     * and automatically creates RETENTION_LOCK entries when retention applies.
      */
     static async executeAutoMatch(inboxItem: any, invoiceId: string) {
-        return await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx) => {
             const invoice = await tx.invoice.findUnique({
                 where: { id: invoiceId },
-                include: { contractor: true }
+                include: { 
+                    contractor: true,
+                    project: {
+                        select: {
+                            id: true,
+                            retentionShortTermRate: true,
+                            retentionLongTermRate: true,
+                            retentionBase: true
+                        }
+                    }
+                }
             });
 
-            if (!invoice) return;
+            if (!invoice) return null;
 
             const paidAmount = new Decimal(String(inboxItem.amount)).abs();
+            const netAmount = new Decimal(String(invoice.amountNet));
             const grossAmount = new Decimal(String(invoice.amountGross));
 
-            // 1. Update Invoice Status
-            const newStatus = paidAmount.gte(grossAmount) ? "PAID" : "PARTIALLY_PAID";
+            // --- VECTOR 117: Calculate Expected Payment Amount ---
+            let expectedAmount = grossAmount; // Default (full payment, no retention)
+            let retentionAmount = new Decimal(0);
+            let retentionSettled = false;
+
+            if (invoice.project) {
+                const shortRate = new Decimal(String(invoice.project.retentionShortTermRate || 0));
+                const longRate = new Decimal(String(invoice.project.retentionLongTermRate || 0));
+                const totalRate = shortRate.plus(longRate);
+
+                if (totalRate.gt(0)) {
+                    const base = invoice.project.retentionBase || 'GROSS';
+
+                    if (base === 'NET') {
+                        // Formula: Expected = Brutto - (Net * Rate)
+                        retentionAmount = netAmount.mul(totalRate);
+                        expectedAmount = grossAmount.minus(retentionAmount);
+                    } else {
+                        // Formula: Expected = Brutto * (1 - Rate)
+                        expectedAmount = grossAmount.mul(new Decimal(1).minus(totalRate));
+                        retentionAmount = grossAmount.mul(totalRate);
+                    }
+
+                    // Check if payment matches expected amount (within tolerance of 1 cent)
+                    const tolerance = new Decimal('0.01');
+                    retentionSettled = paidAmount.minus(expectedAmount).abs().lte(tolerance);
+                }
+            }
+
+            // 1. Update Invoice Status (based on retention logic)
+            let newStatus = "PARTIALLY_PAID";
+            let newPaymentStatus = "PARTIALLY_PAID";
+
+            if (retentionSettled && retentionAmount.gt(0)) {
+                newStatus = "PAID"; // Payment matched expected (with retention)
+                newPaymentStatus = "PAID";
+            } else if (paidAmount.gte(grossAmount)) {
+                newStatus = "PAID"; // Full payment or overpayment
+                newPaymentStatus = "PAID";
+            }
+
             await tx.invoice.update({
                 where: { id: invoice.id },
                 data: {
                     status: newStatus,
-                    paymentStatus: paidAmount.gte(grossAmount) ? "PAID" : "PARTIALLY_PAID"
+                    paymentStatus: newPaymentStatus
                 }
             });
 
@@ -172,7 +227,7 @@ export class ReconciliationEngine {
                     type: invoice.type === "SPRZEDAŻ" ? "INCOME" : "EXPENSE",
                     transactionDate: inboxItem.date,
                     category: invoice.type === "SPRZEDAŻ" ? "SPRZEDAŻ" : "ZAKUP",
-                    description: `Automatyczne rozliczenie (Vector 104): ${inboxItem.title || 'Wyciąg bankowy'}`,
+                    description: `Automatyczne rozliczenie (Vector 117 - Retention-Aware): ${inboxItem.title || 'Wyciąg bankowy'}`,
                     source: "BANK_IMPORT",
                     status: "ACTIVE",
                     matchedContractorId: invoice.contractorId,
@@ -204,6 +259,40 @@ export class ReconciliationEngine {
                 }
             });
 
+            // --- VECTOR 117: Automatic Retention Settlement ---
+            // If payment matches expected amount and retention applies, lock it in The Vault
+            if (retentionSettled && retentionAmount.gt(0)) {
+                // Create RETENTION_LOCK ledger entry (The Vault)
+                // @ts-ignore
+                await tx.ledgerEntry.create({
+                    data: {
+                        tenantId: invoice.tenantId,
+                        projectId: invoice.projectId,
+                        source: "INVOICE",
+                        sourceId: invoice.id,
+                        amount: retentionAmount,
+                        type: "RETENTION_LOCK",
+                        date: inboxItem.date
+                    }
+                });
+
+                // Optionally, create or update a Retention record for tracking
+                await tx.retention.create({
+                    data: {
+                        tenantId: invoice.tenantId,
+                        projectId: invoice.projectId,
+                        contractorId: invoice.contractorId,
+                        invoiceId: invoice.id,
+                        amount: retentionAmount,
+                        type: invoice.project?.retentionShortTermRate ? "SHORT_TERM" : "LONG_TERM",
+                        expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year default
+                        source: "PROJECT",
+                        status: "ACTIVE",
+                        description: `Automatyczne naliczenie kaucji (Vector 117) dla FV ${invoice.invoiceNumber}`
+                    }
+                });
+            }
+
             // 4. Mark Inbox Item as PROCESSED
             // @ts-ignore
             await tx.bankInbox.update({
@@ -213,7 +302,33 @@ export class ReconciliationEngine {
                     processedAt: new Date()
                 }
             });
+
+            return {
+                invoiceId: invoice.id,
+                tenantId: invoice.tenantId,
+                projectId: invoice.projectId,
+                invoiceNumber: invoice.invoiceNumber || "unknown",
+                expectedAmount,
+                paidAmount,
+                retentionBase: invoice.project?.retentionBase || 'GROSS'
+            };
         });
+
+        // --- VECTOR 117: Post-Match Liquidity Check ---
+        // Run outside transaction to avoid deadlocks
+        if (result) {
+            performLiquidityCheckPost({
+                tenantId: result.tenantId,
+                invoiceId: result.invoiceId,
+                projectId: result.projectId,
+                expectedAmount: result.expectedAmount,
+                receivedAmount: result.paidAmount,
+                retentionBase: result.retentionBase,
+                invoiceNumber: result.invoiceNumber
+            }).catch(err => console.error("[LIQUIDITY_CHECK] Error:", err));
+        }
+
+        return result;
     }
 
     /**

@@ -17,7 +17,15 @@ import { toast } from "sonner"
 import { Loader2, PlusCircle, ScanText, AlertTriangle, FileCheck } from "lucide-react"
 import { scanInvoiceAction } from "@/app/actions/ocr"
 
-interface Project { id: string; name: string; contractorId?: string; status?: string }
+interface Project { 
+    id: string; 
+    name: string; 
+    contractorId?: string; 
+    status?: string;
+    retentionShortTermRate?: number;
+    retentionLongTermRate?: number;
+    retentionBase?: 'NET' | 'GROSS';
+}
 interface Contractor { id: string; name: string; nip?: string | null }
 
 interface RegisterCostModalProps {
@@ -73,6 +81,35 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
             setCategory(COST_CATEGORIES.DIRECT[0].value) // np. MATERIAŁY
         }
     }, [selectedProjectId])
+
+    // Manual VAT and Retention Calculation
+    useEffect(() => {
+        if (amountNet) {
+            const net = parseFloat(amountNet)
+            const rate = parseFloat(taxRate)
+            const vat = (net * rate).toFixed(2)
+            setAmountVat(vat)
+
+            // Vector 117: Auto-Retention Calculation (Subcontractors)
+            const isSubcontractorCost = !["GENERAL", "INTERNAL"].includes(selectedProjectId);
+            if (isSubcontractorCost && (category === "MONTAŻ" || category === "USŁUGA" || category === "PROJEKT")) {
+                const project = projects.find(p => p.id === selectedProjectId)
+                if (project) {
+                    const shortRate = project.retentionShortTermRate ?? 0
+                    const longRate = project.retentionLongTermRate ?? 0
+                    const totalRate = shortRate + longRate
+                    
+                    const gross = net + parseFloat(vat)
+                    const baseAmount = project.retentionBase === 'GROSS' ? gross : net
+                    const calculatedRetention = (baseAmount * totalRate).toFixed(2)
+                    setRetainedAmount(calculatedRetention)
+                }
+            }
+        } else {
+            setAmountVat("")
+            setRetainedAmount("")
+        }
+    }, [amountNet, taxRate, selectedProjectId, category, projects])
 
     // --- LOGIKA OCR AUTO-FILL ---
     useEffect(() => {

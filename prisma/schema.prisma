@@ -160,10 +160,16 @@ model Project {
   
   retentionShortTermRate Decimal @default(0) @db.Decimal(5, 4)
   retentionLongTermRate  Decimal @default(0) @db.Decimal(5, 4)
+  retentionBase          RetentionBase @default(GROSS)
 
   assets          Asset[]
   @@index([tenantId])
   @@index([tenantId, status])
+}
+
+enum RetentionBase {
+  NET
+  GROSS
 }
 
 model ProjectStage {

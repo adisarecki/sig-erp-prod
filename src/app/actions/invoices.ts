@@ -285,9 +285,9 @@ export async function addIncomeInvoice(formData: FormData) {
         }
 
         const tenantId = await getCurrentTenantId()
-        const amountNet = new Decimal(amountNetStr)
+        const amountNet = new Decimal(amountNetStr).abs()
         const taxRate = new Decimal(taxRateStr)
-        const amountGross = new Decimal(amountGrossStr)
+        const amountGross = new Decimal(amountGrossStr).abs()
 
         const issueDate = new Date(dateStr)
         const dueDate = new Date(dueDateStr)
@@ -297,7 +297,7 @@ export async function addIncomeInvoice(formData: FormData) {
         // retention
         const retainedAmountStr = formData.get("retainedAmount") as string
         const retentionReleaseDateStr = formData.get("retentionReleaseDate") as string
-        const retainedAmount = retainedAmountStr ? new Decimal(retainedAmountStr) : null
+        const retainedAmount = retainedAmountStr ? new Decimal(retainedAmountStr).abs() : null
         const retentionReleaseDate = retentionReleaseDateStr ? new Date(retentionReleaseDateStr) : null
 
         // --- TARCZA ANTY-DUBEL (Anti-Double Shield) Vector 098.3 ---
@@ -422,7 +422,7 @@ export async function addIncomeInvoice(formData: FormData) {
             let transactionId: string | undefined;
             if (isPaidImmediately) {
                 transactionId = randomUUID();
-                const classificationValue = (projectIdRaw === "INTERNAL") ? "INTERNAL_COST" : (finalProjectId ? "PROJECT_COST" : "GENERAL_COST");
+                const classificationValue = (projectIdRaw === "INTERNAL") ? "INTERNAL_REVENUE" : (finalProjectId ? "PROJECT_REVENUE" : "GENERAL_REVENUE");
                 
                 const prismaTrans = await tx.transaction.create({
                     data: {
@@ -573,16 +573,16 @@ export async function addCostInvoice(formData: FormData) {
         }
 
         const tenantId = await getCurrentTenantId()
-        const amountNet = new Decimal(amountNetStr)
+        const amountNet = new Decimal(amountNetStr).abs()
         const taxRate = new Decimal(taxRateStr)
-        const amountGross = new Decimal(amountGrossStr)
+        const amountGross = new Decimal(amountGrossStr).abs()
         const issueDate = new Date(dateStr)
         const dueDate = new Date(dueDateStr)
         const isPaidImmediately = (formData.get("isPaidImmediately") === "true") || (dateStr === dueDateStr)
-
+        
         const retainedAmountStr = formData.get("retainedAmount") as string
         const retentionReleaseDateStr = formData.get("retentionReleaseDate") as string
-        const retainedAmount = retainedAmountStr ? new Decimal(retainedAmountStr) : null
+        const retainedAmount = retainedAmountStr ? new Decimal(retainedAmountStr).abs() : null
         const retentionReleaseDate = retentionReleaseDateStr ? new Date(retentionReleaseDateStr) : null
 
         // --- TARCZA ANTY-DUBEL (Vector 098.3) ---

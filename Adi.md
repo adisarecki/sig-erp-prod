@@ -131,6 +131,49 @@ Sig ERP jest teraz w pełni operacyjny na Twoim telefonie. Wdrożyliśmy **Harde
 
 ---
 
+## 🔐 9. VECTOR 117: Automatyczne Kaucje i Monitoring Płynności
+
+Nowy moduł inteligentnie obsługuje kaucje gwarancyjne:
+
+### Jak to działa
+Każdy projekt ma **Podstawę naliczania kaucji**:
+- **BRUTTO** (domyślnie): Formuła `Oczekiwana = Brutto × (1 - Stopa kaucji)`
+- **NETTO**: Formuła `Oczekiwana = Brutto - (Netto × Stopa kaucji)`
+
+### Praktyczny przykład
+```
+Projekt: Budowa Biurowca
+Kaucja krótkoterminowa: 10%
+Podstawa: BRUTTO
+
+Faktura sprzedaży:
+- Netto: 10,000 PLN
+- VAT (23%): 2,300 PLN
+- Brutto: 12,300 PLN
+
+Oczekiwana wpłata: 12,300 × 0,9 = 11,070 PLN
+Kaucja do Skarbca: 1,230 PLN
+```
+
+### Safe-to-Spend w praktyce
+```
+Saldo bankowe: 50,000 PLN
+- Zadłużenie VAT: -5,000 PLN
+- Kaucje zamrożone: -10,000 PLN
+= Safe-to-Spend: 35,000 PLN
+```
+
+**Widzisz dokładnie, ile pieniędzy możesz bezpiecznie wydać.**
+
+### Automatyczne ostrzeżenia
+System ostrzega Cię gdy:
+- ⚠️ Klient nie zapłacił pełnej kwoty
+- ⚠️ Zadłużenie VAT jest zbyt wysokie
+- ⚠️ Zbyt dużo pieniędzy zamrożonych w kaucjach
+- 🚨 Brakuje Ci gotówki (negative safe-to-spend)
+
+---
+
 *Dla techników: Szczegółowe zasady budowy znajdują się w [AI_look.md](./docs/AI_look.md).*
 
 **Sig ERP – Twoja firma pod pełną kontrolą.**

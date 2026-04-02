@@ -232,7 +232,14 @@ export async function getSuggestedReconciliations() {
         }),
         prisma.invoice.findMany({
             where: { tenantId, status: { in: ["ACTIVE", "PARTIALLY_PAID"] } },
-            include: { contractor: true }
+            select: {
+                id: true,
+                externalId: true,
+                amountGross: true,
+                amountNet: true,
+                retainedAmount: true,
+                contractor: { select: { name: true } }
+            }
         })
     ])
 
@@ -278,7 +285,14 @@ export async function analyzeImportMatches(transactions: any[]) {
         prisma.contractor.findMany({ where: { tenantId } }),
         prisma.invoice.findMany({
             where: { tenantId, status: { in: ["ACTIVE", "PARTIALLY_PAID"] } },
-            include: { contractor: true }
+            select: {
+                id: true,
+                externalId: true,
+                amountGross: true,
+                amountNet: true,
+                retainedAmount: true,
+                contractor: { select: { id: true, name: true } }
+            }
         })
     ])
 

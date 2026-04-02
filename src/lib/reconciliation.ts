@@ -73,24 +73,59 @@ export interface MatchSuggestion {
  */
 export class ReconciliationEngine {
     /**
+     * Calculates the expected payment amount for an invoice, 
+     * considering its retention and the project's retention base.
+     * Vector 117 Hardened Math.
+     */
+    static calculateExpectedAmount(invoice: { 
+        amountGross: number | Decimal, 
+        amountNet: number | Decimal,
+        retainedAmount?: number | Decimal | null,
+    }): Decimal {
+        const gross = new Decimal(invoice.amountGross.toString());
+        const retention = new Decimal(invoice.retainedAmount?.toString() || "0");
+        return gross.minus(retention);
+    }
+
+    /**
      * Finds potential matches for a bank transaction.
      */
     static suggestMatches(
         transaction: { description: string; amount: Decimal },
-        unpaidInvoices: { id: string; externalId?: string | null; contractor: { name: string }; amountGross: Decimal }[]
+        unpaidInvoices: { 
+            id: string; 
+            externalId?: string | null; 
+            contractor: { name: string }; 
+            amountGross: number | Decimal;
+            amountNet: number | Decimal;
+            retainedAmount?: number | Decimal | null;
+        }[]
     ): MatchSuggestion[] {
         const suggestions: MatchSuggestion[] = [];
         const transNorm = normalizeText(transaction.description);
+        const transAmountAbs = transaction.amount.abs();
 
         for (const inv of unpaidInvoices) {
             let confidence = 0;
             let reason = "";
 
+            const expectedAmount = this.calculateExpectedAmount({
+                amountGross: inv.amountGross,
+                amountNet: inv.amountNet,
+                retainedAmount: inv.retainedAmount
+            });
+
             // 1. Exact amount match (High priority)
-            const amountMatch = transaction.amount.equals(inv.amountGross);
-            if (amountMatch) {
+            // Check both Gross and Expected (Net of retention)
+            const isGrossMatch = transAmountAbs.equals(new Decimal(inv.amountGross.toString()));
+            const isExpectedMatch = transAmountAbs.equals(expectedAmount);
+
+            if (isExpectedMatch) {
+                confidence += 0.5;
+                reason += "Kwota zgodna z oczekiwaną (po kaucji). ";
+            } else if (isGrossMatch) {
                 confidence += 0.4;
-                reason += "Kwota zgodna. ";
+                reason += "Kwota zgodna z Brutto. ";
             }
 
             // 2. Invoice number in description (Very high priority)
@@ -114,7 +149,7 @@ export class ReconciliationEngine {
                     invoiceId: inv.id,
                     invoiceNumber: inv.externalId || undefined,
                     contractorName: inv.contractor.name,
-                    amount: inv.amountGross,
+                    amount: expectedAmount, // Return expected amount as the primary target
                     confidence: Math.min(confidence, 1),
                     reason: reason.trim()
                 });

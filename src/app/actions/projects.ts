@@ -31,6 +31,7 @@ export async function getProjects() {
                 ...data,
                 retentionShortTermRate: Number(data.retentionShortTermRate ?? 0),
                 retentionLongTermRate: Number(data.retentionLongTermRate ?? 0),
+                retentionBase: data.retentionBase ?? "GROSS",
             };
         })
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -56,6 +57,7 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
         const retLong = Number(retLongRaw) / 100
         const warrantyPeriodYears = parseInt(warrantyRaw)
         const estimatedCompletionDate = estCompletionRaw ? new Date(estCompletionRaw) : null
+        const retentionBase = (formData.get("retentionBase") as string) || "GROSS"
 
         if (!name || !contractorId) {
             return { success: false, error: "Wymagane pola to: Nazwa Projektu oraz Kontrahent." }
@@ -120,6 +122,7 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
                 retentionLongTermRate: retLong,
                 estimatedCompletionDate: estimatedCompletionDate,
                 warrantyPeriodYears: warrantyPeriodYears,
+                retentionBase: retentionBase as any,
             }
         })
 
@@ -134,6 +137,7 @@ export async function addProject(formData: FormData): Promise<{ success: boolean
             retentionLongTermRate: retLong,
             estimatedCompletionDate: estimatedCompletionDate ? estimatedCompletionDate.toISOString() : null,
             warrantyPeriodYears: warrantyPeriodYears,
+            retentionBase: retentionBase,
             status: "PLANNED",
             lifecycleStatus: "ACTIVE",
             type: "NOWY",
@@ -299,6 +303,7 @@ export async function updateProject(
         retentionLongTermRate?: string,
         estimatedCompletionDate?: string,
         warrantyPeriodYears?: string,
+        retentionBase?: string,
         mode?: 'FUTURE' | 'RETROACTIVE'
     }
 ): Promise<{ success: boolean, error?: string }> {
@@ -317,6 +322,7 @@ export async function updateProject(
             const budget = Number(data.budgetEstimated)
             const warrantyPeriodYears = parseInt(warrantyRaw)
             const estimatedCompletionDate = estCompletionRaw ? new Date(estCompletionRaw) : null
+            const retentionBase = data.retentionBase || "GROSS"
 
             // 1. Master Write (POSTGRES)
             await assertAuthorityWrite('PROJECT', 'UPDATE', 'POSTGRES', id);
@@ -330,6 +336,7 @@ export async function updateProject(
                     retentionLongTermRate: retLong,
                     estimatedCompletionDate: estimatedCompletionDate,
                     warrantyPeriodYears: warrantyPeriodYears,
+                    retentionBase: retentionBase as any,
                 }
             })
 
@@ -341,6 +348,7 @@ export async function updateProject(
                 retentionLongTermRate: retLong,
                 estimatedCompletionDate: estimatedCompletionDate ? estimatedCompletionDate.toISOString() : null,
                 warrantyPeriodYears: warrantyPeriodYears,
+                retentionBase: retentionBase,
                 updatedAt: new Date().toISOString()
             };
             
@@ -359,7 +367,7 @@ export async function updateProject(
 
             // VECTOR 102.2: Retroactive Recalculation Path
             if (data.mode === 'RETROACTIVE') {
-                await recalculateProjectInvoicesRetention(id, retShort, retLong)
+                await recalculateProjectInvoicesRetention(id, retShort, retLong, retentionBase)
             }
 
             revalidatePath("/projects")
@@ -376,10 +384,10 @@ export async function updateProject(
 }
 
 /**
- * VECTOR 102.2: RETENTION FORK (ROZWIDLENIE KAUCJI)
- * Recalculates all invoices for the project with new rates.
+ * VECTOR 102.2/117: RETENTION FORK (ROZWIDLENIE KAUCJI)
+ * Recalculates all invoices for the project with new rates and base.
  */
-async function recalculateProjectInvoicesRetention(projectId: string, shortRate: number, longRate: number) {
+async function recalculateProjectInvoicesRetention(projectId: string, shortRate: number, longRate: number, retentionBase: string = "GROSS") {
     const tenantId = await getCurrentTenantId();
     const adminDb = getAdminDb();
     
@@ -396,8 +404,12 @@ async function recalculateProjectInvoicesRetention(projectId: string, shortRate:
 
     for (const inv of invoices) {
         const amountNet = Number(inv.amountNet);
+        const amountGross = Number(inv.amountGross);
         const totalRate = shortRate + longRate;
-        const newRetAmount = new Decimal(amountNet).mul(totalRate).toNumber();
+        
+        // Dynamic Retention Base Math (Vector 117)
+        const baseAmount = retentionBase === "NET" ? amountNet : amountGross;
+        const newRetAmount = new Decimal(baseAmount).mul(totalRate).toNumber();
 
         // 2. Update Invoice in Prisma
         await (prisma as any).invoice.update({

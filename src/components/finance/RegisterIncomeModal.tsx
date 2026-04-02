@@ -26,6 +26,9 @@ interface Project {
     name: string
     contractorId?: string
     status?: string
+    retentionShortTermRate?: number
+    retentionLongTermRate?: number
+    retentionBase?: 'NET' | 'GROSS'
 }
 
 interface Contractor {
@@ -91,10 +94,26 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
             const rate = parseFloat(taxRate)
             const vat = (net * rate).toFixed(2)
             setAmountVat(vat)
+
+            // Vector 117: Auto-Retention Calculation
+            if (category === "INWESTYCJA" && selectedProjectId !== "GENERAL") {
+                const project = projects.find(p => p.id === selectedProjectId)
+                if (project) {
+                    const shortRate = project.retentionShortTermRate ?? 0
+                    const longRate = project.retentionLongTermRate ?? 0
+                    const totalRate = shortRate + longRate
+                    
+                    const gross = net + parseFloat(vat)
+                    const baseAmount = project.retentionBase === 'GROSS' ? gross : net
+                    const calculatedRetention = (baseAmount * totalRate).toFixed(2)
+                    setRetainedAmount(calculatedRetention)
+                }
+            }
         } else {
             setAmountVat("")
+            setRetainedAmount("")
         }
-    }, [amountNet, taxRate])
+    }, [amountNet, taxRate, category, selectedProjectId, projects])
 
     const amountGross = (parseFloat(amountNet || "0") + parseFloat(amountVat || "0")).toFixed(2)
 

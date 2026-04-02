@@ -4,6 +4,31 @@ Witaj w **Sig ERP** – Twoim cyfrowym biurze, które pilnuje pieniędzy, termin
 
 ---
 
+## 🏗️ 0. NOWE: Inteligentne Kaucje (VECTOR 117) 🆕
+
+System teraz automatycznie oblicza oczekiwaną kwotę płatności na podstawie ustawień projektu w momencie dopasowania wyciągu bankowego do faktury.
+
+### Jak to działa:
+Każdy projekt ma **Podstawę naliczania kaucji** (Netto / Brutto):
+
+**Podstawa BRUTTO** (częstsza):
+- Formuła: `Oczekiwana = Brutto × (1 - Stopa kaucji)`
+- Przykład: Faktura 12,300 PLN, 10% kaucji → oczekiwane 11,070 PLN
+
+**Podstawa NETTO**:
+- Formuła: `Oczekiwana = Brutto - (Netto × Stopa kaucji)`
+- Przykład: Faktura 12,300 PLN (10k netto), 10% kaucji → oczekiwane 11,300 PLN
+
+Gdy bank wpłaci dokładnie oczekiwaną kwotę, kaucja trafia prosto do **Skarbca (Vault)** – zamrożonych pieniędzy nieprzyznaczy realnym wydatkom.
+
+### Monitoring płynności:
+System ostrzega Cię gdy:
+- ⚠️ Klient nie zapłacił całej kwoty (underpayment)
+- ⚠️ Zadłużenie VAT przekroczy 50% gotówki
+- 🚨 Bezpieczeństwo kapitału poniżej zera
+
+---
+
 ## 🏗️ 1. Twoje Główne Narzędzia (Gdzie oszczędzasz czas?)
 
 ### 💰 Inteligentna Bankowość

@@ -161,11 +161,89 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
 | **111** | Drill-Down | Financial Transparency - Drill-Down (Vector 111). |
 | **114** | Date Engine | Authoritative Warsaw-based date validation (Vector 114). |
 | **116** | Contractor Intelligence | HARDENED Identity Resolution Layer (NIP Checksum & Conflict Protocol). |
-| **117** | Mobile Responsive Shell | HARDENED Mobile Drawer, Top App Bar & Full-Screen Modal Strategy. |
+| **117** | Retention Engine & Liquidity Alerts | Dynamic retention-aware payment matching + VAT/Retention monitoring (Vector 117). |
 
 ---
 
-## 📱 8. Responsive System & Layout Primitives (Vector 117)
+## � 7. Vector 117: Retention-Aware Payment Engine & Liquidity Monitoring
+
+### Architecture
+The system now implements intelligent retention calculations at the moment of bank payment matching. Unlike manual entry, bank reconciliation is PROJECT-AWARE and dynamically calculates expected payment amounts based on the invoice project's retention settings.
+
+### Dynamic Expected Payment Logic
+When a bank payment is matched to an invoice, the system calculates `expectedAmount`:
+
+**If Project.retentionBase == NET**:
+```
+Formula: Expected = Brutto - (Net × Rate)
+Example: Invoice Net 10,000 PLN, VAT 2,300 (23%), Rate 10%
+Result: 12,300 - (10,000 × 0.10) = 11,300 PLN expected
+```
+
+**If Project.retentionBase == GROSS**:
+```
+Formula: Expected = Brutto × (1 - Rate)
+Example: Same invoice, Rate 10%
+Result: 12,300 × (1 - 0.10) = 11,070 PLN expected
+```
+
+### Automatic Settlement
+When actual payment matches expected amount (within ±1 cent tolerance):
+1. Invoice status → `PAID`
+2. Create `RETENTION_LOCK` ledger entry (vaults retention in The Vault)
+3. Create `Retention` record for tracking/release
+4. Trigger post-match liquidity checks
+
+### Ledger Entries for Retention
+```
+Type: INCOME
+Amount: +10,000 PLN (Net)
+
+Type: VAT_SHIELD
+Amount: -2,300 PLN (VAT Debt for sales)
+
+Type: RETENTION_LOCK
+Amount: +1,230 PLN (Vaulted when payment received)
+```
+
+### Liquidity Alert System (Files: `liquidity-alerts.ts`)
+Automated monitoring triggers:
+- **⚠️ Retention Underpayment**: When received < expected (> 100 PLN or > 5%)
+- **⚠️ High VAT Debt**: When VAT liab > 50% of cash balance
+- **ℹ️ Retention Vault**: When locked > 30% of cash balance
+- **🚨 CRITICAL**: When safe-to-spend < 0
+
+### Safe-to-Spend Formula (Vector 117 Edition)
+```
+SafeToSpend = RealCashBalance - VAT_Debt - Retention_Vault
+
+Where:
+- RealCashBalance = SUM(BANK_PAYMENT entries) - SUM(SHADOW_COST) in Ledger
+- VAT_Debt = ABS(negative VAT_SHIELD entries)
+- Retention_Vault = SUM(RETENTION_LOCK entries)
+```
+
+### Implementation Files
+- **Engine**: `src/lib/bank/reconciliation-engine.ts` (automatic matching)
+- **Alerts**: `src/lib/finance/liquidity-alerts.ts` (monitoring)
+- **Service**: `src/lib/finance/ledger-service.ts` (Safe-to-Spend calculation)
+- **Purge Script**: `scripts/vector-117-purge.ts` (test data cleanup)
+- **Test Script**: `scripts/vector-117-test.ts` (verification)
+
+### Test Case
+**Scenario**: 10,000 PLN Net invoice with 10% retention (GROSS base)
+
+**Expected Results**:
+- ✓ Invoice Margin: +10,000 PLN (Net)
+- ✓ Vault (Skarbiec): +1,230 PLN (locked)
+- ✓ Expected Payment: 11,070 PLN
+- ✓ Safe-to-Spend (approx): 9,840 PLN (after retention deduction)
+
+**Verification**: Run `npx ts-node scripts/vector-117-test.ts`
+
+---
+
+## 📱 8. Responsive System & Layout Primitives
 
 ### Core Strategy:
 - **Responsive Shell**: Split layout logic in `layout.tsx`. Persistent Sidebar (Desktop) vs `MobileNav` (Sheet-based Drawer).

@@ -38,6 +38,7 @@ interface ProjectData {
     transactions: { type: string; amount: number | string; transactionDate: string | Date }[];
     retentionShortTermRate?: number;
     retentionLongTermRate?: number;
+    retentionBase?: 'NET' | 'GROSS';
     estimatedCompletionDate?: string | Date;
     warrantyPeriodYears?: number;
 }
@@ -180,7 +181,16 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                     const shortRate = project.retentionShortTermRate ?? 0;
                     const longRate = project.retentionLongTermRate ?? 0;
                     const totalRate = shortRate + longRate;
-                    const retentionAmount = budgetVal * totalRate;
+                    
+                    // Vector 117: Dynamic Base Logic
+                    // Note: budgetEstimated is assumed to be NET by default in construction contexts, 
+                    // but if the base is GROSS, we need to consider if budgetVal is Gross.
+                    // For the global summary, we use the project's base as the rule.
+                    const budgetNet = budgetVal;
+                    const budgetGross = budgetVal * 1.23; // Assumption for summary if not specified
+                    const baseAmount = project.retentionBase === 'GROSS' ? budgetGross : budgetNet;
+                    
+                    const retentionAmount = baseAmount * totalRate;
                     return sum + retentionAmount;
                 }, 0);
 
@@ -217,8 +227,8 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                                 <span className="font-semibold text-slate-200">{p.name}</span>
                                             </div>
                                             <div className="flex gap-2 mt-0.5 text-slate-300">
-                                                <span>💚 {formatPln(pRealRevenue)}</span>
-                                                <span>🔒 {formatPln(pRetention)}</span>
+                                                <span>💚 {formatPln(pBudget - (p.retentionBase === 'GROSS' ? pBudget * 1.23 : pBudget) * pTotalRate)}</span>
+                                                <span>🔒 {formatPln((p.retentionBase === 'GROSS' ? pBudget * 1.23 : pBudget) * pTotalRate)}</span>
                                             </div>
                                         </div>
                                     );
