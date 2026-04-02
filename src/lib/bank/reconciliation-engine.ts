@@ -306,8 +306,8 @@ export class ReconciliationEngine {
             return {
                 invoiceId: invoice.id,
                 tenantId: invoice.tenantId,
-                projectId: invoice.projectId,
-                invoiceNumber: invoice.invoiceNumber || "unknown",
+                projectId: invoice.projectId || undefined,
+                invoiceNumber: invoice.invoiceNumber || undefined,
                 expectedAmount,
                 paidAmount,
                 retentionBase: invoice.project?.retentionBase || 'GROSS'
@@ -324,7 +324,7 @@ export class ReconciliationEngine {
                 expectedAmount: result.expectedAmount,
                 receivedAmount: result.paidAmount,
                 retentionBase: result.retentionBase,
-                invoiceNumber: result.invoiceNumber
+                invoiceNumber: result.invoiceNumber || "STN"
             }).catch(err => console.error("[LIQUIDITY_CHECK] Error:", err));
         }
 

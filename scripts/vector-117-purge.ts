@@ -53,11 +53,15 @@ async function main() {
       });
       const invoiceIds = invoices.map((i) => i.id);
 
+      let invoicePaymentDelCount = 0;
+      let ksefInvoiceDelCount = 0;
+
       if (invoiceIds.length > 0) {
         const invoicePaymentsDel = await tx.invoicePayment.deleteMany({
           where: { invoiceId: { in: invoiceIds } }
         });
-        console.log(`🗑️  Deleted ${invoicePaymentsDel.count} InvoicePayments`);
+        invoicePaymentDelCount = invoicePaymentsDel.count;
+        console.log(`🗑️  Deleted ${invoicePaymentDelCount} InvoicePayments`);
 
         // 3. Delete KsefInvoices linked to these invoices
         const ksefIds = invoices
@@ -68,7 +72,8 @@ async function main() {
           const ksefDel = await tx.ksefInvoice.deleteMany({
             where: { ksefNumber: { in: ksefIds } }
           });
-          console.log(`🗑️  Deleted ${ksefDel.count} KsefInvoices`);
+          ksefInvoiceDelCount = ksefDel.count;
+          console.log(`🗑️  Deleted ${ksefInvoiceDelCount} KsefInvoices`);
         }
       }
 
@@ -110,8 +115,8 @@ async function main() {
 
       return {
         ledgerEntries: ledgerDel.count,
-        invoicePayments: invoicePaymentsDel?.count || 0,
-        ksefInvoices: ksefIds?.length || 0,
+        invoicePayments: invoicePaymentDelCount,
+        ksefInvoices: ksefInvoiceDelCount,
         invoices: invoiceDel.count,
         transactions: transactionDel.count,
         retentions: retentionDel.count,
