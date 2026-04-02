@@ -241,6 +241,27 @@ Where:
 
 **Verification**: Run `npx ts-node scripts/vector-117-test.ts`
 
+### Sync Drift Diagnostic & Repair Engine (Dual-DB Consistency)
+**Problem**: During development/testing, Firestore and PostgreSQL can drift (orphaned documents in FS, missing records in PG).
+
+**Solution**: 
+- **API Endpoint**: `GET/DELETE /api/maintenance/sync-drift?tenantId=<TENANT_ID>`
+  - `GET`: Returns detailed comparison of invoices in both systems
+    - Shows which invoices exist in Firestore but not PostgreSQL (orphaned)
+    - Shows which invoices exist in PostgreSQL but not Firestore (PG-only)
+    - Detailed sync status with amounts and creation dates
+  - `DELETE`: Removes orphaned invoices from Firestore (for test data cleanup)
+
+- **Diagnostic Script**: `npx tsc scripts/diagnose-sync-drift.ts --outDir ./.ts-build --skipLibCheck --esModuleInterop && node .ts-build/diagnose-sync-drift.js`
+  - Shows PostgreSQL invoice counts by tenant
+  - Useful for understanding current state before API calls
+
+**Architecture**:
+- Queries both Firestore (operational primary) and PostgreSQL (financial master)
+- Identifies orphaned documents in either system
+- Provides repair options: delete from FS or sync to PG
+- Essential for maintaining data integrity between dual databases
+
 ---
 
 ## 📱 8. Responsive System & Layout Primitives
