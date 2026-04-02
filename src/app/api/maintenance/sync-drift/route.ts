@@ -20,7 +20,14 @@ export async function GET(request: NextRequest) {
         
         if (!tenantId) {
             // Try to get from authenticated session
-            tenantId = await getCurrentTenantId()
+            try {
+                tenantId = await getCurrentTenantId()
+            } catch (e) {
+                return NextResponse.json({
+                    success: false,
+                    error: "Missing tenantId. Use ?tenantId=your-tenant-id or authenticate"
+                }, { status: 400 })
+            }
         }
 
         const adminDb = getAdminDb()
