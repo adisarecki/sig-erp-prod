@@ -44,9 +44,9 @@ export async function GET(request: NextRequest) {
             where: { tenantId },
             select: {
                 id: true,
-                number: true,
-                NetAmount: true,
-                GrossAmount: true,
+                invoiceNumber: true,
+                amountNet: true,
+                amountGross: true,
                 createdAt: true
             }
         })
@@ -76,9 +76,9 @@ export async function GET(request: NextRequest) {
                 total: fsInvoices.length,
                 details: fsInvoices.map((inv: any) => ({
                     id: inv.id,
-                    number: inv.number,
-                    netAmount: inv.NetAmount,
-                    grossAmount: inv.GrossAmount,
+                    invoiceNumber: inv.invoiceNumber,
+                    amountNet: inv.amountNet,
+                    amountGross: inv.amountGross,
                     createdAt: inv.createdAt,
                     status: pgIds.has(inv.id) ? "✅ synced" : "❌ ORPHANED"
                 }))
@@ -87,9 +87,9 @@ export async function GET(request: NextRequest) {
                 total: pgInvoices.length,
                 details: pgInvoices.map((inv) => ({
                     id: inv.id,
-                    number: inv.number,
-                    netAmount: inv.NetAmount,
-                    grossAmount: inv.GrossAmount,
+                    invoiceNumber: inv.invoiceNumber,
+                    amountNet: inv.amountNet,
+                    amountGross: inv.amountGross,
                     createdAt: inv.createdAt,
                     status: fsIds.has(inv.id) ? "✅ synced" : "⚠️ PG-only"
                 }))
@@ -97,16 +97,16 @@ export async function GET(request: NextRequest) {
             orphaned: {
                 inFirestore: orphanedInFs.map((inv: any) => ({
                     id: inv.id,
-                    number: inv.number,
-                    netAmount: inv.NetAmount,
-                    grossAmount: inv.GrossAmount,
+                    invoiceNumber: inv.invoiceNumber,
+                    amountNet: inv.amountNet,
+                    amountGross: inv.amountGross,
                     createdAt: inv.createdAt
                 })),
                 inPostgres: orphanedInPg.map((inv) => ({
                     id: inv.id,
-                    number: inv.number,
-                    netAmount: inv.NetAmount,
-                    grossAmount: inv.GrossAmount,
+                    invoiceNumber: inv.invoiceNumber,
+                    amountNet: inv.amountNet,
+                    amountGross: inv.amountGross,
                     createdAt: inv.createdAt
                 }))
             }
