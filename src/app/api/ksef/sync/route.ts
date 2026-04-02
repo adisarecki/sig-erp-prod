@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentTenantId } from '@/lib/tenant';
 import prisma from '@/lib/prisma';
 import { KSeFService, KSeFInvoiceHeader } from '@/lib/ksef/ksefService';
+import { validateRange } from '@/lib/ksef/ksefDateUtils';
 
 /**
  * GET /api/ksef/sync
@@ -14,6 +15,24 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const from = searchParams.get('from') || undefined;
         const to = searchParams.get('to') || undefined;
+
+        // VECTOR 111.1: Authoritative Date Validation & Structured Logging
+        if (from && to) {
+            const range = validateRange(from, to);
+            
+            console.log(`[KSeF_API_LOG]
+  raw_input_range: ${from} - ${to}
+  normalized_warsaw_range: ${range.fromNormalized} - ${range.toNormalized}
+  subject_type: Subject2 (Inbox Sync)
+  calculation_result: ${range.days} days / ${range.isValid ? 'ACCEPTED' : 'REJECTED'}`);
+            
+            if (!range.isValid) {
+                return NextResponse.json({
+                    success: false,
+                    error: "⚠️ KSeF Limit: Zakres dat nie może przekraczać 90 dni. Skróć okres wyszukiwania."
+                }, { status: 400 });
+            }
+        }
 
         const ksefService = new KSeFService();
         const tenantId = await getCurrentTenantId();

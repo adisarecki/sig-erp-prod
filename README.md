@@ -52,6 +52,7 @@ Nowy standard "Prawdy Finansowej" w Sig ERP:
 
 ### 🧾 Integracja KSeF (Bramka KSeF Inbox)
 - **Bramka (Gatekeeper)**: System nie importuje faktur "w ciemno". Po kliknięciu pobierania, otwiera się **Inbox KSeF**, gdzie przeglądasz wykryte dokumenty.
+- **Inteligentne Zakresy (Hardened Date Engine - Vector 111.1)**: System sam pilnuje limitów MF. Możesz pobierać dane z zakresu do 90 dni, a silnik automatycznie koryguje przesunięcia czasu (letni/zimowy) i strefy czasowe, gwarantując 100% spójności z polskim kalendarzem.
 - **Pełna Kontrola**: Sam decydujesz, które faktury mają stać się kosztem firmy. Zaznaczasz wybrane, a system resztę zrobi za Ciebie (pobierze XML, uzupełni dane kontrahenta i przeliczy budżet).
 - **Czysta Baza**: Niechciane dokumenty możesz odrzucić jednym kliknięciem, aby nie zaśmiecały Twojego widoku w przyszłości.
 

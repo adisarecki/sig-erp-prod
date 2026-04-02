@@ -1,6 +1,7 @@
 import { XMLParser } from 'fast-xml-parser';
 import Decimal from 'decimal.js';
 import crypto from 'crypto';
+import { formatForKsef } from './ksefDateUtils';
 
 // Base URL: https://api.ksef.mf.gov.pl/api
 const KSEF_BASE_URL = (process.env.KSEF_BASE_URL || 'https://api.ksef.mf.gov.pl/api').replace(/\/$/, '');
@@ -381,22 +382,13 @@ export class KSeFService {
         };
         const mappedDateType = dateTypeMap[options?.dateType || ''] || 'Issue';
 
-        // Helper to format date with +02:00 (Polish Summer Time)
-        const formatKSeFDate = (isoStr: string, isEnd: boolean) => {
-            const d = new Date(isoStr);
-            const pad = (n: number) => n.toString().padStart(2, '0');
-            const datePart = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-            const timePart = isEnd ? "23:59:59" : "00:00:00";
-            return `${datePart}T${timePart}+02:00`;
-        };
-
         // KSeF Query Metadata Body (NO paging, NO invoiceType)
         const bodyPayload = {
             subjectType: mappedSubject,
             dateRange: {
                 dateType: mappedDateType,
-                from: formatKSeFDate(from, false),
-                to: formatKSeFDate(to, true)
+                from: formatForKsef(from, false),
+                to: formatForKsef(to, true)
             }
         };
 

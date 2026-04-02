@@ -124,6 +124,12 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
     - **Atomic Transactions**: Wykorzystanie `prisma.$transaction` dla każdego zdarzenia biznesowego, aby objąć zapis encji Master oraz wpis do Ledgera w jedną niepodzielną operację.
     - **Integrity Monitor**: Regularna weryfikacja dryfu (FS vs PG) za pomocą `IntegrityMonitor`.
 - **Regex Entity Engine**: Wyciąganie NIP/IBAN z opisów bankowych z lookaheadami.
+- **Vector 111.1 (Hardened Date Engine)**:
+    - **Philosophy**: Logika dat KSeF jest "authoritative" i scentralizowana.
+    - **SSoT**: Moduł `ksefDateUtils.ts` jest jedynym źródłem prawdy dla obliczeń kalendarzowych.
+    - **Normalization**: Wszystkie daty są normalizowane do `Europe/Warsaw` (`YYYY-MM-DD`) przed walidacją, co eliminuje błędy DST i drift UTC.
+    - **Server-Side Authority**: Backend (/api/ksef/*) samodzielnie wymusza limit 90 dni, niezależnie od stanu UI.
+    - **Logging**: Każda operacja KSeF loguje `raw_input`, `normalized_range` i `calculation_result` dla celów audytowych.
 
 ---
 
@@ -144,6 +150,7 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
 | **107.A** | Asset Module | 1-click KSeF to Asset conversion and Dual-Sync Registry. |
 | **116** | Data Authority | Vector 109: Final lock of write direction and domain ownership. |
 | **110** | Stability-First | PG-First logic enforcement & Atomic Transactions (Vector 110). |
+| **111.1** | Hardened Date Engine | Authoritative Warsaw-based date validation (Vector 111.1). |
 
 ---
 *Plik utrzymywany przez Antigravity dla kolejnych sesji AI.*

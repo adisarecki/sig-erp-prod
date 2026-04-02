@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { KSeFService } from '@/lib/ksef/ksefService';
 import { KsefSessionManager } from '@/lib/ksef/ksefSessionManager';
+import { validateRange } from '@/lib/ksef/ksefDateUtils';
 import Decimal from 'decimal.js';
 import prisma from "@/lib/prisma";
 import { getCurrentTenantId } from "@/lib/tenant";
@@ -16,6 +17,23 @@ export async function GET(request: NextRequest) {
         // ... (existing filters)
         const dateFrom = searchParams.get('dateFrom') || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const dateTo = searchParams.get('dateTo') || new Date().toISOString();
+
+        // VECTOR 111.1: Authoritative Date Validation & Structured Logging
+        const range = validateRange(dateFrom, dateTo);
+        
+        console.log(`[KSeF_API_LOG]
+  raw_input_range: ${dateFrom} - ${dateTo}
+  normalized_warsaw_range: ${range.fromNormalized} - ${range.toNormalized}
+  subject_type: Subject1 & Subject2
+  calculation_result: ${range.days} days / ${range.isValid ? 'ACCEPTED' : 'REJECTED'}`);
+        
+        if (!range.isValid) {
+            return NextResponse.json({
+                success: false,
+                error: "⚠️ KSeF Limit: Zakres dat nie może przekraczać 90 dni. Skróć okres wyszukiwania."
+            }, { status: 400 });
+        }
+
         const page = parseInt(searchParams.get('page') || '1');
         const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '50'), 50);
 
@@ -27,7 +45,7 @@ export async function GET(request: NextRequest) {
 
         const [salesResponse, expensesResponse] = await Promise.all([
             ksefSvc.fetchInvoiceMetadata({ accessToken, dateFrom, dateTo, pageSize, subjectType: 'subject1' }).then(res => res.map((item: any) => ({ ...item, _apiDirection: 'REVENUE' }))).catch(() => []),
-            ksefSvc.fetchInvoiceMetadata({ accessToken, dateFrom: "2026-01-01T00:00:00.000Z", dateTo, pageSize, subjectType: 'subject2' }).then(res => res.map((item: any) => ({ ...item, _apiDirection: 'EXPENSE' }))).catch(() => [])
+            ksefSvc.fetchInvoiceMetadata({ accessToken, dateFrom, dateTo, pageSize, subjectType: 'subject2' }).then(res => res.map((item: any) => ({ ...item, _apiDirection: 'EXPENSE' }))).catch(() => [])
         ]);
         
         const combinedList = [...salesResponse, ...expensesResponse];

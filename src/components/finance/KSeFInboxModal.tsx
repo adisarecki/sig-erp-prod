@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 import { toast } from "sonner"
+import { validateRange } from "@/lib/ksef/ksefDateUtils"
 
 interface KSeFInboxModalProps {
     isOpen: boolean
@@ -62,7 +63,18 @@ export function KSeFInboxModal({ isOpen, onClose, onImportSuccess }: KSeFInboxMo
         return new Date().toISOString().split('T')[0]
     })
 
+    // VECTOR 111.1: Authoritative Date Validation logic (SSoT)
+    const range = validateRange(dateFrom, dateTo);
+    const isRangeValid = range.isValid;
+    const diffDays = range.days;
+
     const fetchInbox = async () => {
+        if (!isRangeValid) {
+            toast.error("⚠️ KSeF Limit", { 
+                description: "Zakres dat nie może przekraczać 90 dni. Skróć okres wyszukiwania." 
+            })
+            return
+        }
         setIsLoading(true)
         try {
             const res = await fetch(`/api/ksef/sync?from=${dateFrom}&to=${dateTo}`)
@@ -219,8 +231,8 @@ export function KSeFInboxModal({ isOpen, onClose, onImportSuccess }: KSeFInboxMo
                             </div>
                             <Button 
                                 onClick={fetchInbox} 
-                                disabled={isLoading}
-                                className="h-14 px-10 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl shadow-xl shadow-indigo-600/30 transition-all active:scale-95 flex items-center gap-3"
+                                disabled={isLoading || !isRangeValid}
+                                className={`h-14 px-10 font-black rounded-2xl shadow-xl transition-all active:scale-95 flex items-center gap-3 ${!isRangeValid ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-50' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'}`}
                             >
                                 {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <><Search className="w-6 h-6" /> Sync Inbox</>}
                             </Button>
