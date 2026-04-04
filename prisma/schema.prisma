@@ -203,6 +203,8 @@ model Invoice {
   dueDate      DateTime
   status       String        @default("ACTIVE") // DRAFT, ACTIVE, PAID, PARTIALLY_PAID, REVERSED
   paymentStatus String       @default("UNPAID")
+  paymentMethod String       @default("BANK_TRANSFER") // BANK_TRANSFER, CASH, CARD
+  reconciliationStatus String @default("PENDING") // PENDING, MATCHED, GAP
   ksefId       String?
   ksefType     String?
   invoiceNumber String?

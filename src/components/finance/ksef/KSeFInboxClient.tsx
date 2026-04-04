@@ -253,11 +253,29 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
                                             />
                                         </td>
                                         <td className="p-4 text-right">
-                                            <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${
-                                                inv.paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'
-                                            }`}>
-                                                {inv.paymentStatus === 'PAID' ? 'Opłacono' : 'Zaległa'}
-                                            </span>
+                                            {(() => {
+                                                const issueDate = new Date(inv.issueDate).toISOString().split('T')[0];
+                                                const dueDate = new Date(inv.dueDate).toISOString().split('T')[0];
+                                                const isSameDay = issueDate === dueDate;
+                                                const isPaid = inv.paymentStatus === 'PAID';
+                                                
+                                                let badgeClass = "bg-orange-100 text-orange-700";
+                                                let label = "Zaległa";
+
+                                                if (isPaid) {
+                                                    badgeClass = "bg-emerald-100 text-emerald-700";
+                                                    label = "Opłacono";
+                                                } else if (isSameDay) {
+                                                    badgeClass = "bg-blue-100 text-blue-700 font-bold border border-blue-200";
+                                                    label = "Płatność POS";
+                                                }
+
+                                                return (
+                                                    <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${badgeClass}`}>
+                                                        {label}
+                                                    </span>
+                                                );
+                                            })()}
                                         </td>
                                         <td className="p-4 text-right">
                                             <Button 

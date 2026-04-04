@@ -15,10 +15,17 @@ export class ReconciliationEngine {
         });
 
         const unpaidInvoices = await prisma.invoice.findMany({
+            // @ts-ignore
             where: { 
                 tenantId, 
                 status: 'ACTIVE', 
-                paymentStatus: 'UNPAID' 
+                OR: [
+                    { paymentStatus: 'UNPAID' },
+                    { 
+                        paymentStatus: 'PAID',
+                        reconciliationStatus: 'PENDING'
+                    }
+                ]
             },
             include: { contractor: true }
         });
@@ -57,7 +64,7 @@ export class ReconciliationEngine {
             let bestSuggestion = null;
             let bestConfidence = 0;
 
-            for (const inv of unpaidInvoices) {
+            for (const inv of unpaidInvoices as any[]) {
                 const invoiceAmount = new Decimal(String(inv.amountGross));
                 const transAmount = new Decimal(String(item.amount)).abs();
                 
@@ -210,11 +217,24 @@ export class ReconciliationEngine {
                 newPaymentStatus = "PAID";
             }
 
+            // @ts-ignore
             await tx.invoice.update({
                 where: { id: invoice.id },
                 data: {
                     status: newStatus,
-                    paymentStatus: newPaymentStatus
+                    paymentStatus: newPaymentStatus,
+                    reconciliationStatus: 'MATCHED'
+                }
+            });
+
+            // --- VECTOR 118: Replace Manual/Shadow Costs ---
+            // If this invoice was manually marked as PAID, it likely has a SHADOW_COST entry.
+            // We delete it because the BANK_PAYMENT created below is the new "Truth".
+            await tx.ledgerEntry.deleteMany({
+                where: {
+                    tenantId: invoice.tenantId,
+                    source: 'SHADOW_COST',
+                    sourceId: invoice.id
                 }
             });
 

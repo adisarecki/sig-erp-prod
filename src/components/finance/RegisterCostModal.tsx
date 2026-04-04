@@ -54,6 +54,8 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const [category, setCategory] = useState("MATERIAŁY")
     const [isNewContractor, setIsNewContractor] = useState(false)
     const [bankAccountNumber, setBankAccountNumber] = useState("")
+    const [isPaidImmediately, setIsPaidImmediately] = useState(true)
+    const [paymentMethod, setPaymentMethod] = useState("BANK_TRANSFER")
 
     const [newContractorName, setNewContractorName] = useState("")
     const [newContractorNip, setNewContractorNip] = useState("")
@@ -142,6 +144,20 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
             setOpen(true)
         }
     }, [ocrData, contractors])
+    
+    // --- VECTOR 118.1: AUTO-SUGGESTION FOR RETAIL/SERVICE ---
+    useEffect(() => {
+        if (issueDate && dueDate && issueDate === dueDate) {
+            const retailCategories = ["FLOTA", "PALIWO", "KOSZT_FIRMOWY", "PALIWO_PROJEKT"];
+            if (retailCategories.includes(category)) {
+                setIsPaidImmediately(true);
+                // Default to CARD for these categories as they are usually POS transactions
+                if (paymentMethod === "BANK_TRANSFER") {
+                    setPaymentMethod("CARD");
+                }
+            }
+        }
+    }, [issueDate, dueDate, category])
 
     // --- MATH LOGIC ---
     useEffect(() => {
@@ -235,6 +251,8 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
         formData.set("retainedAmount", retainedAmount)
         formData.set("retentionReleaseDate", retentionReleaseDate)
         formData.set("bankAccountNumber", bankAccountNumber)
+        formData.set("isPaidImmediately", isPaidImmediately ? "true" : "false")
+        formData.set("paymentMethod", paymentMethod)
 
         try {
             const result = await addCostInvoice(formData)
@@ -500,11 +518,46 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                             </div>
                         )}
 
-                        <div className="flex items-center gap-2 pt-2">
-                            <input type="checkbox" id="isPaidImmediately" name="isPaidImmediately" value="true" defaultChecked={true} className="w-5 h-5 text-orange-500 rounded border-slate-300 focus:ring-orange-500 cursor-pointer" />
-                            <Label htmlFor="isPaidImmediately" className="text-sm font-bold text-slate-800 cursor-pointer">
-                                Opłacono natychmiast (Dodaje Cash Flow)
-                            </Label>
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <input 
+                                        type="checkbox" 
+                                        id="isPaidImmediately" 
+                                        checked={isPaidImmediately} 
+                                        onChange={(e) => setIsPaidImmediately(e.target.checked)}
+                                        className="w-5 h-5 text-orange-500 rounded border-slate-300 focus:ring-orange-500 cursor-pointer" 
+                                    />
+                                    <Label htmlFor="isPaidImmediately" className="text-sm font-bold text-slate-800 cursor-pointer">
+                                        {(issueDate === dueDate && ["FLOTA", "PALIWO", "KOSZT_FIRMOWY"].includes(category)) 
+                                            ? "ZAPŁACONO GOTÓWKĄ/KARTĄ (RETAIL)" 
+                                            : "Opłacono natychmiast (Cash Flow)"}
+                                    </Label>
+                                </div>
+                                <div className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded">
+                                    VECTOR 118.1 ACTIVE
+                                </div>
+                            </div>
+                            
+                            {isPaidImmediately && (
+                                <div className="pt-2 border-t border-slate-200">
+                                    <Label className="text-[10px] font-bold text-slate-500 uppercase mb-1.5 block tracking-widest">Metoda Płatności</Label>
+                                    <div className="flex gap-2">
+                                        {['BANK_TRANSFER', 'CARD', 'CASH'].map((method) => (
+                                            <Button
+                                                key={method}
+                                                type="button"
+                                                variant={paymentMethod === method ? "default" : "outline"}
+                                                size="sm"
+                                                onClick={() => setPaymentMethod(method)}
+                                                className={`flex-1 text-[10px] font-bold h-8 ${paymentMethod === method ? 'bg-slate-900' : 'bg-white border-slate-200 text-slate-600'}`}
+                                            >
+                                                {method === 'BANK_TRANSFER' ? 'PRZELEW' : method === 'CARD' ? 'KARTA' : 'GOTÓWKA'}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 

@@ -84,6 +84,8 @@ export default async function FinancePage({
             dueDate: inv.dueDate.toISOString(),
             status: inv.status,
             paymentStatus: inv.paymentStatus,
+            paymentMethod: (inv as any).paymentMethod,
+            reconciliationStatus: (inv as any).reconciliationStatus,
             externalId: inv.invoiceNumber || inv.ksefId,
             description: inv.invoiceNumber || (inv.type === 'REVENUE' ? 'Faktura Sprzedaży' : 'Faktura Zakupu'), 
             category: inv.ksefType || 'VAT',
@@ -158,6 +160,9 @@ export default async function FinancePage({
                     if (linkedTx) {
                         displayDate = linkedTx.transactionDate
                     }
+                } else if (inv.issueDate && inv.dueDate && inv.issueDate.split('T')[0] === inv.dueDate.split('T')[0]) {
+                    badge = 'PŁATNOŚĆ POS'
+                    color = 'bg-blue-100 text-blue-700 border border-blue-200'
                 } else if (dueDate < now) {
                     badge = 'ZALEGŁA'
                     color = 'bg-rose-100 text-rose-700'

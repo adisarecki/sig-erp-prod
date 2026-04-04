@@ -70,7 +70,7 @@ export async function deleteInvoice(id: string): Promise<{ success: boolean, err
         return { success: false, error: error instanceof Error ? error.message : "Błąd podczas usuwania dokumentu." }
     }
 }
-export async function markInvoiceAsPaid(id: string, paymentDateOverride?: string): Promise<{ success: boolean, error?: string }> {
+export async function markInvoiceAsPaid(id: string, paymentDateOverride?: string, paymentMethod: string = "BANK_TRANSFER"): Promise<{ success: boolean, error?: string }> {
     try {
         const adminDb = getAdminDb();
         const tenantId = await getCurrentTenantId();
@@ -96,7 +96,12 @@ export async function markInvoiceAsPaid(id: string, paymentDateOverride?: string
             // B. Update Invoice status
             const updatedInvoice = await tx.invoice.update({
                 where: { id },
-                data: { status: "PAID", paymentStatus: "PAID" },
+                data: { 
+                    status: "PAID", 
+                    paymentStatus: "PAID",
+                    paymentMethod,
+                    reconciliationStatus: paymentMethod === 'BANK_TRANSFER' ? 'MATCHED' : 'PENDING'
+                },
                 include: { contractor: true }
             })
 
@@ -104,7 +109,7 @@ export async function markInvoiceAsPaid(id: string, paymentDateOverride?: string
             await recordLedgerEntry({
                 tenantId,
                 projectId: updatedInvoice.projectId || undefined,
-                source: 'BANK_PAYMENT',
+                source: paymentMethod === 'BANK_TRANSFER' ? 'BANK_PAYMENT' : 'SHADOW_COST',
                 sourceId: id,
                 amount: new Decimal(updatedInvoice.amountGross).mul(isIncome ? 1 : -1),
                 type: isIncome ? 'INCOME' : 'EXPENSE',
@@ -202,6 +207,74 @@ export async function markInvoiceAsPaid(id: string, paymentDateOverride?: string
         return { success: false, error: error instanceof Error ? error.message : "Błąd podczas oznaczania jako zapłacone." }
     }
 }
+
+export async function markInvoiceAsUnpaid(id: string): Promise<{ success: boolean, error?: string }> {
+    try {
+        const adminDb = getAdminDb();
+        const tenantId = await getCurrentTenantId();
+        
+        await assertFinancialMasterWrite('MARK_UNPAID', id);
+
+        await prisma.$transaction(async (tx: any) => {
+            const invoice = await tx.invoice.findFirst({
+                where: { id, tenantId },
+                include: { payments: { include: { transaction: true } } }
+            })
+
+            if (!invoice) throw new Error("Nie znaleziono dokumentu.")
+            
+            // Revert Invoice status
+            await tx.invoice.update({
+                where: { id },
+                data: { 
+                    status: "ACTIVE", 
+                    paymentStatus: "UNPAID",
+                    reconciliationStatus: "PENDING"
+                }
+            })
+
+            // Find manual transactions (source: INVOICE)
+            const payments = invoice.payments || []
+            const manualPayments = payments.filter((p: any) => p.transaction && p.transaction.source === "INVOICE")
+            const transactionIds = manualPayments.map((p: any) => p.transactionId)
+
+            if (transactionIds.length > 0) {
+                // Delete InvoicePayment links
+                await tx.invoicePayment.deleteMany({
+                    where: { transactionId: { in: transactionIds } }
+                })
+                // Delete Transactions
+                await tx.transaction.deleteMany({
+                    where: { id: { in: transactionIds } }
+                })
+            }
+
+            // Delete Ledger Entries (BANK_PAYMENT or SHADOW_COST)
+            await tx.ledgerEntry.deleteMany({
+                where: {
+                    tenantId,
+                    sourceId: id,
+                    source: { in: ['BANK_PAYMENT', 'SHADOW_COST'] }
+                }
+            })
+        })
+
+        // Operational Mirror Sync (FIRESTORE)
+        await adminDb.collection("invoices").doc(id).update({
+            status: "ACTIVE",
+            updatedAt: new Date().toISOString()
+        })
+
+        revalidatePath("/finance")
+        revalidatePath("/")
+
+        return { success: true }
+    } catch (error: unknown) {
+        console.error("[INVOICE_MARK_UNPAID_ERROR]", error)
+        return { success: false, error: error instanceof Error ? error.message : "Błąd podczas oznaczania jako nieopłacone." }
+    }
+}
+
 export async function getAutoMatchData(nip: string) {
     try {
         const tenantId = await getCurrentTenantId()
@@ -248,6 +321,7 @@ export async function addIncomeInvoice(formData: FormData) {
         const amountGrossStr = formData.get("amountGross") as string
         const dateStr = formData.get("date") as string
         const dueDateStr = formData.get("dueDate") as string
+        const paymentMethod = (formData.get("paymentMethod") as string) || "BANK_TRANSFER"
 
         const category = formData.get("category") as string
         const projectIdRaw = formData.get("projectId") as string || ""
@@ -400,6 +474,8 @@ export async function addIncomeInvoice(formData: FormData) {
                     issueDate,
                     dueDate,
                     status: isPaidImmediately ? "PAID" : "ACTIVE",
+                    paymentMethod,
+                    reconciliationStatus: (isPaidImmediately && paymentMethod === 'BANK_TRANSFER') ? 'MATCHED' : 'PENDING',
                     externalId: description,
                     retainedAmount: retainedAmount ? retainedAmount.toNumber() : null,
                     retentionReleaseDate
@@ -451,7 +527,7 @@ export async function addIncomeInvoice(formData: FormData) {
                 await recordLedgerEntry({
                     tenantId,
                     projectId: finalProjectId || undefined,
-                    source: 'BANK_PAYMENT',
+                    source: paymentMethod === 'BANK_TRANSFER' ? 'BANK_PAYMENT' : 'SHADOW_COST',
                     sourceId: invoiceId,
                     amount: amountGross,
                     type: 'INCOME',
@@ -504,6 +580,8 @@ export async function addIncomeInvoice(formData: FormData) {
             issueDate: result.invoice.issueDate.toISOString(),
             dueDate: result.invoice.dueDate.toISOString(),
             status: result.invoice.status,
+            paymentMethod: (result.invoice as any).paymentMethod,
+            reconciliationStatus: (result.invoice as any).reconciliationStatus,
             externalId: description,
             retainedAmount: result.invoice.retainedAmount ? Number(result.invoice.retainedAmount) : null,
             retentionReleaseDate: result.invoice.retentionReleaseDate ? result.invoice.retentionReleaseDate.toISOString() : null,
@@ -547,6 +625,7 @@ export async function addCostInvoice(formData: FormData) {
         const amountGrossStr = formData.get("amountGross") as string
         const dateStr = formData.get("date") as string
         const dueDateStr = formData.get("dueDate") as string
+        const paymentMethod = (formData.get("paymentMethod") as string) || "BANK_TRANSFER"
 
         const category = formData.get("category") as string
         const projectId = formData.get("projectId") as string
@@ -665,6 +744,8 @@ export async function addCostInvoice(formData: FormData) {
                     issueDate,
                     dueDate,
                     status: isPaidImmediately ? "PAID" : "ACTIVE",
+                    paymentMethod,
+                    reconciliationStatus: (isPaidImmediately && paymentMethod === 'BANK_TRANSFER') ? 'MATCHED' : 'PENDING',
                     externalId: description,
                     retainedAmount: retainedAmount ? retainedAmount.toNumber() : null,
                     retentionReleaseDate
@@ -716,7 +797,7 @@ export async function addCostInvoice(formData: FormData) {
                 await recordLedgerEntry({
                     tenantId,
                     projectId: finalProjectId || undefined,
-                    source: 'BANK_PAYMENT',
+                    source: paymentMethod === 'BANK_TRANSFER' ? 'BANK_PAYMENT' : 'SHADOW_COST',
                     sourceId: invoiceId,
                     amount: amountGross,
                     type: 'EXPENSE',
@@ -765,6 +846,8 @@ export async function addCostInvoice(formData: FormData) {
             issueDate: result.invoice.issueDate.toISOString(),
             dueDate: result.invoice.dueDate.toISOString(),
             status: result.invoice.status,
+            paymentMethod: (result.invoice as any).paymentMethod,
+            reconciliationStatus: (result.invoice as any).reconciliationStatus,
             externalId: description,
             retainedAmount: result.invoice.retainedAmount ? Number(result.invoice.retainedAmount) : null,
             retentionReleaseDate: result.invoice.retentionReleaseDate ? result.invoice.retentionReleaseDate.toISOString() : null,

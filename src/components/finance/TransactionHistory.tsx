@@ -4,6 +4,7 @@ import { Trash2, ArrowUpRight, ArrowDownRight, Link as LinkIcon, Loader2, X, Ale
 import { assignTransactionToProject, deleteTransaction } from "../../app/actions/transactions"
 import { assignInvoiceToProject, deleteInvoice, markInvoiceAsPaid } from "../../app/actions/invoices"
 import { useState } from "react"
+import { InvoicePaymentToggle } from "./InvoicePaymentToggle"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 import {
     Dialog,
@@ -38,6 +39,8 @@ interface HistoryItem {
     counterpartyRaw?: string | null;
     matchedContractorId?: string | null;
     tags?: string | null;
+    paymentMethod?: string | null;
+    reconciliationStatus?: string | null;
 }
 
 interface TransactionHistoryProps {
@@ -438,6 +441,21 @@ export function TransactionHistory({
                                     <p className="font-mono font-bold text-slate-800">{viewingItem.documentNumber}</p>
                                 </div>
                                 <Sparkles className="w-5 h-5 text-emerald-500 opacity-20" />
+                            </div>
+                        )}
+
+                        {/* VECTOR 118: Status Ambiguity Overrule */}
+                        {viewingItem?.isInvoice && (
+                            <div className="pt-4 border-t border-slate-100">
+                                <Label className="text-[10px] uppercase font-bold text-slate-400 mb-3 block">
+                                    Kontrola Płatności (Bank Authority)
+                                </Label>
+                                <InvoicePaymentToggle 
+                                    invoiceId={viewingItem.id}
+                                    initialPaymentStatus={viewingItem.statusBadge === 'OPŁACONA' ? 'PAID' : 'UNPAID'}
+                                    initialReconciliationStatus={viewingItem.reconciliationStatus || 'PENDING'}
+                                    initialPaymentMethod={viewingItem.paymentMethod || 'BANK_TRANSFER'}
+                                />
                             </div>
                         )}
                     </div>
