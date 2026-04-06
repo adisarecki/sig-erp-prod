@@ -34,7 +34,7 @@ model Tenant {
   retentions         Retention[]
   notifications      Notification[]
   ksefInvoices       KsefInvoice[]
-  bankInbox          BankInbox[]
+  bankStaging        BankStaging[]
   bankBalanceStates  BankBalanceState[]
   ledgerEntries      LedgerEntry[]
   assets             Asset[]
@@ -492,18 +492,19 @@ model KsefInvoice {
   @@index([tenantId])
 }
 
-model BankInbox {
+model BankStaging {
   id                String   @id @default(uuid())
   tenantId          String
-  tenant                Tenant   @relation(fields: [tenantId], references: [id])
+  tenant            Tenant   @relation(fields: [tenantId], references: [id])
   date              DateTime
   amount            Decimal  @db.Decimal(12, 2)
   rawType           String   // Col 5: Opis operacji
   counterpartyName  String   // Col 6: Nazwa Nadawcy/Odbiorcy
   title             String?  // Col 8: Tytuł
-  status            String   @default("NEW") // NEW, AUTO_MATCHED, SUGGESTED, IGNORED, PROCESSED
+  status            String   @default("PENDING") // PENDING, SUGGESTED, PROCESSED, IGNORED
   suggestionId      String?  // ID faktury sugerowanej (Invoice.id)
   matchConfidence   Float?   // Pewność dopasowania
+  iban              String?
   processedAt       DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

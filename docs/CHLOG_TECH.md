@@ -69,6 +69,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 098 | KSeF / Architecture| FIXED | KSeF Meta Result Key Fixed. | Rozwiązano problem "pustej pętli" poprzez dodanie obsługi klucza `invoices` w `KSeFService.metadataQuery`. Było to główne wąskie gardło uniemożliwiające zapisanie faktur mimo ich poprawnego pobraniu z API. |
 | Vector 099 | Finance / Engine | FIXED | DNA Vector 099: Centralized Financial Engine. | Wdrożono `financeMapper.ts` jako jedyne źródło prawdy dla znaków i kolorów. Zakupy (Net -, VAT +, Gross -), Sprzedaż (Net +, VAT -, Gross +). |
 | Vector 100 | Finance / Engine | FIXED | Runtime Guard for toUpperCase. | Dodano zabezpieczenie przed `undefined` w `financeMapper.ts`, eliminując błąd TypeError w przeglądarce. |
+| Vector 120 | Finance / Reconciliation | FIXED | Smart Bank Reconciliation Hub. | Wdrożenie BankStaging (Strefa Zrzutu) i Triage UI. Zastąpienie cichych importów ręczną weryfikacją z podpowiedziami AI. |
 
 ---
 

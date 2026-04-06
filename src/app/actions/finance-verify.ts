@@ -25,7 +25,7 @@ export async function verifyAndImportBankStatement(csvContent: string) {
         // 3. Process Bank Inbox (Vector 104/105 logic)
         // We first load into BankInbox, then process
         for (const tx of transactions) {
-            const existing = await (prisma as any).bankInbox.findFirst({
+            const existing = await (prisma as any).bankStaging.findFirst({
                 where: {
                     tenantId,
                     date: tx.date,
@@ -36,7 +36,7 @@ export async function verifyAndImportBankStatement(csvContent: string) {
 
             if (!existing) {
                 // @ts-ignore
-                await prisma.bankInbox.create({
+                await prisma.bankStaging.create({
                     data: {
                         tenantId,
                         date: tx.date,
@@ -44,14 +44,14 @@ export async function verifyAndImportBankStatement(csvContent: string) {
                         rawType: tx.rawType,
                         counterpartyName: tx.counterpartyName,
                         title: tx.title,
-                        status: 'NEW'
+                        status: 'PENDING'
                     }
                 })
             }
         }
 
         // Run the engine
-        await ReconciliationEngine.processBankInbox(tenantId)
+        await ReconciliationEngine.processBankStaging(tenantId)
 
         // 4. Verification Engine (Vector 106)
         const result = await ReconciliationEngine.verifyIntegrity(tenantId, anchorBalance)

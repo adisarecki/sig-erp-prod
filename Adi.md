@@ -20,7 +20,7 @@ OprĂłcz tego pilnujemy Twojej pĹ‚ynnoĹ›ci poprzez:
 ## đźš€ 2. Twoja Wizja WolnoĹ›ci (Po co to zrobiĹ‚eĹ›?)
 
 ZbudowaliĹ›my ten system, abyĹ› Ty nie musiaĹ‚ traciÄ‡ ĹĽycia na:
-- **RÄ™czne sprawdzanie przelewĂłw**: WyciÄ…g z banku sam "skanuje" Twoich kontrahentĂłw i faktury.
+- **RÄ™czne sprawdzanie przelewĂłw**: WyciÄ…g z banku Ĺ‚aduje siÄ™ do Hub-a, a system sam sugeruje: "To pasuje do tej faktury (z uwzglÄ™dnieniem kaucji)". Jednym klikniÄ™ciem zatwierdzasz caĹ‚Ä… paczkÄ™.
 - **Szukanie kaucji**: Skarbiec Kaucji pilnuje pieniÄ™dzy zamroĹĽonych u inwestorĂłw. Przypomnimy Ci o nich, zanim termin zwrotu minie.
 - **NiepewnoĹ›Ä‡ przy budowie**: Dashboard pokaĹĽe Ci na ĹĽywo, czy dana inwestycja zarabia, czy koszty wymknÄ™Ĺ‚y siÄ™ spod kontroli.
 
@@ -85,6 +85,19 @@ Kopaina MARCEL:  10% kaucji â†’ 90 000 zĹ‚ paliwa (90% bud\u017cetu)
 ---
 
 ## 🗂️ 7. Przejrzysta Hierarchia Umów (Vector 112)
+
+---
+
+## 🛡️ 8. Centra Rekoncyliacji Bankowej (Vector 120)
+
+Wprowadziliśmy nową, manualną metodę rozliczeń finansowych. Koniec z „Cichymi Importami”.
+
+### Główne Zalety:
+- **Triage Hub**: Ty decydujesz, czy transakcja to koszt, przychód czy Shadow Cost.
+- **Auto-Match (High Confidence)**: System sam liczy kaucje i sugeruje dopasowanie do faktur.
+- **On-the-fly Create**: Twórz transakcje jednym przyciskiem – system uczy się Twojej firmy.
+
+---
 
 Ostatni problem, który rozwiązaliśmy: **mylące oznaczenia procent**.
 

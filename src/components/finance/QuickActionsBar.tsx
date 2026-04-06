@@ -64,22 +64,10 @@ export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps)
     const processFile = async (file: File) => {
         setIsImporting(true)
         try {
+            // VECTOR 120: Redirect to Bank Reconciliation Hub
             const rawText = await file.text()
-            const response = await fetch("/api/finance/import-bank", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "text/plain",
-                },
-                body: rawText,
-            })
-
-            const result = await response.json()
-            if (result.success) {
-                alert(`Sukces: ${result.message}`)
-                window.location.reload() // Reload to see new transactions
-            } else {
-                alert(`Błąd: ${result.error || "Wystąpił problem podczas importu"}`)
-            }
+            localStorage.setItem("pendingBankCsv", rawText) // Store for the other page
+            window.location.href = "/finance/verify-balance?auto=true"
         } catch (err: any) {
             console.error("IMPORT_ERR:", err)
             alert("Błąd połączenia z serwerem.")

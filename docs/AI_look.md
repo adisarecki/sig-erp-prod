@@ -138,6 +138,12 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
     - **Normalization**: Advanced stripping of legal forms (Sp. z o.o., S.A.) and Polish diacritics.
     - **Idempotency**: Atomic `upsert` on identity links ensures zero redundant writes.
     - **Layer Isolation**: Identity Resolution is decoupled from Financial Truth (Vector 107/110).
+- **Vector 120 (Bank Reconciliation Hub - Landing Zone)**:
+    - **Staging Model**: New `BankStaging` table acts as an immutable landing zone for all CSV imports.
+    - **Status Machine**: `PENDING` (Imported) -> `SUGGESTED` (Auto-Matched) -> `PROCESSED` (Finalized).
+    - **Triage UI**: A separate reconciliation hub (VerifyBalanceClient) allowing manual human verification.
+    - **On-the-fly Create**: Automated transaction creation for unmapped transfers (DirectExpense) with category prediction via historical `counterpartyRaw` lookup.
+    - **Master Sync**: Real-time Saldo Anchor update via `revalidatePath` after every Triage action.
 
 ---
 
@@ -162,6 +168,7 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
 | **114** | Date Engine | Authoritative Warsaw-based date validation (Vector 114). |
 | **116** | Contractor Intelligence | HARDENED Identity Resolution Layer (NIP Checksum & Conflict Protocol). |
 | **117** | Retention Engine & Liquidity Alerts | Dynamic retention-aware payment matching + VAT/Retention monitoring (Vector 117). |
+| **120** | Bank Reconciliation Hub | Transition from Silent Imports to manual Triage Hub with Staging Zone. |
 
 ---
 

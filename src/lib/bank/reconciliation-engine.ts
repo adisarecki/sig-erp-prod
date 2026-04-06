@@ -8,10 +8,10 @@ export class ReconciliationEngine {
      * Main entry point for processing the BankInbox.
      * Implements Master Stabilization Protocol (Vectors 104, 105).
      */
-    static async processBankInbox(tenantId: string) {
+    static async processBankStaging(tenantId: string) {
         // @ts-ignore
-        const inboxItems = await prisma.bankInbox.findMany({
-            where: { tenantId, status: 'NEW' }
+        const inboxItems = await prisma.bankStaging.findMany({
+            where: { tenantId, status: 'PENDING' }
         });
 
         const unpaidInvoices = await prisma.invoice.findMany({
@@ -27,67 +27,98 @@ export class ReconciliationEngine {
                     }
                 ]
             },
-            include: { contractor: true }
+            include: { 
+                contractor: true,
+                project: {
+                    select: {
+                        id: true,
+                        retentionShortTermRate: true,
+                        retentionLongTermRate: true,
+                        retentionBase: true
+                    }
+                }
+            }
         });
 
         // VECTOR 104: Specyficzny Regex dla Col 8
         const invoiceRegex = /(?:FV|FA|FAKTURA|RACH)\s?([\w\d\/]+)/i;
 
         for (const item of inboxItems) {
-            // VECTOR 105: SHADOW COSTS (Direct debits)
-            if (this.isShadowCost(item.counterpartyName, item.title || "")) {
-                await this.processDirectExpense(item);
-                continue;
-            }
-
-            let matched = false;
-
-            // --- Level 1: Invoice Number Extraction (High Confidence) ---
-            const title = item.title || "";
-            const match = title.match(invoiceRegex);
-            if (match) {
-                const extractedInvoiceNumber = match[1].trim();
-                const invoice = unpaidInvoices.find(inv => 
-                    inv.invoiceNumber === extractedInvoiceNumber || 
-                    (inv.invoiceNumber && extractedInvoiceNumber.length > 3 && inv.invoiceNumber.includes(extractedInvoiceNumber))
-                );
-
-                if (invoice) {
-                    await this.executeAutoMatch(item, invoice.id);
-                    matched = true;
-                }
-            }
-
-            if (matched) continue;
-
-            // --- Level 2: Fuzzy Counterparty & Amount (Medium Confidence) ---
             let bestSuggestion = null;
             let bestConfidence = 0;
 
+            const title = item.title || "";
+            const match = title.match(invoiceRegex);
+            let extractedInvoiceNumber = match ? match[1].trim() : null;
+
             for (const inv of unpaidInvoices as any[]) {
-                const invoiceAmount = new Decimal(String(inv.amountGross));
+                const netAmount = new Decimal(String(inv.amountNet));
+                const grossAmount = new Decimal(String(inv.amountGross));
                 const transAmount = new Decimal(String(item.amount)).abs();
-                
-                if (invoiceAmount.equals(transAmount)) {
-                    const similarity = calculateSimilarity(inv.contractor.name, item.counterpartyName);
-                    
-                    if (similarity > 0.8) {
-                        if (similarity > bestConfidence) {
-                            bestConfidence = similarity;
-                            bestSuggestion = inv.id;
+
+                // Vector 117/120: Calculate expected amount with retention
+                let expectedAmount = grossAmount;
+                if (inv.project) {
+                    const shortRate = new Decimal(String(inv.project.retentionShortTermRate || 0));
+                    const longRate = new Decimal(String(inv.project.retentionLongTermRate || 0));
+                    const totalRate = shortRate.plus(longRate);
+
+                    if (totalRate.gt(0)) {
+                        const base = inv.project.retentionBase || 'GROSS';
+                        if (base === 'NET') {
+                            const retentionAmount = netAmount.mul(totalRate);
+                            expectedAmount = grossAmount.minus(retentionAmount);
+                        } else {
+                            expectedAmount = grossAmount.mul(new Decimal(1).minus(totalRate));
                         }
                     }
                 }
+
+                // Check amounts
+                const tolerance = new Decimal('0.01');
+                const isAmountMatch = transAmount.minus(grossAmount).abs().lte(tolerance);
+                const isRetentionMatch = transAmount.minus(expectedAmount).abs().lte(tolerance);
+
+                let confidence = 0;
+
+                // Level 1: Invoice Number matches perfectly
+                if (extractedInvoiceNumber && (inv.invoiceNumber === extractedInvoiceNumber || (inv.invoiceNumber && extractedInvoiceNumber.length > 3 && inv.invoiceNumber.includes(extractedInvoiceNumber)))) {
+                    confidence += 50;
+                }
+
+                // Level 2: Amount Match
+                if (isAmountMatch) confidence += 30;
+                if (isRetentionMatch && expectedAmount.lt(grossAmount)) confidence += 40; // High confidence for retention match!
+
+                // Level 3: Counterparty Name Match
+                const similarity = calculateSimilarity(inv.contractor.name, item.counterpartyName);
+                if (similarity > 0.8) {
+                    confidence += 20;
+                }
+
+                if (confidence > bestConfidence) {
+                    bestConfidence = confidence;
+                    bestSuggestion = inv.id;
+                }
             }
 
-            if (bestSuggestion) {
+            if (bestSuggestion && bestConfidence >= 40) {
                 // @ts-ignore
-                await prisma.bankInbox.update({
+                await prisma.bankStaging.update({
                     where: { id: item.id },
                     data: {
                         status: 'SUGGESTED',
                         suggestionId: bestSuggestion,
-                        matchConfidence: bestConfidence
+                        matchConfidence: bestConfidence > 100 ? 100 : bestConfidence
+                    }
+                });
+            } else if (this.isShadowCost(item.counterpartyName, item.title || "")) {
+                // We keep it PENDING, but UI will label it as a Shadow Cost
+                await prisma.bankStaging.update({
+                    where: { id: item.id },
+                    data: {
+                        status: 'PENDING',
+                        matchConfidence: 0.1 // Small flag for UI to prioritize it for on-the-fly create
                     }
                 });
             }
@@ -105,45 +136,9 @@ export class ReconciliationEngine {
 
     /**
      * VECTOR 105: Auto-classify Shadow Costs as DirectExpense.
+     * Direct expense auto-creation is disabled in Vector 120.
+     * It's handled manually via "On-The-Fly Create" in BankReconciliationHub
      */
-    private static async processDirectExpense(inboxItem: any) {
-        const transaction = await prisma.transaction.create({
-            data: {
-                tenantId: inboxItem.tenantId,
-                amount: inboxItem.amount,
-                type: "EXPENSE",
-                transactionDate: inboxItem.date,
-                category: "KOSZTY_OPERACYJNE",
-                description: `${inboxItem.counterpartyName}: ${inboxItem.title}`,
-                source: "BANK_IMPORT",
-                status: "ACTIVE",
-                classification: "DirectExpense" // Vector 105 Protocol
-            }
-        });
-
-        // --- VECTOR 107: Central Ledger Entry (SSoT) ---
-        // @ts-ignore
-        await prisma.ledgerEntry.create({
-            data: {
-                tenantId: inboxItem.tenantId,
-                projectId: null, // Direct Expenses are usually General
-                source: "SHADOW_COST",
-                sourceId: transaction.id,
-                amount: inboxItem.amount, // Negative if it's an expense
-                type: "EXPENSE",
-                date: inboxItem.date
-            }
-        });
-
-        // @ts-ignore
-        await prisma.bankInbox.update({
-            where: { id: inboxItem.id },
-            data: {
-                status: 'PROCESSED',
-                processedAt: new Date()
-            }
-        });
-    }
 
     /**
      * Executes automatic reconciliation (Auto-Match).
@@ -313,9 +308,9 @@ export class ReconciliationEngine {
                 });
             }
 
-            // 4. Mark Inbox Item as PROCESSED
+            // 4. Mark Staging Item as PROCESSED
             // @ts-ignore
-            await tx.bankInbox.update({
+            await tx.bankStaging.update({
                 where: { id: inboxItem.id },
                 data: {
                     status: 'PROCESSED',

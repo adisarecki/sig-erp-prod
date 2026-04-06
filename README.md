@@ -4,7 +4,20 @@ Witaj w **Sig ERP** – Twoim cyfrowym biurze, które pilnuje pieniędzy, termin
 
 ---
 
-## 🏗️ 0. NOWE: Inteligentne Kaucje (VECTOR 117) 🆕
+## 🛡️ 0. NOWE: Centra Rekoncyliacji Bankowej (VECTOR 120) 🆕
+
+System rezygnuje z "Cichych Importów". Teraz każda złotówka z wyciągu trafia do bezpiecznej **Strefy Zrzutu (BankStaging)**, gdzie Ty masz ostatnie słowo.
+
+### Główne filary Hub-a:
+- **Landing Zone (Triage UI)**: Transakcje nie zmieniają ksiąg automatycznie. Widzisz je w kolejce oczekującej na Twoją decyzję.
+- **Auto-Match (High Confidence)**: System sam oblicza kaucje i sugeruje dopasowanie do faktur. Jeśli kwota się zgadza (z uwzględnieniem **Vector 117**), wystarczy kliknąć [Zatwierdź].
+- **On-the-fly Create**: Jeśli wydatek nie ma faktury (np. paliwo, przegląd), tworzysz transakcję jednym przyciskiem. System uczy się kategorii na podstawie historii Twoich dostawców.
+- **Synchronizacja Real-Time**: Każde zatwierdzenie natychmiast aktualizuje **Kotwicę Salda** i wskaźniki płynności.
+
+---
+
+## 🏗️ 0.5. Inteligentne Kaucje (VECTOR 117)
+
 
 System teraz automatycznie oblicza oczekiwaną kwotę płatności na podstawie ustawień projektu w momencie dopasowania wyciągu bankowego do faktury.
 
@@ -32,7 +45,7 @@ System ostrzega Cię gdy:
 ## 🏗️ 1. Twoje Główne Narzędzia (Gdzie oszczędzasz czas?)
 
 ### 💰 Inteligentna Bankowość
-- **Przeciągnij i Upuść**: Wrzucasz wyciąg CSV z banku, a system automatycznie rozpoznaje Twoich dostawców, dopasowuje przelewy do faktur i **sam oznacza je jako OPŁACONE**.
+- **Centrum Weryfikacji (Landing Zone)**: Wrzucasz wyciąg CSV z banku, a transakcje trafiają do poczekalni (Triage). System rozpoznaje dostawców, sugeruje dopasowania do faktur i **uczy się Twoich nawyków**.
 - **Wykrywanie Firm**: System uczy się numerów kont Twoich kontrahentów – przy kolejnych przelewach już wie, komu płacisz.
 
 ### 🏦 Przewodnik po Rozliczeniach Bankowych (Vector 104/105)
