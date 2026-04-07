@@ -37,11 +37,16 @@ export class PkoBpCsvAdapter {
             const columns = this.splitCsvLine(line);
             
             const dateStr = columns[0] || "";
-            const amountStr = columns[3] ? columns[3].replace(',', '.').replace('+', '') : "0";
+            const amountRaw = columns[3] || "0";
+            const balanceRaw = columns[9] || "0";
+            
             const rawType = columns[5] || "PRZELEW";
             const counterpartyName = columns[6] || "Nieznany";
             const title = columns[8] || "";
-            const balanceAfterStr = columns[9] ? columns[9].replace(',', '.').replace('+', '') : "0";
+
+            // Vector 120.3: Hardened Numeric Extraction
+            const amountStr = this.extractNumericPart(amountRaw);
+            const balanceAfterStr = this.extractNumericPart(balanceRaw);
 
             return {
                 date: new Date(dateStr),
@@ -52,6 +57,24 @@ export class PkoBpCsvAdapter {
                 balanceAfter: new Decimal(balanceAfterStr)
             };
         }).filter(tx => !tx.amount.isZero() && !isNaN(tx.date.getTime()));
+    }
+
+    /**
+     * Extracts only the numeric part of a string (e.g. "Kwota: -1 234,56" -> "-1234.56")
+     */
+    private static extractNumericPart(val: string): string {
+        if (!val) return "0";
+        
+        // 1. Replace comma with dot and remove plus sign
+        let cleaned = val.replace(',', '.').replace('+', '');
+        
+        // 2. Remove all spaces (even non-breaking ones often found in bank statements)
+        cleaned = cleaned.replace(/\s/g, '');
+        
+        // 3. Extract the first sequence that looks like a number (including negative sign)
+        // This handles "Kwota Cash Back: 0.00" by picking just "0.00"
+        const match = cleaned.match(/-?\d+(\.\d+)?/);
+        return match ? match[0] : "0";
     }
 
     private static splitCsvLine(line: string): string[] {
@@ -74,3 +97,4 @@ export class PkoBpCsvAdapter {
         return results;
     }
 }
+
