@@ -6,6 +6,7 @@ const db = prisma as any;
 import { getAdminDb } from "@/lib/firebaseAdmin"
 import { syncAssetToFirestore, SyncAssetData } from "@/lib/finance/sync-utils"
 import { checkAssetConsistency } from "@/lib/sync/consistency-engine"
+import { getCurrentTenantId } from "@/lib/tenant"
 import Decimal from "decimal.js"
 
 /**
@@ -138,6 +139,7 @@ export async function resolveDrift(
     action: 'push' | 'purge'
 ) {
     try {
+        const tenantId = await getCurrentTenantId();
         const adminDb = getAdminDb();
         const docRef = adminDb.collection(entityType).doc(entityId);
         const doc = await docRef.get();
@@ -145,6 +147,9 @@ export async function resolveDrift(
         if (action === 'push') {
             if (!doc.exists) throw new Error(`Entity ${entityId} not found in Firestore.`);
             const data = doc.data()!;
+
+            // Safety check
+            if (data.tenantId !== tenantId) throw new Error("Tenant mismatch during sync.");
 
             // 1. Prepare data for Prisma (Convert Timestamps to Dates, Numbers to Decimals)
             const prismaData: any = { ...data };
@@ -175,6 +180,7 @@ export async function resolveDrift(
             // 3. Log Audit
             await db.auditLog.create({
                 data: {
+                    tenantId,
                     action: 'MANUAL_SYNC_PUSH',
                     entity: entityType,
                     entityId: entityId,
@@ -188,6 +194,7 @@ export async function resolveDrift(
             // Log Audit
             await db.auditLog.create({
                 data: {
+                    tenantId,
                     action: 'MANUAL_SYNC_PURGE',
                     entity: entityType,
                     entityId: entityId,
@@ -195,6 +202,7 @@ export async function resolveDrift(
                 }
             });
         }
+
 
         revalidatePath("/finance/sync-health");
         return { success: true };
