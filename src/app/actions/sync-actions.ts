@@ -129,3 +129,77 @@ export async function syncFsToPg(assetId: string) {
         return { success: false, error: error.message };
     }
 }
+/**
+ * [VECTOR 120.2] Drift Resolution: Push from FS or Purge from FS
+ */
+export async function resolveDrift(
+    entityId: string, 
+    entityType: 'invoices' | 'projects' | 'transactions', 
+    action: 'push' | 'purge'
+) {
+    try {
+        const adminDb = getAdminDb();
+        const docRef = adminDb.collection(entityType).doc(entityId);
+        const doc = await docRef.get();
+
+        if (action === 'push') {
+            if (!doc.exists) throw new Error(`Entity ${entityId} not found in Firestore.`);
+            const data = doc.data()!;
+
+            // 1. Prepare data for Prisma (Convert Timestamps to Dates, Numbers to Decimals)
+            const prismaData: any = { ...data };
+            
+            // Generic date conversion
+            ['issueDate', 'dueDate', 'transactionDate', 'createdAt', 'updatedAt', 'estimatedCompletionDate', 'expiryDate', 'retentionReleaseDate', 'purchaseDate'].forEach(field => {
+                if (data[field]) {
+                    // Firestore Timestamp to JS Date
+                    prismaData[field] = data[field].toDate ? data[field].toDate() : new Date(data[field]);
+                }
+            });
+
+            // Generic Decimal conversion for Invoices/Transactions/Projects
+            ['amountNet', 'amountGross', 'taxRate', 'amount', 'retainedAmount', 'budgetEstimated', 'budgetUsed', 'purchaseNet', 'purchaseGross', 'vatAmount', 'initialValue', 'currentValue'].forEach(field => {
+                if (data[field] !== undefined && data[field] !== null) {
+                    prismaData[field] = new Decimal(data[field]);
+                }
+            });
+
+            // 2. Perform Atomic Upsert
+            const model = (db as any)[entityType.slice(0, -1)]; // projects -> project, invoices -> invoice
+            await model.upsert({
+                where: { id: entityId },
+                create: { ...prismaData },
+                update: { ...prismaData, updatedAt: new Date() }
+            });
+
+            // 3. Log Audit
+            await db.auditLog.create({
+                data: {
+                    action: 'MANUAL_SYNC_PUSH',
+                    entity: entityType,
+                    entityId: entityId,
+                    details: { reason: "Manual drift resolution (Push to SQL)", action: 'push' }
+                }
+            });
+        } else if (action === 'purge') {
+            // Delete from Firestore
+            await docRef.delete();
+
+            // Log Audit
+            await db.auditLog.create({
+                data: {
+                    action: 'MANUAL_SYNC_PURGE',
+                    entity: entityType,
+                    entityId: entityId,
+                    details: { reason: "Manual drift resolution (Purge from FS)", action: 'purge' }
+                }
+            });
+        }
+
+        revalidatePath("/finance/sync-health");
+        return { success: true };
+    } catch (error: any) {
+        console.error("[RESOLVE_DRIFT_ERROR]", error);
+        return { success: false, error: error.message };
+    }
+}

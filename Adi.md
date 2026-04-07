@@ -187,6 +187,23 @@ System ostrzega Cię gdy:
 
 ---
 
+## 🛡️ 10. Drift Resolution Center (Vector 120.2)
+
+Ostatni, krytyczny mur obronny Twoich danych. Czasem w systemach rozproszonych (Firestore + PostgreSQL) zdarza się, że dane "rozjeżdżają się" (np. 9 faktur w Firebase vs 8 w SQL). Nazywamy to **Dual-Sync Drift**.
+
+### Twój Panel Przewagi:
+Wprowadziliśmy **Centrum Rozwiązywania Driftu**, które aktywuje się, gdy tylko system wykryje najmniejszą niespójność:
+
+- **Proaktywne Monitorowanie**: Każdy "Zombie" (rekord tylko w Firebase) lub "Ghost" (rekord tylko w SQL) jest natychmiast wyłapywany.
+- **Atomowe Akcje Resolution**:
+    - **[FORCE TO SQL]**: Jeśli znasz prawdę w Firebase, jednym kliknięciem "kotwiczysz" ją w bazie SQL. System sam przelicza daty i kwoty.
+    - **[PURGE FS]**: Jeśli rekord jest wynikiem błędu lub testu, usuwasz go trwale z Firebase, przywracając idealny porządek 8/8.
+- **Pełny Audyt**: Każda taka interwencja jest zapisywana w **AuditLog**. Wiemy kto, kiedy i dlaczego "pchnął" dane.
+
+**Badge SYNC: OK** to teraz nie tylko napis – to gwarancja, że Twoja analityka (SQL) i operacje (Firebase) to jedno i to samo źródło prawdy.
+
+---
+
 *Dla techników: Szczegółowe zasady budowy znajdują się w [AI_look.md](./docs/AI_look.md).*
 
 **Sig ERP – Twoja firma pod pełną kontrolą.**
