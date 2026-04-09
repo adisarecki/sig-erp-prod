@@ -15,6 +15,7 @@ export interface FinancialSnapshot {
   safeToSpend: Decimal;
   vatBalance: Decimal;
   fuelAccrualNet: Decimal;
+  citReserve: Decimal;
   vaultValue: Decimal;
   unpaidInvoicesGross: Decimal;
   timestamp: string;
@@ -61,8 +62,12 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
   // VAT Balance < 0 means we owe money (Debt).
   const vatDebt = vatBalance.lt(0) ? vatBalance.abs() : new Decimal(0);
   
+  // CIT Reserve = 19% of Net Profit (fuelAccrualNet) if profitable
+  const citReserve = fuelAccrualNet.gt(0) ? fuelAccrualNet.mul(new Decimal("0.19")) : new Decimal(0);
+  
   const safeToSpend = realCashBalance
     .minus(vatDebt)
+    .minus(citReserve)
     .minus(vaultValue); // Locked retention is strictly not spendable
 
   return {
@@ -70,6 +75,7 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
     safeToSpend,
     vatBalance,
     fuelAccrualNet,
+    citReserve,
     vaultValue,
     unpaidInvoicesGross: unpaidTotalGross,
     timestamp: new Date().toISOString(),

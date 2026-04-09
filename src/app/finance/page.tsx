@@ -163,9 +163,14 @@ export default async function FinancePage({
                 } else if (inv.issueDate && inv.dueDate && inv.issueDate.split('T')[0] === inv.dueDate.split('T')[0]) {
                     badge = 'PŁATNOŚĆ POS'
                     color = 'bg-blue-100 text-blue-700 border border-blue-200'
-                } else if (dueDate < now) {
-                    badge = 'ZALEGŁA'
-                    color = 'bg-rose-100 text-rose-700'
+                } else {
+                    const invDue = new Date(inv.dueDate);
+                    const invIssue = new Date(inv.issueDate);
+                    
+                    if (invDue < now && invIssue.getTime() !== invDue.getTime()) {
+                        badge = 'ZALEGŁA'
+                        color = 'bg-rose-100 text-rose-700'
+                    }
                 }
 
                 return {

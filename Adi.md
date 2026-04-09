@@ -213,8 +213,22 @@ Przygotowaliśmy system na Twój **Start Produkcyjny**. Kiedy skończysz etap te
 ### Twoja Tarcza Operacyjna:
 - **Głębokie Oczyszczanie**: System nie usuwa już tylko "głównych" tabel. Teraz czyści absolutnie wszystko, co mogłoby zostać po testach: od ledgerów i wyciągów bankowych, przez kaucje gwarancyjne, aż po składniki majątku (Assety) i logi synchronizacji.
 - **Szacunek do Twoich Danych**: Zgodnie z Twoją wizją, **Kontrahenci oraz Twoje Konta Bankowe (IBANy) zostają nienaruszone**. Twoja baza dostawców i inwestorów, którą już zbudowałeś, jest bezpieczna. 
-- **Ochrona Dostępu**: System chroni konta użytkowników. Master Reset nie wyloguje Cię ani nie zablokuje dostępu Twojemu zespołowi.
-- **Transparentność przed Akcją**: Zaktualizowany interfejs w Ustawieniach precyzyjnie informuje, co zniknie (Projekty, Finanse, Kaucje), a co zostanie (Kontrahenci, Użytkownicy).
+- **Mechanika Działania**:
+*   Automatyczne usunięcie wszystkich operacyjnych tabel (Faktury, Środki Trwałe, Wpisy do Księgi Głównej, Landing Zone Banku).
+*   Pełne zachowanie tożsamości najemcy (Użytkownicy, Kontrahenci, Konta Bankowe).
+*   Gwarancja bezpiecznego restartu przed wejściem pierwszych "prawdziwych" faktur KSeF.
+
+## 12. Stabilizacja Rdzenia Finansowego (Vector 110-121)
+
+Wprowadziliśmy ostateczne zasady "Hard Signs", Smart Reconciliation Hub oraz Noise Filter (Sito), aby system obsługiwał każdy przypadek brzegowy matematyki spółki z o.o.
+
+**Kluczowe zmiany (Core Engine)**:
+*   **Sign Authority**: Przychody rejestrujemy w Księdze Księgowej zawsze jako dodatnie (+ netto). Koszty jawnie trafiają jako ujemne (- netto). Margin to matematyczna suma obydwu wartości, co zabezpiecza przed podwójnym odwracaniem znaków na interfejsach UI i w bazie.
+*   **CIT Reserve**: Rezerwa CIT (19%) jest od teraz odkładana z realnie osiągniętej marży (Net Profit) w czasie rzeczywistym i prewencyjnie odejmowana z "Safe-to-Spend".
+*   **Sito (Noise Filter)**: Koszty poniżej 200 PLN pozbawione ID KSeF traktowane są jako "szum". System grupuje je w Triage UI według Sprzedawcy (np. Żabka, Orlen) i pozwala opłacić On-the-fly jako "Koszty Ogólne" bez zanieczyszczania głównej tabeli rozliczeniowej.
+*   **Płatności Natychmiastowe**: Wdrożono przycisk [Opłać KARTĄ POS] dla szybkiego rozliczania paragonów imiennych lub faktur natychmiastowych. Usunięto flagę "ZALEGŁA", jeśli data dokumentu jest równa dacie płatności.
+
+To definitywnie zamyka architekturę systemu finansowego podmiotu i czyni go produkcyjnym.
 
 **To Twój "przycisk atomowy" z precyzyjnym celownikiem – czyścisz historię testów, zachowując fundamenty firmy.**
 

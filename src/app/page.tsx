@@ -196,12 +196,13 @@ export default async function DashboardPage({
     if (invDueDate < now) overdueAmount = overdueAmount.plus(new Decimal(inv.amountGross))
 
     if (invDueDate <= thirtyDaysFromNow) {
+      const invIssueDate = new Date(inv.issueDate);
       allAlerts.push({
         id: inv.id,
         title: `Wpływ: ${inv.externalId || 'Faktura'}`,
         amount: Number(inv.amountGross),
         date: invDueDate,
-        type: invDueDate < now ? 'ZALEGŁA' : 'Oczekujący wpływ',
+        type: invDueDate < now && invIssueDate.getTime() !== invDueDate.getTime() ? 'ZALEGŁA' : 'Oczekujący wpływ',
         contractor: contractorsMap[inv.contractorId] || 'Nieznany',
         isIncome: true,
         invoiceNumber: inv.externalId
@@ -218,12 +219,13 @@ export default async function DashboardPage({
     if (invDueDate < now) overdueAmount = overdueAmount.plus(new Decimal(inv.amountGross || 0))
 
     if (invDueDate <= thirtyDaysFromNow) {
+      const invIssueDate = new Date(inv.issueDate);
       allAlerts.push({
         id: inv.id,
         title: `Koszt: ${inv.invoiceNumber || inv.ksefId || 'Faktura'}`,
         amount: Number(inv.amountGross),
         date: invDueDate,
-        type: invDueDate < now ? 'ZALEGŁA' : 'Do zapłaty',
+        type: invDueDate < now && invIssueDate.getTime() !== invDueDate.getTime() ? 'ZALEGŁA' : 'Do zapłaty',
         contractor: inv.contractor?.name || 'Nieznany',
         isIncome: false,
         invoiceNumber: inv.invoiceNumber || inv.ksefId || undefined

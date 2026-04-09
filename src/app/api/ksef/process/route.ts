@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
                             vatAmount: parsed.vatAmount,
                             grossAmount: parsed.grossAmount,
                             rawXml: parsed.rawXml,
-                            status: "IMPORTED"
+                            status: "ACCEPTED"
                         },
                         update: {
                             rawXml: parsed.rawXml,

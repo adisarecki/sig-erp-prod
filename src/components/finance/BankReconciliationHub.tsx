@@ -25,6 +25,22 @@ interface BankReconciliationHubProps {
 
 export function BankReconciliationHub({ items }: BankReconciliationHubProps) {
     const [processingId, setProcessingId] = useState<string | null>(null)
+    const [expandedNoise, setExpandedNoise] = useState<string | null>(null)
+
+    // Separate normal items from Noise
+    const regularItems = items.filter(item => item.matchConfidence !== 0.2)
+    const noiseItems = items.filter(item => item.matchConfidence === 0.2)
+
+    // Group noise items by counterparty
+    const noiseGroups = noiseItems.reduce((acc, item) => {
+        const key = item.counterpartyName || "Nieznany"
+        if (!acc[key]) {
+            acc[key] = { items: [], total: 0 }
+        }
+        acc[key].items.push(item)
+        acc[key].total += item.amount
+        return acc
+    }, {} as Record<string, { items: StagingItem[], total: number }>)
 
     const handleConfirm = async (item: StagingItem) => {
         if (!item.suggestionId) return;
@@ -69,7 +85,65 @@ export function BankReconciliationHub({ items }: BankReconciliationHubProps) {
                 </CardDescription>
             </CardHeader>
             <CardContent className="p-0 divide-y divide-slate-100">
-                {items.map((item) => (
+                {/* 1. Mniejsze wydatki (NOISE Filter) */}
+                {Object.entries(noiseGroups).map(([counterparty, group]) => (
+                    <div key={`noise-${counterparty}`} className="flex flex-col border-l-4 border-slate-300 bg-slate-50">
+                        <div 
+                            className="p-6 flex items-center justify-between cursor-pointer hover:bg-slate-100 transition-colors"
+                            onClick={() => setExpandedNoise(expandedNoise === counterparty ? null : counterparty)}
+                        >
+                            <div className="flex items-center gap-3">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-700">
+                                    Koszty Drobne
+                                </span>
+                                <div>
+                                    <p className="text-base font-bold text-slate-900">{counterparty} <span className="text-slate-500 font-normal text-sm">({group.items.length} operacji)</span></p>
+                                    <p className="text-xs text-slate-500">Auto-kategoryzacja: KOSZTY_OGÓLNE</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <div className={`text-lg font-black ${group.total > 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                                    <CurrencyDisplay gross={group.total} />
+                                </div>
+                                <Button size="sm" variant="outline" className="border-slate-300 text-slate-600" onClick={(e) => { e.stopPropagation(); setExpandedNoise(expandedNoise === counterparty ? null : counterparty) }}>
+                                    {expandedNoise === counterparty ? 'Zwiń' : 'Rozwiń'}
+                                </Button>
+                                {/* Bulk Action on Group can go here (e.g. approve all as Koszty Ogolne) */}
+                            </div>
+                        </div>
+                        
+                        {expandedNoise === counterparty && (
+                            <div className="bg-slate-50 divide-y divide-slate-200 border-t border-slate-200">
+                                {group.items.map(item => (
+                                    <div key={item.id} className="p-4 pl-12 flex items-center justify-between hover:bg-slate-100/50">
+                                        <div className="space-y-1">
+                                            <span className="text-xs font-bold text-slate-400">{new Date(item.date).toLocaleDateString()}</span>
+                                            <p className="text-sm font-medium text-slate-700">{item.title}</p>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <span className={`text-md font-bold ${item.amount > 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                                                <CurrencyDisplay gross={item.amount} />
+                                            </span>
+                                            <Button 
+                                                size="sm" 
+                                                variant="outline" 
+                                                className="h-8 text-xs font-bold border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                                                onClick={() => handleCreateOnTheFly(item)}
+                                                disabled={processingId === item.id}
+                                            >
+                                                {processingId === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3 mr-1" />}
+                                                On-the-fly
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                ))}
+
+                {/* 2. Regular Triage Items */}
+                {regularItems.map((item) => (
                     <div key={item.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-slate-50 transition-colors">
                         <div className="flex-1 space-y-1">
                             <div className="flex items-center gap-3">

@@ -50,11 +50,12 @@ export class ReconciliationEngine {
             const title = item.title || "";
             const match = title.match(invoiceRegex);
             let extractedInvoiceNumber = match ? match[1].trim() : null;
+            
+            const transAmount = new Decimal(String(item.amount)).abs();
 
             for (const inv of unpaidInvoices as any[]) {
                 const netAmount = new Decimal(String(inv.amountNet));
                 const grossAmount = new Decimal(String(inv.amountGross));
-                const transAmount = new Decimal(String(item.amount)).abs();
 
                 // Vector 117/120: Calculate expected amount with retention
                 let expectedAmount = grossAmount;
@@ -110,6 +111,17 @@ export class ReconciliationEngine {
                         status: 'SUGGESTED',
                         suggestionId: bestSuggestion,
                         matchConfidence: bestConfidence > 100 ? 100 : bestConfidence
+                    }
+                });
+            } else if (transAmount.lt(200)) {
+                // Vector 120-121: "Sito" Filter / Noise Filter (< 200 PLN + NO KSeF match)
+                // Auto-categorize to Koszty Ogólne, UI will group them by counterparty
+                await prisma.bankStaging.update({
+                    where: { id: item.id },
+                    data: {
+                        status: 'PENDING',
+                        matchConfidence: 0.2, // Custom flag indicating NOISE
+                        suggestionId: 'KOSZTY_OGÓLNE'
                     }
                 });
             } else if (this.isShadowCost(item.counterpartyName, item.title || "")) {

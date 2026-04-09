@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button"
 import { ShieldAlert, DownloadCloud, Loader2, CheckCircle2 } from "lucide-react"
 import { approvePendingContractor } from "@/app/actions/ksef"
 import { createAssetFromKsef } from "@/app/actions/assets"
+import { markInvoiceAsPaid } from "@/app/actions/invoices"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
-import { PackagePlus } from "lucide-react"
+import { PackagePlus, CreditCard } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initialInvoices: any[], pendingContractors: any[] }) {
@@ -15,6 +16,7 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
     const [syncMessage, setSyncMessage] = useState("")
     const [actionId, setActionId] = useState<string | null>(null)
     const [isAssetCreating, setIsAssetCreating] = useState<string | null>(null)
+    const [isPaying, setIsPaying] = useState<string | null>(null)
     const router = useRouter()
     
     // Zmienne stanu dla Date Range z domyślnym okresem 7 dni
@@ -119,6 +121,23 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
             alert("Błąd: " + error.message)
         } finally {
             setIsAssetCreating(null)
+        }
+    }
+
+    const handleInstantPay = async (inv: any) => {
+        setIsPaying(inv.id)
+        try {
+            const res = await markInvoiceAsPaid(inv.id, undefined, "KARTA_POS")
+            if (res.success) {
+                // To keep it simple, just reload to reflect new state
+                window.location.reload()
+            } else {
+                alert(res.error)
+            }
+        } catch (error: any) {
+            alert("Błąd: " + error.message)
+        } finally {
+            setIsPaying(null)
         }
     }
 
@@ -278,19 +297,37 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
                                             })()}
                                         </td>
                                         <td className="p-4 text-right">
-                                            <Button 
-                                                variant="outline" 
-                                                size="sm"
-                                                onClick={() => handleCreateAsset(inv)}
-                                                disabled={isAssetCreating === inv.id}
-                                                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[10px] uppercase tracking-widest border-indigo-100 rounded-lg h-8"
-                                            >
-                                                {isAssetCreating === inv.id ? (
-                                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                                ) : (
-                                                    <><PackagePlus className="w-3 h-3 mr-1" /> Środek Trwały</>
+                                            <div className="flex gap-2 justify-end">
+                                                {inv.paymentStatus !== 'PAID' && (
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm"
+                                                        onClick={() => handleInstantPay(inv)}
+                                                        disabled={isPaying === inv.id}
+                                                        title="Opłać Natychmiast (Gotówka/Karta)"
+                                                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[10px] uppercase tracking-widest border-emerald-100 rounded-lg h-8 px-2"
+                                                    >
+                                                        {isPaying === inv.id ? (
+                                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                                        ) : (
+                                                            <><CreditCard className="w-3 h-3" /></>
+                                                        )}
+                                                    </Button>
                                                 )}
-                                            </Button>
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm"
+                                                    onClick={() => handleCreateAsset(inv)}
+                                                    disabled={isAssetCreating === inv.id}
+                                                    className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[10px] uppercase tracking-widest border-indigo-100 rounded-lg h-8"
+                                                >
+                                                    {isAssetCreating === inv.id ? (
+                                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                                    ) : (
+                                                        <><PackagePlus className="w-3 h-3 mr-1" /> Środek Trwały</>
+                                                    )}
+                                                </Button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
