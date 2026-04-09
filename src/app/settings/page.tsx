@@ -12,7 +12,7 @@ export default function SettingsPage() {
 
     async function handleReset() {
         const confirmed = confirm(
-            "UWAGA! Ta operacja bezpowrotnie usunie WSZYSTKIE Projekty, Kontrahentów, Faktury, Transakcje oraz Kaucje Gwarancyjne. Czy na pewno chcesz wyczyścić bazę danych operacyjnych?"
+            "UWAGA! Ta operacja bezpowrotnie usunie WSZYSTKIE Projekty, Finanse (Faktury, Transakcje, Wyciągi), Kaucje Gwarancyjne oraz Składniki Majątku. Kontrahenci i Użytkownicy zostaną zachowani. Czy na pewno chcesz wyczyścić bazę danych operacyjnych?"
         )
 
         if (!confirmed) return

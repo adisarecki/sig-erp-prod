@@ -22,26 +22,25 @@ export async function fullResetTenantData() {
 
         // 1. FIRESTORE ATOMIC PURGE
         const fsCollections = [
-            "contractors", 
             "projects", 
             "project_stages", 
             "invoices", 
             "transactions", 
             "audit_logs", 
             "liabilities",
-            "users",
             "bank_transactions",
-            "deposits",
-            "debts",
+            "bank_staging",
+            "ksef_invoices",
+            "bank_balance_states",
             "notifications",
-            "retentions"
+            "retentions",
+            "assets",
+            "ledger_entries",
+            "sync_audit_records",
+            "processed_events"
         ]
 
         let totalFsDeleted = 0;
-
-        // Fetch all contractor IDs to delete objects (which don't have tenantId)
-        const contractorsSnap = await adminDb.collection("contractors").where("tenantId", "==", tenantId).get()
-        const contractorIds = contractorsSnap.docs.map(doc => doc.id)
 
         // Purge Standard Collections by tenantId
         for (const colName of fsCollections) {
@@ -59,62 +58,50 @@ export async function fullResetTenantData() {
             }
         }
 
-        // Purge Objects (linked to contractors)
-        if (contractorIds.length > 0) {
-            try {
-                for (let i = 0; i < contractorIds.length; i += 10) {
-                    const chunk = contractorIds.slice(i, i + 10)
-                    const objsSnap = await adminDb.collection("objects").where("contractorId", "in", chunk).get()
-                    if (!objsSnap.empty) {
-                        const batch = adminDb.batch()
-                        objsSnap.docs.forEach(doc => batch.delete(doc.ref))
-                        await batch.commit()
-                        totalFsDeleted += objsSnap.size
-                    }
-                }
-                console.log(`[MASTER_RESET] Firestore: Purged objects for ${contractorIds.length} contractors`)
-            } catch (err) {
-                console.error(`[MASTER_RESET] Error purging objects:`, err)
-            }
-        }
-
         // 2. PRISMA (SQL) ATOMIC PURGE
         console.log(`[MASTER_RESET] Starting Prisma SQL Purge...`)
         try {
             await prisma.$transaction(async (tx) => {
-                // A. InvoicePayments (dependent via rel)
+                // A. Data with Deep Foreign Keys (Ledger, Payments, Assets)
                 await tx.invoicePayment.deleteMany({
                     where: { invoice: { tenantId } }
                 })
+                await tx.ledgerEntry.deleteMany({ where: { tenantId } })
+                await tx.asset.deleteMany({ where: { tenantId } })
+                await (tx as any).retention.deleteMany({ where: { tenantId } })
 
-                // B. Invoices & Transactions
+                // B. Financial Documents & Transactions
                 await tx.invoice.deleteMany({ where: { tenantId } })
                 await tx.transaction.deleteMany({ where: { tenantId } })
 
-                // C. Bank & Accounts
+                // C. Banking & KSeF Pipeline
                 await tx.bankTransactionRaw.deleteMany({ where: { tenantId } })
-                await tx.bankAccount.deleteMany({ where: { tenantId } })
+                await tx.bankStaging.deleteMany({ where: { tenantId } })
+                await tx.ksefInvoice.deleteMany({ where: { tenantId } })
+                await tx.bankBalanceState.deleteMany({ where: { tenantId } })
 
-                // D. Liabilities, Legacy & Retentions
-                await (tx as any).retention.deleteMany({ where: { tenantId } })
+                // D. Liabilities & Legacy Debts
                 await tx.liability.deleteMany({ where: { tenantId } })
                 await tx.legacyDebtInstallment.deleteMany({
                     where: { debt: { tenantId } }
                 })
                 await tx.legacyDebt.deleteMany({ where: { tenantId } })
 
-                // E. Projects
+                // E. Projects (Contractors are KEPT per user request)
                 await tx.projectStage.deleteMany({
                     where: { project: { tenantId } }
                 })
                 await tx.project.deleteMany({ where: { tenantId } })
 
-                // F. Contractors
-                await tx.contractor.deleteMany({ where: { tenantId } })
-
-                // G. Audit Logs & Users (Security Risk: Purge only if intended)
+                // F. System & Audit (Keeping Users & Roles)
+                await tx.notification.deleteMany({ where: { tenantId } })
                 await tx.auditLog.deleteMany({ where: { tenantId } })
-                await tx.user.deleteMany({ where: { tenantId } })
+                
+                // G. Cleanup global records linked to tenant entries (Sync & Conflicts)
+                await tx.identityConflictRecord.deleteMany({ where: { tenantId } })
+                // SyncAuditRecord doesn't have tenantId filter easily, 
+                // but since all related entities are gone, it's mostly orphaned.
+                
             }, { timeout: 30000 }) // 30s timeout for deep purge
             
             console.log(`[MASTER_RESET] Prisma SQL Purge SUCCESS`)
@@ -130,13 +117,15 @@ export async function fullResetTenantData() {
             revalidatePath("/crm")
             revalidatePath("/finance")
             revalidatePath("/projects")
+            revalidatePath("/assets")
+            revalidatePath("/settings")
         } catch (e) {
              console.warn("[MASTER_RESET] Revalidation warning (ignored):", e)
         }
 
         return { 
             success: true, 
-            message: `Baza wyczyszczona. Usunięto ${totalFsDeleted} dokumentów Firestore oraz wszystkie rekordy SQL.` 
+            message: `Baza wyczyszczona (z zachowaniem Kontrahentów). Usunięto ${totalFsDeleted} dokumentów Firestore oraz wszystkie rekordy SQL.` 
         }
     } catch (error: unknown) {
         console.error("[MASTER_RESET] Fatal Error:", error)

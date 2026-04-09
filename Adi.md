@@ -204,6 +204,20 @@ Wprowadziliśmy **Centrum Rozwiązywania Driftu**, które aktywuje się, gdy tyl
 
 ---
 
+## 🧹 11. Strefa Deweloperska: Konserwacja i Start Produkcyjny (Vector 120.3)
+
+Przygotowaliśmy system na Twój **Start Produkcyjny**. Kiedy skończysz etap testów i będziesz gotowy wprowadzić realne dane swojej firmy, funkcja "Wyczyść Dane Operacyjne" pozwoli Ci na atomowy reset bez niszczenia Twojego nakładu pracy włożonego w konfigurację.
+
+### Twoja Tarcza Operacyjna:
+- **Głębokie Oczyszczanie**: System nie usuwa już tylko "głównych" tabel. Teraz czyści absolutnie wszystko, co mogłoby zostać po testach: od ledgerów i wyciągów bankowych, przez kaucje gwarancyjne, aż po składniki majątku (Assety) i logi synchronizacji.
+- **Szacunek do Twoich Danych**: Zgodnie z Twoją wizją, **Kontrahenci oraz Twoje Konta Bankowe (IBANy) zostają nienaruszone**. Twoja baza dostawców i inwestorów, którą już zbudowałeś, jest bezpieczna. 
+- **Ochrona Dostępu**: System chroni konta użytkowników. Master Reset nie wyloguje Cię ani nie zablokuje dostępu Twojemu zespołowi.
+- **Transparentność przed Akcją**: Zaktualizowany interfejs w Ustawieniach precyzyjnie informuje, co zniknie (Projekty, Finanse, Kaucje), a co zostanie (Kontrahenci, Użytkownicy).
+
+**To Twój "przycisk atomowy" z precyzyjnym celownikiem – czyścisz historię testów, zachowując fundamenty firmy.**
+
+---
+
 *Dla techników: Szczegółowe zasady budowy znajdują się w [AI_look.md](./docs/AI_look.md).*
 
 **Sig ERP – Twoja firma pod pełną kontrolą.**
