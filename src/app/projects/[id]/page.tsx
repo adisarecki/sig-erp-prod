@@ -9,7 +9,7 @@ import { ProjectFinancialChart } from "@/components/projects/ProjectFinancialCha
 import { ProjectCockpitActions } from "@/components/projects/ProjectCockpitActions"
 import { ProjectAnalysisDialog } from "@/components/projects/ProjectAnalysisDialog"
 import { TransactionDeleteButton } from "@/components/projects/TransactionDeleteButton"
-import { ArrowLeft, Building2, MapPin, Wallet, TrendingUp, ReceiptText, Calendar, BadgeDollarSign, Percent, PieChart } from "lucide-react"
+import { ArrowLeft, Building2, MapPin, Wallet, TrendingUp, ReceiptText, Calendar, BadgeDollarSign, Percent, PieChart, Info, Lock } from "lucide-react"
 import Link from "next/link"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 import { mapFinancialValues, FinancialType } from "@/lib/utils/financeMapper"
@@ -207,6 +207,19 @@ export default async function ProjectCockpit({ params }: PageProps) {
                             <BadgeDollarSign className="w-4 h-4 text-indigo-500" />
                         </div>
                         <CardTitle className="text-xl font-black text-indigo-700 truncate">{formatPln(plannedMargin)}</CardTitle>
+                    </CardHeader>
+                </Card>
+
+                <Card className="bg-white border-slate-200 shadow-sm border-l-4 border-l-slate-400">
+                    <CardHeader className="pb-2">
+                        <div className="flex justify-between items-center text-slate-500">
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Kaucja Prognozowana (Info)</span>
+                            <Info className="w-4 h-4 text-slate-400" />
+                        </div>
+                        <CardTitle className="text-xl font-black text-slate-400 truncate">
+                            {formatPln(budgetEstimated * (Number(project.retentionShortTermRate || 0) + Number(project.retentionLongTermRate || 0)))}
+                        </CardTitle>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Suma prognozowana (niefinansowa)</p>
                     </CardHeader>
                 </Card>
             </div>

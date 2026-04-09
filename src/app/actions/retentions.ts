@@ -121,8 +121,10 @@ export async function updateRetentionStatus(id: string, status: string) {
 }
 
 /**
- * Automatyczna synchronizacja kaucji z projektu
- * Wywoływana przy tworzeniu/edycji projektu.
+ * Automatyczna synchronizacja kaucji z projektu (METADATA ONLY)
+ * Vector 117: Ta funkcja tworzy rekordy Retention o statusie ESTIMATED, 
+ * które służą wyłącznie do celów informacyjnych w Cockpicie.
+ * NIE generuje wpisów RETENTION_LOCK w centralnym Ledgerze.
  */
 export async function syncRetentionsFromProject(
     projectId: string, 
@@ -146,25 +148,23 @@ export async function syncRetentionsFromProject(
         const shortAmount = new Decimal(budget).mul(shortRate).toNumber()
         const longAmount = new Decimal(budget).mul(longRate).toNumber()
 
-        // Oblicz daty (Logic Update Phase 8)
+        // Oblicz daty
         let shortExpiryDate = new Date()
         let longExpiryDate = new Date()
 
         if (estimatedCompletionDate) {
-            // RetentionShort_Date = estimatedCompletionDate + 30 days
             shortExpiryDate = new Date(estimatedCompletionDate)
             shortExpiryDate.setDate(shortExpiryDate.getDate() + 30)
 
-            // RetentionLong_Date = estimatedCompletionDate + warrantyPeriodYears
             longExpiryDate = new Date(estimatedCompletionDate)
             longExpiryDate.setFullYear(longExpiryDate.getFullYear() + (warrantyPeriodYears || 0))
         } else {
-            // Fallback (jeśli brak daty zakończenia)
             shortExpiryDate.setFullYear(shortExpiryDate.getFullYear() + 1)
             longExpiryDate.setFullYear(longExpiryDate.getFullYear() + 3)
         }
 
-        const retentionStatus = forceStatus || "DRAFT"
+        // Vector 117: Status zawsze ESTIMATED dla wpisów projektowych (niefinansowych)
+        const retentionStatus = forceStatus || "ESTIMATED"
 
         // 1. Kaucja Krótka
         const shortType = "SHORT_TERM"
@@ -174,24 +174,20 @@ export async function syncRetentionsFromProject(
                 const updateData: any = {
                     amount: shortAmount,
                     expiryDate: shortExpiryDate.toISOString(),
+                    status: retentionStatus,
                     updatedAt: new Date().toISOString()
                 }
-                if (forceStatus) updateData.status = forceStatus
 
                 await adminDb.collection("retentions").doc(existingShort.id).update(updateData)
-                
-                const prismaUpdate: any = {
-                    amount: shortAmount,
-                    expiryDate: shortExpiryDate
-                }
-                if (forceStatus) prismaUpdate.status = forceStatus
-
                 await (prisma as any).retention.update({
                     where: { id: existingShort.id },
-                    data: prismaUpdate
+                    data: {
+                        amount: shortAmount,
+                        expiryDate: shortExpiryDate,
+                        status: retentionStatus
+                    }
                 })
             } else {
-                // Manually create to ensure correct status
                 const retentionRef = adminDb.collection("retentions").doc()
                 const data = {
                     tenantId,
@@ -200,7 +196,7 @@ export async function syncRetentionsFromProject(
                     type: shortType,
                     expiryDate: shortExpiryDate.toISOString(),
                     source: "PROJECT",
-                    description: "Automatyczna kaucja krótkookresowa z projektu",
+                    description: "[ESTIMATED] Kaucja projektowa (prognoza)",
                     status: retentionStatus,
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString()
@@ -215,21 +211,11 @@ export async function syncRetentionsFromProject(
                         type: shortType,
                         expiryDate: shortExpiryDate,
                         source: "PROJECT",
-                        description: "Automatyczna kaucja krótkookresowa z projektu",
+                        description: "[ESTIMATED] Kaucja projektowa (prognoza)",
                         status: retentionStatus
                     }
                 })
             }
-        } else if (existingShort) {
-            await adminDb.collection("retentions").doc(existingShort.id).update({
-                amount: 0,
-                expiryDate: shortExpiryDate.toISOString(),
-                updatedAt: new Date().toISOString()
-            })
-            await (prisma as any).retention.update({
-                where: { id: existingShort.id },
-                data: { amount: 0, expiryDate: shortExpiryDate }
-            })
         }
 
         // 2. Kaucja Długa
@@ -240,21 +226,18 @@ export async function syncRetentionsFromProject(
                 const updateData: any = {
                     amount: longAmount,
                     expiryDate: longExpiryDate.toISOString(),
+                    status: retentionStatus,
                     updatedAt: new Date().toISOString()
                 }
-                if (forceStatus) updateData.status = forceStatus
 
                 await adminDb.collection("retentions").doc(existingLong.id).update(updateData)
-                
-                const prismaUpdate: any = {
-                    amount: longAmount,
-                    expiryDate: longExpiryDate
-                }
-                if (forceStatus) prismaUpdate.status = forceStatus
-
                 await (prisma as any).retention.update({
                     where: { id: existingLong.id },
-                    data: prismaUpdate
+                    data: {
+                        amount: longAmount,
+                        expiryDate: longExpiryDate,
+                        status: retentionStatus
+                    }
                 })
             } else {
                 const retentionRef = adminDb.collection("retentions").doc()
@@ -265,7 +248,7 @@ export async function syncRetentionsFromProject(
                     type: longType,
                     expiryDate: longExpiryDate.toISOString(),
                     source: "PROJECT",
-                    description: "Automatyczna kaucja długookresowa z projektu",
+                    description: "[ESTIMATED] Kaucja projektowa (prognoza)",
                     status: retentionStatus,
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString()
@@ -280,21 +263,11 @@ export async function syncRetentionsFromProject(
                         type: longType,
                         expiryDate: longExpiryDate,
                         source: "PROJECT",
-                        description: "Automatyczna kaucja długookresowa z projektu",
+                        description: "[ESTIMATED] Kaucja projektowa (prognoza)",
                         status: retentionStatus
                     }
                 })
             }
-        } else if (existingLong) {
-            await adminDb.collection("retentions").doc(existingLong.id).update({
-                amount: 0,
-                expiryDate: longExpiryDate.toISOString(),
-                updatedAt: new Date().toISOString()
-            })
-            await (prisma as any).retention.update({
-                where: { id: existingLong.id },
-                data: { amount: 0, expiryDate: longExpiryDate }
-            })
         }
         
         return { success: true }

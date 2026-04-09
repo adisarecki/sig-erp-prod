@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { getSyncStatus } from "@/app/actions/health"
 import { resolveDrift } from "@/app/actions/sync-actions"
+import { cleanupRetentionGhostEntries } from "@/app/actions/cleanup-retentions"
 import {
     Popover,
     PopoverContent,
@@ -29,6 +30,7 @@ export function SyncStatus() {
     const [details, setDetails] = useState<any>(null)
     const [driftingItems, setDriftingItems] = useState<any[]>([])
     const [isResolving, setIsResolving] = useState<string | null>(null)
+    const [isCleaning, setIsCleaning] = useState(false)
 
     const check = async () => {
         const res = await getSyncStatus()
@@ -59,6 +61,22 @@ export function SyncStatus() {
             }
         } finally {
             setIsResolving(null)
+        }
+    }
+
+    const handleEmergencyCleanup = async () => {
+        if (!confirm("Czy na pewno chcesz usunąć błędne blokady kaucji? To przywróci Twój realny bilans Safe-to-Spend.")) return
+        setIsCleaning(true)
+        try {
+            const res = await cleanupRetentionGhostEntries()
+            if (res.success) {
+                toast.success(res.message)
+                await check()
+            } else {
+                toast.error(res.error || "Błąd podczas czyszczenia")
+            }
+        } finally {
+            setIsCleaning(false)
         }
     }
 
@@ -193,18 +211,31 @@ export function SyncStatus() {
                     )}
                 </div>
 
-                <div className="p-3 bg-slate-50 border-t flex items-center justify-between">
-                    <div className="text-[9px] text-slate-400 uppercase tracking-tight">
-                        FS / SQL Architecture
+                <div className="p-3 bg-slate-50 border-t flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                        <div className="text-[9px] text-slate-400 uppercase tracking-tight">
+                            FS / SQL Architecture
+                        </div>
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 text-[9px] gap-1 text-slate-500"
+                            onClick={check}
+                        >
+                            <RefreshCw className="w-2.5 h-2.5" />
+                            ODŚWIEŻ
+                        </Button>
                     </div>
+                    
                     <Button 
-                        variant="ghost" 
+                        variant="destructive" 
                         size="sm" 
-                        className="h-6 text-[9px] gap-1 text-slate-500"
-                        onClick={check}
+                        className="w-full h-8 text-[10px] font-black uppercase tracking-widest gap-2 bg-rose-600 hover:bg-rose-700"
+                        onClick={handleEmergencyCleanup}
+                        disabled={isCleaning}
                     >
-                        <RefreshCw className="w-2.5 h-2.5" />
-                        ODŚWIEŻ
+                        {isCleaning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                        Napraw Drift Finansowy (Fix Balance)
                     </Button>
                 </div>
             </PopoverContent>

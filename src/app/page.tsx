@@ -137,6 +137,7 @@ export default async function DashboardPage({
   // The ledgerEntries fetch and manual filtering is replaced by LedgerService.
 
   const unpaidTotalAmountGross = ledgerSnapshot.unpaidInvoicesGross;
+  const citReserveValue = ledgerSnapshot.citReserve;
 
   // Re-enable contractors mapping (needed for other UI parts)
   const contractorsMap: Record<string, string> = {}
@@ -165,7 +166,9 @@ export default async function DashboardPage({
     .reduce((sum: Decimal, inv: any) => sum.plus(new Decimal(inv.amountNet)), new Decimal(0))
 
   const releasedRetentionValue = new Decimal(0)
-  const totalReserve = unpaidTotalAmountGross.plus(Decimal.max(0, vatShieldBalance.times(-1)))
+  const totalReserve = unpaidTotalAmountGross
+    .plus(Decimal.max(0, vatShieldBalance.times(-1)))
+    .plus(citReserveValue)
   const cumulativeAccrualProfit = fuelAccrualNet
   const netVat = vatShieldBalance
 
@@ -326,6 +329,7 @@ export default async function DashboardPage({
   const formattedTaxReserve = formatPln(totalReserve);
   const formattedNetProfit = formatPln(netProfit);
   const formattedCleanCash = formatPln(cleanCash);
+  const formattedCitReserve = formatPln(citReserveValue);
   const formattedVerifiedBalance = verifiedBalance ? formatPln(verifiedBalance) : "BRAK DANYCH"
 
   const formattedNetVat = formatPln(netVat.abs());
@@ -437,6 +441,10 @@ export default async function DashboardPage({
                 <p className={`text-sm font-medium uppercase tracking-tighter ${getFinancialColor(unpaidTotalAmountGross.negated())}`}>Faktury do Zapłaty</p>
               </div>
               <p className={`font-bold text-[18px] mt-0.5 ${getFinancialColor(unpaidTotalAmountGross.negated())}`}>-{formatPln(unpaidTotalAmountGross)}</p>
+            </div>
+            <div>
+              <p className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-tighter">Rezerwa CIT/PPE</p>
+              <p className="font-bold text-xl text-orange-400">-{formattedCitReserve}</p>
             </div>
           </div>
         </div>

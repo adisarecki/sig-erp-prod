@@ -43,7 +43,7 @@ export function RetentionVault({ retentions, projects, contractors, invoices = [
         }
     }
 
-    const activeRetentions = retentions.filter(r => r.status !== "RECOVERED")
+    const activeRetentions = retentions.filter(r => r.status !== "RECOVERED" && r.status !== "ESTIMATED")
     const totalFrozen = activeRetentions.reduce((sum, r) => sum.plus(new Decimal(r.amount)), new Decimal(0))
 
     const getContractorName = (id?: string) => {
