@@ -136,7 +136,8 @@ export default async function DashboardPage({
   // --- VECTOR 107 REFACTOR: LEGACY MANUAL AGGREGATION REMOVED ---
   // The ledgerEntries fetch and manual filtering is replaced by LedgerService.
 
-  const unpaidTotalAmountGross = ledgerSnapshot.unpaidInvoicesGross;
+  const unpaidReceivables = ledgerSnapshot.unpaidReceivables;
+  const unpaidPayables = ledgerSnapshot.unpaidPayables;
   const citReserveValue = ledgerSnapshot.citReserve;
 
   // Re-enable contractors mapping (needed for other UI parts)
@@ -166,7 +167,7 @@ export default async function DashboardPage({
     .reduce((sum: Decimal, inv: any) => sum.plus(new Decimal(inv.amountNet)), new Decimal(0))
 
   const releasedRetentionValue = new Decimal(0)
-  const totalReserve = unpaidTotalAmountGross
+  const totalReserve = unpaidPayables
     .plus(Decimal.max(0, vatShieldBalance.times(-1)))
     .plus(citReserveValue)
   const cumulativeAccrualProfit = fuelAccrualNet
@@ -330,6 +331,8 @@ export default async function DashboardPage({
   const formattedNetProfit = formatPln(netProfit);
   const formattedCleanCash = formatPln(cleanCash);
   const formattedCitReserve = formatPln(citReserveValue);
+  const formattedReceivables = formatPln(unpaidReceivables);
+  const formattedPayables = formatPln(unpaidPayables);
   const formattedVerifiedBalance = verifiedBalance ? formatPln(verifiedBalance) : "BRAK DANYCH"
 
   const formattedNetVat = formatPln(netVat.abs());
@@ -438,9 +441,15 @@ export default async function DashboardPage({
             </div>
             <div>
               <div className="flex items-center gap-1 mb-1">
-                <p className={`text-sm font-medium uppercase tracking-tighter ${getFinancialColor(unpaidTotalAmountGross.negated())}`}>Faktury do Zapłaty</p>
+                <p className="text-sm font-medium uppercase tracking-tighter text-emerald-400">Oczekiwane wpłaty (Należności)</p>
               </div>
-              <p className={`font-bold text-[18px] mt-0.5 ${getFinancialColor(unpaidTotalAmountGross.negated())}`}>-{formatPln(unpaidTotalAmountGross)}</p>
+              <p className="font-bold text-[18px] mt-0.5 text-emerald-400">+{formattedReceivables}</p>
+            </div>
+            <div>
+              <div className="flex items-center gap-1 mb-1">
+                <p className="text-sm font-medium uppercase tracking-tighter text-rose-400">Zobowiązania (Payables)</p>
+              </div>
+              <p className="font-bold text-[18px] mt-0.5 text-rose-400">-{formattedPayables}</p>
             </div>
             <div>
               <p className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-tighter">Rezerwa CIT/PPE</p>

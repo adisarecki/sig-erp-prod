@@ -17,7 +17,12 @@ export interface FinancialSnapshot {
   fuelAccrualNet: Decimal;
   citReserve: Decimal;
   vaultValue: Decimal;
+  /** @deprecated use unpaidReceivables / unpaidPayables */
   unpaidInvoicesGross: Decimal;
+  /** Należności – unpaid sales invoices (Accounts Receivable). Positive = money incoming. */
+  unpaidReceivables: Decimal;
+  /** Zobowiązania – unpaid cost invoices (Accounts Payable). Positive number, subtract from balance. */
+  unpaidPayables: Decimal;
   timestamp: string;
   source: 'POSTGRES_LEDGER';
   status: 'LEDGER_DERIVED';
@@ -32,13 +37,26 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
     where: { tenantId }
   });
 
-  // 1. Unrealized Invoices (from Prisma Mirror)
-  // [TODO] Move Unpaid tracking to Ledger if necessary, 
-  // currently Prisma Invoice model tracks paymentStatus.
+  // 1. Unrealized Invoices — split into Receivables vs Payables
   const unpaidInvoices = await prisma.invoice.findMany({
     where: { tenantId, paymentStatus: 'UNPAID', status: 'ACTIVE' }
   });
-  const unpaidTotalGross = unpaidInvoices.reduce((sum: Decimal, inv: any) => sum.plus(new Decimal(String(inv.amountGross))), new Decimal(0));
+
+  const SALES_TYPES = new Set(['SPRZEDAŻ', 'INCOME', 'REVENUE']);
+  const COST_TYPES  = new Set(['ZAKUP', 'EXPENSE', 'COST', 'KSeF_PURCHASE']);
+
+  // Receivables: money we will RECEIVE — positive (+)
+  const unpaidReceivables = unpaidInvoices
+    .filter((inv: any) => SALES_TYPES.has(inv.type))
+    .reduce((sum: Decimal, inv: any) => sum.plus(new Decimal(String(inv.amountGross))), new Decimal(0));
+
+  // Payables: money we will PAY OUT — kept as positive for UI display, context implies outflow
+  const unpaidPayables = unpaidInvoices
+    .filter((inv: any) => COST_TYPES.has(inv.type))
+    .reduce((sum: Decimal, inv: any) => sum.plus(new Decimal(String(inv.amountGross))), new Decimal(0));
+
+  // Legacy combined figure (kept for backwards-compat)
+  const unpaidTotalGross = unpaidReceivables.plus(unpaidPayables);
 
   // 2. Ledger Aggregates
   const realCashBalance = entries
@@ -57,18 +75,18 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
     .filter((e: any) => e.type === 'VAT_SHIELD')
     .reduce((sum: Decimal, e: any) => sum.plus(new Decimal(String(e.amount))), new Decimal(0));
 
-  // 3. Safe to Spend calculation (Vector 117 Logic)
-  // Formula: Real Cash - (VAT Debt if any) - (Retention Vaults)
-  // VAT Balance < 0 means we owe money (Debt).
+  // 3. Safe to Spend (Vector 117 Logic)
   const vatDebt = vatBalance.lt(0) ? vatBalance.abs() : new Decimal(0);
   
-  // CIT Reserve = 19% of Net Profit (fuelAccrualNet) if profitable
-  const citReserve = fuelAccrualNet.gt(0) ? fuelAccrualNet.mul(new Decimal("0.19")) : new Decimal(0);
+  // CIT Reserve uses configured rate (default 9%)
+  const citRate = new Decimal(process.env.NEXT_PUBLIC_CIT_RATE || '0.09');
+  const citReserve = fuelAccrualNet.gt(0) ? fuelAccrualNet.mul(citRate) : new Decimal(0);
   
   const safeToSpend = realCashBalance
     .minus(vatDebt)
     .minus(citReserve)
-    .minus(vaultValue); // Locked retention is strictly not spendable
+    .minus(vaultValue)
+    .minus(unpaidPayables);
 
   return {
     realCashBalance,
@@ -78,6 +96,8 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
     citReserve,
     vaultValue,
     unpaidInvoicesGross: unpaidTotalGross,
+    unpaidReceivables,
+    unpaidPayables,
     timestamp: new Date().toISOString(),
     source: 'POSTGRES_LEDGER',
     status: 'LEDGER_DERIVED'
