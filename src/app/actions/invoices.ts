@@ -19,53 +19,66 @@ export async function deleteInvoice(id: string): Promise<{ success: boolean, err
         const adminDb = getAdminDb()
         const tenantId = await getCurrentTenantId()
 
-        // 1. Znajdź powiązane transakcje (source: INVOICE)
+        // 1. Znajdź powiązane płatności i wszystkie transakcje
         const payments = await prisma.invoicePayment.findMany({
             where: { invoiceId: id },
-            include: { transaction: true }
+            include: { transaction: { include: { bankTransactions: true } } }
         })
 
         const transactionIdsToDelete = payments
             .filter(p => p.transaction.source === "INVOICE")
             .map(p => p.transaction.id)
 
+        const bankTransactionIdsToRevert = payments
+            .flatMap(p => p.transaction.bankTransactions.map(bt => bt.id))
+
         // 2. Firestore Deletion (Batch/Transaction)
         await adminDb.runTransaction(async (transaction) => {
             // Usuń fakturę
             transaction.delete(adminDb.collection("invoices").doc(id))
             
-            // Usuń powiązane transakcje w Firestore
+            // Usuń powiązane transakcje w Firestore (tylko te ręczne/fakturowe)
             for (const txId of transactionIdsToDelete) {
                 transaction.delete(adminDb.collection("transactions").doc(txId))
             }
         })
 
         // 3. Prisma Deletion (Cascading cleanup)
-        // Uwaga: InvoicePayment ma onDelete: Cascade dla Transaction w schema? 
-        // Sprawdźmy schema: 
-        // InvoicePayment -> Transaction (onDelete: Cascade)
-        // InvoicePayment -> Invoice (brak onDelete specified, domyślnie Restrict?)
-        
-        // Bezpieczne usuwanie kolejno:
         await prisma.$transaction(async (tx: any) => {
-            // 0. Cleanup Central Ledger (Vector 109 Truth)
+            // A. Revert Bank Transactions status (Vector 118 Bank Authority)
+            if (bankTransactionIdsToRevert.length > 0) {
+                await tx.bankTransactionRaw.updateMany({
+                    where: { id: { in: bankTransactionIdsToRevert } },
+                    data: { 
+                        status: "UNPAIRED",
+                        pairedTransactionId: null 
+                    }
+                })
+            }
+
+            // B. Cleanup Central Ledger for all related sources
+            // This includes the invoice itself (Net, VAT, Retention)
+            // AND all transactions linked to it (Payments)
+            const allSourceIds = [id, ...payments.map(p => p.transactionId)]
+            
             await tx.ledgerEntry.deleteMany({
                 where: {
                     tenantId,
-                    sourceId: id
+                    sourceId: { in: allSourceIds }
                 }
             })
 
-            // 1. Usuń powiązania i transakcje
+            // C. Delete Links and Transactions
             await tx.invoicePayment.deleteMany({ where: { invoiceId: id } })
             
+            // Delete manual Transactions
             if (transactionIdsToDelete.length > 0) {
                 await tx.transaction.deleteMany({
                     where: { id: { in: transactionIdsToDelete } }
                 })
             }
 
-            // 2. Usuń samą fakturę
+            // D. FINAL: Delete the invoice itself
             await tx.invoice.delete({ where: { id } })
         })
 
@@ -114,16 +127,20 @@ export async function markInvoiceAsPaid(id: string, paymentDateOverride?: string
                 include: { contractor: true }
             })
 
+            const grossAmountValue = new Decimal(updatedInvoice.amountGross)
+            const retentionValue = new Decimal(updatedInvoice.retainedAmount || 0)
+            const netPaymentValue = grossAmountValue.minus(retentionValue)
+
             // C. Record in Central Ledger (PROPER ORDER)
             await recordLedgerEntry({
                 tenantId,
                 projectId: updatedInvoice.projectId || undefined,
                 source: paymentMethod === 'BANK_TRANSFER' ? 'BANK_PAYMENT' : 'SHADOW_COST',
                 sourceId: id,
-                amount: new Decimal(updatedInvoice.amountGross).mul(isIncome ? 1 : -1),
+                amount: netPaymentValue.mul(isIncome ? 1 : -1),
                 type: isIncome ? 'INCOME' : 'EXPENSE',
                 date: paymentDate
-            }, tx); // Pass transaction client if possible (recordLedgerEntry should support it)
+            }, tx); 
 
             // D. Create Transaction record in Prisma
             const classification = updatedInvoice.projectId ? "PROJECT_COST" : "GENERAL_COST"
@@ -533,12 +550,14 @@ export async function addIncomeInvoice(formData: FormData) {
                     }
                 });
 
+                const netPayment = amountGross.minus(retainedAmount || 0)
+
                 await recordLedgerEntry({
                     tenantId,
                     projectId: finalProjectId || undefined,
                     source: paymentMethod === 'BANK_TRANSFER' ? 'BANK_PAYMENT' : 'SHADOW_COST',
                     sourceId: invoiceId,
-                    amount: amountGross,
+                    amount: netPayment,
                     type: 'INCOME',
                     date: issueDate
                 }, tx);
@@ -803,12 +822,14 @@ export async function addCostInvoice(formData: FormData) {
                     }
                 });
 
+                const netPayment = amountGross.minus(retainedAmount || 0)
+
                 await recordLedgerEntry({
                     tenantId,
                     projectId: finalProjectId || undefined,
                     source: paymentMethod === 'BANK_TRANSFER' ? 'BANK_PAYMENT' : 'SHADOW_COST',
                     sourceId: invoiceId,
-                    amount: amountGross,
+                    amount: netPayment.mul(-1),
                     type: 'EXPENSE',
                     date: issueDate
                 }, tx);

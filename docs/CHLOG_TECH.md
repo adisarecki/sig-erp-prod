@@ -77,6 +77,8 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 124 | UI / UX | FIXED | Zero-Drift Refresh Strategy. | Implemented `router.refresh()` across all mutation modals (Transactions, Projects, Payments) to ensure immediate server-side re-validation and avoid stale UI states. |
 | Vector 125 | Finance / Logic | FIXED | CIT as Hard Liability. | Redefined `CIT_Reserve` as a hard subtraction in the `SafeToSpend` formula. Introduced `realProfit` (Net Profit - CIT) to UI dashboards. |
 | Vector 126 | Finance / Bank | FIXED | Bank Staging Hardening. | Enforced immutability in `BankStaging` records. Added `counterpartyRaw` title normalization (PKO BP cleaning) to the verification hub. |
+| Vector 130 | Finance / Logic | FIXED | Forecast Math (Gross-Retention). | Enforced `Gross - Retention` formula in Dashboard alerts and Forecast calculations (+11,300 PLN logic). |
+| Vector 131 | Finance / Engine | FIXED | Full Cascade Deletion Cleanup. | Redefined `deleteInvoice` to revert Bank Transactions to `UNPAIRED` and wipe all related Ledger entries (Zero Zombie Data). |
 
 ---
 
