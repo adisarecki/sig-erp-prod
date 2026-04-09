@@ -510,17 +510,128 @@ export async function closeProject(id: string, receiptDate: string): Promise<{ s
             })
         }
 
-        // 5. Synchronizacja kaucji (Data Odmrożenia przelicza się na podstawie nowej daty zakończenia)
-        // Wymuszamy status ACTIVE przy zamknięciu projektu
-        await syncRetentionsFromProject(
-            id,
-            Number(project.budgetEstimated),
-            Number(project.retentionShortTermRate),
-            Number(project.retentionLongTermRate),
-            date,
-            project.warrantyPeriodYears,
-            "ACTIVE"
-        )
+        // 5. HANDOVER PROTOCOL (Vector 117.3)
+        // Aggregate all RETENTION_LOCK entries from the Ledger for this project
+        const totalRetentionAccumulated = await prisma.ledgerEntry.aggregate({
+            where: {
+                projectId: id,
+                tenantId,
+                type: 'RETENTION_LOCK'
+            },
+            _sum: {
+                amount: true
+            }
+        });
+
+        const accumulatedSum = totalRetentionAccumulated._sum.amount || new Decimal(0);
+
+        if (accumulatedSum.gt(0)) {
+            const shortRate = Number(project.retentionShortTermRate || 0);
+            const longRate = Number(project.retentionLongTermRate || 0);
+            const totalRate = shortRate + longRate;
+
+            // Calculate split
+            let shortFinal = new Decimal(0);
+            let longFinal = new Decimal(0);
+
+            if (totalRate > 0) {
+                shortFinal = accumulatedSum.mul(shortRate).div(totalRate);
+                longFinal = accumulatedSum.minus(shortFinal);
+            } else {
+                // Fallback: Default to 50/50 if rates were somehow lost but locks exist
+                shortFinal = accumulatedSum.div(2);
+                longFinal = accumulatedSum.minus(shortFinal);
+            }
+
+            // Expiry Dates logic
+            const shortExpiryDate = new Date(date);
+            shortExpiryDate.setFullYear(shortExpiryDate.getFullYear() + project.warrantyPeriodYears);
+
+            const longExpiryDate = new Date(date);
+            longExpiryDate.setFullYear(longExpiryDate.getFullYear() + 5); // Default Statutory Liability (Vector 117.3)
+
+            const formatDate = (d: Date) => d.toLocaleDateString('pl-PL');
+
+            // 5a. Create SHORT_TERM Vault Entry
+            if (shortFinal.gt(0)) {
+                const retId = randomUUID();
+                const desc = `${project.name} - Kaucja Gwarancyjna (Termin: ${formatDate(shortExpiryDate)})`;
+                await adminDb.collection("retentions").doc(retId).set({
+                    tenantId,
+                    projectId: id,
+                    contractorId: project.contractorId,
+                    amount: shortFinal.toNumber(),
+                    type: "SHORT_TERM",
+                    expiryDate: shortExpiryDate.toISOString(),
+                    source: "HANDOVER",
+                    description: desc,
+                    status: "ACTIVE",
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                });
+                await (prisma as any).retention.create({
+                    data: {
+                        id: retId,
+                        tenant: { connect: { id: tenantId } },
+                        project: { connect: { id: id } },
+                        contractor: { connect: { id: project.contractorId } },
+                        amount: shortFinal,
+                        type: "SHORT_TERM",
+                        expiryDate: shortExpiryDate,
+                        source: "HANDOVER",
+                        description: desc,
+                        status: "ACTIVE"
+                    }
+                });
+            }
+
+            // 5b. Create LONG_TERM Vault Entry
+            if (longFinal.gt(0)) {
+                const retId = randomUUID();
+                const desc = `${project.name} - Kaucja Gwarancyjna (Termin: ${formatDate(longExpiryDate)})`;
+                await adminDb.collection("retentions").doc(retId).set({
+                    tenantId,
+                    projectId: id,
+                    contractorId: project.contractorId,
+                    amount: longFinal.toNumber(),
+                    type: "LONG_TERM",
+                    expiryDate: longExpiryDate.toISOString(),
+                    source: "HANDOVER",
+                    description: desc,
+                    status: "ACTIVE",
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                });
+                await (prisma as any).retention.create({
+                    data: {
+                        id: retId,
+                        tenant: { connect: { id: tenantId } },
+                        project: { connect: { id: id } },
+                        contractor: { connect: { id: project.contractorId } },
+                        amount: longFinal,
+                        type: "LONG_TERM",
+                        expiryDate: longExpiryDate,
+                        source: "HANDOVER",
+                        description: desc,
+                        status: "ACTIVE"
+                    }
+                });
+            }
+
+            // 6. Cleanup Estimated Retentions (Metadata-only)
+            await adminDb.collection("retentions")
+                .where("projectId", "==", id)
+                .where("source", "==", "PROJECT")
+                .get()
+                .then(snap => {
+                    const batch = adminDb.batch();
+                    snap.docs.forEach(doc => batch.delete(doc.ref));
+                    return batch.commit();
+                });
+            await (prisma as any).retention.deleteMany({
+                where: { projectId: id, source: "PROJECT", tenantId }
+            });
+        }
 
         revalidatePath("/projects")
         revalidatePath("/")

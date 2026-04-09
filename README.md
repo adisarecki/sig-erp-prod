@@ -12,33 +12,25 @@ System rezygnuje z "Cichych Importów". Teraz każda złotówka z wyciągu trafi
 - **Landing Zone (Triage UI)**: Transakcje nie zmieniają ksiąg automatycznie. Widzisz je w kolejce oczekującej na Twoją decyzję.
 - **Auto-Match (High Confidence)**: System sam oblicza kaucje i sugeruje dopasowanie do faktur. Jeśli kwota się zgadza (z uwzględnieniem **Vector 117**), wystarczy kliknąć [Zatwierdź].
 - **On-the-fly Create**: Jeśli wydatek nie ma faktury (np. paliwo, przegląd), tworzysz transakcję jednym przyciskiem. System uczy się kategorii na podstawie historii Twoich dostawców.
-- **Synchronizacja Real-Time**: Każde zatwierdzenie natychmiast aktualizuje **Kotwicę Salda** i wskaźniki płynności.
+- **Handover Protocol (VECTOR 117.3)**: Po zakończeniu inwestycji, system automatycznie rozbija zgromadzone kaucje na Krótko- i Długoterminowe i przenosi je do **Globalnego Skarbca**.
 
 ---
 
-## 🏗️ 0.5. Inteligentne Kaucje (VECTOR 117)
+## 🏗️ 0.5. Scentralizowane Kaucje (VECTOR 117.B) 🔐
 
-
-System teraz automatycznie oblicza oczekiwaną kwotę płatności na podstawie ustawień projektu w momencie dopasowania wyciągu bankowego do faktury.
+Zmieniliśmy filozofię kaucji z budżetowej na **fakturową**. Koniec z "zamrażaniem" wirtualnych pieniędzy, których jeszcze nie zarobiłeś.
 
 ### Jak to działa:
-Każdy projekt ma **Podstawę naliczania kaucji** (Netto / Brutto):
+- **Kaucja Wyzwalana Fakturą**: System nalicza kaucję dopiero w momencie wystawienia lub opłacenia faktury, a nie na start projektu.
+- **Precyzyjny Skarbiec**: W Skarbcu lądują tylko realne kwoty wynikające z wystawionych dokumentów. Po zamknięciu projektu ([Zakończ Inwestycję]), kaucje są transferowane do widoku globalnego z precyzyjnymi datami zwrotu.
+- **Monitoring Płynności**: Dashboard rozróżnia teraz **Należności** (+ zielone) i **Zobowiązania** (- czerwone), dając Ci jasny obraz tego, ile pieniędzy do Ciebie płynie, a ile musisz oddać.
 
-**Podstawa BRUTTO** (częstsza):
-- Formuła: `Oczekiwana = Brutto × (1 - Stopa kaucji)`
-- Przykład: Faktura 12,300 PLN, 10% kaucji → oczekiwane 11,070 PLN
-
-**Podstawa NETTO**:
-- Formuła: `Oczekiwana = Brutto - (Netto × Stopa kaucji)`
-- Przykład: Faktura 12,300 PLN (10k netto), 10% kaucji → oczekiwane 11,300 PLN
-
-Gdy bank wpłaci dokładnie oczekiwaną kwotę, kaucja trafia prosto do **Skarbca (Vault)** – zamrożonych pieniędzy nieprzyznaczy realnym wydatkom.
-
-### Monitoring płynności:
-System ostrzega Cię gdy:
-- ⚠️ Klient nie zapłacił całej kwoty (underpayment)
-- ⚠️ Zadłużenie VAT przekroczy 50% gotówki
-- 🚨 Bezpieczeństwo kapitału poniżej zera
+### Safe-to-Spend (Twoja Prawdziwa Płynność)
+System wylicza "Czystą Gotówkę" (Real Profit) odejmując od salda bankowego:
+- 🛡️ Dług VAT
+- 💰 Rezerwę CIT/PPE (**Hard Liability**) – nie celebrujemy pieniędzy Urzędu Skarbowego.
+- 🔒 Zamrożone kaucje (Skarbiec)
+- 🔴 Zobowiązania (nieopłacone faktury kosztowe)
 
 ---
 

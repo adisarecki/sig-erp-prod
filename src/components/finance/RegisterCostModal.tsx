@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription
 } from "@/components/ui/dialog"
@@ -39,6 +40,7 @@ interface RegisterCostModalProps {
 export function RegisterCostModal({ projects, contractors, ocrData, lockedProjectId, trigger }: RegisterCostModalProps) {
     const [open, setOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
+    const router = useRouter()
 
     // Form State
     const [amountNet, setAmountNet] = useState("")
@@ -258,6 +260,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
             const result = await addCostInvoice(formData)
             if (result.success) {
                 toast.success("Faktura została pomyślnie zaksięgowana.")
+                router.refresh()
                 setOpen(false)
                 resetForm()
             } else {

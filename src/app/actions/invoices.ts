@@ -17,6 +17,7 @@ import { randomUUID } from "crypto"
 export async function deleteInvoice(id: string): Promise<{ success: boolean, error?: string }> {
     try {
         const adminDb = getAdminDb()
+        const tenantId = await getCurrentTenantId()
 
         // 1. Znajdź powiązane transakcje (source: INVOICE)
         const payments = await prisma.invoicePayment.findMany({
@@ -46,8 +47,16 @@ export async function deleteInvoice(id: string): Promise<{ success: boolean, err
         // InvoicePayment -> Invoice (brak onDelete specified, domyślnie Restrict?)
         
         // Bezpieczne usuwanie kolejno:
-        await prisma.$transaction(async (tx) => {
-            // Usuń powiązania i transakcje
+        await prisma.$transaction(async (tx: any) => {
+            // 0. Cleanup Central Ledger (Vector 109 Truth)
+            await tx.ledgerEntry.deleteMany({
+                where: {
+                    tenantId,
+                    sourceId: id
+                }
+            })
+
+            // 1. Usuń powiązania i transakcje
             await tx.invoicePayment.deleteMany({ where: { invoiceId: id } })
             
             if (transactionIdsToDelete.length > 0) {
@@ -56,7 +65,7 @@ export async function deleteInvoice(id: string): Promise<{ success: boolean, err
                 })
             }
 
-            // Usuń samą fakturę
+            // 2. Usuń samą fakturę
             await tx.invoice.delete({ where: { id } })
         })
 

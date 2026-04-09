@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import {
     Dialog,
     DialogContent,
@@ -19,11 +20,13 @@ interface AddProjectModalProps {
 export function AddProjectModal({ contractors }: AddProjectModalProps) {
     const [open, setOpen] = useState(false)
     const [isPending, setIsPending] = useState(false)
+    const router = useRouter()
 
     async function handleSubmit(formData: FormData) {
         setIsPending(true)
         try {
             await addProject(formData)
+            router.refresh()
             setOpen(false)
         } catch (error) {
             console.error(error)

@@ -16,6 +16,8 @@ export interface FinancialSnapshot {
   vatBalance: Decimal;
   fuelAccrualNet: Decimal;
   citReserve: Decimal;
+  /** Real Profit: fuelAccrualNet minus citReserve. This is what you actually keep. */
+  realProfit: Decimal;
   vaultValue: Decimal;
   /** @deprecated use unpaidReceivables / unpaidPayables */
   unpaidInvoicesGross: Decimal;
@@ -48,12 +50,20 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
   // Receivables: money we will RECEIVE — positive (+)
   const unpaidReceivables = unpaidInvoices
     .filter((inv: any) => SALES_TYPES.has(inv.type))
-    .reduce((sum: Decimal, inv: any) => sum.plus(new Decimal(String(inv.amountGross))), new Decimal(0));
+    .reduce((sum: Decimal, inv: any) => {
+      const gross = new Decimal(String(inv.amountGross || 0));
+      const retention = new Decimal(String(inv.retainedAmount || 0));
+      return sum.plus(gross.minus(retention));
+    }, new Decimal(0));
 
   // Payables: money we will PAY OUT — kept as positive for UI display, context implies outflow
   const unpaidPayables = unpaidInvoices
     .filter((inv: any) => COST_TYPES.has(inv.type))
-    .reduce((sum: Decimal, inv: any) => sum.plus(new Decimal(String(inv.amountGross))), new Decimal(0));
+    .reduce((sum: Decimal, inv: any) => {
+      const gross = new Decimal(String(inv.amountGross || 0));
+      const retention = new Decimal(String(inv.retainedAmount || 0));
+      return sum.plus(gross.minus(retention));
+    }, new Decimal(0));
 
   // Legacy combined figure (kept for backwards-compat)
   const unpaidTotalGross = unpaidReceivables.plus(unpaidPayables);
@@ -81,6 +91,7 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
   // CIT Reserve uses configured rate (default 9%)
   const citRate = new Decimal(process.env.NEXT_PUBLIC_CIT_RATE || '0.09');
   const citReserve = fuelAccrualNet.gt(0) ? fuelAccrualNet.mul(citRate) : new Decimal(0);
+  const realProfit = fuelAccrualNet.minus(citReserve);
   
   const safeToSpend = realCashBalance
     .minus(vatDebt)
@@ -94,6 +105,7 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
     vatBalance,
     fuelAccrualNet,
     citReserve,
+    realProfit,
     vaultValue,
     unpaidInvoicesGross: unpaidTotalGross,
     unpaidReceivables,

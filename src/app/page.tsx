@@ -120,7 +120,7 @@ export default async function DashboardPage({
 
   // --- VECTOR 109: CORE LEDGER FETCH (SSoT) ---
   const ledgerSnapshot = await getFinancialSnapshot(tenantId);
-  
+
   // 1. REAL CASH (Gotówka Operacyjna)
   const realCashBalance = ledgerSnapshot.realCashBalance;
 
@@ -170,14 +170,14 @@ export default async function DashboardPage({
   const totalReserve = unpaidPayables
     .plus(Decimal.max(0, vatShieldBalance.times(-1)))
     .plus(citReserveValue)
-  const cumulativeAccrualProfit = fuelAccrualNet
+  const cumulativeAccrualProfit = ledgerSnapshot.realProfit
   const netVat = vatShieldBalance
 
   const totalDebtRemaining = legacyDebts.reduce((sum, d) => sum.plus(new Decimal(d.remainingAmount || 0)), new Decimal(0))
   const totalProjectBudgets = projects.reduce((sum, p) => sum.plus(new Decimal(p.budgetEstimated || 0)), new Decimal(0))
   const totalStageBudgets = allStages.filter(s => projects.some(p => p.id === s.projectId)).reduce((sum, s) => sum.plus(new Decimal(s.budgetEstimated || 0)), new Decimal(0))
   const plannedMargin = totalProjectBudgets.minus(totalStageBudgets)
-  
+
   const globalBilans = ledgerSnapshot.realCashBalance;
   const netProfit = fuelAccrualNet
   const cleanCash = ledgerSnapshot.safeToSpend;
@@ -197,7 +197,11 @@ export default async function DashboardPage({
   // Alerty i Overdue
   unpaidIncomes.forEach(inv => {
     const invDueDate = new Date(inv.dueDate)
-    if (invDueDate < now) overdueAmount = overdueAmount.plus(new Decimal(inv.amountGross))
+    if (invDueDate < now) {
+      const gross = new Decimal(inv.amountGross || 0)
+      const retention = new Decimal(inv.retainedAmount || 0)
+      overdueAmount = overdueAmount.plus(gross.minus(retention))
+    }
 
     if (invDueDate <= thirtyDaysFromNow) {
       const invIssueDate = new Date(inv.issueDate);
@@ -220,7 +224,11 @@ export default async function DashboardPage({
     if (inv.type === 'INCOME' || inv.type === 'SPRZEDAŻ') return;
 
     const invDueDate = inv.dueDate ? new Date(inv.dueDate) : new Date(); // Fallback do dzisiaj jeśli brak
-    if (invDueDate < now) overdueAmount = overdueAmount.plus(new Decimal(inv.amountGross || 0))
+    if (invDueDate < now) {
+      const gross = new Decimal(inv.amountGross || 0)
+      const retention = new Decimal(inv.retainedAmount || 0)
+      overdueAmount = overdueAmount.plus(gross.minus(retention))
+    }
 
     if (invDueDate <= thirtyDaysFromNow) {
       const invIssueDate = new Date(inv.issueDate);
@@ -263,10 +271,14 @@ export default async function DashboardPage({
     let dynamicRetention = new Decimal(0)
 
     unpaidIncomes.forEach(inv => {
+      const gross = new Decimal(inv.amountGross || 0)
+      const retention = new Decimal(inv.retainedAmount || 0)
+      const amount = gross.minus(retention)
+      
       const dDate = new Date(inv.dueDate)
-      if (dDate <= dayDate) optIncome = optIncome.plus(new Decimal(inv.amountGross))
+      if (dDate <= dayDate) optIncome = optIncome.plus(amount)
       const rDate = new Date(inv.dueDate); rDate.setDate(rDate.getDate() + REVENUE_BUFFER)
-      if (rDate <= dayDate) realIncome = realIncome.plus(new Decimal(inv.amountGross))
+      if (rDate <= dayDate) realIncome = realIncome.plus(amount)
     })
 
     // Dynamiczna obsługa kaucji (retention)
@@ -279,7 +291,13 @@ export default async function DashboardPage({
       }
     })
 
-    unpaidCosts.forEach(inv => { if (new Date(inv.dueDate) <= dayDate) commonCosts = commonCosts.plus(new Decimal(inv.amountGross)) })
+    unpaidCosts.forEach(inv => { 
+      if (new Date(inv.dueDate) <= dayDate) {
+        const gross = new Decimal(inv.amountGross || 0)
+        const retention = new Decimal(inv.retainedAmount || 0)
+        commonCosts = commonCosts.plus(gross.minus(retention))
+      }
+    })
     activeInstallments.forEach(di => { if (new Date(di.dueDate) <= dayDate) commonCosts = commonCosts.plus(new Decimal(di.amount)) })
 
     chartData.push({
@@ -294,8 +312,23 @@ export default async function DashboardPage({
   const sortedAlerts = allAlerts.sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, 4)
 
   // Metryki do Progress Barów i Hero Section
-  const cfIncomes30d = unpaidIncomes.filter((inv: any) => new Date(inv.dueDate) <= thirtyDaysFromNow).reduce((sum: any, inv: any) => sum.plus(new Decimal(inv.amountGross)), new Decimal(0)).plus(releasedRetentionValue)
-  const cfExpenses30d = unpaidCosts.filter((inv: any) => new Date(inv.dueDate) <= thirtyDaysFromNow).reduce((sum: any, inv: any) => sum.plus(new Decimal(inv.amountGross)), new Decimal(0)).plus(activeInstallments.filter((di: any) => new Date(di.dueDate) <= thirtyDaysFromNow).reduce((sum: any, di: any) => sum.plus(new Decimal(di.amount)), new Decimal(0)))
+  const cfIncomes30d = unpaidIncomes
+    .filter((inv: any) => new Date(inv.dueDate) <= thirtyDaysFromNow)
+    .reduce((sum: any, inv: any) => {
+      const gross = new Decimal(inv.amountGross || 0)
+      const retention = new Decimal(inv.retainedAmount || 0)
+      return sum.plus(gross.minus(retention))
+    }, new Decimal(0))
+    .plus(releasedRetentionValue)
+
+  const cfExpenses30d = unpaidCosts
+    .filter((inv: any) => new Date(inv.dueDate) <= thirtyDaysFromNow)
+    .reduce((sum: any, inv: any) => {
+      const gross = new Decimal(inv.amountGross || 0)
+      const retention = new Decimal(inv.retainedAmount || 0)
+      return sum.plus(gross.minus(retention))
+    }, new Decimal(0))
+    .plus(activeInstallments.filter((di: any) => new Date(di.dueDate) <= thirtyDaysFromNow).reduce((sum: any, di: any) => sum.plus(new Decimal(di.amount)), new Decimal(0)))
 
   // Ostatnie Dokumenty
   const recentInvoices = allInvoices.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5)
@@ -304,7 +337,7 @@ export default async function DashboardPage({
   const pieChartData = [
     { name: 'Poniesione Koszty (Netto)', value: realCashCostsNet.toNumber(), color: '#ef4444' },
     { name: 'Należności z Faktur (Netto)', value: uncollectedRevenue.toNumber(), color: '#f59e0b' },
-    { name: 'Płynna Gotówka (Netto)', value: Decimal.max(0, netProfit).toNumber(), color: '#10b981' }
+    { name: 'Płynna Gotówka (Post-Tax)', value: Decimal.max(0, ledgerSnapshot.realProfit).toNumber(), color: '#10b981' }
   ]
 
   // Formatted Strings for UI
@@ -321,7 +354,7 @@ export default async function DashboardPage({
   }
 
   const verifiedBalance = latestBankAnchor ? new Decimal(String(latestBankAnchor.verifiedBalance)) : null
-  
+
   const delta = verifiedBalance ? globalBilans.minus(verifiedBalance).abs() : null
   const financialIntegrityStatus = delta !== null ? (delta.isZero() ? 'VERIFIED_STABLE' : 'DISCREPANCY_ALERT') : 'NOT_VERIFIED'
 
@@ -329,6 +362,7 @@ export default async function DashboardPage({
   const formattedCfExpenses30d = formatPln(cfExpenses30d);
   const formattedTaxReserve = formatPln(totalReserve);
   const formattedNetProfit = formatPln(netProfit);
+  const formattedRealProfit = formatPln(ledgerSnapshot.realProfit);
   const formattedCleanCash = formatPln(cleanCash);
   const formattedCitReserve = formatPln(citReserveValue);
   const formattedReceivables = formatPln(unpaidReceivables);
@@ -495,12 +529,12 @@ export default async function DashboardPage({
               <BadgeDollarSign className="w-5 h-5" />
             </div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Zysk Realny (Netto)</h3>
-              <TooltipHelp content="Twój ostateczny wynik firmy. Marża z projektów pomniejszona o koszty ogólne (biuro, auta)." />
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Zysk po opodatkowaniu (Real Profit)</h3>
+              <TooltipHelp content="Twój ostateczny wynik firmy. Marża z projektów pomniejszona o koszty ogólne oraz rezerwę na podatek dochodowy (CIT)." />
             </div>
           </div>
-          <p className="text-3xl font-black mt-4 text-emerald-700">{formattedNetProfit}</p>
-          <p className="text-xs mt-1 text-slate-500 font-medium">Wynik końcowy (Marża - Ogólne) Netto.</p>
+          <p className="text-3xl font-black mt-4 text-emerald-700">{formattedRealProfit}</p>
+          <p className="text-xs mt-1 text-slate-500 font-medium italic">Netto: {formattedNetProfit} (przed CIT)</p>
         </div>
 
         <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm border-l-4 border-l-cyan-600">

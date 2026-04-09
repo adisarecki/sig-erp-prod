@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import {
     Dialog,
     DialogContent,
@@ -33,6 +34,7 @@ export function EditProjectModal({ project }: EditProjectModalProps) {
     const [open, setOpen] = useState(false)
     const [isPending, setIsPending] = useState(false)
     const [showForkDialog, setShowForkDialog] = useState(false)
+    const router = useRouter()
 
     // UI Persistence Fix: Convert decimal rates (0.05) back to percentages (5%)
     const getRateAsPercent = (rate?: number) => {
@@ -103,6 +105,7 @@ export function EditProjectModal({ project }: EditProjectModalProps) {
                 toast.success(mode === 'RETROACTIVE' 
                     ? "Zaktualizowano projekt i przeliczono historię." 
                     : "Zaktualizowano projekt.")
+                router.refresh()
                 setOpen(false)
                 setShowForkDialog(false)
             } else {

@@ -39,8 +39,9 @@ Inicjalizacja `firebaseAdmin.ts` MUSI być leniwa (gettery), aby uniknąć błę
 - **Koszty (Purchases)**: Netto (-), VAT (+) jako tarcza, Brutto (-).
 - **Przychody (Sales)**: Netto (+), VAT (-) jako dług, Brutto (+).
 
-### Safe to Spend:
-Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczony - Faktury do zapłaty`.
+### Safe to Spend (Vector 117):
+Obliczony dla MAKSYMALNEGO bezpieczeństwa: `Saldo Bankowe - Dług VAT - Rezerwa CIT (9%) - Kaucje (Skarbiec) - Zobowiązania (Unpaid Payables)`.
+- **Należności (Receivables)** są wyświetlane w UI dla wizji przyszłości, ale **NIGDY** nie są zaliczane do Safe-to-Spend przed fizyczną płatnością.
 
 ---
 
@@ -145,6 +146,19 @@ Obliczany dynamicznie: `Wpływy - Rezerwa CIT (9%) - VAT Należny + VAT Naliczon
     - **On-the-fly Create**: Automated transaction creation for unmapped transfers (DirectExpense) with category prediction via historical `counterpartyRaw` lookup.
     - **Master Sync**: Real-time Saldo Anchor update via `revalidatePath` after every Triage action.
 
+- **Vector 117.3 (Retention Handover Protocol)**:
+    - **Aggregation**: Upon project closure, the system sums all `RETENTION_LOCK` entries in the Ledger (The Truth).
+    - **Split**: The accumulated sum is split into `SHORT_TERM` (Warranty) and `LONG_TERM` (Stat. Liability) retention entries.
+    - **Expiry Logic**:
+        - Short Term Date: `Completion + Warranty Period`.
+        - Long Term Date: `Completion + 5 Years`.
+    - **Migration**: Records are created in the Global Vault (`Retention` model) with `source: HANDOVER`.
+
+- **Vector 121 (Digital Banking UI Standards)**:
+    - **Revolut-style Cards**: Use high-contrast gradients, glassmorphism icons, and bold "Monzo-style" typography (Outfit/Inter).
+    - **Title Normalization**: PKO BP titles (Col 8) are cleaned from technical placeholders (NRB, PL, ...) to show human-readable purpose.
+    - **Contextual Grouping**: Transactions are grouped by Date (Today, Yesterday) with sticky headers.
+
 ---
 
 ## 📜 5. Change Log & Bug Recovery (History)
@@ -220,15 +234,17 @@ Automated monitoring triggers:
 - **ℹ️ Retention Vault**: When locked > 30% of cash balance
 - **🚨 CRITICAL**: When safe-to-spend < 0
 
-### Safe-to-Spend Formula (Vector 117 Edition)
+### Safe-to-Spend Formula (Vector 117.B Edition)
 ```
-SafeToSpend = RealCashBalance - VAT_Debt - Retention_Vault
+SafeToSpend = RealCashBalance - VAT_Debt - Retention_Vault - Unpaid_Payables
 
 Where:
 - RealCashBalance = SUM(BANK_PAYMENT entries) - SUM(SHADOW_COST) in Ledger
 - VAT_Debt = ABS(negative VAT_SHIELD entries)
 - Retention_Vault = SUM(RETENTION_LOCK entries)
+- Unpaid_Payables = Sum of all unpaid cost invoices (Accounts Payable)
 ```
+*Note: Unpaid Receivables are EXCLUDED from this formula for liquidity safety.*
 
 ### Implementation Files
 - **Engine**: `src/lib/bank/reconciliation-engine.ts` (automatic matching)

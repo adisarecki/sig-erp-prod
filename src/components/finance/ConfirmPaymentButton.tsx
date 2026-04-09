@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
     Dialog,
@@ -36,6 +37,7 @@ export function ConfirmPaymentButton({
     const [open, setOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0])
+    const router = useRouter()
 
     async function handleConfirm() {
         setIsLoading(true)
@@ -45,7 +47,10 @@ export function ConfirmPaymentButton({
                 if (result.success) setOpen(false)
             } else if (invoiceId) {
                 const result = await markInvoiceAsPaid(invoiceId, paymentDate)
-                if (result.success) setOpen(false)
+                if (result.success) {
+                    router.refresh()
+                    setOpen(false)
+                }
             }
         } catch (error) {
             alert(error instanceof Error ? error.message : "Błąd podczas potwierdzania wpłaty.")

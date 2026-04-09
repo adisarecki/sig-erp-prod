@@ -130,62 +130,19 @@ Projekt: Kopania MARCEL
 └──────────────────────────────────────┘
 ```
 
-System teraz pokazuje te trzy warstwy zawsze w takiej samej kolejności - co sprawia, że żaden współwłaściciel nie ma wątpliwości co do realnej płynności. Klikniecie na dowolną kwotę (przychody/koszty/marża) otwiera tabelę ze wszystkimi fakturami - pełna transparentność.
+System teraz pokazuje te trzy warstwy zawsze w takiej samej kolejności - co sprawia, �## 🔐 11. VECTOR 117: Scentralizowane Kaucje i Monitoring Płynności
 
-**Nowoczesny ERP (SAP, Oracle) używa właśnie takiego modelu** - nasz system podąża najlepszymi praktykami branżowymi.
+Zmieniliśmy filozofię kaucji z budżetowej na **fakturową**. Koniec z "zamrażaniem" wirtualnych pieniędzy, których jeszcze nie zarobiłeś.
 
----
+### Kluczowe ulepszenia:
+- **Kaucja Wyzwalana Płatnością**: System nalicza kaucję dopiero w momencie wystawienia/opłacenia faktury. 
+- **Należności vs Zobowiązania**: Dashboard rozróżnia teraz pieniądze, które mają wpłynąć (**Należności** - zielone, dodatnie) od tych, które musisz zapłacić (**Zobowiązania** - czerwone, ujemne).
+- **Rezerwa CIT (9%)**: System automatycznie rezerwuje 9% Twojej marży netto na poczet podatku CIT/PPE i odejmuje to od Twojej "Czystej Gotówki".
+- **Skarbiec (Wizualny)**: W Cockpicie projektu widzisz "Kaucję Prognozowaną" (Info) – czyli ile docelowo zostanie zamrożone po zakończeniu wszystkich etapów.
 
-## 📱 10. Mobilna Ewolucja (Vector 117)
-
-Sig ERP jest teraz w pełni operacyjny na Twoim telefonie. Wdrożyliśmy **Hardened Mobile Shell**:
-- 🍔 **Szuflada Nawigacyjna**: Zamiast bocznego paska, na mobile masz szybki dostęp przez ikonę menu (Sheet UI).
-- 📱 **Inteligentne Tabele**: Wszystkie dane finansowe w KSeF i Projektach mają teraz asystenta przewijania (`TableWrapper`). Nic nie ucieka poza ekran.
-- 📐 **Płynne Modale**: Okna dodawania kosztów i przychodów na telefonie zachowują się jak natywne aplikacje (Bottom Drawer).
-- 🛡️ **Zero Ryzyka**: Wszystkie zmiany są czysto wizualne (Tailwind 4 + Shadcn). Twoja "pancerna" logika biznesowa Vector 110/116 pozostała nietknięta.
-
----
-
-## 🔐 11. VECTOR 117: Automatyczne Kaucje i Monitoring Płynności
-
-Nowy moduł inteligentnie obsługuje kaucje gwarancyjne:
-
-### Jak to działa
-Każdy projekt ma **Podstawę naliczania kaucji**:
-- **BRUTTO** (domyślnie): Formuła `Oczekiwana = Brutto × (1 - Stopa kaucji)`
-- **NETTO**: Formuła `Oczekiwana = Brutto - (Netto × Stopa kaucji)`
-
-### Praktyczny przykład
-```
-Projekt: Budowa Biurowca
-Kaucja krótkoterminowa: 10%
-Podstawa: BRUTTO
-
-Faktura sprzedaży:
-- Netto: 10,000 PLN
-- VAT (23%): 2,300 PLN
-- Brutto: 12,300 PLN
-
-Oczekiwana wpłata: 12,300 × 0,9 = 11,070 PLN
-Kaucja do Skarbca: 1,230 PLN
-```
-
-### Safe-to-Spend w praktyce
-```
-Saldo bankowe: 50,000 PLN
-- Zadłużenie VAT: -5,000 PLN
-- Kaucje zamrożone: -10,000 PLN
-= Safe-to-Spend: 35,000 PLN
-```
-
-**Widzisz dokładnie, ile pieniędzy możesz bezpiecznie wydać.**
-
-### Automatyczne ostrzeżenia
-System ostrzega Cię gdy:
-- ⚠️ Klient nie zapłacił pełnej kwoty
-- ⚠️ Zadłużenie VAT jest zbyt wysokie
-- ⚠️ Zbyt dużo pieniędzy zamrożonych w kaucjach
-- 🚨 Brakuje Ci gotówki (negative safe-to-spend)
+### Safe-to-Spend (Twoja Prawdziwa Płynność)
+Obecna formuła:
+`Czysta Gotówka = Potwierdzone Saldo Bankowe - Dług VAT - Rezerwa CIT (9%) - Kaucje (Skarbiec) - Zobowiązania (Faktury Kosztowe)`
 
 ---
 
@@ -193,50 +150,15 @@ System ostrzega Cię gdy:
 
 Ostatni, krytyczny mur obronny Twoich danych. Czasem w systemach rozproszonych (Firestore + PostgreSQL) zdarza się, że dane "rozjeżdżają się" (np. 9 faktur w Firebase vs 8 w SQL). Nazywamy to **Dual-Sync Drift**.
 
-### Twój Panel Przewagi:
-Wprowadziliśmy **Centrum Rozwiązywania Driftu**, które aktywuje się, gdy tylko system wykryje najmniejszą niespójność:
-
-- **Proaktywne Monitorowanie**: Każdy "Zombie" (rekord tylko w Firebase) lub "Ghost" (rekord tylko w SQL) jest natychmiast wyłapywany.
-- **Atomowe Akcje Resolution**:
-    - **[FORCE TO SQL]**: Jeśli znasz prawdę w Firebase, jednym kliknięciem "kotwiczysz" ją w bazie SQL. System sam przelicza daty i kwoty.
-    - **[PURGE FS]**: Jeśli rekord jest wynikiem błędu lub testu, usuwasz go trwale z Firebase, przywracając idealny porządek 8/8.
-- **Pełny Audyt**: Każda taka interwencja jest zapisywana w **AuditLog**. Wiemy kto, kiedy i dlaczego "pchnął" dane.
-
-**Badge SYNC: OK** to teraz nie tylko napis – to gwarancja, że Twoja analityka (SQL) i operacje (Firebase) to jedno i to samo źródło prawdy.
+### Twoje Narzędzia Naprawcze:
+Wprowadziliśmy **Centrum Rozwiązywania Driftu**, które aktywuje się, gdy tylko system wykryje najmniejszą niespójność. Dodatkowo w menu **Sync Status** znajdziesz przycisk **"Napraw Drift Finansowy"**, który usuwa stare, błędne wpisy kaucji i przywraca idealny porządek w Twoim bilansie.
 
 ---
 
-## 🧹 13. Strefa Deweloperska: Konserwacja i Start Produkcyjny (Vector 120.3)
+*Dla techników: Szczegółowe zasady budowy znajdują się w [AI_look.md](./docs/AI_look.md).*
 
-Przygotowaliśmy system na Twój **Start Produkcyjny**. Kiedy skończysz etap testów i będziesz gotowy wprowadzić realne dane swojej firmy, funkcja "Wyczyść Dane Operacyjne" pozwoli Ci na atomowy reset bez niszczenia Twojego nakładu pracy włożonego w konfigurację.
-
-### Twoja Tarcza Operacyjna:
-- **Głębokie Oczyszczanie**: System nie usuwa już tylko "głównych" tabel. Teraz czyści absolutnie wszystko, co mogłoby zostać po testach: od ledgerów i wyciągów bankowych, przez kaucje gwarancyjne, aż po składniki majątku (Assety) i logi synchronizacji.
-- **Szacunek do Twoich Danych**: Zgodnie z Twoją wizją, **Kontrahenci oraz Twoje Konta Bankowe (IBANy) zostają nienaruszone**. Twoja baza dostawców i inwestorów, którą już zbudowałeś, jest bezpieczna. 
-- **Mechanika Działania**:
-*   Automatyczne usunięcie wszystkich operacyjnych tabel (Faktury, Środki Trwałe, Wpisy do Księgi Głównej, Landing Zone Banku).
-*   Pełne zachowanie tożsamości najemcy (Użytkownicy, Kontrahenci, Konta Bankowe).
-*   Gwarancja bezpiecznego restartu przed wejściem pierwszych "prawdziwych" faktur KSeF.
-
-## 12. Stabilizacja Rdzenia Finansowego (Vector 110-121)
-
-Wprowadziliśmy ostateczne zasady "Hard Signs", Smart Reconciliation Hub oraz Noise Filter (Sito), aby system obsługiwał każdy przypadek brzegowy matematyki spółki z o.o.
-
-**Kluczowe zmiany (Core Engine)**:
-*   **Sign Authority**: Przychody rejestrujemy w Księdze Księgowej zawsze jako dodatnie (+ netto). Koszty jawnie trafiają jako ujemne (- netto). Margin to matematyczna suma obydwu wartości, co zabezpiecza przed podwójnym odwracaniem znaków na interfejsach UI i w bazie.
-*   **CIT Reserve**: Rezerwa CIT (19%) jest od teraz odkładana z realnie osiągniętej marży (Net Profit) w czasie rzeczywistym i prewencyjnie odejmowana z "Safe-to-Spend".
-*   **Sito (Noise Filter)**: Koszty poniżej 200 PLN pozbawione ID KSeF traktowane są jako "szum". System grupuje je w Triage UI według Sprzedawcy (np. Żabka, Orlen) i pozwala opłacić On-the-fly jako "Koszty Ogólne" bez zanieczyszczania głównej tabeli rozliczeniowej.
-*   **Płatności Natychmiastowe**: Wdrożono przycisk [Opłać KARTĄ POS] dla szybkiego rozliczania paragonów imiennych lub faktur natychmiastowych. Usunięto flagę "ZALEGŁA", jeśli data dokumentu jest równa dacie płatności.
-
-To definitywnie zamyka architekturę systemu finansowego podmiotu i czyni go produkcyjnym.
-
-**To Twój "przycisk atomowy" z precyzyjnym celownikiem – czyścisz historię testów, zachowując fundamenty firmy.**
-
----
-
-## 🚀 14. Interfejs Klasy "Revolut" (Vector 121)
-
-Transformowaliśmy moduł rekoncyliacji bankowej w nowoczesne, czytelne narzędzie decyzyjne. To już nie są "suche dane" – to Twoje centrum akcji.
+**Sig ERP – Twoja firma pod pełną kontrolą.**
+– to Twoje centrum akcji.
 
 ### Kluczowe ulepszenia UX:
 - **Chronologia i Grupowanie**: Transakcje są teraz grupowane według dni (**Dzisiaj**, **Wczoraj**, konkretne daty). Widzisz historię tak, jak w nowoczesnej aplikacji bankowej.

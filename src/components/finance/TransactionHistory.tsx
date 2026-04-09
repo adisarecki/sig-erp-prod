@@ -4,6 +4,7 @@ import { Trash2, ArrowUpRight, ArrowDownRight, Link as LinkIcon, Loader2, X, Ale
 import { assignTransactionToProject, deleteTransaction } from "../../app/actions/transactions"
 import { assignInvoiceToProject, deleteInvoice, markInvoiceAsPaid } from "../../app/actions/invoices"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { InvoicePaymentToggle } from "./InvoicePaymentToggle"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 import {
@@ -59,13 +60,16 @@ export function TransactionHistory({
     const [viewingItem, setViewingItem] = useState<HistoryItem | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
     const [payingId, setPayingId] = useState<string | null>(null)
+    const router = useRouter()
 
     const handleQuickPay = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation()
         setPayingId(id)
         try {
             const result = await markInvoiceAsPaid(id)
-            if (!result.success) {
+            if (result.success) {
+                router.refresh()
+            } else {
                 alert(result.error || "Błąd podczas opłacania.")
             }
         } catch (err: any) {
@@ -89,6 +93,7 @@ export function TransactionHistory({
 
             if (result.success) {
                 setDeleteConfirmItem(null)
+                router.refresh()
             } else {
                 alert(result.error || "Błąd podczas usuwania.")
             }
@@ -108,7 +113,9 @@ export function TransactionHistory({
                 ? await assignInvoiceToProject(itemId, projectId)
                 : await assignTransactionToProject(itemId, projectId)
 
-            if (!result.success) {
+            if (result.success) {
+                router.refresh()
+            } else {
                 alert(result.error || "Błąd podczas przypisywania do projektu.")
             }
         } catch (err: any) {

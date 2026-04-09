@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import {
     Dialog,
     DialogContent,
@@ -48,6 +49,7 @@ interface RegisterIncomeModalProps {
 export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProjectId, trigger }: RegisterIncomeModalProps) {
     const [open, setOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
+    const router = useRouter()
 
     const [amountNet, setAmountNet] = useState("")
     const [taxRate, setTaxRate] = useState("0.23")
@@ -183,6 +185,7 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
             const result = await addIncomeInvoice(formData)
             if (result.success) {
                 toast.success("Przychód został pomyślnie dodany.")
+                router.refresh()
                 setOpen(false)
                 resetForm()
             } else {

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { markInvoiceAsPaid, markInvoiceAsUnpaid } from "@/app/actions/invoices"
 import { Loader2, CheckCircle2, XCircle, AlertTriangle, ShieldCheck } from "lucide-react"
@@ -22,6 +23,7 @@ export function InvoicePaymentToggle({
     const [status, setStatus] = useState(initialPaymentStatus)
     const [reconciliation, setReconciliation] = useState(initialReconciliationStatus)
     const [isLoading, setIsLoading] = useState(false)
+    const router = useRouter()
 
     const isBankVerified = reconciliation === 'MATCHED';
     const isGap = reconciliation === 'GAP';
@@ -45,6 +47,7 @@ export function InvoicePaymentToggle({
                     // If manually paid, it's pending bank verification by default
                     setReconciliation(method === 'BANK_TRANSFER' ? 'PENDING' : 'PENDING')
                 }
+                router.refresh()
                 toast.success(targetStatus === 'PAID' ? "Oznaczono jako opłacone." : "Oznaczono jako do zapłaty.")
             } else {
                 toast.error(result.error || "Wystąpił błąd.")

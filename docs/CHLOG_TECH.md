@@ -69,7 +69,14 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 098 | KSeF / Architecture| FIXED | KSeF Meta Result Key Fixed. | Rozwiązano problem "pustej pętli" poprzez dodanie obsługi klucza `invoices` w `KSeFService.metadataQuery`. Było to główne wąskie gardło uniemożliwiające zapisanie faktur mimo ich poprawnego pobraniu z API. |
 | Vector 099 | Finance / Engine | FIXED | DNA Vector 099: Centralized Financial Engine. | Wdrożono `financeMapper.ts` jako jedyne źródło prawdy dla znaków i kolorów. Zakupy (Net -, VAT +, Gross -), Sprzedaż (Net +, VAT -, Gross +). |
 | Vector 100 | Finance / Engine | FIXED | Runtime Guard for toUpperCase. | Dodano zabezpieczenie przed `undefined` w `financeMapper.ts`, eliminując błąd TypeError w przeglądarce. |
-| Vector 120 | Finance / Reconciliation | FIXED | Smart Bank Reconciliation Hub. | Wdrożenie BankStaging (Strefa Zrzutu) i Triage UI. Zastąpienie cichych importów ręczną weryfikacją z podpowiedziami AI. |
+| Vector 117.B| Finance / Retention | FIXED | Transitioned to invoice-based retention (removed budget pre-freezing). | Refactored `syncRetentionsFromProject` to metadata-only. RETENTION_LOCK now triggered by invoice payment/issuance. |
+| Vector 121.B| UI / Semantic | FIXED | Semantic segregation of Receivables (+Green) and Payables (-Red). | Split `unpaidInvoicesGross` into `unpaidReceivables` and `unpaidPayables`. Updated Hero bar labels. |
+| Vector 122 | Finance / CIT | FIXED | CIT/PPE Reserve stabilization (9%). | Updated `CIT_RATE` to 0.09 and integrated into Dashboard Hero & Safe-to-Spend formula. |
+| Vector 123 | Maintenance | NEW | Emergency Drift Resolution button. | Added `cleanupRetentionGhostEntries` for purging "Ghost" budget-based retention entries. |
+| Vector 117.3| Finance / Vault | NEW | Project Handover Protocol (Finalization). | Aggregate `RETENTION_LOCK` ledger entries upon project closure. Split into SHORT/LONG term retentions in Global Vault with calculated expiry dates. |
+| Vector 124 | UI / UX | FIXED | Zero-Drift Refresh Strategy. | Implemented `router.refresh()` across all mutation modals (Transactions, Projects, Payments) to ensure immediate server-side re-validation and avoid stale UI states. |
+| Vector 125 | Finance / Logic | FIXED | CIT as Hard Liability. | Redefined `CIT_Reserve` as a hard subtraction in the `SafeToSpend` formula. Introduced `realProfit` (Net Profit - CIT) to UI dashboards. |
+| Vector 126 | Finance / Bank | FIXED | Bank Staging Hardening. | Enforced immutability in `BankStaging` records. Added `counterpartyRaw` title normalization (PKO BP cleaning) to the verification hub. |
 
 ---
 
