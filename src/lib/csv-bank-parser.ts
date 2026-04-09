@@ -12,28 +12,10 @@ export interface CSVTransaction {
 }
 
 export class CSVBankParser {
-    /**
-     * Normalizes common PKO BP encoding artifacts (CP1250/UTF-8 garble)
-     */
     private static normalizeEncoding(text: string): string {
-        return text
-            .replace(/│/g, 'ł')
-            .replace(/╣/g, 'ą')
-            .replace(/ťŠ/g, 'ść')
-            .replace(/╩î/g, 'ę')
-            .replace(/ú/g, 'ł') // Sometimes L is ú
-            .replace(/╩/g, 'ę')
-            .replace(/ť/g, 'ś')
-            .replace(/┐/g, 'ż')
-            .replace(/ą/g, 'ą') // Ensure standard polish is preserved
-            .replace(/ć/g, 'ć')
-            .replace(/ę/g, 'ę')
-            .replace(/ł/g, 'ł')
-            .replace(/ń/g, 'ń')
-            .replace(/ó/g, 'ó')
-            .replace(/ś/g, 'ś')
-            .replace(/ź/g, 'ź')
-            .replace(/ż/g, 'ż');
+        // Since we now use TextDecoder('windows-1250') in the upload client,
+        // we no longer need these manual fallbacks. Returning text directly.
+        return text;
     }
 
     static parse(csvContent: string): CSVTransaction[] {
@@ -73,14 +55,17 @@ export class CSVBankParser {
                 title = col5;
             }
 
-            const sanitization = this.sanitize(counterparty, title);
+            const normalizedCounterparty = this.normalizeTransactionTitle(col6);
+
+            
+            const normalizedTitle = this.normalizeTransactionTitle(title, true);
 
             return {
                 transactionDate: rawDate,
                 amount: amountVal.toNumber(),
                 type: amountVal.isNegative() ? 'EXPENSE' : 'INCOME',
-                counterpartyRaw: sanitization.counterparty,
-                title: sanitization.title,
+                counterpartyRaw: normalizedCounterparty,
+                title: normalizedTitle,
                 description: col5,
                 typeDescription: typeDescription,
                 reference: `PKO-CSV-${index}-${rawDate}-${Math.abs(amountVal.toNumber())}`
@@ -114,36 +99,67 @@ export class CSVBankParser {
         return results;
     }
 
-    private static sanitize(counterparty: string, title: string): { counterparty: string, title: string } {
-        let cleanCounterparty = counterparty
-            .replace(/^Płatność kartą:?\s*/i, '')
-            .replace(/^Płatość kartą:?\s*/i, '') // typo handling
-            .replace(/^Lokalizacja:?\s*/i, '')
-            .replace(/^Adres:?\s*/i, '')
-            .replace(/^Nazwa odbiorcy:?\s*/i, '')
-            .replace(/^Nazwa zleceniodawcy:?\s*/i, '')
-            .replace(/^Odbiorca:?\s*/i, '')
-            .replace(/^Nazwa nadawcy:?\s*/i, '')
-            .trim();
-
-        let cleanTitle = title
-            .replace(/^Tytuł:?\s*/i, '')
-            .replace(/^Tytuł/i, '')
-            .trim();
-
-        const keywords = ['ZABKA', 'ORLEN', 'CIRCLE K', 'STOKROTKA', 'BIEDRONKA', 'SHELL', 'LIDL', 'BP', 'MOYA', 'AUCHAN', 'CARREFOUR', 'ARKADIA'];
-        const upperCounterparty = cleanCounterparty.toUpperCase();
+    public static normalizeTransactionTitle(raw: string, isTitle: boolean = false): string {
+        if (!raw) return "Nieznany";
         
-        for (const kw of keywords) {
-            if (upperCounterparty.includes(kw)) {
-                cleanCounterparty = kw;
-                break;
+        // 1. Remove Prefix/Suffixes
+        let clean = raw
+            .replace(/Płatność kartą:?\s*/ig, '')
+            .replace(/Płatość kartą:?\s*/ig, '')
+            .replace(/Lokalizacja:?\s*/ig, '')
+            .replace(/Adres:?\s*/ig, '')
+            .replace(/Nazwa odbiorcy:?\s*/ig, '')
+            .replace(/Nazwa zleceniodawcy:?\s*/ig, '')
+            .replace(/Odbiorca:?\s*/ig, '')
+            .replace(/Nazwa nadawcy:?\s*/ig, '')
+            .replace(/Tytuł:?\s*/ig, '')
+            .replace(/^Tytuł/ig, '')
+            .replace(/ZAPŁATA ZA FAKTURĘ/ig, 'Zapłata za fakturę')
+            .replace(/ZAPŁATA/ig, 'Zapłata');
+
+        // 2. Strip numeric garbage (IDs > 4 digits like 000483921)
+        clean = clean.replace(/[0-9]{5,}/g, '');
+
+        // 3. Extract common vendors
+        const vendorMap: { [key: string]: string } = {
+            'ZABKA': 'Żabka',
+            'ŻABKA': 'Żabka',
+            'ORLEN': 'Orlen',
+            'CIRCLE K': 'Circle K',
+            'STOKROTKA': 'Stokrotka',
+            'BIEDRONKA': 'Biedronka',
+            'SHELL': 'Shell',
+            'LIDL': 'Lidl',
+            'BP': 'BP',
+            'MOYA': 'Moya',
+            'AUCHAN': 'Auchan',
+            'CARREFOUR': 'Carrefour',
+            'ARKADIA': 'Arkadia',
+            'PKO BP': 'PKO BP',
+            'GOOGLE': 'Google',
+            'MICROSOFT': 'Microsoft',
+            'AMZN': 'Amazon',
+            'AMAZON': 'Amazon',
+            'APPLE': 'Apple',
+            'ALLEGRO': 'Allegro',
+            'INPOST': 'InPost'
+        };
+
+        const upper = clean.toUpperCase();
+        for (const [key, normalized] of Object.entries(vendorMap)) {
+            if (upper.includes(key)) {
+                return normalized; // Instant hit
             }
         }
 
-        return {
-            counterparty: cleanCounterparty || "Nieznany",
-            title: cleanTitle || "Transakcja Bankowa"
-        };
+        // 4. Fallback Normalize Casing & Clean
+        clean = clean.replace(/^[-\s,]+|[-\s,]+$/g, '');
+        
+        // Simple Capitalization
+        if (clean.length > 2 && clean === clean.toUpperCase()) {
+            clean = clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase();
+        }
+
+        return clean.trim() || (isTitle ? "Transakcja Bankowa" : "Nieznany");
     }
 }

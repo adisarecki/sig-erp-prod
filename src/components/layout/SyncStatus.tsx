@@ -149,7 +149,7 @@ export function SyncStatus() {
                                                     disabled={isResolving === item.id}
                                                 >
                                                     {isResolving === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowRightCircle className="w-3 h-3" />}
-                                                    FORCE TO SQL
+                                                    DOCIĄGNIJ DO SQL
                                                 </Button>
                                                 <Button 
                                                     variant="outline" 
@@ -159,7 +159,7 @@ export function SyncStatus() {
                                                     disabled={isResolving === item.id}
                                                 >
                                                     <Trash2 className="w-3 h-3" />
-                                                    PURGE FS
+                                                    USUŃ Z FIRESTORE
                                                 </Button>
                                             </>
                                         )}

@@ -234,6 +234,21 @@ To definitywnie zamyka architekturę systemu finansowego podmiotu i czyni go pro
 
 ---
 
+## 🚀 14. Interfejs Klasy "Revolut" (Vector 121)
+
+Transformowaliśmy moduł rekoncyliacji bankowej w nowoczesne, czytelne narzędzie decyzyjne. To już nie są "suche dane" – to Twoje centrum akcji.
+
+### Kluczowe ulepszenia UX:
+- **Chronologia i Grupowanie**: Transakcje są teraz grupowane według dni (**Dzisiaj**, **Wczoraj**, konkretne daty). Widzisz historię tak, jak w nowoczesnej aplikacji bankowej.
+- **Sito i Koszty Drobne**: Małe wydatki (< 200 PLN) bez dopasowania KSeF są automatycznie zwijane w sekcję **"Koszty drobne"** wewnątrz każdego dnia. Dzięki temu najważniejsze, duże faktury są zawsze na górze, a "szum" nie rozprasza Twojej uwagi.
+- **Human-Readable Titles**: Nasz silnik normalizacji usuwa śmieciowe ciągi cyfr (np. `000483...`) i wyciąga czyste nazwy sprzedawców (np. **Orlen**, **Żabka**, **Allegro**).
+- **Logika Decyzyjna**: Każda karta transakcji to jasna informacja. Jeśli system rozpoznał fakturę, widzisz zielony przycisk `[ ✓ ]`. Jeśli to nowy koszt, jednym kliknięciem `[ + ]` tworzysz go w systemie.
+
+### Poprawka techniczna (Encoding FIX):
+Wyeliminowaliśmy problem "krzaczków" przy imporcie plików CSV z PKO BP. System natywnie dekoduje standard `windows-1250`, więc polskie ogonki (ą, ć, ę, ł, ń, ó, ś, ź, ż) są zawsze poprawnie wyświetlane.
+
+---
+
 *Dla techników: Szczegółowe zasady budowy znajdują się w [AI_look.md](./docs/AI_look.md).*
 
 **Sig ERP – Twoja firma pod pełną kontrolą.**

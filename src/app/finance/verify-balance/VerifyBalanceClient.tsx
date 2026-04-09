@@ -48,7 +48,9 @@ export function VerifyBalanceClient({ stagingItems, anchorBalance }: VerifyBalan
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
-        const content = await file.text()
+        const buffer = await file.arrayBuffer();
+        const decoder = new TextDecoder('windows-1250');
+        const content = decoder.decode(buffer);
         processCsv(content)
     }
 
@@ -99,7 +101,7 @@ export function VerifyBalanceClient({ stagingItems, anchorBalance }: VerifyBalan
                     <CardContent className="p-8 pt-0 space-y-4">
                         <div className="flex gap-3 text-sm text-slate-600 leading-relaxed italic">
                             <div className="w-1 bg-indigo-100 rounded-full flex-shrink-0" />
-                            <p>Import wyciągu automatycznie umieszcza transakcje na strefie zrzutu (Landing Zone). Brakujące operacje zostaną zasugerowane z High Confidence.</p>
+                            <p>Import wyciągu automatycznie umieszcza transakcje w strefie "Nowe operacje". Brakujące operacje zostaną zasugerowane z wysoką pewnością (High Confidence).</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -161,8 +163,8 @@ export function VerifyBalanceClient({ stagingItems, anchorBalance }: VerifyBalan
                                 <div className="mt-8 p-4 bg-rose-100 text-rose-800 rounded-2xl flex items-start gap-4">
                                     <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                                     <div>
-                                        <p className="font-bold text-sm">Masz operacje do rozliczenia w Landing Zone.</p>
-                                        <p className="text-xs opacity-90 leading-relaxed mt-1">Zakończ dopasowywanie (Auto-Match / Manual Link) w tabeli poniżej. Kiedy Landing Zone będzie pusty, Saldo powinno zostać potwierdzone.</p>
+                                        <p className="font-bold text-sm">Masz operacje do rozliczenia w sekcji Nowe operacje.</p>
+                                        <p className="text-xs opacity-90 leading-relaxed mt-1">Zakończ dopasowywanie poniżej. Kiedy Nowe operacje będą puste, Saldo powinno zostać potwierdzone.</p>
                                     </div>
                                 </div>
                             )}
@@ -181,7 +183,7 @@ export function VerifyBalanceClient({ stagingItems, anchorBalance }: VerifyBalan
                 </div>
             )}
 
-            {/* VECTOR 120 - TRIAGE UI */}
+            {/* VECTOR 120 - Nieprzypisane operacje */}
             <BankReconciliationHub items={stagingItems} />
         </div>
     )

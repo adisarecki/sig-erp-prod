@@ -10,7 +10,7 @@ export async function POST(req: Request) {
         const tenantId = await getCurrentTenantId();
         
         // Execute Reconciliation logic
-        await ReconciliationEngine.processBankInbox(tenantId);
+        await ReconciliationEngine.processBankStaging(tenantId);
 
         return NextResponse.json({ 
             success: true, 

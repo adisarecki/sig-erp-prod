@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import prisma from "@/lib/prisma";
 import { getCurrentTenantId } from "@/lib/tenant";
-import { PkoBpCsvAdapter } from "@/lib/bank/pko-bp-adapter";
+import { CSVBankParser } from "@/lib/csv-bank-parser";
 import { ContractorResolutionService } from "@/lib/finance/contractorResolutionService";
 
 /**
  * DNA Vector 104: PKO BP Bank Statement Ingestion.
- * Handles CSV upload and persists data into BankInbox (Gatekeeper Table).
+ * Handles CSV upload and persists data into BankStaging (Gatekeeper Table).
  */
 export async function POST(req: Request) {
     try {
@@ -17,9 +17,9 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: false, error: "Missing CSV content." }, { status: 400 });
         }
 
-        const transactions = PkoBpCsvAdapter.parse(csvContent);
+        const transactions = CSVBankParser.parse(csvContent);
 
-        // Logic: Persist all new entries to BankInbox
+        // Logic: Persist all new entries to BankStaging
         let createdCount = 0;
         for (const tx of transactions) {
             // VECTOR 116.1: Real-time Identity Resolution during Import
@@ -27,23 +27,24 @@ export async function POST(req: Request) {
                 tenantId,
                 {
                     iban: (tx as any).iban || (tx as any).accountNumber,
-                    counterpartyName: tx.counterpartyName,
-                    description: tx.rawType + " " + (tx.title || ""),
+                    counterpartyName: tx.counterpartyRaw,
+                    description: (tx as any).rawType + " " + (tx.title || ""),
                     title: tx.title,
                     amount: tx.amount
                 },
                 prisma
             );
 
-            await prisma.bankInbox.create({
+            // @ts-ignore
+            await prisma.bankStaging.create({
                 data: {
                     tenantId,
-                    date: tx.date,
+                    date: new Date(tx.transactionDate),
                     amount: tx.amount,
-                    rawType: tx.rawType,
-                    counterpartyName: tx.counterpartyName,
+                    rawType: (tx as any).typeDescription || tx.description || "",
+                    counterpartyName: tx.counterpartyRaw,
                     title: tx.title,
-                    status: resolution.confidence === 100 ? 'AUTO_MATCHED' : (resolution.contractorId ? 'SUGGESTED' : 'NEW'),
+                    status: resolution.confidence === 100 ? 'SUGGESTED' : (resolution.contractorId ? 'SUGGESTED' : 'PENDING'),
                     suggestionId: resolution.contractorId,
                     matchConfidence: resolution.confidence
                 }
