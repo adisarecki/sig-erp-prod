@@ -40,20 +40,19 @@ async function getGusSession() {
             body: loginSoap
         })
 
-        const text = await res.text()
-        const parser = new XMLParser()
-        const obj = parser.parse(text)
-        
-        // Handling different possible XML namespaces (s:Envelope vs soap:Envelope)
-        const envelope = obj['s:Envelope'] || obj['soap:Envelope'] || obj['Envelope']
-        const body = envelope?.['s:Body'] || envelope?.['soap:Body'] || envelope?.['Body']
-        const sid = body?.['ZalogujResponse']?.['ZalogujResult']
+        // Fetch the raw text instead of parsing as XML immediately
+        const rawResponse = await res.text()
+
+        // Regex to find the value between <ZalogujResult> tags
+        const sidMatch = rawResponse.match(/<ZalogujResult>(.*?)<\/ZalogujResult>/)
+        const sid = sidMatch ? sidMatch[1] : null
 
         if (!sid) {
-            console.error("[GUS_LOGIN_ERROR] Missing SID in response:", text)
-            throw new Error("Nie udało się zalogować do API GUS (Brak SID).")
+            console.error("[GUS_LOGIN_ERROR] Failed to extract SID from raw response:", rawResponse)
+            throw new Error("Nie udało się wyekstrahować SID z odpowiedzi GUS.")
         }
 
+        // Success! Use this SID for subsequent DaneSzukajPodmioty calls
         cachedSid = sid
         sidExpiry = Date.now() + CACHE_TTL_MS
         console.log("[GUS_BIR] New session established:", sid)
