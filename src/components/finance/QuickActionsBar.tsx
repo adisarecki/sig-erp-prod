@@ -24,6 +24,7 @@ const InvoiceScanner = dynamic(() => import("@/components/finance/InvoiceScanner
     loading: () => <div className="animate-pulse bg-slate-100 h-9 w-24 rounded-lg" />
 })
 import Link from "next/link"
+import { type Contractor, type Project } from "@/lib/types/crm"
 import { TrendingUp, TrendingDown, ScanLine, DownloadCloud, History, Loader2, Trash2, AlertTriangle, Info } from "lucide-react"
 import {
     Dialog,
@@ -36,8 +37,8 @@ import {
 import { Button } from "@/components/ui/button"
 
 interface QuickActionsBarProps {
-    projects: { id: string; name: string }[]
-    contractors: { id: string; name: string; nip?: string | null }[]
+    projects: Project[]
+    contractors: Contractor[]
 }
 
 export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps) {

@@ -6,6 +6,7 @@ import { getAdminDb } from "@/lib/firebaseAdmin"
 import prisma from "@/lib/prisma"
 import { assertAuthorityWrite } from "@/lib/authority/guards"
 import { randomUUID } from "crypto"
+import { type Contractor } from "@/lib/types/crm"
 
 /**
  * 1. Dodawanie kontrahenta
@@ -427,7 +428,7 @@ export async function deleteSelectedContractors(ids: string[]) {
 /**
  * 5. POBIERANIE (Prisma-First for Reporting & Consistency)
  */
-export async function getContractors() {
+export async function getContractors(): Promise<Contractor[]> {
     try {
         const tenantId = await getCurrentTenantId()
 
@@ -459,6 +460,10 @@ export async function getContractors() {
             invoices: c.invoices.map(inv => ({
                 ...inv,
                 amountGross: Number(inv.amountGross)
+            })),
+            bankAccounts: c.accounts.map(a => ({
+                accountNumber: a.iban,
+                isDefault: false // Fallback if not specified in DB yet
             }))
         }))
     } catch (error) {
@@ -470,7 +475,7 @@ export async function getContractors() {
 /**
  * 6. WYSZUKIWANIE (Server Side)
  */
-export async function searchContractors(query: string) {
+export async function searchContractors(query: string): Promise<Contractor[]> {
     const tenantId = await getCurrentTenantId()
     if (!query || query.length < 2) return []
 
@@ -495,7 +500,10 @@ export async function searchContractors(query: string) {
             name: c.name,
             nip: c.nip,
             address: c.address,
-            bankAccounts: c.accounts.map(a => a.iban)
+            bankAccounts: c.accounts.map(a => ({
+                accountNumber: a.iban,
+                isDefault: false
+            }))
         }))
     } catch (error) {
         console.error("[CRM_SEARCH_ERROR]", error)

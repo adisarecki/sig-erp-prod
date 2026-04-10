@@ -101,4 +101,12 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 - **Vector 100**: Financial Engine Stability (toUpperCase Guard).
 - **Vector 097**: Retention Vault Audit Implementation (Automatic Invoice Linkage & Popover).
 
-*Ostatnia aktywność techniczna: 2026-04-10. Build Verified (TSC: OK). Vector 140 (VAT Shield) deployed.*
+### 2026-04-10 (Vector 140.1)
+- **Vector 140.1**: **Bank Account Safeguard (Operationalization)**:
+    - Wdrożono dynamiczny wybór konta bankowego w `RegisterCostModal` i `AddContractorModal`.
+    - Zsynchronizowano typy `Contractor` i `bankAccounts` pomiędzy API a UI.
+    - Dodano automatyczne uzupełnianie konta (auto-fill) przy znalezieniu dokładnie 1 rekordu na Białej Liście.
+    - Zaimplementowano wizualne alerty "Shield Alert" (🔴) dla niezweryfikowanych rachunków manualnych.
+    - Dodano badże weryfikacji MF w modalu kosztów.
+
+*Ostatnia aktywność techniczna: 2026-04-10. Build Verified (TSC: OK). Vector 140.1 operationalized.*

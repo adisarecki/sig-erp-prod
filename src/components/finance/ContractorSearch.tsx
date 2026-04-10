@@ -9,12 +9,7 @@ import { cn } from "@/lib/utils"
 import { searchContractors } from "@/app/actions/crm"
 import { fetchGusData } from "@/app/actions/gus"
 
-interface Contractor {
-    id: string
-    name: string
-    nip?: string | null
-    address?: string | null
-}
+import { type Contractor } from "@/lib/types/crm"
 
 interface ContractorSearchProps {
     contractors: Contractor[] // Keep for initial fallback if needed

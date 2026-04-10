@@ -18,6 +18,7 @@ import { TrendingUp, PlusCircle, MinusCircle } from "lucide-react"
 import { TooltipHelp } from "@/components/ui/TooltipHelp"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 import { PageContainer } from "@/components/layout/PageContainer"
+import { type Contractor } from "@/lib/types/crm"
 
 // Typ pomocniczy dla formattera PLN
 const formatPln = (value: number) => {
@@ -45,7 +46,7 @@ interface ProjectData {
 
 interface InteractiveProjectListProps {
     projects: ProjectData[];
-    contractors: { id: string; name: string; nip?: string | null }[];
+    contractors: Contractor[];
     isArchivedView?: boolean;
 }
 

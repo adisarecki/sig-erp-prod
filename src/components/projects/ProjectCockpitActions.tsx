@@ -12,14 +12,15 @@ const InvoiceScanner = dynamic(() => import("@/components/finance/InvoiceScanner
 import { Trash2 } from "lucide-react"
 import { deleteProject } from "@/app/actions/projects"
 import { ClosureProjectModal } from "./ClosureProjectModal"
+import { type Contractor, type Project } from "@/lib/types/crm"
 
 interface ProjectCockpitActionsProps {
     projectId: string
     projectName: string
     budgetEstimated: number
     totalInvoicedNet: number
-    allProjects: { id: string; name: string }[]
-    contractors: { id: string; name: string; nip?: string | null }[]
+    allProjects: Project[]
+    contractors: Contractor[]
     isTestMode?: boolean
     projectStatus?: string
 }

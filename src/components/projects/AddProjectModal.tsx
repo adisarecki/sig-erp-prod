@@ -12,9 +12,10 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog"
 import { addProject } from "@/app/actions/projects"
+import { type Contractor } from "@/lib/types/crm"
 
 interface AddProjectModalProps {
-    contractors: { id: string, name: string }[]
+    contractors: Contractor[]
 }
 
 export function AddProjectModal({ contractors }: AddProjectModalProps) {

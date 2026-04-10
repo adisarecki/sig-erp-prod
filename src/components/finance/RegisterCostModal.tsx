@@ -18,17 +18,7 @@ import { toast } from "sonner"
 import { Loader2, PlusCircle, ScanText, AlertTriangle, FileCheck, ShieldAlert } from "lucide-react"
 import { scanInvoiceAction } from "@/app/actions/ocr"
 import { BankStatusBadge } from "@/components/ui/BankStatusBadge"
-
-interface Project { 
-    id: string; 
-    name: string; 
-    contractorId?: string; 
-    status?: string;
-    retentionShortTermRate?: number;
-    retentionLongTermRate?: number;
-    retentionBase?: 'NET' | 'GROSS';
-}
-interface Contractor { id: string; name: string; nip?: string | null; bankAccounts?: string[] }
+import { type Contractor, type BankAccountInfo, type Project } from "@/lib/types/crm"
 
 interface RegisterCostModalProps {
     projects: Project[]
@@ -63,7 +53,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const [newContractorName, setNewContractorName] = useState("")
     const [newContractorNip, setNewContractorNip] = useState("")
     const [newContractorAddress, setNewContractorAddress] = useState("")
-    const [selectedContractorAccounts, setSelectedContractorAccounts] = useState<string[]>([])
+    const [selectedContractorAccounts, setSelectedContractorAccounts] = useState<BankAccountInfo[]>([])
 
     // OCR & Duplicate States (DNA Vector 020)
     const [isScanning, setIsScanning] = useState(false)
@@ -405,7 +395,14 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                             if (c) {
                                                 setSelectedContractorId(c.id)
                                                 setIsNewContractor(false)
-                                                setSelectedContractorAccounts(c.bankAccounts || [])
+                                                const accounts = c.bankAccounts || []
+                                                setSelectedContractorAccounts(accounts)
+                                                
+                                                // Auto-fill if exactly 1 account
+                                                if (accounts.length === 1) {
+                                                    const accNum = typeof accounts[0] === 'string' ? accounts[0] : accounts[0].accountNumber
+                                                    setBankAccountNumber(accNum)
+                                                }
                                             } else {
                                                 setSelectedContractorId("")
                                                 setSelectedContractorAccounts([])
@@ -474,32 +471,63 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
 
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <Label>Numer Konta Bankowego</Label>
-                                {(bankAccountNumber || selectedContractorAccounts.length > 0) && (
+                                <Label className="text-slate-700 font-semibold text-xs uppercase text-slate-400">Numer Konta Bankowego</Label>
+                                {bankAccountNumber && selectedContractorAccounts.length > 0 && (
                                     <BankStatusBadge 
-                                        isVerified={selectedContractorAccounts.includes(bankAccountNumber.replace(/\s/g, ""))} 
+                                        isVerified={selectedContractorAccounts.some(acc => {
+                                            const accNum = typeof acc === 'string' ? acc : acc.accountNumber;
+                                            return accNum.replace(/\s/g, "") === bankAccountNumber.replace(/\s/g, "");
+                                        })} 
                                         size="sm"
                                         showLabel={false}
                                     />
                                 )}
                             </div>
-                            <div className="relative">
-                                <Input 
-                                    name="bankAccountNumber" 
-                                    value={bankAccountNumber} 
-                                    onChange={(e) => setBankAccountNumber(e.target.value)}
-                                    placeholder="Wpisz lub wybierz numer konta"
-                                    className="font-mono text-sm h-11 pr-10"
-                                />
-                                {selectedContractorAccounts.length > 0 && (
-                                    <div className="absolute right-3 top-3.5 text-[10px] text-emerald-600 font-bold flex items-center gap-1 bg-emerald-50 px-1 rounded border border-emerald-100">
-                                        MF SYNC
-                                    </div>
-                                )}
-                            </div>
-                            {!selectedContractorAccounts.includes(bankAccountNumber.replace(/\s/g, "")) && bankAccountNumber.length > 10 && (
-                                <p className="text-[10px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in slide-in-from-left-1">
-                                    <ShieldAlert className="w-3 h-3" /> Uwaga: Tego konta brak na Białej Liście tego kontrahenta!
+                            
+                            {selectedContractorAccounts.length > 1 ? (
+                                <Select
+                                    value={bankAccountNumber}
+                                    onValueChange={(val) => setBankAccountNumber(val || "")}
+                                >
+                                    <SelectTrigger className="h-11 bg-white border-blue-200">
+                                        <SelectValue placeholder="Wybierz konto z Wykazu MF" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {selectedContractorAccounts.map((acc: any) => {
+                                            const accNum = typeof acc === 'string' ? acc : acc.accountNumber;
+                                            return (
+                                                <SelectItem key={accNum} value={accNum}>
+                                                    {accNum.replace(/(.{2})/g, "$1 ")}
+                                                </SelectItem>
+                                            );
+                                        })}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <div className="relative">
+                                    <Input 
+                                        name="bankAccountNumber" 
+                                        value={bankAccountNumber} 
+                                        onChange={(e) => setBankAccountNumber(e.target.value)}
+                                        placeholder="Wpisz lub wybierz numer konta"
+                                        className="font-mono text-sm h-11 pr-10 bg-white"
+                                    />
+                                    {selectedContractorAccounts.length > 0 && (
+                                        <div className="absolute right-3 top-3 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 flex items-center gap-1">
+                                            <span className="text-[9px] text-emerald-700 font-black tracking-tighter uppercase">MF OK</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {bankAccountNumber.replace(/\s/g, "").length > 10 && 
+                             selectedContractorAccounts.length > 0 && 
+                             !selectedContractorAccounts.some(acc => {
+                                 const accNum = typeof acc === 'string' ? acc : acc.accountNumber;
+                                 return accNum.replace(/\s/g, "") === bankAccountNumber.replace(/\s/g, "");
+                             }) && (
+                                <p className="text-[10px] text-rose-600 font-bold flex items-center gap-1 animate-pulse">
+                                    <ShieldAlert className="w-3 h-3" /> UWAGA: Tego konta brak na Białej Liście MF!
                                 </p>
                             )}
                         </div>

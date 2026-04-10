@@ -21,22 +21,8 @@ import { ContractorSearch } from "./ContractorSearch"
 import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
 import { toast } from "sonner"
 import { Loader2, TrendingUp, Building2 } from "lucide-react"
+import { type Contractor, type Project } from "@/lib/types/crm"
 
-interface Project {
-    id: string
-    name: string
-    contractorId?: string
-    status?: string
-    retentionShortTermRate?: number
-    retentionLongTermRate?: number
-    retentionBase?: 'NET' | 'GROSS'
-}
-
-interface Contractor {
-    id: string
-    name: string
-    nip?: string | null
-}
 
 interface RegisterIncomeModalProps {
     projects: Project[]

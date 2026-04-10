@@ -16,6 +16,7 @@ import { getContractors } from "@/app/actions/crm"
 import { TransactionHistory } from "@/components/finance/TransactionHistory"
 import { mapFinancialValues, FinancialType } from "@/lib/utils/financeMapper"
 import Decimal from "decimal.js"
+import { type Contractor } from "@/lib/types/crm"
 
 // ... (existing functions)
 
@@ -38,8 +39,8 @@ export default async function FinancePage({
     const tenantId = await getCurrentTenantId()
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } }) as any
     let transactions: any[] = []
-    let projectsMap: { id: string, name: string }[] = []
-    let contractorsMap: { id: string, name: string }[] = []
+    let projectsMap: any[] = []
+    let contractorsMap: any[] = []
     let leakageAlerts: any[] = []
     let fetchError: string | null = null
 
@@ -47,12 +48,10 @@ export default async function FinancePage({
         leakageAlerts = await scanForLeaks(tenantId)
 
         // Pobieramy projekty z Firestore
-        const rawProjects = (await getProjects()) as any[]
-        projectsMap = rawProjects.map(p => ({ id: p.id, name: p.name }))
+        projectsMap = await getProjects() as any[]
 
         // Pobieramy kontrahentów
-        const rawContractors = (await getContractors()) as any[]
-        contractorsMap = rawContractors.map(c => ({ id: c.id, name: c.name }))
+        contractorsMap = await getContractors() as any[]
 
         // Pobieramy transakcje z Firestore (Bank imports) i Invoices z Prisma (Single Source of Truth)
         const adminDb = getAdminDb()
@@ -112,7 +111,7 @@ export default async function FinancePage({
                 .map(t => {
                     // Enrich contractorName from matched contractor in DB
                     const matchedContractor = t.matchedContractorId
-                        ? rawContractors.find((c: any) => c.id === t.matchedContractorId)
+                        ? contractorsMap.find((c: Contractor) => c.id === t.matchedContractorId)
                         : null;
 
                     // UI Rendering Correction: NEVER show raw description as title.
@@ -147,7 +146,7 @@ export default async function FinancePage({
                 const isIncome = inv.type === 'SPRZEDAŻ'
                 const dueDate = new Date(inv.dueDate)
                 const linkedTx = txByInvoiceId.get(inv.id)
-                const contractor = rawContractors.find(c => c.id === inv.contractorId)
+                const contractor = contractorsMap.find((c: Contractor) => c.id === inv.contractorId)
                 
                 let badge = 'DO ZAPŁATY'
                 let color = 'bg-amber-100 text-amber-700'

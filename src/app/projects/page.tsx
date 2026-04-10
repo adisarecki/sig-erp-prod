@@ -34,7 +34,7 @@ export default async function ProjectsPage() {
         transactions: allTransactions.filter(t => t.projectId === p.id)
     }))
 
-    const contractors = allContractors.map(c => ({ id: c.id, name: c.name }))
+    const contractors = allContractors
 
     const activeProjects = allProjects.filter((p) => p.lifecycleStatus === 'ACTIVE' || p.lifecycleStatus === 'ON_HOLD')
     const archivedProjects = allProjects.filter((p) => p.lifecycleStatus === 'ARCHIVED')
