@@ -79,6 +79,7 @@ export default function SettingsPage() {
                     <p>Wersja: <strong className="text-slate-900">0.2.1-beta</strong></p>
                     <p>Środowisko: <strong className="text-slate-900 text-blue-600">Wizjoner Preview</strong></p>
                     <p>Połączenie z bazą: <strong className="text-green-600 italic">Aktywne (Neon.tech)</strong></p>
+                    <p className="mt-4 pt-4 border-t border-slate-100 font-bold text-slate-900 uppercase tracking-widest text-[10px]">&copy; Copyright Adi</p>
                 </div>
             </div>
         </div>
