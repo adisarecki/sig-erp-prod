@@ -8,7 +8,9 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog"
 import { updateContractor, updateObject } from "@/app/actions/crm"
-import { Pencil, Store, MapPin, Check, X, Loader2 } from "lucide-react"
+import { getGusDataByNip } from "@/app/actions/gus"
+import { Pencil, Store, MapPin, Check, X, Loader2, Search } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface ObjectItem {
     id: string
@@ -34,14 +36,87 @@ export function EditContractorModal({ contractor }: { contractor: Contractor }) 
     const [tempObjectName, setTempObjectName] = useState("")
     const [localObjects, setLocalObjects] = useState<ObjectItem[]>(contractor.objects)
     const [isUpdatingObject, setIsUpdatingObject] = useState<string | null>(null)
+    const [gusLoading, setGusLoading] = useState(false)
+    const [successFlash, setSuccessFlash] = useState(false)
+
+    // Form State (Controlled)
+    const [editFormData, setEditFormData] = useState({
+        name: contractor.name,
+        nip: contractor.nip || "",
+        address: contractor.address || "",
+        status: contractor.status,
+        type: contractor.type
+    })
 
     // Sync local objects when prop changes (e.g. after full refresh)
     useEffect(() => {
         setLocalObjects(contractor.objects)
-    }, [contractor.objects])
+        setEditFormData({
+            name: contractor.name,
+            nip: contractor.nip || "",
+            address: contractor.address || "",
+            status: contractor.status,
+            type: contractor.type
+        })
+    }, [contractor])
 
-    async function handleSubmit(formData: FormData) {
+    async function handleGusFetch() {
+        if (editFormData.nip.length !== 10) return
+
+        setGusLoading(true)
+        try {
+            const res = await getGusDataByNip(editFormData.nip)
+            if (res.success && res.data) {
+                setEditFormData(prev => ({
+                    ...prev,
+                    name: res.data.name,
+                    address: res.data.address
+                }))
+                setSuccessFlash(true)
+                setTimeout(() => setSuccessFlash(false), 2000)
+            }
+        } catch (error) {
+            console.error("GUS Fetch Error:", error)
+        } finally {
+            setGusLoading(false)
+        }
+    }
+
+    const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target
+        const newVal = name === "nip" ? value.replace(/[^0-9]/g, "").slice(0, 10) : value
+        
+        setEditFormData(prev => ({
+            ...prev,
+            [name]: newVal
+        }))
+
+        // Auto-fetch logic for Edit modal too
+        if (name === "nip" && newVal.length === 10) {
+            // We can't call handleGusFetch directly here easily with the latest state, 
+            // but we can use an effect.
+        }
+    }
+
+    // Auto-trigger GUS fetch on 10th digit
+    useEffect(() => {
+        if (editFormData.nip.length === 10 && editFormData.nip !== contractor.nip) {
+            handleGusFetch()
+        }
+    }, [editFormData.nip])
+
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault()
         setIsPending(true)
+        
+        const formData = new FormData()
+        formData.append("id", contractor.id)
+        formData.append("name", editFormData.name)
+        formData.append("nip", editFormData.nip)
+        formData.append("address", editFormData.address)
+        formData.append("status", editFormData.status)
+        formData.append("type", editFormData.type)
+
         try {
             const res = await updateContractor(formData)
             if (res?.error) {
@@ -51,8 +126,6 @@ export function EditContractorModal({ contractor }: { contractor: Contractor }) 
             }
         } catch (error) {
             console.error(error)
-            // Ignorujemy błędy, które nie są krytyczne (np. sygnały Next.js)
-            // ale jeśli to prawdziwy błąd, to pokazujemy go tylko gdy res nie istnieje
             alert("Wystąpił nieoczekiwany błąd komunikacji.")
         } finally {
             setIsPending(false)
@@ -115,7 +188,7 @@ export function EditContractorModal({ contractor }: { contractor: Contractor }) 
                 </DialogHeader>
 
                 <div className="space-y-6 mt-4">
-                    <form action={handleSubmit} className="space-y-4 pb-6 border-b border-slate-100">
+                    <form onSubmit={handleSubmit} className="space-y-4 pb-6 border-b border-slate-100">
                         <input type="hidden" name="id" value={contractor.id} />
                         
                         <div className="grid grid-cols-2 gap-4">
@@ -124,25 +197,50 @@ export function EditContractorModal({ contractor }: { contractor: Contractor }) 
                                 <input
                                     name="name"
                                     required
-                                    defaultValue={contractor.name}
-                                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold transition-all bg-slate-50/50"
+                                    value={editFormData.name}
+                                    onChange={handleEditChange}
+                                    className={cn(
+                                        "w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold transition-all bg-slate-50/50",
+                                        successFlash && "bg-green-50 ring-2 ring-green-400 border-green-500"
+                                    )}
                                 />
                             </div>
                             <div>
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">NIP</label>
-                                <input
-                                    id={`edit-nip-${contractor.id}`}
-                                    name="nip"
-                                    defaultValue={contractor.nip || ""}
-                                    autoComplete="off"
-                                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono transition-all bg-slate-50/50"
-                                />
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <input
+                                            id={`edit-nip-${contractor.id}`}
+                                            name="nip"
+                                            value={editFormData.nip}
+                                            onChange={handleEditChange}
+                                            autoComplete="off"
+                                            maxLength={10}
+                                            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono transition-all bg-slate-50/50 pr-10"
+                                        />
+                                        {gusLoading && (
+                                            <div className="absolute right-3 top-2.5">
+                                                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleGusFetch()}
+                                        disabled={gusLoading || editFormData.nip.length < 10}
+                                        className="bg-slate-100 p-2 rounded-xl border border-slate-200 hover:bg-slate-200 transition disabled:opacity-50"
+                                        title="Pobierz dane z GUS"
+                                    >
+                                        <Search className="w-5 h-5 text-slate-600" />
+                                    </button>
+                                </div>
                             </div>
                             <div>
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Typ Biznesowy</label>
                                 <select
                                     name="type"
-                                    defaultValue={contractor.type}
+                                    value={editFormData.type}
+                                    onChange={handleEditChange}
                                     className="w-full border border-slate-200 rounded-xl px-4 py-2.5 bg-blue-50 text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-black uppercase text-xs transition-all"
                                 >
                                     <option value="INWESTOR">Inwestor</option>
@@ -157,9 +255,13 @@ export function EditContractorModal({ contractor }: { contractor: Contractor }) 
                             <input
                                 id={`edit-address-${contractor.id}`}
                                 name="address"
-                                defaultValue={contractor.address || ""}
+                                value={editFormData.address}
+                                onChange={handleEditChange}
                                 autoComplete="off"
-                                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium transition-all bg-slate-50/50"
+                                className={cn(
+                                    "w-full border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold transition-all bg-slate-50/50",
+                                    successFlash && "bg-green-50 ring-2 ring-green-400 border-green-500"
+                                )}
                             />
                         </div>
 
@@ -168,7 +270,8 @@ export function EditContractorModal({ contractor }: { contractor: Contractor }) 
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Status</label>
                                 <select
                                     name="status"
-                                    defaultValue={contractor.status}
+                                    value={editFormData.status}
+                                    onChange={handleEditChange}
                                     className="w-full border border-slate-200 rounded-xl px-4 py-2 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm transition-all"
                                 >
                                     <option value="ACTIVE">Aktywny</option>

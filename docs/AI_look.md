@@ -159,6 +159,16 @@ Obliczony dla MAKSYMALNEGO bezpieczeństwa: `Saldo Bankowe - Dług VAT - Rezerwa
     - **Title Normalization**: PKO BP titles (Col 8) are cleaned from technical placeholders (NRB, PL, ...) to show human-readable purpose.
     - **Contextual Grouping**: Transactions are grouped by Date (Today, Yesterday) with sticky headers.
 
+- **Vector 130 (GUS BIR 1.1 - Smart Onboarding)**:
+    - **Technical Engine**: SOAP 1.1 client for BIR 1.1 (`DaneSzukajPodmioty`).
+    - **Auth Protocol**: `Zaloguj(apiKey)` handshake returning `sid`.
+    - **Session Persistence**: Server-side module-level caching of `sid` with 60-min TTL.
+    - **Mapping**: Dynamic mapping of `Nazwa`, `Regon` and formatted address (`ul. [street] [nr]/[local], [zip] [city]`).
+    - **UI Automation (Smart Form)**: 
+        - Dual-trigger: Auto-fetch on 10th digit NIP entry + Manual 🔍 button.
+        - Idempotency/Clearing: Changing NIP after fetch clears dependent fields to prevent data mismatch.
+        - UX Signal: Green flash transition on auto-populated fields.
+
 ---
 
 ## 📜 5. Change Log & Bug Recovery (History)

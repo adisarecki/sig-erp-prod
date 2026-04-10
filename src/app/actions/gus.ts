@@ -2,20 +2,25 @@
 
 import { XMLParser } from "fast-xml-parser"
 
-const GUS_API_KEY = process.env.GUS_API_KEY || "abcde12345abcde12345" // Klucz testowy BIR 1.1
-const GUS_URL = "https://wyszukiwarkaregontest.stat.gov.pl/BIR/PUBLUGLUDSWPUB.svc"
+// Environment Variables and Configuration
+const GUS_API_KEY = process.env.GUS_BIR_KEY || process.env.GUS_API_KEY || "abcde12345abcde12345"
+const GUS_URL = process.env.GUS_BIR_URL || "https://wyszukiwarkaregontest.stat.gov.pl/BIR/PUBLUGLUDSWPUB.svc"
+
+// Session Caching (Module-level persistence)
+let cachedSid: string | null = null
+let sidExpiry: number = 0
+const CACHE_TTL_MS = 55 * 60 * 1000 // 55 minutes (just below 60 to be safe)
 
 /**
- * Pobiera dane firmy z GUS BIR 1.1 na podstawie NIP.
+ * Authenticates with GUS BIR 1.1 and returns a session ID (sid).
+ * Uses an in-memory cache for 55 minutes.
  */
-export async function getGusDataByNip(nip: string) {
-    if (!nip || nip.length < 10) {
-        return { success: false, error: "Nieprawidłowy numer NIP." }
+async function getGusSession() {
+    if (cachedSid && Date.now() < sidExpiry) {
+        return cachedSid
     }
 
-    try {
-        // 1. Logowanie do BIR (Pobranie SID)
-        const loginSoap = `
+    const loginSoap = `
 <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:ns="http://CIS/BIR/PUBL/2014/07">
    <soap:Header xmlns:wsa="http://www.w3.org/2005/08/addressing">
       <wsa:Action>http://CIS/BIR/PUBL/2014/07/IUslugaBIRzewnPubl/Zaloguj</wsa:Action>
@@ -28,23 +33,52 @@ export async function getGusDataByNip(nip: string) {
    </soap:Body>
 </soap:Envelope>`
 
-        const loginRes = await fetch(GUS_URL, {
+    try {
+        const res = await fetch(GUS_URL, {
             method: "POST",
             headers: { "Content-Type": "application/soap+xml; charset=utf-8" },
             body: loginSoap
         })
 
-        const loginText = await loginRes.text()
+        const text = await res.text()
         const parser = new XMLParser()
-        const loginObj = parser.parse(loginText)
-        const sid = loginObj['s:Envelope']?.['s:Body']?.['ZalogujResponse']?.['ZalogujResult']
+        const obj = parser.parse(text)
+        
+        // Handling different possible XML namespaces (s:Envelope vs soap:Envelope)
+        const envelope = obj['s:Envelope'] || obj['soap:Envelope'] || obj['Envelope']
+        const body = envelope?.['s:Body'] || envelope?.['soap:Body'] || envelope?.['Body']
+        const sid = body?.['ZalogujResponse']?.['ZalogujResult']
 
         if (!sid) {
-            console.error("[GUS_LOGIN_ERROR]", loginText)
+            console.error("[GUS_LOGIN_ERROR] Missing SID in response:", text)
             throw new Error("Nie udało się zalogować do API GUS (Brak SID).")
         }
 
-        // 2. Pobieranie danych podmiotu
+        cachedSid = sid
+        sidExpiry = Date.now() + CACHE_TTL_MS
+        console.log("[GUS_BIR] New session established:", sid)
+        return sid
+    } catch (error) {
+        console.error("[GUS_BIR_AUTH_ERROR]", error)
+        throw error
+    }
+}
+
+/**
+ * Fetches contractor data from GUS BIR 1.1 by NIP.
+ * Vector 130: Zero-Entry Onboarding Integration.
+ */
+export async function getGusDataByNip(nip: string) {
+    // Validacja NIP (usuwanie myślników jeśli są)
+    const normalizedNip = nip.replace(/[^0-9]/g, "")
+    
+    if (normalizedNip.length !== 10) {
+        return { success: false, error: "Numer NIP musi składać się z 10 cyfr." }
+    }
+
+    try {
+        const sid = await getGusSession()
+
         const searchSoap = `
 <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:ns="http://CIS/BIR/PUBL/2014/07" xmlns:dat="http://CIS/BIR/PUBL/2014/07/DataContract">
    <soap:Header xmlns:wsa="http://www.w3.org/2005/08/addressing">
@@ -54,13 +88,13 @@ export async function getGusDataByNip(nip: string) {
    <soap:Body>
       <ns:DaneSzukajPodmioty>
          <ns:pParametryWyszukiwania>
-            <dat:Nip>${nip}</dat:Nip>
+            <dat:Nip>${normalizedNip}</dat:Nip>
          </ns:pParametryWyszukiwania>
       </ns:DaneSzukajPodmioty>
    </soap:Body>
 </soap:Envelope>`
 
-        const searchRes = await fetch(GUS_URL, {
+        const res = await fetch(GUS_URL, {
             method: "POST",
             headers: { 
                 "Content-Type": "application/soap+xml; charset=utf-8",
@@ -69,33 +103,62 @@ export async function getGusDataByNip(nip: string) {
             body: searchSoap
         })
 
-        const searchText = await searchRes.text()
-        const searchObj = parser.parse(searchText)
-        const xmlData = searchObj['s:Envelope']?.['s:Body']?.['DaneSzukajPodmiotyResponse']?.['DaneSzukajPodmiotyResult']
+        const text = await res.text()
+        const parser = new XMLParser()
+        const obj = parser.parse(text)
+        
+        const envelope = obj['s:Envelope'] || obj['soap:Envelope'] || obj['Envelope']
+        const body = envelope?.['s:Body'] || envelope?.['soap:Body'] || envelope?.['Body']
+        const xmlData = body?.['DaneSzukajPodmiotyResponse']?.['DaneSzukajPodmiotyResult']
 
         if (!xmlData || xmlData.includes("ErrorCode")) {
+            // Check if it's a session error - if so, clear cache and retry once
+            if (xmlData?.includes("Sesja nieaktywna")) {
+                console.warn("[GUS_BIR] Session expired unexpectedly. Retrying...")
+                cachedSid = null
+                return getGusDataByNip(nip)
+            }
             return { success: false, error: "Nie znaleziono firmy o podanym NIP w bazie GUS." }
         }
 
-        // Dane z BIR są zwracane jako zahartowany XML wewnątrz elementu (escaped XML)
-        // Musimy to odkodować i przemapować. fast-xml-parser radzi sobie z tym jeśli przekażemy mu ten string.
-        const unescapedXml = xmlData.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+        // Unescape internal XML string
+        const unescapedXml = xmlData
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&amp;/g, '&')
+            
         const dataObj = parser.parse(unescapedXml)
         const d = dataObj.root?.dane
 
         if (!d) {
-            return { success: false, error: "Błąd parsowania danych z GUS." }
+            console.error("[GUS_BIR_PARSE_ERROR] Payload:", unescapedXml)
+            return { success: false, error: "Błąd interpretacji danych z GUS." }
         }
 
-        // Mapowanie na nasz format
+        // Build full address
+        const street = d.Ulica || ""
+        const number = d.NrNieruchomosci || ""
+        const local = d.NrLokalu ? `/${d.NrLokalu}` : ""
+        const city = d.Miejscowosc || ""
+        const zip = d.KodPocztowy || ""
+
+        // Format: ul. [Ulica] [Nr], [Kod] [Miasto]
+        let streetPart = street
+        if (street && !street.toLowerCase().startsWith("ul.") && !street.toLowerCase().startsWith("al.")) {
+            streetPart = `ul. ${street}`
+        }
+
+        const fullAddress = `${streetPart} ${number}${local}, ${zip} ${city}`.trim().replace(/^,/, "").trim()
+
         return {
             success: true,
             data: {
                 name: d.Nazwa || "",
-                address: `${d.Ulica || ""} ${d.NrNieruchomosci || ""}${d.NrLokalu ? "/" + d.NrLokalu : ""}`.trim(),
-                city: d.Miejscowosc || "",
-                zipCode: d.KodPocztowy || "",
-                fullAddress: `${d.Ulica || ""} ${d.NrNieruchomosci || ""}${d.NrLokalu ? "/" + d.NrLokalu : ""}, ${d.KodPocztowy || ""} ${d.Miejscowosc || ""}`.trim()
+                nip: normalizedNip,
+                regon: d.Regon || "",
+                address: fullAddress,
+                raw: d // Zachowanie surowych danych na wypadek potrzeby debugingu
             }
         }
 
@@ -104,3 +167,4 @@ export async function getGusDataByNip(nip: string) {
         return { success: false, error: error.message || "Błąd komunikacji z GUS." }
     }
 }
+

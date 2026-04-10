@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
     Dialog,
     DialogContent,
@@ -11,19 +11,113 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog"
 import { addContractor } from "@/app/actions/crm"
+import { getGusDataByNip } from "@/app/actions/gus"
+import { Loader2, Search } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export function AddContractorModal() {
     const [open, setOpen] = useState(false)
     const [isPending, setIsPending] = useState(false)
+    const [gusLoading, setGusLoading] = useState(false)
+    const [successFlash, setSuccessFlash] = useState(false)
+    const [lastFetchedNip, setLastFetchedNip] = useState<string | null>(null)
 
-    async function handleSubmit(formData: FormData) {
+    // Form State (Controlled)
+    const [formDataObj, setFormDataObj] = useState({
+        name: "",
+        nip: "",
+        address: "",
+        status: "ACTIVE",
+        type: "INWESTOR"
+    })
+
+    // Auto-trigger GUS fetch on 10th digit
+    useEffect(() => {
+        const cleanNip = formDataObj.nip.replace(/[^0-9]/g, "")
+        if (cleanNip.length === 10) {
+            handleGusFetch(cleanNip)
+        }
+    }, [formDataObj.nip])
+
+    async function handleGusFetch(targetNip?: string) {
+        const nipToFetch = targetNip || formDataObj.nip.replace(/[^0-9]/g, "")
+        if (nipToFetch.length !== 10) return
+
+        setGusLoading(true)
+        try {
+            const res = await getGusDataByNip(nipToFetch)
+            if (res.success && res.data) {
+                setFormDataObj(prev => ({
+                    ...prev,
+                    name: res.data.name,
+                    address: res.data.address
+                }))
+                setLastFetchedNip(nipToFetch)
+                setSuccessFlash(true)
+                setTimeout(() => setSuccessFlash(false), 2000)
+            }
+        } catch (error) {
+            console.error("GUS Fetch Error:", error)
+        } finally {
+            setGusLoading(false)
+        }
+    }
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target
+        
+        if (name === "nip") {
+            const cleanVal = value.replace(/[^0-9]/g, "")
+            // If NIP is changing and it differs from the one we just fetched, clear the name/address
+            if (lastFetchedNip && cleanVal !== lastFetchedNip) {
+                setFormDataObj(prev => ({
+                    ...prev,
+                    nip: cleanVal,
+                    name: "",
+                    address: ""
+                }))
+                setLastFetchedNip(null)
+                return
+            }
+            
+            setFormDataObj(prev => ({
+                ...prev,
+                nip: cleanVal
+            }))
+            return
+        }
+
+        setFormDataObj(prev => ({
+            ...prev,
+            [name]: value
+        }))
+    }
+
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault()
         setIsPending(true)
+        
+        const formData = new FormData()
+        formData.append("name", formDataObj.name)
+        formData.append("nip", formDataObj.nip)
+        formData.append("address", formDataObj.address)
+        formData.append("status", formDataObj.status)
+        formData.append("type", formDataObj.type)
+
         try {
             const res = await addContractor(formData)
             if (res?.error) {
                 alert(res.error)
             } else {
                 setOpen(false)
+                // Reset form
+                setFormDataObj({
+                    name: "",
+                    nip: "",
+                    address: "",
+                    status: "ACTIVE",
+                    type: "INWESTOR"
+                })
             }
         } catch (error) {
             console.error(error)
@@ -48,41 +142,76 @@ export function AddContractorModal() {
                     </DialogDescription>
                 </DialogHeader>
 
-                <form action={handleSubmit} className="space-y-4 mt-2">
+                <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+                    <div className="relative">
+                        <label className="text-sm font-semibold text-slate-700 block mb-1">NIP (10 cyfr)</label>
+                        <div className="flex gap-2">
+                            <div className="relative flex-1">
+                                <input
+                                    id="contractor-nip-add"
+                                    name="nip"
+                                    value={formDataObj.nip}
+                                    onChange={handleChange}
+                                    maxLength={10}
+                                    autoComplete="off"
+                                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                                    placeholder="5260001222"
+                                />
+                                {gusLoading && (
+                                    <div className="absolute right-3 top-2.5">
+                                        <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => handleGusFetch()}
+                                disabled={gusLoading || formDataObj.nip.length < 10}
+                                className="bg-slate-100 p-2 rounded-md border border-slate-300 hover:bg-slate-200 transition disabled:opacity-50"
+                                title="Pobierz dane z GUS"
+                            >
+                                <Search className="w-5 h-5 text-slate-600" />
+                            </button>
+                        </div>
+                    </div>
+
                     <div>
                         <label className="text-sm font-semibold text-slate-700 block mb-1">Nazwa firmy *</label>
                         <input
                             name="name"
+                            value={formDataObj.name}
+                            onChange={handleChange}
                             required
-                            className="w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={cn(
+                                "w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-500",
+                                successFlash && "bg-green-50 ring-2 ring-green-400 border-green-500"
+                            )}
                             placeholder="np. Demetrix"
                         />
                     </div>
-                    <div>
-                        <label className="text-sm font-semibold text-slate-700 block mb-1">NIP (10 cyfr)</label>
-                        <input
-                            id="contractor-nip-add"
-                            name="nip"
-                            maxLength={10}
-                            autoComplete="off"
-                            className="w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="5260001222"
-                        />
-                    </div>
+
                     <div>
                         <label className="text-sm font-semibold text-slate-700 block mb-1">Adres siedziby</label>
                         <input
                             id="contractor-address-add"
                             name="address"
+                            value={formDataObj.address}
+                            onChange={handleChange}
                             autoComplete="off"
-                            className="w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={cn(
+                                "w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-500",
+                                successFlash && "bg-green-50 ring-2 ring-green-400 border-green-500"
+                            )}
                             placeholder="ul. Słoneczna 1, Siemianowice"
                         />
                     </div>
+
                     <div>
                         <label className="text-sm font-semibold text-slate-700 block mb-1">Status Współpracy</label>
                         <select
                             name="status"
+                            value={formDataObj.status}
+                            onChange={handleChange}
                             className="w-full border border-slate-300 rounded-md px-3 py-2 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                             <option value="ACTIVE">Aktywny (Widoczny na listach)</option>
@@ -90,10 +219,13 @@ export function AddContractorModal() {
                             <option value="INACTIVE">Zablokowany / Archiwalny</option>
                         </select>
                     </div>
+
                     <div>
                         <label className="text-sm font-semibold text-slate-700 block mb-1">Typ Firmy (Klasyfikacja) *</label>
                         <select
                             name="type"
+                            value={formDataObj.type}
+                            onChange={handleChange}
                             required
                             className="w-full border border-blue-200 bg-blue-50/30 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                         >
@@ -119,4 +251,4 @@ export function AddContractorModal() {
             </DialogContent>
         </Dialog>
     )
-}
+}

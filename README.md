@@ -36,6 +36,10 @@ System wylicza "Czystą Gotówkę" (Real Profit) odejmując od salda bankowego:
 
 ## 🏗️ 1. Twoje Główne Narzędzia (Gdzie oszczędzasz czas?)
 
+- [x] **Vector 120: Bank Reconciliation Hub** – Manuany terytorium rozliczeń z landing zone `BankStaging`.
+- [x] **Vector 130: GUS BIR 1.1 Integration** – Automatyczne pobieranie danych kontrahentów po NIP.
+- [ ] **Vector 140: Inteligentne Sugestie AI** – Predykcyjne dopasowanie kategorii kosztów.
+
 ### 💰 Inteligentna Bankowość
 - **Centrum Weryfikacji (Landing Zone)**: Wrzucasz wyciąg CSV z banku, a transakcje trafiają do poczekalni (Triage). System rozpoznaje dostawców, sugeruje dopasowania do faktur i **uczy się Twoich nawyków**.
 - **Wykrywanie Firm**: System uczy się numerów kont Twoich kontrahentów – przy kolejnych przelewach już wie, komu płacisz.

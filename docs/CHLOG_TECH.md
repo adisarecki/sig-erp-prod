@@ -27,6 +27,9 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 035 | Project Closure | FIXED | Closure Protocol (Archive Lock). | Modal zamknięcia inwestycji blokujący koszty. |
 | Vector 041 | Finance / Bank | FIXED | Bank Reconciliation Engine. | Wdrożono parser MT940 i algorytm uzgadniania. |
 | Vector 042 | KSeF / Integration | FIXED | KSeF 2.0 Integration. | Zaimplementowano `ksef-service` (Read-only). |
+| Vector 117 | Finance / Retention | FIXED | Retention Engine & Liquidity Alerts | Dynamic retention-aware payment matching + VAT/Retention monitoring. |
+| Vector 120 | Bank Reconciliation | FIXED | Bank Reconciliation Hub | Transition from Silent Imports to manual Triage Hub with Staging Zone. |
+| Vector 130 | GUS / Integration | FIXED | GUS BIR 1.1 Integration | Automated contractor onboarding with dual-trigger NIP fetch and auto-fill. |
 | Vector 046 | Finance / Engine | FIXED | Transition from MT940 to CSV. | Pivot na format CSV dla wyciągów PKO BP. |
 | Vector 050 | Finance / Engine | FIXED | 3-Layer Bank Import Pipeline. | Parser -> Normalizer -> Mapper (iconv-lite). |
 | Vector 054 | Finance / Engine | FIXED | Master Parser & Self-Learning. | Regex Normalizer i Bi-directional IBAN learning. |
@@ -79,6 +82,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 126 | Finance / Bank | FIXED | Bank Staging Hardening. | Enforced immutability in `BankStaging` records. Added `counterpartyRaw` title normalization (PKO BP cleaning) to the verification hub. |
 | Vector 130 | Finance / Logic | FIXED | Forecast Math (Gross-Retention). | Enforced `Gross - Retention` formula in Dashboard alerts and Forecast calculations (+11,300 PLN logic). |
 | Vector 131 | Finance / Engine | FIXED | Full Cascade Deletion Cleanup. | Redefined `deleteInvoice` to revert Bank Transactions to `UNPAIRED` and wipe all related Ledger entries (Zero Zombie Data). |
+| Vector 132 | Maintenance | NEW | Ledger Healer Protocol. | Server action `purgeOrphanLedgerEntries` implemented to auto-identify and purge ledger ghosts. |
 
 ---
 

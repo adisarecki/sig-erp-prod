@@ -3,9 +3,11 @@
 import { useState, useEffect, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Search, UserPlus, Building2, Check, Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Search, UserPlus, Building2, Check, Loader2, Search as SearchIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { searchContractors } from "@/app/actions/crm"
+import { getGusDataByNip } from "@/app/actions/gus"
 
 interface Contractor {
     id: string
@@ -38,6 +40,8 @@ export function ContractorSearch({
     const [isManual, setIsManual] = useState(false)
     const [manualNip, setManualNip] = useState(initialNip)
     const [manualAddress, setManualAddress] = useState(initialAddress)
+    const [gusLoading, setGusLoading] = useState(false)
+    const [successFlash, setSuccessFlash] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
 
     // Debounced search
@@ -98,6 +102,35 @@ export function ContractorSearch({
         }
     }
 
+    const handleGusFetch = async (targetNip?: string) => {
+        const nipToFetch = targetNip || manualNip.replace(/[^0-9]/g, "")
+        if (nipToFetch.length !== 10) return
+
+        setGusLoading(true)
+        try {
+            const res = await getGusDataByNip(nipToFetch)
+            if (res.success && res.data) {
+                setQuery(res.data.name)
+                setManualAddress(res.data.address)
+                setManualNip(nipToFetch)
+                onManualEntry(res.data.name, nipToFetch, res.data.address)
+                setSuccessFlash(true)
+                setTimeout(() => setSuccessFlash(false), 2000)
+            }
+        } catch (error) {
+            console.error("GUS Fetch Error:", error)
+        } finally {
+            setGusLoading(false)
+        }
+    }
+
+    // Auto-trigger on 10th digit
+    useEffect(() => {
+        if (isManual && manualNip.length === 10) {
+            handleGusFetch(manualNip)
+        }
+    }, [manualNip])
+
     return (
         <div className="space-y-4" ref={containerRef}>
             <div className="space-y-2 relative">
@@ -122,8 +155,9 @@ export function ContractorSearch({
                         onChange={(e) => handleQueryChange(e.target.value)}
                         onFocus={() => !isManual && query.length >= 2 && setIsOpen(true)}
                         className={cn(
-                            "pl-10 h-12 text-base border-slate-200 transition-all",
-                            isManual ? "bg-blue-50/30 border-blue-200" : "bg-white focus:ring-blue-500"
+                            "pl-10 h-12 text-base border-slate-200 transition-all duration-500",
+                            isManual ? "bg-blue-50/30 border-blue-200" : "bg-white focus:ring-blue-500",
+                            isManual && successFlash && "bg-green-50 ring-2 ring-green-400 border-green-500"
                         )}
                         autoComplete="off"
                     />
@@ -187,18 +221,37 @@ export function ContractorSearch({
             {isManual && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50/50 border border-blue-100 rounded-2xl animate-in fade-in slide-in-from-top-4">
                     <div className="space-y-1.5">
-                        <Label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">NIP (Opcjonalnie)</Label>
-                        <Input
-                            placeholder="10 cyfr"
-                            value={manualNip}
-                            onChange={(e) => {
-                                const val = e.target.value.replace(/\D/g, '').slice(0, 10)
-                                setManualNip(val)
-                                onManualEntry(query, val, manualAddress)
-                            }}
-                            className="bg-white font-mono h-11 border-blue-100"
-                            autoComplete="off"
-                        />
+                        <Label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">NIP (10 cyfr)</Label>
+                        <div className="flex gap-2">
+                            <div className="relative flex-1">
+                                <Input
+                                    placeholder="Wpisz NIP..."
+                                    value={manualNip}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/\D/g, '').slice(0, 10)
+                                        setManualNip(val)
+                                        onManualEntry(query, val, manualAddress)
+                                    }}
+                                    className="bg-white font-mono h-11 border-blue-100 pr-10"
+                                    autoComplete="off"
+                                />
+                                {gusLoading && (
+                                    <div className="absolute right-3 top-2.5">
+                                        <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                                    </div>
+                                )}
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleGusFetch()}
+                                disabled={gusLoading || manualNip.length < 10}
+                                className="h-11 w-11 bg-white border-blue-100 hover:bg-blue-50 text-blue-600"
+                            >
+                                <SearchIcon className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
                     <div className="space-y-1.5 flex flex-col justify-end pb-0.5">
                         <p className="text-[11px] text-slate-500 leading-tight italic">
@@ -214,7 +267,10 @@ export function ContractorSearch({
                                 setManualAddress(e.target.value)
                                 onManualEntry(query, manualNip, e.target.value)
                             }}
-                            className="bg-white h-11 border-blue-100"
+                            className={cn(
+                                "bg-white h-11 border-blue-100 transition-all duration-500",
+                                successFlash && "bg-green-50 ring-2 ring-green-400 border-green-500"
+                            )}
                             autoComplete="off"
                         />
                     </div>

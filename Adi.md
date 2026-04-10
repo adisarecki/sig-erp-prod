@@ -174,3 +174,25 @@ Wyeliminowaliśmy problem "krzaczków" przy imporcie plików CSV z PKO BP. Syste
 *Dla techników: Szczegółowe zasady budowy znajdują się w [AI_look.md](./docs/AI_look.md).*
 
 **Sig ERP – Twoja firma pod pełną kontrolą.**
+
+---
+
+## 🚀 10. VECTOR 130: Koniec z Wpisywaniem Danych (GUS BIR 1.1)
+
+Wprowadziliśmy pełną integrację z bazą **GUS BIR 1.1**. Teraz dodawanie kontrahenta to kwestia sekund, a nie minut.
+
+### Co to dla Ciebie zmienia?
+- **Magic Button**: W formularzu „Dodaj Firmę”, obok pola NIP, znajdziesz ikonę lupy 🔍.
+- **Smart Autofill**:
+    - Wpisz 10 cyfr NIP – system automatycznie zapyta bazę GUS o dane.
+    - Jeśli zmienisz zdanie i zaczniesz wpisywać inny NIP – stare dane zostaną wyczyszczone, abyś nie zapisał błędnej firmy.
+- **Precyzyjne Adresy**: System automatycznie formatuje adres według standardu: `ul. [Ulica] [Nr], [Kod] [Miasto]`.
+- **Produkcyjna Moc**: System korzysta teraz z Twojego oficjalnego klucza produkcyjnego (GUS_BIR_KEY), co gwarantuje stabilność i dostęp do najświeższych danych z rejestru.
+
+**Zero błędów, zero literówek, 100% profesjonalizmu.**
+
+---
+
+*Dla techników: Szczegółowe zasady budowy znajdują się w [AI_look.md](./docs/AI_look.md).*
+
+**Sig ERP – Twoja firma pod pełną kontrolą.**
