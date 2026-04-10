@@ -9,8 +9,8 @@ import { randomUUID } from "crypto"
 import Decimal from "decimal.js"
 import { syncRetentionsFromProject } from "./retentions"
 import { createNotification } from "./notifications"
-import { syncInvoiceToFirestore } from "@/lib/finanse/sync-utils"
-import { getProjectFinancials } from "@/lib/finanse/ledger-service"
+import { syncInvoiceToFirestore } from "@/lib/finance/sync-utils"
+import { getProjectFinancials } from "@/lib/finance/ledger-service"
 
 /**
  * POBIERANIE - Dashboard i Lista Projektów

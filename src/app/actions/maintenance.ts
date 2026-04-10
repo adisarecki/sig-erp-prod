@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
-import { assertFinancialMasterWrite } from "@/lib/finanse/authority/guards"
+import { assertFinancialMasterWrite } from "@/lib/finance/authority/guards"
 
 /**
  * [VECTOR 132] Ledger Healer Protocol

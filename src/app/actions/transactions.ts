@@ -7,7 +7,7 @@ import prisma from "@/lib/prisma"
 import Decimal from "decimal.js"
 import { recalculateProjectBudget } from "./projects"
 import { syncRetentionsFromProject } from "./retentions"
-import { recordLedgerEntry } from "@/lib/finanse/ledger-manager"
+import { recordLedgerEntry } from "@/lib/finance/ledger-manager"
 import { assertFinancialMasterWrite } from "@/lib/authority/guards"
 import { randomUUID } from "crypto"
 

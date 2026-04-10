@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
-import { recordLedgerEntry } from "@/lib/finanse/ledger-manager"
+import { recordLedgerEntry } from "@/lib/finance/ledger-manager"
 import { getAdminDb } from "@/lib/firebaseAdmin"
 import { randomUUID } from "crypto"
 import Decimal from "decimal.js"

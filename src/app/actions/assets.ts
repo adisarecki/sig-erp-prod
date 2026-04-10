@@ -8,7 +8,7 @@ import prisma from "@/lib/prisma"
 // @ts-ignore - Prisma environment lag: Asset model exists in schema.prisma and was generated.
 const db = prisma as any;
 import { checkAssetConsistency } from "@/lib/sync/consistency-engine"
-import { recordLedgerEntry } from "@/lib/finanse/ledger-manager"
+import { recordLedgerEntry } from "@/lib/finance/ledger-manager"
 import { assertAuthorityWrite, assertFinancialMasterWrite } from "@/lib/authority/guards"
 
 export type CreateAssetInput = {

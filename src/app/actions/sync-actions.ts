@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import prisma from "@/lib/prisma"
 const db = prisma as any;
 import { getAdminDb } from "@/lib/firebaseAdmin"
-import { syncAssetToFirestore, SyncAssetData } from "@/lib/finanse/sync-utils"
+import { syncAssetToFirestore, SyncAssetData } from "@/lib/finance/sync-utils"
 import { checkAssetConsistency } from "@/lib/sync/consistency-engine"
 import { getCurrentTenantId } from "@/lib/tenant"
 import Decimal from "decimal.js"

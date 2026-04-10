@@ -7,8 +7,8 @@ import { getCurrentTenantId } from "@/lib/tenant"
 import type { ParsedBankTransaction } from "@/lib/pko-parser"
 import Decimal from "decimal.js"
 import { randomUUID } from "crypto"
-import { recordLedgerEntry } from "@/lib/finanse/ledger-manager"
-import { ContractorResolutionService } from "@/lib/finanse/contractorResolutionService"
+import { recordLedgerEntry } from "@/lib/finance/ledger-manager"
+import { ContractorResolutionService } from "@/lib/finance/contractorResolutionService"
 
 
 /**
