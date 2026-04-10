@@ -225,5 +225,35 @@ export const glossaryEntries: HelpEntry[] = [
         related: ["safe-to-spend", "vat-debt"],
         uiTargets: ["AddContractorModal → BankAccount input", "RegisterCostModal → BankAccount field"],
         vector: "Vector 140.1"
+    },
+
+    // ─────────────────────────────────────────────────────────
+    // KSEF & BANK LEARNED ACCOUNTS (Vector 140.2)
+    // ─────────────────────────────────────────────────────────
+    {
+        id: "ksef-bank-account-learning",
+        title: "Automatyczna nauka numerów kont (KSeF & Bank)",
+        category: "concept",
+        summary: "System automatycznie zapamiętuje numery kont bankowych wykryte w fakturach KSeF i wyciągach bankowych, oznaczając je odpowiednim statusem weryfikacji.",
+        description:
+            "System SIG ERP jest inteligentny – uczy się nowych numerów kont bezpośrednio z faktur KSeF oraz wyciągów bankowych. " +
+            "Jeśli nowy numer nie został jeszcze potwierdzony przez Ministerstwo Finansów, zobaczysz przy nim żółty znak ostrzegawczy (⚠️). " +
+            "Daje Ci to pełną kontrolę nad tym, komu przelewasz pieniądze.\n\n" +
+            "Jak to działa?\n" +
+            "1. Przy każdym imporcie faktury KSeF system wyciąga numer konta bankowego sprzedawcy.\n" +
+            "2. Nowe konta są automatycznie zapisywane w bazie danych pod profilem kontrahenta.\n" +
+            "3. Konta potwierdzone przez Białą Listę MF → oznaczenie ✅ (ZWERYFIKOWANE, źródło: MF_API).\n" +
+            "4. Konta znalezione tylko w KSeF/wyciągu → oznaczenie ⚠️ (NIEZWERYFIKOWANE, źródło: KSEF_LEARNED).\n" +
+            "5. Przy dopasowywaniu transakcji bankowych — konta MF-zweryfikowane mają wyższy priorytet (+0.2 confidence) niż konta KSEF-learned.\n\n" +
+            "Zawsze możesz ręcznie zweryfikować konto przez wyszukanie NIP-u kontrahenta na Białej Liście.",
+        technicalSource: "ksef",
+        related: ["bank-verification", "safe-to-spend"],
+        uiTargets: [
+            "RegisterCostModal → BankAccount dropdown (badge ✅/⚠️)",
+            "RegisterIncomeModal → BankAccount dropdown",
+            "ContractorProfile → Accounts tab"
+        ],
+        formula: "isVerified = source === 'MF_API' → ✅ | source === 'KSEF' → ⚠️",
+        vector: "Vector 140.2"
     }
 ]

@@ -8,13 +8,14 @@ import { Search, UserPlus, Building2, Check, Loader2, Search as SearchIcon } fro
 import { cn } from "@/lib/utils"
 import { searchContractors } from "@/app/actions/crm"
 import { fetchGusData } from "@/app/actions/gus"
+import { checkVatStatus } from "@/app/actions/vat"
 
 import { type Contractor } from "@/lib/types/crm"
 
 interface ContractorSearchProps {
     contractors: Contractor[] // Keep for initial fallback if needed
     onSelect: (contractor: Contractor | null) => void
-    onManualEntry: (name: string, nip: string, address: string) => void
+    onManualEntry: (name: string, nip: string, address: string, verifiedAccounts?: string[]) => void
     initialValue?: string
     initialNip?: string
     initialAddress?: string
@@ -110,6 +111,13 @@ export function ContractorSearch({
                 setManualNip(nipToFetch)
                 onManualEntry(res.data.name, nipToFetch, res.data.address)
                 setSuccessFlash(true)
+
+                // Vector 140.1: White List Account Fetch
+                const vatRes = await checkVatStatus(nipToFetch)
+                if (vatRes.success && vatRes.accountNumbers) {
+                    onManualEntry(res.data.name, nipToFetch, res.data.address, vatRes.accountNumbers)
+                }
+
                 setTimeout(() => setSuccessFlash(false), 2000)
             }
         } catch (error) {

@@ -20,8 +20,9 @@ import { addIncomeInvoice } from "@/app/actions/invoices"
 import { ContractorSearch } from "./ContractorSearch"
 import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
 import { toast } from "sonner"
-import { Loader2, TrendingUp, Building2 } from "lucide-react"
-import { type Contractor, type Project } from "@/lib/types/crm"
+import { Loader2, TrendingUp, Building2, ShieldAlert } from "lucide-react"
+import { type Contractor, type BankAccountInfo, type Project } from "@/lib/types/crm"
+import { BankStatusBadge } from "@/components/ui/BankStatusBadge"
 
 
 interface RegisterIncomeModalProps {
@@ -50,6 +51,8 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
     const [newContractorNip, setNewContractorNip] = useState("")
     const [newContractorAddress, setNewContractorAddress] = useState("")
     const [bankAccountNumber, setBankAccountNumber] = useState("")
+    const [selectedContractorAccounts, setSelectedContractorAccounts] = useState<BankAccountInfo[]>([])
+    const [verifiedAccounts, setVerifiedAccounts] = useState<string[]>([])
     const [category, setCategory] = useState("USŁUGA")
 
     // Track last OCR data to detect new scans
@@ -166,6 +169,9 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
 
         formData.set("projectId", selectedProjectId)
         formData.set("bankAccountNumber", bankAccountNumber)
+        if (verifiedAccounts.length > 0) {
+            formData.set("verifiedAccounts", JSON.stringify(verifiedAccounts))
+        }
 
         try {
             const result = await addIncomeInvoice(formData)
@@ -311,6 +317,68 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
                         </div>
                     </div>
 
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                             <div className="flex items-center justify-between">
+                                 <Label className="text-slate-700 font-semibold text-xs uppercase text-slate-400">Numer Konta Bankowego</Label>
+                                 {bankAccountNumber && (selectedContractorAccounts.length > 0 || verifiedAccounts.length > 0) && (
+                                     <BankStatusBadge 
+                                         isVerified={[...selectedContractorAccounts.map(a => a.accountNumber), ...verifiedAccounts].some(accNum => 
+                                             accNum.replace(/\s/g, "") === bankAccountNumber.replace(/\s/g, "")
+                                         )} 
+                                         size="sm"
+                                         showLabel={false}
+                                     />
+                                 )}
+                             </div>
+                             {(selectedContractorAccounts.length > 1 || verifiedAccounts.length > 1) ? (
+                                 <Select
+                                     value={bankAccountNumber}
+                                     onValueChange={(val) => setBankAccountNumber(val || "")}
+                                 >
+                                     <SelectTrigger className="h-11 bg-white border-blue-200">
+                                         <SelectValue placeholder="Wybierz konto z Wykazu MF" />
+                                     </SelectTrigger>
+                                     <SelectContent>
+                                         {(selectedContractorAccounts.length > 1 ? selectedContractorAccounts : verifiedAccounts.map(a => ({ accountNumber: a }))).map((acc: any) => {
+                                             const accNum = typeof acc === 'string' ? acc : acc.accountNumber;
+                                             return (
+                                                 <SelectItem key={accNum} value={accNum}>
+                                                     {accNum.replace(/(.{2})/g, "$1 ")}
+                                                 </SelectItem>
+                                             );
+                                         })}
+                                     </SelectContent>
+                                 </Select>
+                             ) : (
+                                 <div className="relative">
+                                     <Input 
+                                         name="bankAccountNumber" 
+                                         value={bankAccountNumber} 
+                                         onChange={(e) => setBankAccountNumber(e.target.value)}
+                                         placeholder="Wpisz lub wybierz numer konta"
+                                         className="font-mono text-sm h-11 pr-10 bg-white"
+                                     />
+                                     {(selectedContractorAccounts.length > 0 || verifiedAccounts.length > 0) && (
+                                         <div className="absolute right-3 top-3 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 flex items-center gap-1">
+                                             <span className="text-[9px] text-emerald-700 font-black tracking-tighter uppercase">MF OK</span>
+                                         </div>
+                                     )}
+                                 </div>
+                             )}
+
+                             {bankAccountNumber.replace(/\s/g, "").length > 10 && 
+                              (selectedContractorAccounts.length > 0 || verifiedAccounts.length > 0) && 
+                              ![...selectedContractorAccounts.map(a => a.accountNumber), ...verifiedAccounts].some(accNum => 
+                                  accNum.replace(/\s/g, "") === bankAccountNumber.replace(/\s/g, "")
+                              ) && (
+                                 <p className="text-[10px] text-rose-600 font-bold flex items-center gap-1 animate-pulse mt-1">
+                                     <ShieldAlert className="w-3 h-3" /> UWAGA: Tego konta brak na Wykazie MF!
+                                 </p>
+                             )}
+                        </div>
+                    </div>
+
                     <div className="grid gap-4">
                         {lockedProjectId ? (
                             <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-4 animate-in fade-in slide-in-from-top-2">
@@ -339,16 +407,31 @@ export function RegisterIncomeModal({ projects, contractors, ocrData, lockedProj
                                             if (c) {
                                                 setSelectedContractorId(c.id)
                                                 setIsNewContractor(false)
+                                                const accounts = (c as any).bankAccounts || []
+                                                setSelectedContractorAccounts(accounts)
+                                                if (accounts.length === 1) {
+                                                    const accNum = typeof accounts[0] === 'string' ? accounts[0] : accounts[0].accountNumber
+                                                    setBankAccountNumber(accNum)
+                                                }
                                             } else {
                                                 setSelectedContractorId("")
+                                                setSelectedContractorAccounts([])
                                             }
                                         }}
-                                        onManualEntry={(name, nip, address) => {
+                                        onManualEntry={(name, nip, address, accounts) => {
                                             setIsNewContractor(true)
                                             setNewContractorName(name)
                                             setNewContractorNip(nip)
                                             setNewContractorAddress(address)
                                             setSelectedContractorId("")
+                                            if (accounts) {
+                                                setVerifiedAccounts(accounts)
+                                                if (accounts.length === 1) {
+                                                    setBankAccountNumber(accounts[0])
+                                                }
+                                            } else {
+                                                setVerifiedAccounts([])
+                                            }
                                         }}
                                         initialValue={isNewContractor ? newContractorName : ""}
                                         initialNip={isNewContractor ? newContractorNip : ""}

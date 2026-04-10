@@ -17,6 +17,18 @@ export interface ChangelogEntry {
 export const changelogEntries: ChangelogEntry[] = [
     {
         date: "2026-04-10",
+        vector: "Vector 140.2",
+        title: "Automatyczna nauka numerów kont bankowych (KSeF & Bank)",
+        type: "feature",
+        description:
+            "System SIG ERP teraz automatycznie zapamiętuje numery kont bankowych wykryte w fakturach KSeF i wyciągach bankowych. " +
+            "Konta potwierdzone przez Białą Listę MF otrzymują znaczek ✅, natomiast konta wykryte tylko z faktur – ⚠️. " +
+            "Przy dopasowywaniu wyciągów bankowych konta MF-zweryfikowane mają wyższy priorytet (+0.2 confidence score). " +
+            "Baza danych kontrahentów jest teraz prawdziwą tablicą wszystkich znanych kont – zarówno w modelu relacyjnym, jak i w szybkim polu tablicowym.",
+        relatedHelpIds: ["ksef-bank-account-learning", "bank-verification"]
+    },
+    {
+        date: "2026-04-10",
         vector: "Vector 160",
         title: "Automatyczne rozliczanie płatności gotówkowych i kartowych",
         type: "feature",

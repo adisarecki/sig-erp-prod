@@ -54,6 +54,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const [newContractorNip, setNewContractorNip] = useState("")
     const [newContractorAddress, setNewContractorAddress] = useState("")
     const [selectedContractorAccounts, setSelectedContractorAccounts] = useState<BankAccountInfo[]>([])
+    const [verifiedAccounts, setVerifiedAccounts] = useState<string[]>([])
 
     // OCR & Duplicate States (DNA Vector 020)
     const [isScanning, setIsScanning] = useState(false)
@@ -251,6 +252,10 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
             formData.set("contractorId", selectedContractorId)
         }
 
+        if (verifiedAccounts.length > 0) {
+            formData.set("verifiedAccounts", JSON.stringify(verifiedAccounts))
+        }
+
         formData.set("projectId", selectedProjectId)
         formData.set("retainedAmount", retainedAmount)
         formData.set("retentionReleaseDate", retentionReleaseDate)
@@ -408,13 +413,23 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                                 setSelectedContractorAccounts([])
                                             }
                                         }}
-                                        onManualEntry={(name, nip, address) => {
+                                            setSelectedContractorAccounts([])
+                                        }}
+                                        onManualEntry={(name, nip, address, accounts) => {
                                             setIsNewContractor(true)
                                             setNewContractorName(name)
                                             setNewContractorNip(nip)
                                             setNewContractorAddress(address)
                                             setSelectedContractorId("")
-                                            setSelectedContractorAccounts([])
+                                            if (accounts) {
+                                                setVerifiedAccounts(accounts)
+                                                // Auto-fill if only 1
+                                                if (accounts.length === 1) {
+                                                    setBankAccountNumber(accounts[0])
+                                                }
+                                            } else {
+                                                setVerifiedAccounts([])
+                                            }
                                         }}
                                         initialValue={isNewContractor ? newContractorName : ""}
                                         initialNip={isNewContractor ? newContractorNip : ""}
@@ -484,7 +499,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                 )}
                             </div>
                             
-                            {selectedContractorAccounts.length > 1 ? (
+                            {(selectedContractorAccounts.length > 1 || verifiedAccounts.length > 1) ? (
                                 <Select
                                     value={bankAccountNumber}
                                     onValueChange={(val) => setBankAccountNumber(val || "")}
@@ -493,7 +508,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                         <SelectValue placeholder="Wybierz konto z Wykazu MF" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {selectedContractorAccounts.map((acc: any) => {
+                                        {(selectedContractorAccounts.length > 1 ? selectedContractorAccounts : verifiedAccounts.map(a => ({ accountNumber: a }))).map((acc: any) => {
                                             const accNum = typeof acc === 'string' ? acc : acc.accountNumber;
                                             return (
                                                 <SelectItem key={accNum} value={accNum}>
@@ -512,7 +527,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                         placeholder="Wpisz lub wybierz numer konta"
                                         className="font-mono text-sm h-11 pr-10 bg-white"
                                     />
-                                    {selectedContractorAccounts.length > 0 && (
+                                    {(selectedContractorAccounts.length > 0 || verifiedAccounts.length > 0) && (
                                         <div className="absolute right-3 top-3 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 flex items-center gap-1">
                                             <span className="text-[9px] text-emerald-700 font-black tracking-tighter uppercase">MF OK</span>
                                         </div>
@@ -521,11 +536,10 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                             )}
 
                             {bankAccountNumber.replace(/\s/g, "").length > 10 && 
-                             selectedContractorAccounts.length > 0 && 
-                             !selectedContractorAccounts.some(acc => {
-                                 const accNum = typeof acc === 'string' ? acc : acc.accountNumber;
-                                 return accNum.replace(/\s/g, "") === bankAccountNumber.replace(/\s/g, "");
-                             }) && (
+                             (selectedContractorAccounts.length > 0 || verifiedAccounts.length > 0) && 
+                             ![...selectedContractorAccounts.map(a => a.accountNumber), ...verifiedAccounts].some(accNum => 
+                                 accNum.replace(/\s/g, "") === bankAccountNumber.replace(/\s/g, "")
+                             ) && (
                                 <p className="text-[10px] text-rose-600 font-bold flex items-center gap-1 animate-pulse">
                                     <ShieldAlert className="w-3 h-3" /> UWAGA: Tego konta brak na Białej Liście MF!
                                 </p>

@@ -641,9 +641,10 @@ model SyncAuditRecord {
   @@unique([entityType, entityId])
 }
 enum BankAccountSource {
-  KSEF
-  BANK_MATCH
-  MANUAL
+  MF_API      // Verified by MF White List (Biała Lista) ✅
+  KSEF        // Learned from KSeF invoice XML ⚠️
+  BANK_MATCH  // Learned from bank statement import ⚠️
+  MANUAL      // Manually entered by user
 }
 
 model ContractorBankAccount {
@@ -654,6 +655,7 @@ model ContractorBankAccount {
   contractor   Contractor        @relation(fields: [contractorId], references: [id], onDelete: Cascade)
   iban         String
   source       BankAccountSource @default(MANUAL)
+  isVerified   Boolean           @default(false)
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 

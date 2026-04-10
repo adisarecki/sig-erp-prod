@@ -109,6 +109,45 @@ export async function POST(request: NextRequest) {
                         });
                     }
 
+                    // d) [VECTOR 140.2] KSeF Bank Account Ingestion
+                    // If the KSeF XML contains a seller bank account, ingest it.
+                    // Flag as UNVERIFIED (⚠️) - system learns but does not auto-approve.
+                    // MF White List verification remains the only path to isVerified=true.
+                    if (parsed.sellerBankAccount) {
+                        const rawIban = parsed.sellerBankAccount.replace(/\s/g, "");
+                        const contractorId = updatedInvoice.contractor.id;
+
+                        const existingAccount = await tx.contractorBankAccount.findFirst({
+                            where: { contractorId, iban: rawIban }
+                        });
+
+                        if (!existingAccount) {
+                            console.log(`[VAT_SHIELD_LEARN] New IBAN from KSeF: ${rawIban} → Contractor: ${contractorId}`);
+
+                            // Insert into relational table as UNVERIFIED
+                            await tx.contractorBankAccount.create({
+                                data: {
+                                    contractorId,
+                                    tenantId,
+                                    iban: rawIban,
+                                    source: "KSEF",
+                                    isVerified: false
+                                }
+                            });
+
+                            // Also push to denormalized array for fast IBAN lookups in reconciliation
+                            const contractor = await tx.contractor.findUnique({ where: { id: contractorId } });
+                            const existingArray = (contractor?.bankAccounts as string[]) || [];
+                            if (!existingArray.includes(rawIban)) {
+                                await tx.contractor.update({
+                                    where: { id: contractorId },
+                                    data: { bankAccounts: [...existingArray, rawIban] }
+                                });
+                            }
+                        }
+                    }
+
+
                     // 4. [HEALING] Dual-Sync: Wymuszenie zapisu do Firestore
                     // To naprawia "Drift" - jeśli faktury nie było w FS, set() z merge:true ją stworzy.
                     await syncInvoiceToFirestore({

@@ -448,7 +448,7 @@ export async function getContractors(): Promise<Contractor[]> {
                     }
                 },
                 accounts: {
-                    select: { iban: true, source: true }
+                    select: { iban: true, source: true, isVerified: true }
                 }
             },
             orderBy: { name: 'asc' }
@@ -463,7 +463,8 @@ export async function getContractors(): Promise<Contractor[]> {
             })),
             bankAccounts: c.accounts.map(a => ({
                 accountNumber: a.iban,
-                isDefault: false // Fallback if not specified in DB yet
+                isDefault: false,
+                isVerified: !!a.isVerified
             }))
         }))
     } catch (error) {
@@ -489,7 +490,7 @@ export async function searchContractors(query: string): Promise<Contractor[]> {
                 ]
             },
             include: {
-                accounts: { select: { iban: true } }
+                accounts: { select: { iban: true, isVerified: true } }
             },
             take: 10,
             orderBy: { name: 'asc' }
@@ -502,7 +503,8 @@ export async function searchContractors(query: string): Promise<Contractor[]> {
             address: c.address,
             bankAccounts: c.accounts.map(a => ({
                 accountNumber: a.iban,
-                isDefault: false
+                isDefault: false,
+                isVerified: !!a.isVerified
             }))
         }))
     } catch (error) {

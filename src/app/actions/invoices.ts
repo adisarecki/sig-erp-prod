@@ -361,6 +361,7 @@ export async function addIncomeInvoice(formData: FormData) {
         const newContractorName = formData.get("newContractorName") as string
         let newContractorNip = (formData.get("newContractorNip") as string || "").replace(/\s/g, "")
         let newContractorAddress = formData.get("newContractorAddress") as string || ""
+        const verifiedAccountsJson = formData.get("verifiedAccounts") as string
 
         // Heuristic: If address looks like a NIP and nip is empty, swap them
         if (!newContractorNip && /^\d{10}$/.test(newContractorAddress.trim())) {
@@ -456,6 +457,15 @@ export async function addIncomeInvoice(formData: FormData) {
                                     name: "Siedziba Główna",
                                     address: newContractorAddress || null
                                 }
+                            },
+                            bankAccounts: verifiedAccountsJson ? JSON.parse(verifiedAccountsJson).map((iban: string) => iban.replace(/\s/g, "")) : [],
+                            accounts: {
+                                create: verifiedAccountsJson ? JSON.parse(verifiedAccountsJson).map((iban: string) => ({
+                                    iban: iban.replace(/\s/g, ""),
+                                    source: "MF_API",
+                                    isVerified: true,
+                                    tenantId
+                                })) : undefined
                             }
                         }
                     });
@@ -668,6 +678,7 @@ export async function addCostInvoice(formData: FormData) {
         const newContractorName = formData.get("newContractorName") as string
         let newContractorNip = (formData.get("newContractorNip") as string || "").replace(/\s/g, "")
         let newContractorAddress = formData.get("newContractorAddress") as string || ""
+        const verifiedAccountsJson = formData.get("verifiedAccounts") as string 
 
         if (!amountNetStr || !dateStr || !dueDateStr) {
             throw new Error("Pola Kwota i Daty są bezwzględnie wymagane.")
@@ -733,6 +744,15 @@ export async function addCostInvoice(formData: FormData) {
                                     name: "Siedziba Główna",
                                     address: newContractorAddress || null
                                 }
+                            },
+                            bankAccounts: verifiedAccountsJson ? JSON.parse(verifiedAccountsJson).map((iban: string) => iban.replace(/\s/g, "")) : [],
+                            accounts: {
+                                create: verifiedAccountsJson ? JSON.parse(verifiedAccountsJson).map((iban: string) => ({
+                                    iban: iban.replace(/\s/g, ""),
+                                    source: "MF_API",
+                                    isVerified: true,
+                                    tenantId
+                                })) : undefined
                             }
                         }
                     });

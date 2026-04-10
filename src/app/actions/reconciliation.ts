@@ -280,9 +280,17 @@ export async function getSuggestedReconciliations() {
 export async function analyzeImportMatches(transactions: any[]) {
     const tenantId = await getCurrentTenantId()
 
-    // 1. Fetch current context
+    // 1. Fetch current context — include relational bank accounts for precise IBAN matching
+    // [VECTOR 140.2] accounts relation used instead of deprecated bankAccounts[] array
     const [contractors, openInvoices] = await Promise.all([
-        prisma.contractor.findMany({ where: { tenantId } }),
+        prisma.contractor.findMany({
+            where: { tenantId },
+            include: {
+                accounts: {
+                    select: { iban: true, isVerified: true, source: true }
+                }
+            }
+        }),
         prisma.invoice.findMany({
             where: { tenantId, status: { in: ["ACTIVE", "PARTIALLY_PAID"] } },
             select: {
@@ -301,37 +309,58 @@ export async function analyzeImportMatches(transactions: any[]) {
         const isIncome = new Decimal(tx.amount || 0).gt(0)
         
         // --- A. Contractor Match ---
-        let matchedContractor = null;
+        let matchedContractor: (typeof contractors[0]) | null = null;
+        let ibanMatchVerified = false;
         
-        // 1. By NIP
+        // 1. By NIP (Highest trust — legal tax identifier)
         if (tx.contractor?.nip) {
-            matchedContractor = contractors.find(c => c.nip === tx.contractor.nip)
+            matchedContractor = contractors.find(c => c.nip === tx.contractor.nip) || null
         }
         
-        // 2. By IBAN (if available in contractor data)
+        // 2. By IBAN — search relational accounts for accurate match
         if (!matchedContractor && tx.iban) {
-            matchedContractor = contractors.find(c => (c.bankAccounts as string[] || []).includes(tx.iban))
+            const normalizedTxIban = String(tx.iban).replace(/\s/g, "");
+            for (const c of contractors) {
+                const match = c.accounts.find(a => a.iban.replace(/\s/g, "") === normalizedTxIban);
+                if (match) {
+                    matchedContractor = c;
+                    ibanMatchVerified = match.isVerified;
+                    break;
+                }
+            }
+            // Fallback: deprecated bankAccounts string array
+            if (!matchedContractor) {
+                const fallback = contractors.find(c =>
+                    (c.bankAccounts as string[] || []).some(a => a.replace(/\s/g, "") === normalizedTxIban)
+                );
+                if (fallback) matchedContractor = fallback;
+            }
         }
 
-        // 3. By Name (Fuzzy)
+        // 3. By Name (Fuzzy — lowest trust)
         if (!matchedContractor && tx.contractor?.name) {
             const tName = tx.contractor.name.toLowerCase().replace(/\s+/g, '')
             matchedContractor = contractors.find(c => {
                 const cName = c.name.toLowerCase().replace(/\s+/g, '')
                 return tName.includes(cName) || cName.includes(tName)
-            })
+            }) || null
         }
 
-        // --- B. Invoice Match (Reconciliation) ---
-        let matchedInvoice = null;
+        // --- B. Invoice Match (Reconciliation Engine) ---
+        let matchedInvoice: any = null;
         const suggestions = ReconciliationEngine.suggestMatches(
             { description: tx.description, amount: new Decimal(tx.amount) },
             openInvoices
         )
 
-        // If high confidence (> 0.90), auto-propose
+        // MF-verified IBAN → confidence bonus (+0.2) over KSEF-learned accounts
         if (suggestions.length > 0 && suggestions[0].confidence >= 0.90) {
-            matchedInvoice = suggestions[0]
+            matchedInvoice = {
+                ...suggestions[0],
+                confidence: ibanMatchVerified
+                    ? Math.min(suggestions[0].confidence + 0.2, 1.0)
+                    : suggestions[0].confidence
+            }
         }
 
         return {
@@ -340,7 +369,8 @@ export async function analyzeImportMatches(transactions: any[]) {
                 found: !!matchedContractor,
                 id: matchedContractor?.id || null,
                 name: matchedContractor?.name || null,
-                nip: matchedContractor?.nip || null
+                nip: matchedContractor?.nip || null,
+                ibanMatchVerified // true = MF_API ✅, false = KSEF-learned ⚠️
             },
             reconciliation: {
                 found: !!matchedInvoice,
