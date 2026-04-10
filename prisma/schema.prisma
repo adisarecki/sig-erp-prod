@@ -210,6 +210,7 @@ model Invoice {
   invoiceNumber String?
   externalId   String?
   bankTransactionId String?    @unique // Link do wyciągu bankowego (zapobiega dublowaniu)
+  bankAccountNumber String?     // Numer konta użyty do tej konkretnej faktury (Vector 140.1)
   scanUrl      String?       // OCR: Link do skanu/zasobu zewnętrznego
   
   // Kaucje Gwarancyjne (Retention Money)

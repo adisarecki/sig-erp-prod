@@ -16,6 +16,7 @@ export async function addContractor(formData: FormData): Promise<{ success: bool
         const name = formData.get("name") as string
         let nip = (formData.get("nip") as string || "").replace(/\s/g, "")
         let address = formData.get("address") as string || ""
+        const bankAccount = formData.get("bankAccount") as string || ""
         const status = formData.get("status") as string
         const type = formData.get("type") as string || "INWESTOR"
 
@@ -83,7 +84,13 @@ export async function addContractor(formData: FormData): Promise<{ success: bool
                         name: objectName,
                         address: address || null
                     }
-                }
+                },
+                accounts: bankAccount ? {
+                    create: {
+                        iban: bankAccount.replace(/\s/g, ""),
+                        source: 'MANUAL'
+                    }
+                } : undefined
             }
         })
 
@@ -126,6 +133,7 @@ export async function updateContractor(formData: FormData): Promise<{ success: b
         const name = formData.get("name") as string
         let nip = (formData.get("nip") as string || "").replace(/\s/g, "")
         let address = formData.get("address") as string || ""
+        const bankAccount = formData.get("bankAccount") as string || ""
         const status = formData.get("status") as string
         const type = formData.get("type") as string
 
@@ -152,6 +160,21 @@ export async function updateContractor(formData: FormData): Promise<{ success: b
                 status: status || "ACTIVE"
             }
         })
+
+        // 1a. Update Bank Accounts (Vector 140.1)
+        if (bankAccount) {
+            const cleanIban = bankAccount.replace(/\s/g, "")
+            await prisma.contractorBankAccount.upsert({
+                where: { tenantId_iban: { tenantId, iban: cleanIban } },
+                update: { contractorId: id },
+                create: {
+                    tenantId,
+                    contractorId: id,
+                    iban: cleanIban,
+                    source: 'MANUAL'
+                }
+            })
+        }
 
         // 2. Operational Mirror Sync (FIRESTORE)
         const contractorRef = adminDb.collection("contractors").doc(id)
@@ -422,6 +445,9 @@ export async function getContractors() {
                         type: true,
                         status: true
                     }
+                },
+                accounts: {
+                    select: { iban: true, source: true }
                 }
             },
             orderBy: { name: 'asc' }
@@ -457,6 +483,9 @@ export async function searchContractors(query: string) {
                     { nip: { contains: query, mode: 'insensitive' } }
                 ]
             },
+            include: {
+                accounts: { select: { iban: true } }
+            },
             take: 10,
             orderBy: { name: 'asc' }
         })
@@ -465,7 +494,8 @@ export async function searchContractors(query: string) {
             id: c.id,
             name: c.name,
             nip: c.nip,
-            address: c.address
+            address: c.address,
+            bankAccounts: c.accounts.map(a => a.iban)
         }))
     } catch (error) {
         console.error("[CRM_SEARCH_ERROR]", error)

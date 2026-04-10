@@ -83,7 +83,9 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 130 | Finance / Logic | FIXED | Forecast Math (Gross-Retention). | Enforced `Gross - Retention` formula in Dashboard alerts and Forecast calculations (+11,300 PLN logic). |
 | Vector 131 | Finance / Engine | FIXED | Full Cascade Deletion Cleanup. | Redefined `deleteInvoice` to revert Bank Transactions to `UNPAIRED` and wipe all related Ledger entries (Zero Zombie Data). |
 | Vector 132 | Maintenance | NEW | Ledger Healer Protocol. | Server action `purgeOrphanLedgerEntries` implemented to auto-identify and purge ledger ghosts. |
-| Vector 140 | VAT / Compliance | NEW | VAT Shield Engine (Wykaz MF). | Integracja z publicznym API Ministerstwa Finansów. `checkVatStatus(nip)` → `statusVat` + `accountNumbers[]`. `VatStatusBadge` w CRM i modalu. `VatCheckButton` on-demand w liście kontrahentów. Weryfikacja rachunków bankowych przez `verifyBankAccount(nip, iban)`. Brak klucza API, limit 100 zapytań search/dzień. |
+| Vector 140 | VAT / Compliance | FIXED | VAT Shield Engine (Wykaz MF). | Integracja z publicznym API Ministerstwa Finansów. `checkVatStatus(nip)` → `statusVat` + `accountNumbers[]`. `VatStatusBadge` w CRM i modalu. `VatCheckButton` on-demand w liście kontrahentów. Weryfikacja rachunków bankowych przez `verifyBankAccount(nip, iban)`. Brak klucza API, limit 100 zapytań search/dzień. |
+| Vector 140.1 | VAT / Compliance | FIXED | Bank Account Safeguard. | Rozszerzenie weryfikacji o automatyczne pobieranie kont z MF. Autouzupełnianie w `AddContractorModal`, `Select` dla wielu kont. Wizualna "Tarcza Ochronna" (`BankStatusBadge`) w `RegisterCostModal`. Persystencja `bankAccountNumber` w modelu `Invoice`. |
+| Vector 150 | Help / UX | FIXED | Localization of Knowledge Hub. | Refaktoryzacja bazy wiedzy na język biznesowy. Usunięcie "Dev-Speak". Standaryzacja terminologii: "Czysta Gotówka", "Skarbiec", "Saldo VAT". |
 
 ---
 

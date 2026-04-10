@@ -15,8 +15,9 @@ import { ContractorSearch } from "./ContractorSearch"
 import type { SanitizedOcrDraft } from "@/lib/schemas/ocr-draft"
 import { COST_CATEGORIES } from "@/lib/categories"
 import { toast } from "sonner"
-import { Loader2, PlusCircle, ScanText, AlertTriangle, FileCheck } from "lucide-react"
+import { Loader2, PlusCircle, ScanText, AlertTriangle, FileCheck, ShieldAlert } from "lucide-react"
 import { scanInvoiceAction } from "@/app/actions/ocr"
+import { BankStatusBadge } from "@/components/ui/BankStatusBadge"
 
 interface Project { 
     id: string; 
@@ -27,7 +28,7 @@ interface Project {
     retentionLongTermRate?: number;
     retentionBase?: 'NET' | 'GROSS';
 }
-interface Contractor { id: string; name: string; nip?: string | null }
+interface Contractor { id: string; name: string; nip?: string | null; bankAccounts?: string[] }
 
 interface RegisterCostModalProps {
     projects: Project[]
@@ -62,6 +63,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const [newContractorName, setNewContractorName] = useState("")
     const [newContractorNip, setNewContractorNip] = useState("")
     const [newContractorAddress, setNewContractorAddress] = useState("")
+    const [selectedContractorAccounts, setSelectedContractorAccounts] = useState<string[]>([])
 
     // OCR & Duplicate States (DNA Vector 020)
     const [isScanning, setIsScanning] = useState(false)
@@ -403,8 +405,10 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                             if (c) {
                                                 setSelectedContractorId(c.id)
                                                 setIsNewContractor(false)
+                                                setSelectedContractorAccounts(c.bankAccounts || [])
                                             } else {
                                                 setSelectedContractorId("")
+                                                setSelectedContractorAccounts([])
                                             }
                                         }}
                                         onManualEntry={(name, nip, address) => {
@@ -413,6 +417,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                             setNewContractorNip(nip)
                                             setNewContractorAddress(address)
                                             setSelectedContractorId("")
+                                            setSelectedContractorAccounts([])
                                         }}
                                         initialValue={isNewContractor ? newContractorName : ""}
                                         initialNip={isNewContractor ? newContractorNip : ""}
@@ -466,6 +471,39 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                 <Input type="date" name="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
                             </div>
                         </div>
+
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label>Numer Konta Bankowego</Label>
+                                {(bankAccountNumber || selectedContractorAccounts.length > 0) && (
+                                    <BankStatusBadge 
+                                        isVerified={selectedContractorAccounts.includes(bankAccountNumber.replace(/\s/g, ""))} 
+                                        size="sm"
+                                        showLabel={false}
+                                    />
+                                )}
+                            </div>
+                            <div className="relative">
+                                <Input 
+                                    name="bankAccountNumber" 
+                                    value={bankAccountNumber} 
+                                    onChange={(e) => setBankAccountNumber(e.target.value)}
+                                    placeholder="Wpisz lub wybierz numer konta"
+                                    className="font-mono text-sm h-11 pr-10"
+                                />
+                                {selectedContractorAccounts.length > 0 && (
+                                    <div className="absolute right-3 top-3.5 text-[10px] text-emerald-600 font-bold flex items-center gap-1 bg-emerald-50 px-1 rounded border border-emerald-100">
+                                        MF SYNC
+                                    </div>
+                                )}
+                            </div>
+                            {!selectedContractorAccounts.includes(bankAccountNumber.replace(/\s/g, "")) && bankAccountNumber.length > 10 && (
+                                <p className="text-[10px] text-rose-600 font-medium flex items-center gap-1 animate-in fade-in slide-in-from-left-1">
+                                    <ShieldAlert className="w-3 h-3" /> Uwaga: Tego konta brak na Białej Liście tego kontrahenta!
+                                </p>
+                            )}
+                        </div>
+
                         <div className="space-y-2">
                             <Label>Termin Płatności</Label>
                             <Input type="date" name="dueDate" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />

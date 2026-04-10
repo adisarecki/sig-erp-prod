@@ -503,6 +503,7 @@ export async function addIncomeInvoice(formData: FormData) {
                     paymentMethod,
                     reconciliationStatus: (isPaidImmediately && paymentMethod === 'BANK_TRANSFER') ? 'MATCHED' : 'PENDING',
                     externalId: description,
+                    bankAccountNumber,
                     retainedAmount: retainedAmount ? retainedAmount.toNumber() : null,
                     retentionReleaseDate
                 }
@@ -611,6 +612,7 @@ export async function addIncomeInvoice(formData: FormData) {
             paymentMethod: (result.invoice as any).paymentMethod,
             reconciliationStatus: (result.invoice as any).reconciliationStatus,
             externalId: description,
+            bankAccountNumber,
             retainedAmount: result.invoice.retainedAmount ? Number(result.invoice.retainedAmount) : null,
             retentionReleaseDate: result.invoice.retentionReleaseDate ? result.invoice.retentionReleaseDate.toISOString() : null,
             createdAt: new Date().toISOString(),
@@ -775,6 +777,7 @@ export async function addCostInvoice(formData: FormData) {
                     paymentMethod,
                     reconciliationStatus: (isPaidImmediately && paymentMethod === 'BANK_TRANSFER') ? 'MATCHED' : 'PENDING',
                     externalId: description,
+                    bankAccountNumber,
                     retainedAmount: retainedAmount ? retainedAmount.toNumber() : null,
                     retentionReleaseDate
                 }
@@ -879,6 +882,7 @@ export async function addCostInvoice(formData: FormData) {
             paymentMethod: (result.invoice as any).paymentMethod,
             reconciliationStatus: (result.invoice as any).reconciliationStatus,
             externalId: description,
+            bankAccountNumber,
             retainedAmount: result.invoice.retainedAmount ? Number(result.invoice.retainedAmount) : null,
             retentionReleaseDate: result.invoice.retentionReleaseDate ? result.invoice.retentionReleaseDate.toISOString() : null,
             createdAt: new Date().toISOString(),

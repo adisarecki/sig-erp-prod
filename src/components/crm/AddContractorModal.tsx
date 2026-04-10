@@ -15,6 +15,7 @@ import { fetchGusData } from "@/app/actions/gus"
 import { Loader2, Search, ShieldCheck, ShieldAlert } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { VatStatusBadge } from "@/components/ui/VatStatusBadge"
+import { BankStatusBadge } from "@/components/ui/BankStatusBadge"
 import type { VatStatus } from "@/app/actions/vat"
 
 export function AddContractorModal() {
@@ -31,6 +32,7 @@ export function AddContractorModal() {
         name: "",
         nip: "",
         address: "",
+        bankAccount: "",
         status: "ACTIVE",
         type: "INWESTOR"
     })
@@ -54,7 +56,8 @@ export function AddContractorModal() {
                 setFormDataObj(prev => ({
                     ...prev,
                     name: res.data.name,
-                    address: res.data.address
+                    address: res.data.address,
+                    bankAccount: (res.data.accountNumbers && res.data.accountNumbers.length === 1) ? res.data.accountNumbers[0] : prev.bankAccount
                 }))
                 setLastFetchedNip(nipToFetch)
                 setVatStatus(res.data.vatStatus ?? null)
@@ -80,7 +83,8 @@ export function AddContractorModal() {
                     ...prev,
                     nip: cleanVal,
                     name: "",
-                    address: ""
+                    address: "",
+                    bankAccount: ""
                 }))
                 setLastFetchedNip(null)
                 setVatStatus(null)
@@ -109,6 +113,7 @@ export function AddContractorModal() {
         formData.append("name", formDataObj.name)
         formData.append("nip", formDataObj.nip)
         formData.append("address", formDataObj.address)
+        formData.append("bankAccount", formDataObj.bankAccount)
         formData.append("status", formDataObj.status)
         formData.append("type", formDataObj.type)
 
@@ -123,6 +128,7 @@ export function AddContractorModal() {
                     name: "",
                     nip: "",
                     address: "",
+                    bankAccount: "",
                     status: "ACTIVE",
                     type: "INWESTOR"
                 })
@@ -229,6 +235,49 @@ export function AddContractorModal() {
                             )}
                             placeholder="ul. Słoneczna 1, Siemianowice"
                         />
+                    </div>
+
+                    <div>
+                        <div className="flex items-center justify-between mb-1">
+                            <label className="text-sm font-semibold text-slate-700 block">Numer konta bankowego</label>
+                            {accountNumbers.length > 0 && (
+                                <BankStatusBadge 
+                                    isVerified={accountNumbers.includes(formDataObj.bankAccount.replace(/\s/g, ""))} 
+                                    showLabel={false} 
+                                />
+                            )}
+                        </div>
+                        {accountNumbers.length > 1 ? (
+                            <select
+                                name="bankAccount"
+                                value={formDataObj.bankAccount}
+                                onChange={handleChange}
+                                className="w-full border border-slate-300 rounded-md px-3 py-2 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">-- Wybierz konto z Wykazu MF --</option>
+                                {accountNumbers.map(acc => (
+                                    <option key={acc} value={acc}>{acc.replace(/(.{2})/g, "$1 ")}</option>
+                                ))}
+                            </select>
+                        ) : (
+                            <input
+                                name="bankAccount"
+                                value={formDataObj.bankAccount}
+                                onChange={handleChange}
+                                className={cn(
+                                    "w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500",
+                                    successFlash && accountNumbers.length === 1 && "bg-green-50 ring-2 ring-green-400 border-green-500"
+                                )}
+                                placeholder="00 0000 0000 0000 0000 0000 0000"
+                            />
+                        )}
+                        {accountNumbers.length > 0 && (
+                            <p className="text-[10px] text-slate-500 mt-1 italic">
+                                {accountNumbers.length === 1 
+                                    ? "Konto automatycznie pobrane i zweryfikowane w Wykazie MF." 
+                                    : "Wykryto wiele kont. Wybierz właściwe z listy powyżej."}
+                            </p>
+                        )}
                     </div>
 
                     <div>
