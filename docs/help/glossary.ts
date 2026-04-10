@@ -255,5 +255,56 @@ export const glossaryEntries: HelpEntry[] = [
         ],
         formula: "isVerified = source === 'MF_API' → ✅ | source === 'KSEF' → ⚠️",
         vector: "Vector 140.2"
+    },
+
+    // ─────────────────────────────────────────────────────────
+    // VECTOR 170: FLEET MANAGEMENT
+    // ─────────────────────────────────────────────────────────
+    {
+        id: "zarzadzanie-flota",
+        title: "Zarządzanie Flotą",
+        category: "concept",
+        summary: "Monitorowanie pojazdów firmowych, ich statusu oraz kosztów eksploatacji.",
+        description:
+            "Centralny rejestr pojazdów (samochody, maszyny), który pozwala śledzić ich wydajność i koszty.\n\n" +
+            "Dlaczego to ważne? Pojazdy to jeden z największych kosztów pośrednich. System pozwala sprawdzić, ile realnie kosztuje utrzymanie konkretnej jednostki (paliwo, naprawy, ubezpieczenia) w skali 30 dni.",
+        technicalSource: "ledger",
+        related: ["magazyn-narzedzi", "fleet-cost-allocation"],
+        uiTargets: ["Fleet & Tools → Flota i Pojazdy"],
+        vector: "Vector 170"
+    },
+
+    // ─────────────────────────────────────────────────────────
+    // VECTOR 170: TOOL REGISTRY
+    // ─────────────────────────────────────────────────────────
+    {
+        id: "magazyn-narzedzi",
+        title: "Magazyn Narzędzi",
+        category: "concept",
+        summary: "Ewidencja elektronarzędzi i wyposażenia z przypisaniem do pracowników lub projektów.",
+        description:
+            "Rejestr drobnego sprzętu i narzędzi (wiertarki, niwelatory, laptopy).\n\n" +
+            "Dlaczego to ważne? Pozwala na szybką lokalizację sprzętu i przypisanie odpowiedzialności materialnej. Każdy zakup narzędzia może być od razu powiązany z wpisem w rejestrze, co ułatwia inwentaryzację.",
+        technicalSource: "ledger",
+        related: ["zarzadzanie-flota"],
+        uiTargets: ["Fleet & Tools → Zasoby i Narzędzia"],
+        vector: "Vector 170"
+    },
+
+    // ─────────────────────────────────────────────────────────
+    // VECTOR 170: COST ALLOCATION POLICY
+    // ─────────────────────────────────────────────────────────
+    {
+        id: "fleet-cost-allocation",
+        title: "Alokacja kosztów floty",
+        category: "concept",
+        summary: "Zasady przypisywania kosztów pojazdów do projektów (widoczność vs automatyzacja).",
+        description:
+            "Na obecnym etapie (Stage 1) przypisanie kosztu do pojazdu SŁUŻY WYŁĄCZNIE WIDOCZNOŚCI. \n\n" +
+            "Ważne: Połączenie faktury za paliwo z samochodem NIE zmienia automatycznie marży projektu, na którym ten samochód pracuje. Zapobiega to \"fałszywej ekonomii\" przed wdrożeniem pełnego silnika alokacji motogodzin i kilometrówki.",
+        technicalSource: "ledger",
+        related: ["project-margin", "zarzadzanie-flota"],
+        uiTargets: ["Fleet & Tools → Header Info"],
+        vector: "Vector 170"
     }
 ]

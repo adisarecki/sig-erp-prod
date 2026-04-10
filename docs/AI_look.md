@@ -14,6 +14,7 @@ AI operujące na tym kodzie MUSI przestrzegać tych zasad bezwzględnie:
 3.  **Podwójna Tarcza Zapisu**: Zapis faktury ZAWSZE wymaga sprawdzenia unikalności przez `ksefId` LUB parę `(contractorId + invoiceNumber)`.
 4.  **Lustro po Sukcesie**: Synchronizacja do Firestore odbywa się PO udanym zapisie do PostgreSQL (PG-First).
 5.  **Ścisła Serializacja**: Akcje serwerowe zwracają ujednolicony interfejs `{ success: boolean, results?: T, error?: string }`.
+6.  **Widoczność przed Alokacją (Vector 170)**: Przypisanie kosztu do pojazdu/narzędzia służy wyłącznie raportowaniu operacyjnemu. Nie zmienia automatycznie marży projektu do czasu wdrożenia silnika alokacji.
 
 ---
 
@@ -108,11 +109,12 @@ Obliczony dla MAKSYMALNEGO bezpieczeństwa: `Saldo Bankowe - Dług VAT - Rezerwa
     - **Authority Layer**: FS (Operational Primary for Assets) -> SQL (Analytical Reconciler).
     - **Audit Engine**: `SyncAuditRecord` in SQL tracks field-level drift.
     - **Sync Health**: Dashboard `/finance/sync-health` with Side-by-Side Diff View for manual repair.
-- **Vector 109: Data Authority Finalization**:
-    - **Lock Down**: Wyeliminowanie "dual-primary". Każda domena danych ma jednego właściciela (Master).
-    - **Financial Master (PG)**: Agregaty Dashboardu MUSZĄ pochodzić z `LedgerService` (Postgres). Zakaz sumowania z Firestore dla wskaźników KPI.
-    - **Operational Master (FS)**: Środki trwałe (Asset registry) zapisywane najpierw do FS. Konsekwencje finansowe zakupu -> synchronicznie do PG Ledger.
-    - **Write Guards**: Mechanizm `assertAuthorityWrite` blokuje próby zapisu do bazy będącej mirror'em dla danej domeny.
+- **Vector 170: Specialized Transit Registry (Stage 1)**:
+    - **Physical Split**: Separacja modelu `Vehicle` (Flota) od `Asset` (Narzędzia) dla precyzyjnego trackingu.
+    - **Plates Authority**: `plates` w modelu `Vehicle` jest unikalnym kluczem biznesowym.
+    - **Cost Binding**: Każda faktura/transakcja może opcjonalnie linkować do `vehicleId` lub `assetId`.
+    - **Math logic**: Koszty floty (30 dni) = suma `amountGross` wszystkich faktur i transakcji przypisanych do jednostki.
+    - **Rule A**: PostgreSQL pozostaje SSoT dla kosztów operacyjnych.
 - **Vector 111 (Financial Transparency – Invoice Drill-Down)**:
     - **Interactive Details Modal**: Kliknięcie na pola kwot (Przychody, Koszty, Marża) otwiera tabelaryczny breakdown wszystkich faktur powiązanych z projektem.
     - **Columns**: Data | Nr Faktury | Kwota Netto | Kwota Brutto | Kontrahent | Typ Faktury.
@@ -209,6 +211,7 @@ Obliczony dla MAKSYMALNEGO bezpieczeństwa: `Saldo Bankowe - Dług VAT - Rezerwa
 | **120** | Bank Reconciliation Hub | Transition from Silent Imports to manual Triage Hub with Staging Zone. |
 | **140.2** | VAT Shield 2.0 | Multi-ingestion, bank account self-learning and relational multi-account support. |
 | **150** | Knowledge Hub | Centralized business logic documentation & glossary integrated into UI tooltips. |
+| **170** | Fleet & Asset Registry | Specialized models for Vehicles and Tools, unit-level cost tracking, operational dashboard. |
 
 ---
 
@@ -356,4 +359,28 @@ System SIG ERP posługuje się precyzyjną terminologią biznesową, aby AI nie 
 - **Automatyczna Nauka**: Proces dodawania kont bankowych z KSeF/Banku jako 'Niezweryfikowane' do późniejszej akceptacji.
 
 ---
-*Plik utrzymywany przez Antigravity dla kolejnych sesji AI. Ostatnia aktualizacja: 2026-04-10 (Vector 150 Alignment).*
+
+## 🏎️ 10. Vector 170: Fleet & Asset Registry (Hardened)
+
+### Architectural Integrity Rules:
+1. **Rule A — Canonical Source Separation**:
+    - **Operational Cost (Accrual)**: Sources exclusively from **Invoices** (`amountGross`). This represents the economic burden or obligation.
+    - **Cash Outflow (Payment)**: Sources exclusively from **Transactions** (`amount`). This represents actual liquidity movement.
+    - **Strict Isolation**: These metrics must **NEVER** be summed or merged into a single "total cost" number to avoid double-counting.
+2. **Rule B — Financial Neutrality**:
+    - Linking a `vehicleId` or `assetId` is localized metadata.
+    - It must **not** affect Project Margin, Ledger math, VAT logic, or Safe-to-Spend calculations (which use Project/Tenant scope).
+3. **Rule C — Structured Fuel Detection**:
+    - **Primary**: Structured `category` enum (`PALIWO`, `PALIWO_PROJEKT`).
+    - **Fallback**: Minimal, isolated text matching (`type contains 'PALIWO'`) for legacy/KSeF compatibility only.
+4. **Rule D — Deterministic 7-Case Matrix**:
+    - Aggregation logic must remain stable whether an invoice is paid, unpaid, partially paid, or linked/unlinked.
+    - Unlinked records must be strictly isolated from unit-level totals.
+
+### Data Model:
+- **Vehicle**: `plates` (Unique), `status` (String), `assignedProjectId` (Operational link).
+- **Asset**: `category` (Tools/Office), `sourceInvoiceId` (Purchase tracking).
+- **Relational Hooks**: Optional `vehicleId` and `assetId` in `Invoice` and `Transaction` models.
+
+---
+*Plik utrzymywany przez Antigravity dla kolejnych sesji AI. Ostatnia aktualizacja: 2026-04-10 (Vector 170 PRODUCTION READY).*
