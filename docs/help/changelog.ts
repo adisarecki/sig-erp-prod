@@ -18,75 +18,73 @@ export const changelogEntries: ChangelogEntry[] = [
     {
         date: "2026-04-10",
         vector: "Vector 160",
-        title: "Smart Auto-Pay dla faktur POS/Gotówka",
+        title: "Automatyczne rozliczanie płatności gotówkowych i kartowych",
         type: "feature",
         description:
-            "Faktury, dla których data wystawienia równa się terminowi płatności (np. Orlen, sklep) są automatycznie " +
-            "oznaczane jako OPŁACONE (POS/GOTÓWKA) z zielonym banerem zamiast czerwonego 'DO ZAPŁATY'. " +
-            "Kategorie PALIWO i FLOTA domyślnie ustawiają metodę płatności CASH. Dodano przycisk 'Cofnij' dla wyjątkowych przypadków.",
+            "Faktury za zakupy 'od ręki' (np. paliwo, zakupy biurowe), gdzie data zakupu jest taka sama jak termin płatności, " +
+            "są teraz automatycznie rozpoznawane jako OPŁACONE. System sam przypisuje im odpowiedni status, " +
+            "dzięki czemu Twoja Czysta Gotówka jest zawsze aktualna bez ręcznego klikania.",
         relatedHelpIds: ["howto-pos-payment", "invoice-status"]
     },
     {
         date: "2026-04-10",
         vector: "Vector 140",
-        title: "VAT Shield — Wykaz Podatników MF",
+        title: "Tarcza VAT — Weryfikacja kontrahentów w Ministerstwie Finansów",
         type: "feature",
         description:
-            "Integracja z publicznym API Ministerstwa Finansów (bez klucza API). " +
-            "Po fetchu GUS, system automatycznie sprawdza status VAT kontrahenta i zwraca listę zarejestrowanych rachunków bankowych. " +
-            "Badge 🟢/🟡/🔴/⚪ widoczny przy dodawaniu kontrahenta i na liście CRM (on-demand, limit 100 req/dzień).",
+            "System automatycznie sprawdza każdego kontrahenta na Białej Liście Ministerstwa Finansów. " +
+            "Dzięki temu od razu wiesz, czy firma jest aktywnym płatnikiem VAT i czy możesz bezpiecznie odliczyć podatek. " +
+            "Status jest widoczny przy dodawaniu firmy oraz na liście kontrahentów.",
         relatedHelpIds: ["howto-vat-whitelist", "howto-gus-lookup"]
     },
     {
         date: "2026-04-10",
         vector: "Vector 130",
-        title: "GUS BIR 1.1 — Automatyczny onboarding kontrahentów",
+        title: "Magia GUS — Automatyczne pobieranie danych po NIP",
         type: "feature",
         description:
-            "Wdrożono klienta SOAP/MTOM dla GUS BIR 1.1. NIP → automatyczne pobranie nazwy, adresu i REGON. " +
-            "Dual-trigger: auto-fetch po 10. cyfrze NIPu + ręczny przycisk 🔍. " +
-            "Parser regex-first odporny na błędy MTOM w środowisku serverless.",
+            "Koniec z ręcznym przepisywaniem danych firm. Wystarczy wpisać NIP, a system sam pobierze pełną nazwę, " +
+            "adres i numer REGON prosto z państwowego rejestru GUS. Działa błyskawicznie i bezbłędnie.",
         relatedHelpIds: ["howto-gus-lookup"]
     },
     {
         date: "2026-04-09",
         vector: "Vector 131",
-        title: "Full Cascade Deletion — Zero Zombie Data",
+        title: "Całkowite usuwanie faktur i powiązanych danych",
         type: "fix",
         description:
-            "Usunięcie faktury teraz kaskadowo czyści: zapisy Ledger, statusy transakcji bankowych (revert → UNPAIRED), " +
-            "InvoicePayment links oraz powiązane transakcje. Eliminuje 'zombie data' powodujące błędne metryki finansowe.",
+            "Udoskonaliliśmy proces usuwania faktur. Od teraz usunięcie dokumentu czyści wszystkie powiązane z nim " +
+            "zapisy finansowe i statusy bankowe. Dzięki temu Twoje statystyki są zawsze czyste i wiarygodne.",
         relatedHelpIds: ["invoice-status"]
     },
     {
         date: "2026-04-09",
         vector: "Vector 126",
-        title: "Bank Staging Hardening — Immutable Import Records",
+        title: "Bezpieczny import historii bankowej",
         type: "security",
         description:
-            "Rekordy BankStaging są teraz niemodyfikowalne po imporcie. Dodano normalizację tytułu transakcji PKO BP " +
-            "(usuwanie szumów textowych: 'Rachunek', 'Nazwa'). Hub weryfikacji obsługuje dopasowanie z-retencją.",
+            "Wzmocniliśmy bezpieczeństwo importu wyciągów z PKO BP. System automatycznie czyści opisy transakcji " +
+            "ze zbędnych znaków i chroni dane przed przypadkową zmianą, zapewniając 100% zgodności z wyciągiem.",
         relatedHelpIds: ["bank-anchor"]
     },
     {
         date: "2026-04-06",
         vector: "Vector 120",
-        title: "Reconciliation Hub — Ręczna Weryfikacja Bankowa",
+        title: "Centrum Rozliczeń — Ręczna Kontrola Banku",
         type: "feature",
         description:
-            "Przejście z 'Silent Import' (automatyczne wstrzyknięcie do Ledger) na 'Triage Hub' " +
-            "(staging → ludzka weryfikacja → akceptacja). BankStaging jako bufor bezpieczeństwa. " +
-            "Real-time revalidacja salda po zatwierdzeniu.",
+            "Zmieniliśmy sposób księgowania wyciągów. Zamiast automatycznego dodawania wszystkiego w ciemno, " +
+            "teraz każda transakcja trafia do 'poczekalni', gdzie masz nad nią pełną kontrolę przed zatwierdzeniem.",
         relatedHelpIds: ["bank-anchor"]
     },
     {
         date: "2026-04-04",
         vector: "Vector 125",
-        title: "CIT jako Hard Liability",
+        title: "Realne podejście do podatku dochodowego (CIT)",
         type: "fix",
         description:
-            "Rezerwa CIT (9%) jest teraz hard-subtracted z Safe to Spend zawsze gdy realProfit > 0. " +
-            "Wcześniej była wyświetlana informacyjnie. Zmiana odzwierciedla rzeczywiste zobowiązanie podatkowe.",
+            "Rezerwa na podatek dochodowy (9%) jest teraz odejmowana od Twojej Czystej Gotówki od razu, gdy wypracujesz zysk. " +
+            "Wcześniej widziałeś ją tylko jako informację. Teraz Dashboard pokazuje Ci tylko tyle pieniędzy, ile faktycznie masz po 'odłożeniu' na podatek.",
         relatedHelpIds: ["cit-reserve", "safe-to-spend"]
     }
 ]

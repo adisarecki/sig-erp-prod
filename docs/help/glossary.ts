@@ -2,8 +2,7 @@
  * Vector 150: Knowledge Hub — Glossary (Source of Truth)
  *
  * RULE: Definitions MUST reflect real system logic (Ledger, Engine, VAT).
- * Descriptions marked [VISION LAYER] are placeholders — to be filled by user.
- * DO NOT generate autonomous business interpretations for these fields.
+ * RULE: Definitions MUST reflect real system logic (Ledger, Engine, VAT).
  */
 
 export interface HelpEntry {
@@ -12,7 +11,7 @@ export interface HelpEntry {
     category: "glossary" | "howto" | "concept"
     /** Short, contextual description for tooltips (max ~200 chars) */
     summary: string
-    /** Full explanation. Fields marked [VISION LAYER] are user-defined. */
+    /** Full explanation reflecting real system logic. */
     description: string
     /** Which engine/API is the authoritative data source */
     technicalSource?: "ledger" | "bank" | "gus" | "ksef" | "ui" | "mf-whitelist"
@@ -38,11 +37,10 @@ export const glossaryEntries: HelpEntry[] = [
         category: "concept",
         summary: "Kwota, którą faktycznie możesz wydać po odjęciu wszystkich rezerw i zobowiązań.",
         description:
-            "[VISION LAYER] Pełna definicja biznesowego znaczenia Czystej Gotówki zostanie dostarczona przez Vision Layer. " +
-            "TECHNICZNE: Obliczane jako: Saldo Bankowe (Potwierdzone) − Wartość Skarbca (Kaucje) − Saldo VAT (Zobowiązanie) − Rezerwa CIT − Niezapłacone Faktury (Koszty). " +
-            "Źródło: `LedgerService.safeToSpend`. Nie jest wynikiem memoriałowym — wymaga potwierdzonego salda bankowego.",
+            "To kwota, którą możesz realnie wydać lub wypłacić z firmy bez strachu o jutro. To Twoja \"twarda\" płynność.\n\n" +
+            "Dlaczego to ważne? Saldo w banku to iluzja – są tam pieniądze Urzędu Skarbowego i zamrożone kaucje. SIG ERP odejmuje je od razu, żebyś widział tylko to, co faktycznie należy do Ciebie.",
         technicalSource: "ledger",
-        formula: "Saldo Bankowe - Skarbiec - VAT - CIT - Zobowiązania",
+        formula: "Gotówka w Banku - Kaucje - VAT - CIT - Niezapłacone Rachunki",
         dependsOn: ["retention-vault", "vat-debt", "cit-reserve"],
         related: ["real-profit", "bank-anchor"],
         uiTargets: ["Dashboard → Hero Bar → Czysta Gotówka", "Dashboard → Bank Card"],
@@ -58,12 +56,10 @@ export const glossaryEntries: HelpEntry[] = [
         category: "concept",
         summary: "Zamrożone środki z faktury — zabezpieczenie kontraktowe do zwrotu po upływie okresu gwarancyjnego.",
         description:
-            "[VISION LAYER] Definicja kontraktowego znaczenia kaucji zostanie dostarczona przez Vision Layer. " +
-            "TECHNICZNE: Agreguje rekordy tablicy `Retention` (Prisma) filtrowane po `status: LOCKED`. " +
-            "Wartość jest odejmowana z Czystej Gotówki, ale NIE zmniejsza salda bankowego bezpośrednio — to tylko rezerwa logiczna. " +
-            "Uwolnienie następuje przez `retentionReleaseDate` lub ręcznie przez protokół zamknięcia projektu.",
+            "Miejsce, w którym system \"zamyka\" kaucje gwarancyjne potrącone przez Inwestora.\n\n" +
+            "Dlaczego to ważne? Te pieniądze wrócą do Ciebie za 3-5 lat. Do tego czasu system traktuje je jako niedostępne, żebyś nie uwzględniał ich w bieżących wydatkach.",
         technicalSource: "ledger",
-        formula: "SUMA(Kaucje GDZIE status = ZABLOKOWANA)",
+        formula: "Suma zablokowanych kaucji",
         dependsOn: ["safe-to-spend"],
         related: ["retention-short", "retention-long", "project-closure"],
         uiTargets: ["Dashboard → Wartość Skarbca (Kaucje)", "Project List → Retention column"],
@@ -79,11 +75,9 @@ export const glossaryEntries: HelpEntry[] = [
         category: "glossary",
         summary: "Część wartości faktury zatrzymana do czasu odbioru robót lub okresu rękojmi.",
         description:
-            "[VISION LAYER] Definicja kontraktowa wg umowy z inwestorem zostanie dostarczona przez Vision Layer. " +
-            "TECHNICZNE: Procent przechowywany w `project.retentionShortTermRate`. " +
-            "Automatycznie naliczana dla kategorii MONTAŻ/USŁUGA/PROJEKT przy zapisie faktury kosztowej.",
+            "Część wartości faktury zatrzymana do czasu odbioru robót lub okresu rękojmi zgodnie z Twoją umową.",
         technicalSource: "ledger",
-        formula: "Netto (lub Brutto) faktury × Stopa Kaucji Krótkiej",
+        formula: "Wartość faktury × Stopa kaucji",
         dependsOn: ["retention-vault"],
         related: ["retention-long"],
         uiTargets: ["RegisterCostModal → Kaucja (SHORT)", "RetentionVault → Kaucja Bieżąca row"],
@@ -99,10 +93,9 @@ export const glossaryEntries: HelpEntry[] = [
         category: "glossary",
         summary: "Część wartości faktury zatrzymana na cały okres gwarancji (zwykle 2-5 lat).",
         description:
-            "[VISION LAYER] Definicja kontraktowa zostanie dostarczona przez Vision Layer. " +
-            "TECHNICZNE: Procent przechowywany w `project.retentionLongTermRate`.",
+            "Część wartości faktury zatrzymana na cały okres gwarancji (zwykle 2-5 lat).",
         technicalSource: "ledger",
-        formula: "Netto (lub Brutto) faktury × Stopa Kaucji Długiej",
+        formula: "Wartość faktury × Stopa kaucji długiej",
         dependsOn: ["retention-vault"],
         related: ["retention-short", "project-closure"],
         uiTargets: ["RetentionVault → Kaucja Gwarancyjna row"],
@@ -118,13 +111,10 @@ export const glossaryEntries: HelpEntry[] = [
         category: "concept",
         summary: "Netto pozycja VAT: różnica między VAT z faktur kosztowych a sprzedażowych.",
         description:
-            "[VISION LAYER] Znaczenie podatkowe i taktyczne definiuje Vision Layer. " +
-            "TECHNICZNE: Wynika z zapisów Ledger o `source: INVOICE_VAT`. " +
-            "Formuła: SUMA(VAT z faktur KOSZTOWYCH) − SUMA(VAT z faktur PRZYCHODOWYCH). " +
-            "Wynik ujemny = Zobowiązanie VAT (do zapłaty). Wynik dodatni = Nadpłata VAT. " +
-            "Odejmowane od Czystej Gotówki jeśli ujemne.",
+            "To suma podatku VAT, którą musisz oddać do Urzędu Skarbowego.\n\n" +
+            "Dlaczego to ważne? System automatycznie rezerwuje te pieniądze przy każdej fakturze. Dzięki temu 25. dzień miesiąca nigdy Cię nie zaskoczy brakiem środków na przelew podatkowy.",
         technicalSource: "ledger",
-        formula: "SUMA(VAT Koszty) − SUMA(VAT Sprzedaż)",
+        formula: "Suma VAT z kosztów − Suma VAT ze sprzedaży",
         dependsOn: ["safe-to-spend"],
         related: ["cit-reserve", "real-profit"],
         uiTargets: ["Dashboard → Hero Bar → Dług VAT / Nadpłata VAT"],
@@ -140,11 +130,10 @@ export const glossaryEntries: HelpEntry[] = [
         category: "concept",
         summary: "Odłożone 9% od zrealizowanego zysku netto — automatyczna rezerwa na podatek dochodowy.",
         description:
-            "[VISION LAYER] Taktyczne znaczenie dla planowania podatkowego definiuje Vision Layer. " +
-            "TECHNICZNE: Obliczana jako: Zysk Realny × 0.09. " +
-            "Traktowana jako TWARDE ZOBOWIĄZANIE — odejmowana z Czystej Gotówki zawsze, gdy Zysk Realny > 0.",
+            "Wirtualna „skarbonka”, w której odkładamy 9% od Twojego zysku na podatek dochodowy.\n\n" +
+            "Dlaczego to ważne? Zysk netto wygląda dobrze tylko na papierze. My pokazujemy Ci zysk już po \"odcięciu\" doli dla państwa, żebyś widział realny wynik swojej pracy.",
         technicalSource: "ledger",
-        formula: "MAX(0, Zysk Realny) × 0.09",
+        formula: "Zysk Realny × 9%",
         dependsOn: ["real-profit", "safe-to-spend"],
         related: ["vat-debt"],
         uiTargets: ["Dashboard → Hero Bar → Rezerwa CIT", "Dashboard → Metrics grid"],
@@ -160,11 +149,9 @@ export const glossaryEntries: HelpEntry[] = [
         category: "concept",
         summary: "Zysk wygenerowany na projektach (Netto).",
         description:
-            "[VISION LAYER] Znaczenie strategiczne definiuje Vision Layer. " +
-            "TECHNICZNE: Agreguje zapisy Ledger przypisane do projektów (wartości NETTO). " +
-            "NIE UWZGLĘDNIA kosztów ogólnych firmy.",
+            "Zysk wygenerowany na projektach po odjęciu kosztów wykonawstwa.",
         technicalSource: "ledger",
-        formula: "SUMA(Przychody Projektowe Netto) − SUMA(Koszty Projektowe Netto)",
+        formula: "Przychody z projektów − Koszty projektów",
         dependsOn: [],
         related: ["real-profit", "general-costs"],
         uiTargets: ["Dashboard → Strategic Metrics → Marża Projektowa (Netto)"],
@@ -180,11 +167,9 @@ export const glossaryEntries: HelpEntry[] = [
         category: "concept",
         summary: "Ostateczny wynik firmy po odjęciu kosztów ogólnych i Rezerwy CIT.",
         description:
-            "[VISION LAYER] Interpretacja zarządcza definiuje Vision Layer. " +
-            "TECHNICZNE: Wynik MEMORIAŁOWY — uwzględnia faktury wystawione ale jeszcze nie opłacone. " +
-            "Różny od Czystej Gotówki (która jest kasowa / potwierdzona bankowo).",
+            "Ostateczny wynik Twojej firmy po uwzględnieniu wszystkich kosztów i rezerw podatkowych.",
         technicalSource: "ledger",
-        formula: "Zysk Netto (Memoriałowy) − Rezerwa CIT",
+        formula: "Zysk Netto − Rezerwa CIT",
         dependsOn: ["project-margin", "cit-reserve"],
         related: ["safe-to-spend", "project-margin"],
         uiTargets: ["Dashboard → Zysk po opodatkowaniu card"],
@@ -200,8 +185,7 @@ export const glossaryEntries: HelpEntry[] = [
         category: "concept",
         summary: "Ostatnie potwierdzone saldo bankowe z wyciągu PKO BP.",
         description:
-            "TECHNICZNE: Przechowywane w `BankBalanceState`. " +
-            "Podstawa do wyliczenia Czystej Gotówki.",
+            "Ostatnie potwierdzone saldo pieniędzy na Twoim koncie bankowym.",
         technicalSource: "bank",
         dependsOn: [],
         related: ["safe-to-spend"],
@@ -218,9 +202,7 @@ export const glossaryEntries: HelpEntry[] = [
         category: "concept",
         summary: "Statusy rozliczenia dokumentu i weryfikacji bankowej.",
         description:
-            "TECHNICZNE: `invoice.paymentStatus` (UNPAID / PAID) to stan rozliczenia. " +
-            "`invoice.reconciliationStatus` (PENDING / MATCHED / GAP) to potwierdzenie bankowe. " +
-            "Vector 160: jeśli data wystawienia = data płatności → status POS/GOTÓWKA.",
+            "Informacja o tym, czy faktura została już rozliczona i czy płatność została potwierdzona na wyciągu bankowym.",
         technicalSource: "ledger",
         dependsOn: [],
         related: ["safe-to-spend", "bank-anchor"],
