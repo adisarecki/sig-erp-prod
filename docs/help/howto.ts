@@ -125,5 +125,26 @@ export const howtoEntries: HelpEntry[] = [
             "Finance → RegisterCostModal → Auto-toggle isPaidImmediately"
         ],
         vector: "Vector 160"
+    },
+
+    // ─────────────────────────────────────────────────────────
+    // BANK ACCOUNT SAFEGUARD (MF WHITE LIST)
+    // ─────────────────────────────────────────────────────────
+    {
+        id: "howto-bank-safeguard",
+        title: "🛡️ Automatyczny import i weryfikacja kont bankowych",
+        category: "howto",
+        summary: "System automatycznie pobiera konta z MF i pilnuje ich zgodności przy każdym koszcie.",
+        description:
+            "KROK 1: Przy dodaniu kontrahenta (GUS) system pobiera wszystkie rachunki przypisane do firmy w Ministerstwie Finansów. Jeśli jest jeden – uzupełni go sam. Jeśli więcej – pozwoli Ci wybrać.\n\n" +
+            "KROK 2: Przy wpisywaniu faktury kosztowej, system sprawdza numer konta w czasie rzeczywistym. Widzisz to dzięki ikonom tarczy:\n" +
+            "- 🟢 **Zweryfikowane**: Konto jest na Białej Liście. Możesz bezpiecznie płacić.\n" +
+            "- 🔴 **Brak na liście**: Ryzyko pomyłki lub oszustwa. Sprawdź dokładnie numer konta u dostawcy.\n\n" +
+            "KROK 3: Jeśli konto nie figuruje na liście, system wyświetli pulsacyjne ostrzeżenie obok pola numeru konta.",
+        technicalSource: "mf-whitelist",
+        dependsOn: ["bank-verification"],
+        related: ["howto-gus-lookup"],
+        uiTargets: ["RegisterCostModal → Bank Account Safeguard Anchor"],
+        vector: "Vector 140.1"
     }
 ]

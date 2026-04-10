@@ -208,5 +208,22 @@ export const glossaryEntries: HelpEntry[] = [
         related: ["safe-to-spend", "bank-anchor"],
         uiTargets: ["Finance → Transaction History → InvoicePaymentToggle"],
         vector: "Vector 160"
+    },
+
+    // ─────────────────────────────────────────────────────────
+    // BANK VERIFICATION (WHITE LIST MF)
+    // ─────────────────────────────────────────────────────────
+    {
+        id: "bank-verification",
+        title: "Weryfikacja Konta Bankowego (Biała Lista MF)",
+        category: "concept",
+        summary: "Automatyczna weryfikacja rachunku bankowego kontrahenta w oficjalnym wykazie Ministerstwa Finansów.",
+        description:
+            "To mechanizm ochronny, który sprawdza, czy numer konta, na który zamierzasz przelać pieniądze, jest oficjalnie zgłoszony i zweryfikowany przez państwo (tzw. Biała Lista).\n\n" +
+            "Dlaczego to ważne? Zapłacenie ponad 15 000 PLN na konto spoza listy może wiązać się z brakiem możliwości zaliczenia wydatku do kosztów uzyskania przychodu oraz odpowiedzialnością solidarną za VAT. System sam pilnuje tego za Ciebie.",
+        technicalSource: "mf-whitelist",
+        related: ["safe-to-spend", "vat-debt"],
+        uiTargets: ["AddContractorModal → BankAccount input", "RegisterCostModal → BankAccount field"],
+        vector: "Vector 140.1"
     }
 ]

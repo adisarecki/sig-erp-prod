@@ -4,6 +4,11 @@ Witaj w **Sig ERP** – Twoim cyfrowym biurze, które pilnuje pieniędzy, termin
 
 ---
 
+## 🏆 ZŁOTA ZASADA: KNOWLEDGE-FIRST DEVELOPMENT
+**Każda zmiana w kodzie (nowa logika, UI, dane) MUSI zostać odzwierciedlona w Bazie Wiedzy (`/docs/help/`).** Funkcjonalność uznaje się za "Wdrożoną" dopiero po zaktualizowaniu Glosariusza lub Instrukcji dla użytkownika biznesowego.
+
+---
+
 ## 🛡️ 0. NOWE: Centra Rekoncyliacji Bankowej (VECTOR 120) 🆕
 
 System rezygnuje z "Cichych Importów". Teraz każda złotówka z wyciągu trafia do bezpiecznej **Strefy Zrzutu (BankStaging)**, gdzie Ty masz ostatnie słowo.
@@ -38,6 +43,7 @@ System wylicza "Czystą Gotówkę" (Real Profit) odejmując od salda bankowego:
 
 - [x] **Vector 120: Bank Reconciliation Hub** – Manuany terytorium rozliczeń z landing zone `BankStaging`.
 - [x] **Vector 130: GUS BIR 1.1 Integration** – Automatyczne pobieranie danych kontrahentów po NIP.
+- [x] **Vector 140.1: Bank Account Safeguard** – Automatyczna weryfikacja kont na Białej Liście MF.
 - [ ] **Vector 140: Inteligentne Sugestie AI** – Predykcyjne dopasowanie kategorii kosztów.
 
 ### 💰 Inteligentna Bankowość
