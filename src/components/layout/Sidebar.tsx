@@ -38,6 +38,9 @@ export function Sidebar() {
                     <Settings className="w-5 h-5" />
                     <span>Ustawienia</span>
                 </Link>
+                <div className="mt-4 px-3 opacity-20 hover:opacity-60 transition-opacity cursor-default">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] italic text-slate-400">Handcrafted by Adi</p>
+                </div>
             </div>
         </aside>
     );

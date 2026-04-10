@@ -811,7 +811,7 @@ export default async function DashboardPage({
                 </ul>
               </div>
               <div className="mt-8 pt-8 border-t border-slate-800">
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Wersja Systemu: Fort Knox &bull; Ekstraklasa 2026</p>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Wersja Systemu: Fort Knox &bull; Ekstraklasa 2026 &copy; Copyright byAdi</p>
               </div>
             </div>
           </div>
