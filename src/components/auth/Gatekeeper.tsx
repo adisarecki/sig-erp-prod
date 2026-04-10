@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react"
 import { auth, db } from "@/lib/firebase/config"
-import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User, signOut, signInWithEmailAndPassword, updatePassword } from "firebase/auth"
+import { onAuthStateChanged, User, signOut, signInWithEmailAndPassword, updatePassword } from "firebase/auth"
 import { doc, getDoc, updateDoc } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
-import { Lock, LogIn, LogOut, ShieldCheck, KeyRound, Mail, UserCheck } from "lucide-react"
+import { Lock, LogOut, ShieldCheck, KeyRound, UserCheck } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
 // WHITELIST (CEO & WSPÓLNIK)
@@ -18,7 +18,6 @@ export function Gatekeeper({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [isAuthorized, setIsAuthorized] = useState(false)
-  const [showEmailLogin, setShowEmailLogin] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -54,16 +53,6 @@ export function Gatekeeper({ children }: { children: React.ReactNode }) {
     })
     return () => unsubscribe()
   }, [])
-
-  const handleGoogleLogin = async () => {
-    const provider = new GoogleAuthProvider()
-    try {
-      await signInWithPopup(auth, provider)
-    } catch (error) {
-      console.error("Google Login failed", error)
-      setError("Logowanie Google nie powiodło się.")
-    }
-  }
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -194,24 +183,7 @@ export function Gatekeeper({ children }: { children: React.ReactNode }) {
            <h1 className="text-4xl font-black italic tracking-tight mb-2">SIG ERP</h1>
            <p className="text-slate-400 font-medium mb-8 text-sm">System Operacyjny Fort Knox</p>
            
-           {!showEmailLogin ? (
-             <div className="space-y-4">
-               <Button 
-                 onClick={handleGoogleLogin} 
-                 className="w-full bg-white text-slate-950 hover:bg-slate-200 h-14 rounded-2xl text-lg font-black gap-3 shadow-xl"
-               >
-                 <LogIn className="w-5 h-5 text-indigo-600" /> Google Login
-               </Button>
-               <Button 
-                onClick={() => setShowEmailLogin(true)}
-                variant="ghost"
-                 className="w-full text-slate-400 font-bold hover:text-white"
-               >
-                 <Mail className="w-4 h-4 mr-2" /> E-mail / Hasło
-               </Button>
-             </div>
-           ) : (
-             <form onSubmit={handleEmailLogin} className="space-y-4">
+           <form onSubmit={handleEmailLogin} className="space-y-4">
                <Input 
                 type="email" 
                 placeholder="E-mail" 
@@ -232,16 +204,7 @@ export function Gatekeeper({ children }: { children: React.ReactNode }) {
                <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white h-14 rounded-2xl text-lg font-black shadow-xl">
                  Zaloguj
                </Button>
-               <Button 
-                type="button"
-                onClick={() => setShowEmailLogin(false)}
-                variant="link"
-                className="text-slate-500 text-xs"
-               >
-                 Wróć do logowania Google
-               </Button>
-             </form>
-           )}
+           </form>
         </div>
       </div>
     )
