@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Search, UserPlus, Building2, Check, Loader2, Search as SearchIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { searchContractors } from "@/app/actions/crm"
-import { getGusDataByNip } from "@/app/actions/gus"
+import { fetchGusData } from "@/app/actions/gus"
 
 interface Contractor {
     id: string
@@ -108,7 +108,7 @@ export function ContractorSearch({
 
         setGusLoading(true)
         try {
-            const res = await getGusDataByNip(nipToFetch)
+            const res = await fetchGusData(nipToFetch)
             if (res.success && res.data) {
                 setQuery(res.data.name)
                 setManualAddress(res.data.address)

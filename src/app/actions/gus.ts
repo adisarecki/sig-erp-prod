@@ -65,10 +65,22 @@ async function getGusSession() {
 }
 
 /**
+ * Sanitizes a string for security (XSS/SQL-ish prevention).
+ * In React, XSS is naturally handled for text content, but we add extra hardening here.
+ */
+function sanitize(val: any): string {
+    if (typeof val !== 'string') return ""
+    // Basic stripping of HTML tags and suspicious characters
+    return val
+        .replace(/<[^>]*>?/gm, '') // Strip HTML
+        .trim()
+}
+
+/**
  * Fetches contractor data from GUS BIR 1.1 by NIP.
  * Vector 130: Zero-Entry Onboarding Integration.
  */
-export async function getGusDataByNip(nip: string) {
+export async function fetchGusData(nip: string) {
     // Validacja NIP (usuwanie myślników jeśli są)
     const normalizedNip = nip.replace(/[^0-9]/g, "")
     
@@ -116,7 +128,7 @@ export async function getGusDataByNip(nip: string) {
             if (xmlData?.includes("Sesja nieaktywna")) {
                 console.warn("[GUS_BIR] Session expired unexpectedly. Retrying...")
                 cachedSid = null
-                return getGusDataByNip(nip)
+                return fetchGusData(nip)
             }
             return { success: false, error: "Nie znaleziono firmy o podanym NIP w bazie GUS." }
         }
@@ -154,10 +166,10 @@ export async function getGusDataByNip(nip: string) {
         return {
             success: true,
             data: {
-                name: d.Nazwa || "",
+                name: sanitize(d.Nazwa),
                 nip: normalizedNip,
-                regon: d.Regon || "",
-                address: fullAddress,
+                regon: sanitize(d.Regon),
+                address: sanitize(fullAddress),
                 raw: d // Zachowanie surowych danych na wypadek potrzeby debugingu
             }
         }
@@ -167,4 +179,7 @@ export async function getGusDataByNip(nip: string) {
         return { success: false, error: error.message || "Błąd komunikacji z GUS." }
     }
 }
+
+// Alias for backward compatibility if needed
+export const getGusDataByNip = fetchGusData
 

@@ -11,7 +11,7 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog"
 import { addContractor } from "@/app/actions/crm"
-import { getGusDataByNip } from "@/app/actions/gus"
+import { fetchGusData } from "@/app/actions/gus"
 import { Loader2, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -45,7 +45,7 @@ export function AddContractorModal() {
 
         setGusLoading(true)
         try {
-            const res = await getGusDataByNip(nipToFetch)
+            const res = await fetchGusData(nipToFetch)
             if (res.success && res.data) {
                 setFormDataObj(prev => ({
                     ...prev,

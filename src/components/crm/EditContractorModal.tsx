@@ -8,7 +8,7 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog"
 import { updateContractor, updateObject } from "@/app/actions/crm"
-import { getGusDataByNip } from "@/app/actions/gus"
+import { fetchGusData } from "@/app/actions/gus"
 import { Pencil, Store, MapPin, Check, X, Loader2, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -65,7 +65,7 @@ export function EditContractorModal({ contractor }: { contractor: Contractor }) 
 
         setGusLoading(true)
         try {
-            const res = await getGusDataByNip(editFormData.nip)
+            const res = await fetchGusData(editFormData.nip)
             if (res.success && res.data) {
                 setEditFormData(prev => ({
                     ...prev,
