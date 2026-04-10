@@ -10,11 +10,21 @@ let sidExpiry: number = 0
 const CACHE_TTL_MS = 55 * 60 * 1000 // 55 minutes (just below 60 to be safe)
 
 /**
- * Sanitizes a string for security (XSS/SQL-ish prevention).
+ * Decodes HTML entities and sanitizes a string for UI display.
+ * Handles double-encoded values from GUS (e.g. &amp; → &, &quot; → ").
  */
 function sanitize(val: any): string {
     if (typeof val !== "string") return String(val ?? "").trim()
-    return val.replace(/<[^>]*>?/gm, "").trim()
+    return val
+        // Decode HTML entities (GUS encodes & " ' inside XML text content)
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        // Strip any leftover HTML tags (XSS hardening)
+        .replace(/<[^>]*>?/gm, "")
+        .trim()
 }
 
 /**
