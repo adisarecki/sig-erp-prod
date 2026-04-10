@@ -52,7 +52,7 @@ interface TransactionHistoryProps {
     allProjects?: { id: string, name: string }[];
 }
 
-export function TransactionHistory({ 
+export function TransactionHistory({
     transactions: initialTransactions,
     projectsMap = {},
     allProjects = []
@@ -83,7 +83,7 @@ export function TransactionHistory({
 
     const handleDelete = async () => {
         if (!deleteConfirmItem) return
-        
+
         setIsDeleting(true)
         try {
             let result;
@@ -108,10 +108,10 @@ export function TransactionHistory({
 
     const handleAssign = async (itemId: string, projectId: string, isInvoice: boolean) => {
         if (!projectId) return
-        
+
         setAssigningId(itemId)
         try {
-            const result = isInvoice 
+            const result = isInvoice
                 ? await assignInvoiceToProject(itemId, projectId)
                 : await assignTransactionToProject(itemId, projectId)
 
@@ -139,142 +139,142 @@ export function TransactionHistory({
         <div className="divide-y divide-slate-100">
             {initialTransactions.map((t) => {
                 const isIncome = t.type === 'INCOME' || t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE';
-                const dynamicTitle = t.isInvoice 
+                const dynamicTitle = t.isInvoice
                     ? (isIncome ? 'Faktura Sprzedaży' : 'Faktura Zakupu')
                     : (t.contractorName || t.title);
-                
+
                 const showContractorInTitle = t.isInvoice && t.contractorName;
 
                 return (
-                    <div 
-                        key={t.id} 
+                    <div
+                        key={t.id}
                         className="p-4 sm:p-6 flex flex-col lg:flex-row justify-between items-start lg:items-center hover:bg-slate-50 transition-colors group cursor-pointer"
                         onClick={() => setViewingItem(t)}
                     >
                         {(() => {
                             const { signedNet, signedGross, netColor, grossColor } = mapFinancialValues(
-                                t.amountNet || 0, 
-                                (t.amount || 0) - (t.amountNet || 0), 
+                                t.amountNet || 0,
+                                (t.amount || 0) - (t.amountNet || 0),
                                 t.type as FinancialType
                             );
-                            
+
                             return (
                                 <>
-                        <div className="flex gap-4 items-center flex-1 min-w-0 pointer-events-none">
-                            <div className={`p-3 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-green-100 text-green-600' : 'bg-rose-100 text-rose-600'}`}>
-                                {isIncome ? <ArrowUpRight className="w-6 h-6" /> : <ArrowDownRight className="w-6 h-6" />}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <div className="flex items-baseline gap-2 flex-wrap">
-                                        <p className="font-bold text-slate-900 text-lg truncate uppercase tracking-tight">
-                                            {dynamicTitle}
-                                        </p>
-                                        {showContractorInTitle && (
-                                            <span className="text-indigo-600 font-extrabold text-lg uppercase tracking-tight">
-                                                — {t.contractorName}
-                                            </span>
-                                        )}
-                                        <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 ${t.statusColor}`}>
-                                            {t.statusBadge}
-                                        </span>
-                                    </div>
-                                    {t.tags?.split(',').map(tag => (
-                                        <Badge key={tag} variant="outline" className="text-[10px] font-black tracking-tighter shrink-0 bg-blue-50 text-blue-700 border-blue-200">
-                                            {tag.trim()}
-                                        </Badge>
-                                    ))}
-                                    {t.classification === 'INTERNAL_COST' ? (
-                                        <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 border border-slate-200">
-                                            🔒 [Koszty Własne]
-                                        </span>
-                                    ) : (t.classification === 'GENERAL_COST' || !t.projectId) && (
-                                        <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 border border-amber-200">
-                                            🏢 [Koszty Ogólne Firmy]
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 mt-0.5">
-                                    {t.counterpartyRaw && !showContractorInTitle && (
-                                        <div className="flex items-center gap-1.5">
-                                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                                            <span className="font-semibold text-slate-700 truncate max-w-[200px]">
-                                                {t.contractorName || t.counterpartyRaw}
-                                            </span>
+                                    <div className="flex gap-4 items-center flex-1 min-w-0 pointer-events-none">
+                                        <div className={`p-3 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-green-100 text-green-600' : 'bg-rose-100 text-rose-600'}`}>
+                                            {isIncome ? <ArrowUpRight className="w-6 h-6" /> : <ArrowDownRight className="w-6 h-6" />}
                                         </div>
-                                    )}
-                                    <span className="font-medium px-2 py-0.5 rounded-md bg-slate-100 whitespace-nowrap order-last sm:order-none">
-                                        {new Date(t.date).toLocaleDateString('pl-PL')}
-                                    </span>
-                                    {t.documentNumber && (
-                                        <span className="font-mono text-[11px] text-slate-400 font-medium truncate max-w-[120px] sm:max-w-none">
-                                            ID: {t.documentNumber}
-                                        </span>
-                                    )}
-                                    <span className="hidden sm:inline text-slate-300">•</span>
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <span className="shrink-0">Projekt:</span>
-                                        {t.projectId ? (
-                                            <span className="font-medium text-slate-700 truncate">{projectsMap[t.projectId] || t.projectId}</span>
-                                        ) : (
-                                            <div className="flex items-center gap-2">
-                                                <span className="italic text-slate-400 shrink-0">Brak przypisania</span>
-                                                <div className="pointer-events-auto">
-                                                    {assigningId === t.id ? (
-                                                        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <div className="flex items-baseline gap-2 flex-wrap">
+                                                    <p className="font-bold text-slate-900 text-lg truncate uppercase tracking-tight">
+                                                        {dynamicTitle}
+                                                    </p>
+                                                    {showContractorInTitle && (
+                                                        <span className="text-indigo-600 font-extrabold text-lg uppercase tracking-tight">
+                                                            — {t.contractorName}
+                                                        </span>
+                                                    )}
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 ${t.statusColor}`}>
+                                                        {t.statusBadge}
+                                                    </span>
+                                                </div>
+                                                {t.tags?.split(',').map(tag => (
+                                                    <Badge key={tag} variant="outline" className="text-[10px] font-black tracking-tighter shrink-0 bg-blue-50 text-blue-700 border-blue-200">
+                                                        {tag.trim()}
+                                                    </Badge>
+                                                ))}
+                                                {t.classification === 'INTERNAL_COST' ? (
+                                                    <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 border border-slate-200">
+                                                        🔒 [Koszty Własne]
+                                                    </span>
+                                                ) : (t.classification === 'GENERAL_COST' || !t.projectId) && (
+                                                    <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 border border-amber-200">
+                                                        🏢 [Koszty Ogólne Firmy]
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 mt-0.5">
+                                                {t.counterpartyRaw && !showContractorInTitle && (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                                                        <span className="font-semibold text-slate-700 truncate max-w-[200px]">
+                                                            {t.contractorName || t.counterpartyRaw}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                <span className="font-medium px-2 py-0.5 rounded-md bg-slate-100 whitespace-nowrap order-last sm:order-none">
+                                                    {new Date(t.date).toLocaleDateString('pl-PL')}
+                                                </span>
+                                                {t.documentNumber && (
+                                                    <span className="font-mono text-[11px] text-slate-400 font-medium truncate max-w-[120px] sm:max-w-none">
+                                                        ID: {t.documentNumber}
+                                                    </span>
+                                                )}
+                                                <span className="hidden sm:inline text-slate-300">•</span>
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className="shrink-0">Projekt:</span>
+                                                    {t.projectId ? (
+                                                        <span className="font-medium text-slate-700 truncate">{projectsMap[t.projectId] || t.projectId}</span>
                                                     ) : (
-                                                        <select 
-                                                            className="text-xs bg-white border border-slate-200 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer hover:border-blue-300 transition-colors"
-                                                            onChange={(e) => {
-                                                                e.stopPropagation();
-                                                                handleAssign(t.id, e.target.value, t.isInvoice);
-                                                            }}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                            defaultValue=""
-                                                        >
-                                                            <option value="" disabled>Przypisz Projekt...</option>
-                                                            {allProjects.map(p => (
-                                                                <option key={p.id} value={p.id}>{p.name}</option>
-                                                            ))}
-                                                        </select>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="italic text-slate-400 shrink-0">Brak przypisania</span>
+                                                            <div className="pointer-events-auto">
+                                                                {assigningId === t.id ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                                                                ) : (
+                                                                    <select
+                                                                        className="text-xs bg-white border border-slate-200 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer hover:border-blue-300 transition-colors"
+                                                                        onChange={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleAssign(t.id, e.target.value, t.isInvoice);
+                                                                        }}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        defaultValue=""
+                                                                    >
+                                                                        <option value="" disabled>Przypisz Projekt...</option>
+                                                                        {allProjects.map(p => (
+                                                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-6 mt-4 lg:mt-0 ml-14 lg:ml-0 pointer-events-none">
-                            <CurrencyDisplay 
-                                gross={signedGross.toNumber()}
-                                net={signedNet.toNumber()}
-                                isIncome={isIncome}
-                                className={`text-xl font-bold whitespace-nowrap ${grossColor}`}
-                            />
-                            <div className="pointer-events-auto flex items-center gap-1">
-                                {t.isInvoice && t.statusBadge !== "OPŁACONA" && (
-                                    <button
-                                        onClick={(e) => handleQuickPay(e, t.id)}
-                                        disabled={payingId === t.id}
-                                        className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all hover:scale-110 disabled:opacity-50"
-                                        title="Oznacz jako opłacone"
-                                    >
-                                        {payingId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                                    </button>
-                                )}
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setDeleteConfirmItem(t);
-                                    }}
-                                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-lg transition-all hover:scale-110"
-                                    title="Usuń dokument"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
+                                    <div className="flex items-center gap-6 mt-4 lg:mt-0 ml-14 lg:ml-0 pointer-events-none">
+                                        <CurrencyDisplay
+                                            gross={signedGross.toNumber()}
+                                            net={signedNet.toNumber()}
+                                            isIncome={isIncome}
+                                            className={`text-xl font-bold whitespace-nowrap ${grossColor}`}
+                                        />
+                                        <div className="pointer-events-auto flex items-center gap-1">
+                                            {t.isInvoice && t.statusBadge !== "OPŁACONA" && (
+                                                <button
+                                                    onClick={(e) => handleQuickPay(e, t.id)}
+                                                    disabled={payingId === t.id}
+                                                    className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all hover:scale-110 disabled:opacity-50"
+                                                    title="Oznacz jako opłacone"
+                                                >
+                                                    {payingId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setDeleteConfirmItem(t);
+                                                }}
+                                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-lg transition-all hover:scale-110"
+                                                title="Usuń dokument"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </>
                             );
                         })()}
@@ -288,10 +288,10 @@ export function TransactionHistory({
                     <div className="space-y-1">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Suma Przychodów (INCOME)</p>
                         <div className="flex items-baseline gap-2">
-                            <CurrencyDisplay 
-                                gross={initialTransactions.reduce((acc, t) => (t.type === 'INCOME' || t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? acc + t.amount : acc, 0)} 
-                                isIncome={true} 
-                                className="text-xl font-black text-green-400" 
+                            <CurrencyDisplay
+                                gross={initialTransactions.reduce((acc, t) => (t.type === 'INCOME' || t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? acc + t.amount : acc, 0)}
+                                isIncome={true}
+                                className="text-xl font-black text-green-400"
                             />
                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
                                 Netto: {initialTransactions.reduce((acc, t) => (t.type === 'INCOME' || t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? acc + (t.amountNet || 0) : acc, 0).toFixed(2)}
@@ -301,10 +301,10 @@ export function TransactionHistory({
                     <div className="space-y-1">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Suma Kosztów (EXPENSE)</p>
                         <div className="flex items-baseline gap-2">
-                            <CurrencyDisplay 
-                                gross={initialTransactions.reduce((acc, t) => (t.type === 'EXPENSE' || t.type === 'KOSZT') ? acc + t.amount : acc, 0)} 
-                                isIncome={false} 
-                                className="text-xl font-black text-rose-400" 
+                            <CurrencyDisplay
+                                gross={initialTransactions.reduce((acc, t) => (t.type === 'EXPENSE' || t.type === 'KOSZT') ? acc + t.amount : acc, 0)}
+                                isIncome={false}
+                                className="text-xl font-black text-rose-400"
                             />
                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
                                 Netto: {initialTransactions.reduce((acc, t) => (t.type === 'EXPENSE' || t.type === 'KOSZT') ? acc + (t.amountNet || 0) : acc, 0).toFixed(2)}
@@ -316,14 +316,13 @@ export function TransactionHistory({
                 <div className="bg-slate-800/50 p-4 px-6 rounded-2xl border border-white/5 flex flex-col items-center sm:items-end w-full md:w-auto">
                     <p className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.3em] mb-1">Czysta Gotówka</p>
                     <div className="flex items-baseline gap-3">
-                        <CurrencyDisplay 
-                            gross={initialTransactions.reduce((acc, t) => (t.type === 'INCOME' || t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? acc + t.amount : acc - t.amount, 0)} 
+                        <CurrencyDisplay
+                            gross={initialTransactions.reduce((acc, t) => (t.type === 'INCOME' || t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? acc + t.amount : acc - t.amount, 0)}
                             isIncome={initialTransactions.reduce((acc, t) => (t.type === 'INCOME' || t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? acc + t.amount : acc - t.amount, 0) >= 0}
-                            className={`text-3xl font-black tracking-tighter ${
-                                initialTransactions.reduce((acc, t) => (t.type === 'INCOME' || t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? acc + t.amount : acc - t.amount, 0) >= 0 
-                                ? 'text-white' 
-                                : 'text-rose-400'
-                            }`} 
+                            className={`text-3xl font-black tracking-tighter ${initialTransactions.reduce((acc, t) => (t.type === 'INCOME' || t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? acc + t.amount : acc - t.amount, 0) >= 0
+                                    ? 'text-white'
+                                    : 'text-rose-400'
+                                }`}
                         />
                     </div>
                     <p className="text-[11px] text-slate-400 font-bold mt-1">
@@ -346,12 +345,12 @@ export function TransactionHistory({
                             Czy na pewno chcesz usunąć dokument <span className="text-rose-600 font-bold">{deleteConfirmItem?.title}</span>?
                         </DialogDescription>
                     </DialogHeader>
-                    
+
                     <div className="py-4 bg-rose-50 p-4 rounded-xl border border-rose-100 text-sm text-rose-800 leading-relaxed">
                         <p className="font-bold flex items-center gap-2 mb-1">
                             <Info className="w-4 h-4" /> OSTRZEŻENIE:
                         </p>
-                        Tej operacji nie można cofnąć, a statystyki finansowe zostaną natychmiast zaktualizowane. 
+                        Tej operacji nie można cofnąć, a statystyki finansowe zostaną natychmiast zaktualizowane.
                         Wszystkie powiązane zapisy księgowe zostaną usunięte z bazy danych.
                     </div>
 
@@ -359,9 +358,9 @@ export function TransactionHistory({
                         <Button variant="outline" onClick={() => setDeleteConfirmItem(null)} className="flex-1">
                             Anuluj
                         </Button>
-                        <Button 
-                            variant="destructive" 
-                            onClick={handleDelete} 
+                        <Button
+                            variant="destructive"
+                            onClick={handleDelete}
                             disabled={isDeleting}
                             className="flex-1 font-bold shadow-lg shadow-rose-200"
                         >
@@ -375,7 +374,7 @@ export function TransactionHistory({
             <Dialog open={!!viewingItem} onOpenChange={(open) => !open && setViewingItem(null)}>
                 <DialogContent className="sm:max-w-[550px] overflow-hidden p-0 rounded-2xl border-none shadow-2xl">
                     <div className={`h-2 ${viewingItem && (viewingItem.type === 'INCOME' || viewingItem.type === 'PRZYCHÓD' || viewingItem.type === 'SPRZEDAŻ' || viewingItem.type === 'REVENUE') ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                    
+
                     <div className="p-6 pt-8 space-y-6">
                         <div className="flex justify-between items-start">
                             <div className="space-y-1">
@@ -383,14 +382,14 @@ export function TransactionHistory({
                                     {viewingItem?.statusBadge}
                                 </Badge>
                                 <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-tight uppercase">
-                                    {(viewingItem?.isInvoice ? ( (viewingItem.type === 'INCOME' || viewingItem.type === 'PRZYCHÓD' || viewingItem.type === 'SPRZEDAŻ' || viewingItem.type === 'REVENUE') ? 'Faktura Sprzedaży' : 'Faktura Zakupu') : (viewingItem?.title))}
+                                    {(viewingItem?.isInvoice ? ((viewingItem.type === 'INCOME' || viewingItem.type === 'PRZYCHÓD' || viewingItem.type === 'SPRZEDAŻ' || viewingItem.type === 'REVENUE') ? 'Faktura Sprzedaży' : 'Faktura Zakupu') : (viewingItem?.title))}
                                 </h3>
                                 <p className="text-slate-500 font-mono text-xs">
                                     ID: {viewingItem?.id}
                                 </p>
                             </div>
                             <div className="text-right">
-                                <CurrencyDisplay 
+                                <CurrencyDisplay
                                     gross={(() => {
                                         const m = mapFinancialValues(viewingItem?.amountNet || 0, (viewingItem?.amount || 0) - (viewingItem?.amountNet || 0), viewingItem?.type as FinancialType);
                                         return m.signedGross.toNumber();
@@ -462,27 +461,27 @@ export function TransactionHistory({
                             </div>
                         )}
 
-                {viewingItem?.isInvoice && (
-                    <div className="pt-4 border-t border-slate-100">
-                        <div className="flex items-center gap-2 mb-3">
-                            <Label className="text-[10px] uppercase font-bold text-slate-400">
-                                Kontrola Płatności (Bank Authority)
-                            </Label>
-                            <HelpLink helpId="invoice-status" tooltip="Status faktury i płatności (Weryfikacja Bankowa)" size="xs" />
-                        </div>
-                        <InvoicePaymentToggle 
-                            invoiceId={viewingItem.id}
-                            initialPaymentStatus={viewingItem.statusBadge === 'OPŁACONA' ? 'PAID' : 'UNPAID'}
-                            initialReconciliationStatus={viewingItem.reconciliationStatus || 'PENDING'}
-                            initialPaymentMethod={viewingItem.paymentMethod || 'BANK_TRANSFER'}
-                            isPosPayment={
-                                // Vector 160: detect POS — issueDate === dueDate
-                                !!(viewingItem.issueDate && viewingItem.dueDate &&
-                                    viewingItem.issueDate.split('T')[0] === viewingItem.dueDate.split('T')[0])
-                            }
-                        />
-                    </div>
-                )}
+                        {viewingItem?.isInvoice && (
+                            <div className="pt-4 border-t border-slate-100">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Label className="text-[10px] uppercase font-bold text-slate-400">
+                                        Kontrola Płatności (Bank Authority)
+                                    </Label>
+                                    <HelpLink helpId="invoice-status" tooltip="Status faktury i płatności (Weryfikacja Bankowa)" size="xs" />
+                                </div>
+                                <InvoicePaymentToggle
+                                    invoiceId={viewingItem.id}
+                                    initialPaymentStatus={viewingItem.statusBadge === 'OPŁACONA' ? 'PAID' : 'UNPAID'}
+                                    initialReconciliationStatus={viewingItem.reconciliationStatus || 'PENDING'}
+                                    initialPaymentMethod={viewingItem.paymentMethod || 'BANK_TRANSFER'}
+                                    isPosPayment={
+                                        // Vector 160: detect POS — issueDate === dueDate
+                                        !!(viewingItem.issueDate && viewingItem.dueDate &&
+                                            viewingItem.issueDate.split('T')[0] === viewingItem.dueDate.split('T')[0])
+                                    }
+                                />
+                            </div>
+                        )}
                     </div>
 
                     <DialogFooter className="bg-slate-50 p-4 mt-0 border-t">

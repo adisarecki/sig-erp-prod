@@ -202,7 +202,9 @@ export const glossaryEntries: HelpEntry[] = [
         category: "concept",
         summary: "Statusy rozliczenia dokumentu i weryfikacji bankowej.",
         description:
-            "Informacja o tym, czy faktura została już rozliczona i czy płatność została potwierdzona na wyciągu bankowym.",
+            "Informacja o tym, czy faktura została już rozliczona i czy płatność została potwierdzona na wyciągu bankowym.\n\n" +
+            "Kodowanie Kolorami:\n" +
+            "W SIG ERP zielony kolor i znak plus (+) zawsze oznaczają przychód Twojej firmy. Czerwony i minus (-) to Twoje wydatki. Dzięki temu jednym rzutem oka na listę finansów wiesz, czy dany dzień był 'na plusie'.",
         technicalSource: "ledger",
         dependsOn: [],
         related: ["safe-to-spend", "bank-anchor"],

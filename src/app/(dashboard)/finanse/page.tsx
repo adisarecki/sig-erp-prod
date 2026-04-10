@@ -143,7 +143,7 @@ export default async function FinancePage({
                 }),
             // 2. Faktury (z ewentualnie wstrzykniętym statusem płatności)
             ...rawInvoices.map(inv => {
-                const isIncome = inv.type === 'SPRZEDAŻ'
+                const isIncome = inv.type === 'INCOME'
                 const dueDate = new Date(inv.dueDate)
                 const linkedTx = txByInvoiceId.get(inv.id)
                 const contractor = contractorsMap.find((c: Contractor) => c.id === inv.contractorId)
