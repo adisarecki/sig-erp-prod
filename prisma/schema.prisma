@@ -674,3 +674,16 @@ model IdentityConflictRecord {
   @@index([tenantId])
   @@index([iban])
 }
+
+// Vector 150: Knowledge Hub — Feedback System
+model HelpFeedback {
+  id         String   @id @default(uuid())
+  tenantId   String?
+  route      String
+  helpId     String?
+  message    String   @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([createdAt])
+}

@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma"
 import { KSeFSyncButton } from "@/components/finance/KSeFSyncButton"
 import { AlertCircle, ArrowDownRight, ArrowUpRight, CalendarDays, Wallet, BadgeDollarSign, TrendingUp, TrendingDown, Lock, History, Landmark, CheckCircle2 } from 'lucide-react'
 import { TooltipHelp } from '@/components/ui/TooltipHelp'
+import { HelpLink } from '@/components/ui/HelpLink'
 import { MoneyPieChart } from '@/components/dashboard/MoneyPieChart'
 import { QuickActionsBar } from '@/components/finance/QuickActionsBar'
 import { scanForLeaks } from '@/lib/finance/leakage-detection'
@@ -466,7 +467,10 @@ export default async function DashboardPage({
 
           <div className="flex gap-6 mt-6 border-t border-slate-700/50 pt-6">
             <div>
-              <p className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-tighter italic">Czysta Gotówka (Safe to Spend)</p>
+              <div className="flex items-center gap-1.5 mb-1">
+                <p className="text-sm text-slate-400 font-medium uppercase tracking-tighter italic">Czysta Gotówka (Safe to Spend)</p>
+                <HelpLink helpId="safe-to-spend" tooltip="Dowiedz się jak liczona jest Twoja gotówka operacyjna" size="xs" />
+              </div>
               <p className={`font-bold text-xl ${getFinancialColor(cleanCash)}`}>{formattedCleanCash}</p>
             </div>
             <div>
@@ -474,9 +478,12 @@ export default async function DashboardPage({
               <p className={`font-bold text-xl ${getFinancialColor(globalBilans)}`}>{formattedNetCash}</p>
             </div>
             <div>
-              <p className={`text-sm font-medium mb-1 uppercase tracking-tighter ${vatStatusColor}`}>
-                {isVatOverpaid ? 'Nadpłata VAT' : 'Dług VAT'}
-              </p>
+              <div className="flex items-center gap-1.5 mb-1">
+                <p className={`text-sm font-medium uppercase tracking-tighter ${vatStatusColor}`}>
+                  {isVatOverpaid ? 'Nadpłata VAT' : 'Dług VAT'}
+                </p>
+                <HelpLink helpId="vat-debt" tooltip="Zasady kompensaty VAT w systemie" size="xs" />
+              </div>
               <p className={`font-bold text-xl ${vatStatusColor}`}>
                 {isVatOverpaid ? '+' : '-'}{formattedNetVat}
               </p>
@@ -494,7 +501,10 @@ export default async function DashboardPage({
               <p className="font-bold text-[18px] mt-0.5 text-rose-400">-{formattedPayables}</p>
             </div>
             <div>
-              <p className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-tighter">Rezerwa CIT/PPE</p>
+              <div className="flex items-center gap-1.5 mb-1">
+                <p className="text-sm text-slate-400 font-medium uppercase tracking-tighter">Rezerwa CIT/PPE</p>
+                <HelpLink helpId="cit-reserve" tooltip="Dlaczego blokujemy 9% Twojego zysku?" size="xs" />
+              </div>
               <p className="font-bold text-xl text-orange-400">-{formattedCitReserve}</p>
             </div>
           </div>
@@ -510,7 +520,7 @@ export default async function DashboardPage({
             </div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Marża Projektowa (Netto)</h3>
-              <TooltipHelp content="Całkowity zysk wygenerowany na projektach (Przychody minus Koszty Projektów). Nie uwzględnia jeszcze kosztów stałych firmy." />
+              <HelpLink helpId="project-margin" tooltip="Zasady liczenia marży netto na kontraktach" size="xs" />
             </div>
           </div>
           <p className="text-3xl font-black mt-4 text-indigo-700">{formattedProjectMargin}</p>
@@ -538,7 +548,7 @@ export default async function DashboardPage({
             </div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Zysk po opodatkowaniu (Real Profit)</h3>
-              <TooltipHelp content="Twój ostateczny wynik firmy. Marża z projektów pomniejszona o koszty ogólne oraz rezerwę na podatek dochodowy (CIT)." />
+              <HelpLink helpId="real-profit" tooltip="Definicja zysku realnego po odjęciu CIT i kosztów ogólnych" size="xs" />
             </div>
           </div>
           <p className="text-3xl font-black mt-4 text-emerald-700">{formattedRealProfit}</p>

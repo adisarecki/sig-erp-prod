@@ -1,6 +1,7 @@
 "use client"
 
 import { Trash2, ArrowUpRight, ArrowDownRight, Link as LinkIcon, Loader2, X, AlertTriangle, FileText, Calendar, Building2, Briefcase, Info, Sparkles, CheckCircle } from "lucide-react"
+import { HelpLink } from "@/components/ui/HelpLink"
 import { assignTransactionToProject, deleteTransaction } from "../../app/actions/transactions"
 import { assignInvoiceToProject, deleteInvoice, markInvoiceAsPaid } from "../../app/actions/invoices"
 import { useState } from "react"
@@ -454,9 +455,12 @@ export function TransactionHistory({
 
                 {viewingItem?.isInvoice && (
                     <div className="pt-4 border-t border-slate-100">
-                        <Label className="text-[10px] uppercase font-bold text-slate-400 mb-3 block">
-                            Kontrola Płatności (Bank Authority)
-                        </Label>
+                        <div className="flex items-center gap-2 mb-3">
+                            <Label className="text-[10px] uppercase font-bold text-slate-400">
+                                Kontrola Płatności (Bank Authority)
+                            </Label>
+                            <HelpLink helpId="invoice-status" tooltip="Jak działają statusy płatności i weryfikacja bankowa?" size="xs" />
+                        </div>
                         <InvoicePaymentToggle 
                             invoiceId={viewingItem.id}
                             initialPaymentStatus={viewingItem.statusBadge === 'OPŁACONA' ? 'PAID' : 'UNPAID'}
