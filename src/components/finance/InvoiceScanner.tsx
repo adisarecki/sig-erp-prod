@@ -66,8 +66,8 @@ export function InvoiceScanner() {
         }
         if (open && contractors.length === 0 && !loadingContractors) {
             setLoadingContractors(true)
-            getContractors().then((res) => {
-                setContractors(res.map((c: { id: string, name: string, nip: string | null }) => ({ id: c.id, name: c.name, nip: c.nip })))
+            getContractors().then((res: any[]) => {
+                setContractors(res.map((c: any) => ({ id: c.id, name: c.name, nip: c.nip ?? null })))
                 setLoadingContractors(false)
             }).catch(() => setLoadingContractors(false))
         }

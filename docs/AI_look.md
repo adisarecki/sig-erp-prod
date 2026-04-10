@@ -4,13 +4,27 @@ Ten plik jest „DNA” technologicznego systemu SIG ERP. Jest przeznaczony wył
 
 ---
 
+## 🏛️ 0. Główne Prawa Systemu (Laws of SIG ERP)
+
+AI operujące na tym kodzie MUSI przestrzegać tych zasad bezwzględnie:
+1.  **PG-Master for Finance**: Wszystkie sumy, wskaźniki KPI i weryfikacje sald POCHODZĄ Z POSTGRESQL (LedgerEntry). Firestore to tylko mirror.
+2.  **Financial Signs Integrity**: 
+    *   Zakupy (COST): Brutto (-), VAT (+), Netto (-).
+    *   Sprzedaż (INCOME): Brutto (+), VAT (-), Netto (+).
+3.  **Double-Shield Persistence**: Zapis faktury ZAWSZE wymaga sprawdzenia unikalności przez `ksefId` LUB parę `(contractorId + invoiceNumber)`.
+4.  **Mirror-on-Success**: Synchronizacja do Firestore odbywa się PO udanym zapisie do PostgreSQL (PG-First).
+5.  **Strict Serializability**: Akcje serwerowe zwracają ujednolicony interfejs `{ success: boolean, results?: T, error?: string }`.
+
+---
+
 ## 🏗️ 1. Architektura i Stack Techniczny
 
 - **Framework**: Next.js 15.2.8 (App Router), React 19, Tailwind 4.
 - **Bazy Danych (Data Authority Model - Vector 109)**: 
     - **PostgreSQL (Prisma - LedgerEntry)**: ABSOLUTNE Jedyne Źródło Prawdy (SSoT) dla wszystkich wskaźników finansowych. Firestore jest dla finansów WYŁĄCZNIE lustrem odczytu (`LEDGER_DERIVED`).
-    - **Firestore (Operational Primary)**: Nadrzędne źródło dla danych technicznych/operacyjnych środków trwałych (Assets) oraz cache dla szybkich operacji UI.
     - **PostgreSQL (Prisma - Master Entities)**: SSoT dla kontrahentów, projektów i ramy strukturalnej systemu.
+    - **PostgreSQL (ContractorBankAccount)**: Relacyjny model kont bankowych (Vector 140.2). Obsługuje status `isVerified` (MF White List) oraz `source` (GUS, KSEF, MANUAL).
+    - **Firestore (Operational Primary)**: Nadrzędne źródło dla danych technicznych/operacyjnych środków trwałych (Assets) oraz cache dla szybkich operacji UI.
 - **AI**: Gemini 3.0 Flash (OCR & Analiza) via `@google/generative-ai`.
 - **Finanse**: `decimal.js` wykorzystywany w `financeMapper.ts` oraz w Central Ledgerze.
 
@@ -193,6 +207,8 @@ Obliczony dla MAKSYMALNEGO bezpieczeństwa: `Saldo Bankowe - Dług VAT - Rezerwa
 | **116** | Contractor Intelligence | HARDENED Identity Resolution Layer (NIP Checksum & Conflict Protocol). |
 | **117** | Retention Engine & Liquidity Alerts | Dynamic retention-aware payment matching + VAT/Retention monitoring (Vector 117). |
 | **120** | Bank Reconciliation Hub | Transition from Silent Imports to manual Triage Hub with Staging Zone. |
+| **140.2** | VAT Shield 2.0 | Multi-ingestion, bank account self-learning and relational multi-account support. |
+| **150** | Knowledge Hub | Centralized business logic documentation & glossary integrated into UI tooltips. |
 
 ---
 
@@ -329,4 +345,15 @@ From now on, no architectural update is considered complete without:
 - **Integrity Seal**: Running `verify-stabilization.ts` script to ensure Vector 110 compliance.
 
 ---
-*Plik utrzymywany przez Antigravity dla kolejnych sesji AI.*
+
+## 🏛️ 9. Słownik i Hub Wiedzy (Vector 150)
+
+System SIG ERP posługuje się precyzyjną terminologią biznesową, aby AI nie wprowadzało "dev-speak" do interfejsu klienta:
+- **Czysta Gotówka (Safe-to-Spend)**: Realnie dostępne środki po odjęciu wszystkich twardych zobowiązań i rezerw.
+- **Skarbiec (Retention Vault)**: Suma zamrożonych kaucji gwarancyjnych, które fizycznie są na koncie, ale nie należą do płynności operacyjnej.
+- **Saldo VAT (VAT Shield/Debt)**: Bilans tarczy (zakupy) i długu (sprzedaż) względem Urzędu Skarbowego.
+- **Tarcza Anty-Duplikatowa**: Systemowa blokada zapisu faktury o tym samym NIP + Numerze (Vector 098.3).
+- **Automatyczna Nauka**: Proces dodawania kont bankowych z KSeF/Banku jako 'Niezweryfikowane' do późniejszej akceptacji.
+
+---
+*Plik utrzymywany przez Antigravity dla kolejnych sesji AI. Ostatnia aktualizacja: 2026-04-10 (Vector 150 Alignment).*

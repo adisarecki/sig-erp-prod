@@ -408,12 +408,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                                     const accNum = typeof accounts[0] === 'string' ? accounts[0] : accounts[0].accountNumber
                                                     setBankAccountNumber(accNum)
                                                 }
-                                            } else {
-                                                setSelectedContractorId("")
-                                                setSelectedContractorAccounts([])
                                             }
-                                        }}
-                                            setSelectedContractorAccounts([])
                                         }}
                                         onManualEntry={(name, nip, address, accounts) => {
                                             setIsNewContractor(true)

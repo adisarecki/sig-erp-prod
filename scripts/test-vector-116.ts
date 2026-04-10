@@ -38,7 +38,11 @@ async function main() {
         console.log("2. Testing IBAN Linking...");
         await ContractorResolutionService.linkIbanToContractor(tenantId, contractor.id, testIban, "MANUAL", prisma);
         
-        const linked = await prisma.contractorBankAccount.findUnique({ where: { iban: testIban } });
+        const linked = await prisma.contractorBankAccount.findUnique({ 
+            where: { 
+                tenantId_iban: { tenantId, iban: testIban } 
+            } 
+        });
         if (linked && linked.contractorId === contractor.id) {
             console.log("   ✅ IBAN linked successfully to contractor.");
         } else {

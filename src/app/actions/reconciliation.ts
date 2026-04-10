@@ -273,11 +273,18 @@ export async function getSuggestedReconciliations() {
     })
 }
 
-/**
- * Analyzes a batch of newly parsed bank transactions BEFORE import.
- * Detects existing contractors (by NIP, Name, IBAN) and matching invoices.
- */
-export async function analyzeImportMatches(transactions: any[]) {
+interface BankTransactionImport {
+    id: string;
+    amount: number | string;
+    iban?: string | null;
+    contractor?: {
+        nip?: string | null;
+        name?: string | null;
+    } | null;
+    description?: string | null;
+}
+
+export async function analyzeImportMatches(transactions: BankTransactionImport[]) {
     const tenantId = await getCurrentTenantId()
 
     // 1. Fetch current context — include relational bank accounts for precise IBAN matching
@@ -314,7 +321,7 @@ export async function analyzeImportMatches(transactions: any[]) {
 
         // 1. By NIP (Highest trust — legal tax identifier)
         if (tx.contractor?.nip) {
-            matchedContractor = contractors.find(c => c.nip === tx.contractor.nip) || null
+            matchedContractor = contractors.find(c => c.nip === tx.contractor?.nip) || null
         }
 
         // 2. By IBAN — search relational accounts for accurate match
@@ -331,7 +338,7 @@ export async function analyzeImportMatches(transactions: any[]) {
             // Fallback: deprecated bankAccounts string array
             if (!matchedContractor) {
                 const fallback = contractors.find(c =>
-                    (c.bankAccounts as string[] || []).some(a => a.replace(/\s/g, "") === normalizedTxIban)
+                    (c.bankAccounts as string[] || []).some((a: string) => a.replace(/\s/g, "") === normalizedTxIban)
                 );
                 if (fallback) matchedContractor = fallback;
             }
@@ -349,7 +356,7 @@ export async function analyzeImportMatches(transactions: any[]) {
         // --- B. Invoice Match (Reconciliation Engine) ---
         let matchedInvoice: any = null;
         const suggestions = ReconciliationEngine.suggestMatches(
-            { description: tx.description, amount: new Decimal(tx.amount) },
+            { description: tx.description || "", amount: new Decimal(tx.amount) },
             openInvoices
         )
 

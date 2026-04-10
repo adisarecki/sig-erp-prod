@@ -57,7 +57,7 @@ async function test() {
     // 3. Save to BankInbox
     console.log("💾 Saving to BankInbox...");
     for (const tx of transactions) {
-        await (prisma as any).bankInbox.create({
+        await (prisma as any).bankStaging.create({
             data: {
                 tenantId,
                 date: tx.date,
@@ -65,14 +65,14 @@ async function test() {
                 rawType: tx.rawType,
                 counterpartyName: tx.counterpartyName,
                 title: tx.title,
-                status: 'NEW'
+                status: 'PENDING'
             }
         });
     }
 
     // 4. Run Reconciliation Engine
     console.log("⚙️ Running Reconciliation Engine...");
-    await ReconciliationEngine.processBankInbox(tenantId);
+    await ReconciliationEngine.processBankStaging(tenantId);
 
     // 5. Verify results
     const updatedInvoice = await prisma.invoice.findUnique({

@@ -37,7 +37,7 @@ async function verifyStabilization() {
     });
 
     // @ts-ignore
-    await prisma.bankInbox.deleteMany({
+    await prisma.bankStaging.deleteMany({
         where: { title: { in: ["Zapłata za FV/MATCH/123", "Składka ZUS kwiwieć", "Hot-dog"] } }
     });
     console.log("🛡️ Testing Tier 1 Shield (KSeF Id)...");
@@ -152,7 +152,7 @@ async function verifyStabilization() {
     const bankTransactions = PkoBpCsvAdapter.parse(csvContent);
     for (const tx of bankTransactions) {
         // @ts-ignore - Prisma might still show lints in IDE but it will work
-        await prisma.bankInbox.create({
+        await prisma.bankStaging.create({
             data: {
                 tenantId,
                 date: tx.date,
@@ -160,12 +160,12 @@ async function verifyStabilization() {
                 rawType: tx.rawType,
                 counterpartyName: tx.counterpartyName,
                 title: tx.title,
-                status: 'NEW'
+                status: 'PENDING'
             }
         });
     }
 
-    await ReconciliationEngine.processBankInbox(tenantId);
+    await ReconciliationEngine.processBankStaging(tenantId);
 
     const updatedInvoice = await prisma.invoice.findUnique({ where: { id: matchInvoice.id } });
     console.log(`📊 Auto-Match Result: Status = ${updatedInvoice?.status} (Expected: PAID)`);

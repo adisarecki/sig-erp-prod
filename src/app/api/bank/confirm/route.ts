@@ -16,7 +16,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: false, error: "Missing inboxId or invoiceId." }, { status: 400 });
         }
 
-        const inboxItem = await prisma.bankInbox.findUnique({
+        const inboxItem = await prisma.bankStaging.findUnique({
             where: { id: inboxId, tenantId }
         });
 
