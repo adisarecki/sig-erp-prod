@@ -85,6 +85,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 132 | Maintenance | NEW | Ledger Healer Protocol. | Server action `purgeOrphanLedgerEntries` implemented to auto-identify and purge ledger ghosts. |
 | Vector 140 | VAT / Compliance | FIXED | VAT Shield Engine (Wykaz MF). | Integracja z publicznym API Ministerstwa Finansów. `checkVatStatus(nip)` → `statusVat` + `accountNumbers[]`. `VatStatusBadge` w CRM i modalu. `VatCheckButton` on-demand w liście kontrahentów. Weryfikacja rachunków bankowych przez `verifyBankAccount(nip, iban)`. Brak klucza API, limit 100 zapytań search/dzień. |
 | Vector 140.1 | VAT / Compliance | FIXED | Bank Account Safeguard. | Rozszerzenie weryfikacji o automatyczne pobieranie kont z MF. Autouzupełnianie w `AddContractorModal`, `Select` dla wielu kont. Wizualna "Tarcza Ochronna" (`BankStatusBadge`) w `RegisterCostModal`. Persystencja `bankAccountNumber` w modelu `Invoice`. |
+| Vector 140.2 | VAT / Compliance | FIXED | Bank Account Multi-Ingestion & Matching. | Automatyczna nauka numerów kont z KSeF i wyciągów. Synchronizacja relacyjna (table) + denormalizacja (array). Priorytetyzacja kont MF-API (+0.2 score) w silniku reconciliation. |
 | Vector 150 | Help / UX | FIXED | Localization of Knowledge Hub. | Refaktoryzacja bazy wiedzy na język biznesowy. Usunięcie "Dev-Speak". Standaryzacja terminologii: "Czysta Gotówka", "Skarbiec", "Saldo VAT". |
 
 ---
@@ -101,7 +102,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 - **Vector 100**: Financial Engine Stability (toUpperCase Guard).
 - **Vector 097**: Retention Vault Audit Implementation (Automatic Invoice Linkage & Popover).
 
-### 2026-04-10 (Vector 140.1)
+### 2026-04-10 (Vector 140.1 & 140.2)
 - **Vector 140.1**: **Bank Account Safeguard (Operationalization)**:
     - Wdrożono dynamiczny wybór konta bankowego w `RegisterCostModal` i `AddContractorModal`.
     - Zsynchronizowano typy `Contractor` i `bankAccounts` pomiędzy API a UI.
@@ -109,4 +110,10 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
     - Zaimplementowano wizualne alerty "Shield Alert" (🔴) dla niezweryfikowanych rachunków manualnych.
     - Dodano badże weryfikacji MF w modalu kosztów.
 
-*Ostatnia aktywność techniczna: 2026-04-10. Build Verified (TSC: OK). Vector 140.1 operationalized.*
+- **Vector 140.2**: **Multi-Ingestion & Smart Matching**:
+    - Wdrożono automatyczną ekstrakcję IBAN z XML KSeF i zapis jako `UNVERIFIED` (⚠️).
+    - Rozbudowano silnik `analyzeImportMatches` o priorytetyzację kont MF-API (✅).
+    - Zsynchronizowano bazy kont: relacyjna `ContractorBankAccount` + denormalizowana tablica `bankAccounts`.
+    - Dodano dokumentację "Automatyczna nauka numerów kont" do Knowledge Hub (Vector 150).
+
+*Ostatnia aktywność techniczna: 2026-04-10. Build Verified (TSC: OK). Vector 140.2 operationalized.*

@@ -203,7 +203,7 @@ export async function reverseReconciliation(invoicePaymentId: string) {
                 data: { status: newStatus }
             })
         }
-        
+
         return { invoiceId: original.invoiceId, newStatus };
     })
 
@@ -307,16 +307,16 @@ export async function analyzeImportMatches(transactions: any[]) {
     return transactions.map(tx => {
         const amount = new Decimal(tx.amount || 0).abs()
         const isIncome = new Decimal(tx.amount || 0).gt(0)
-        
+
         // --- A. Contractor Match ---
         let matchedContractor: (typeof contractors[0]) | null = null;
         let ibanMatchVerified = false;
-        
+
         // 1. By NIP (Highest trust — legal tax identifier)
         if (tx.contractor?.nip) {
             matchedContractor = contractors.find(c => c.nip === tx.contractor.nip) || null
         }
-        
+
         // 2. By IBAN — search relational accounts for accurate match
         if (!matchedContractor && tx.iban) {
             const normalizedTxIban = String(tx.iban).replace(/\s/g, "");
@@ -390,7 +390,7 @@ export async function analyzeImportMatches(transactions: any[]) {
 export async function searchUnpaidInvoices(query: string) {
     const tenantId = await getCurrentTenantId()
     const cleanQuery = query.toLowerCase()
-    
+
     return prisma.invoice.findMany({
         where: {
             tenantId,
