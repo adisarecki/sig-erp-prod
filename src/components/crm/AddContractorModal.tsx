@@ -12,8 +12,10 @@ import {
 } from "@/components/ui/dialog"
 import { addContractor } from "@/app/actions/crm"
 import { fetchGusData } from "@/app/actions/gus"
-import { Loader2, Search } from "lucide-react"
+import { Loader2, Search, ShieldCheck, ShieldAlert } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { VatStatusBadge } from "@/components/ui/VatStatusBadge"
+import type { VatStatus } from "@/app/actions/vat"
 
 export function AddContractorModal() {
     const [open, setOpen] = useState(false)
@@ -21,6 +23,8 @@ export function AddContractorModal() {
     const [gusLoading, setGusLoading] = useState(false)
     const [successFlash, setSuccessFlash] = useState(false)
     const [lastFetchedNip, setLastFetchedNip] = useState<string | null>(null)
+    const [vatStatus, setVatStatus] = useState<VatStatus | null>(null)
+    const [accountNumbers, setAccountNumbers] = useState<string[]>([])
 
     // Form State (Controlled)
     const [formDataObj, setFormDataObj] = useState({
@@ -53,6 +57,8 @@ export function AddContractorModal() {
                     address: res.data.address
                 }))
                 setLastFetchedNip(nipToFetch)
+                setVatStatus(res.data.vatStatus ?? null)
+                setAccountNumbers(res.data.accountNumbers ?? [])
                 setSuccessFlash(true)
                 setTimeout(() => setSuccessFlash(false), 2000)
             }
@@ -77,6 +83,8 @@ export function AddContractorModal() {
                     address: ""
                 }))
                 setLastFetchedNip(null)
+                setVatStatus(null)
+                setAccountNumbers([])
                 return
             }
             
@@ -174,6 +182,23 @@ export function AddContractorModal() {
                             </button>
                         </div>
                     </div>
+
+                    {/* VAT Status Badge */}
+                    {vatStatus && (
+                        <div className="flex items-center gap-2 px-1">
+                            <VatStatusBadge status={vatStatus} size="md" />
+                            {accountNumbers.length > 0 && (
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                    {accountNumbers.length} konto{accountNumbers.length !== 1 ? "a" : ""} w Wykazie MF
+                                </span>
+                            )}
+                            {accountNumbers.length === 0 && vatStatus === "Czynny" && (
+                                <span className="text-[10px] text-amber-600 font-semibold flex items-center gap-1">
+                                    <ShieldAlert className="w-3 h-3" /> Brak kont w Wykazie MF
+                                </span>
+                            )}
+                        </div>
+                    )}
 
                     <div>
                         <label className="text-sm font-semibold text-slate-700 block mb-1">Nazwa firmy *</label>

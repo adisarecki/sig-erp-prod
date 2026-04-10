@@ -83,6 +83,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 130 | Finance / Logic | FIXED | Forecast Math (Gross-Retention). | Enforced `Gross - Retention` formula in Dashboard alerts and Forecast calculations (+11,300 PLN logic). |
 | Vector 131 | Finance / Engine | FIXED | Full Cascade Deletion Cleanup. | Redefined `deleteInvoice` to revert Bank Transactions to `UNPAIRED` and wipe all related Ledger entries (Zero Zombie Data). |
 | Vector 132 | Maintenance | NEW | Ledger Healer Protocol. | Server action `purgeOrphanLedgerEntries` implemented to auto-identify and purge ledger ghosts. |
+| Vector 140 | VAT / Compliance | NEW | VAT Shield Engine (Wykaz MF). | Integracja z publicznym API Ministerstwa Finansów. `checkVatStatus(nip)` → `statusVat` + `accountNumbers[]`. `VatStatusBadge` w CRM i modalu. `VatCheckButton` on-demand w liście kontrahentów. Weryfikacja rachunków bankowych przez `verifyBankAccount(nip, iban)`. Brak klucza API, limit 100 zapytań search/dzień. |
 
 ---
 
@@ -98,4 +99,4 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 - **Vector 100**: Financial Engine Stability (toUpperCase Guard).
 - **Vector 097**: Retention Vault Audit Implementation (Automatic Invoice Linkage & Popover).
 
-*Ostatnia aktywność techniczna: 2026-03-30. Build Verified (TSC: OK).*
+*Ostatnia aktywność techniczna: 2026-04-10. Build Verified (TSC: OK). Vector 140 (VAT Shield) deployed.*

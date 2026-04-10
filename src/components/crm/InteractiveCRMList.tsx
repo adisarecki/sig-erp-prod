@@ -6,6 +6,9 @@ import { FloatingActionBar } from "@/components/ui/FloatingActionBar"
 import { EditContractorModal } from "@/components/crm/EditContractorModal"
 import { deleteContractor, deleteSelectedContractors } from "@/app/actions/crm"
 import { MergeContractorsDialog } from "@/components/crm/MergeContractorsDialog"
+import { VatStatusBadge } from "@/components/ui/VatStatusBadge"
+import type { VatStatus } from "@/app/actions/vat"
+import { VatCheckButton } from "@/components/crm/VatCheckButton"
 
 interface Invoice {
     id: string;
@@ -141,6 +144,11 @@ export function InteractiveCRMList({ contractors }: InteractiveCRMListProps) {
                                                     <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black bg-rose-100 text-rose-700 border border-rose-300 uppercase tracking-widest animate-pulse shadow-sm">
                                                         ZALEGA: {new Intl.PluralRules('pl-PL').select(totalDebt) && new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(totalDebt)}
                                                     </span>
+                                                )}
+
+                                                {/* VAT SHIELD CHECK - Vector 140 */}
+                                                {contractor.nip && (
+                                                    <VatCheckButton nip={contractor.nip} />
                                                 )}
                                             </div>
                                             <p className="text-slate-500 text-sm mt-0.5">

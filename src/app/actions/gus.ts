@@ -1,5 +1,7 @@
 "use server"
 
+import { checkVatStatus, type VatStatus } from "@/app/actions/vat"
+
 // Environment Variables and Configuration
 const GUS_API_KEY = process.env.GUS_BIR_KEY || process.env.GUS_API_KEY || "abcde12345abcde12345"
 const GUS_URL = process.env.GUS_BIR_URL || "https://wyszukiwarkaregontest.stat.gov.pl/BIR/PUBLUGLUDSWPUB.svc"
@@ -176,15 +178,31 @@ export async function fetchGusData(nip: string) {
         const localPart = nrLok ? `/${nrLok}` : ""
         const fullAddress = `${streetPart} ${nrNier}${localPart}, ${kodPoczt} ${miasto}`.trim().replace(/^,\s*/, "")
 
+        // Vector 140: Chain VAT status check (non-blocking — failure won't block GUS result)
+        let vatStatus: VatStatus = "Nieznany"
+        let accountNumbers: string[] = []
+        try {
+            const vatResult = await checkVatStatus(normalizedNip)
+            if (vatResult.success) {
+                vatStatus = vatResult.statusVat
+                accountNumbers = vatResult.accountNumbers
+            }
+        } catch (vatErr) {
+            console.warn("[GUS_VAT_CHAIN] VAT check failed silently:", vatErr)
+        }
+
         return {
             success: true,
             data: {
-                name:    sanitize(nazwa),
-                nip:     normalizedNip,
-                regon:   sanitize(regon),
-                address: sanitize(fullAddress),
+                name:           sanitize(nazwa),
+                nip:            normalizedNip,
+                regon:          sanitize(regon),
+                address:        sanitize(fullAddress),
+                vatStatus,
+                accountNumbers,
             }
         }
+
 
     } catch (error: any) {
         console.error("[GUS_ACTION_ERROR]", error.message)
