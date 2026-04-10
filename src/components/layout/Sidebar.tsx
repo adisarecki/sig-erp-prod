@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, Building2, Briefcase, DollarSign, Settings, DownloadCloud, HelpCircle } from "lucide-react";
+import { LayoutDashboard, Building2, Briefcase, DollarSign, Settings, DownloadCloud, HelpCircle, HardDrive } from "lucide-react";
 
 export function Sidebar() {
     return (
@@ -23,6 +23,10 @@ export function Sidebar() {
                 <Link href="/finanse" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800 transition-colors">
                     <DollarSign className="w-5 h-5" />
                     <span>Finanse</span>
+                </Link>
+                <Link href="/fleet-and-tools" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800 transition-colors">
+                    <HardDrive className="w-5 h-5" />
+                    <span>Zasoby</span>
                 </Link>
                 <Link href="/finanse/ksef" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800 transition-colors text-indigo-300">
                     <DownloadCloud className="w-5 h-5" />

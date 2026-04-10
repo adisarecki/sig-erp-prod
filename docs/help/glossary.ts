@@ -270,7 +270,7 @@ export const glossaryEntries: HelpEntry[] = [
             "Dlaczego to ważne? Pojazdy to jeden z największych kosztów pośrednich. System pozwala sprawdzić, ile realnie kosztuje utrzymanie konkretnej jednostki (paliwo, naprawy, ubezpieczenia) w skali 30 dni.",
         technicalSource: "ledger",
         related: ["magazyn-narzedzi", "fleet-cost-allocation"],
-        uiTargets: ["Fleet & Tools → Flota i Pojazdy"],
+        uiTargets: ["Zasoby → Flota i Pojazdy"],
         vector: "Vector 170"
     },
 
@@ -287,7 +287,7 @@ export const glossaryEntries: HelpEntry[] = [
             "Dlaczego to ważne? Pozwala na szybką lokalizację sprzętu i przypisanie odpowiedzialności materialnej. Każdy zakup narzędzia może być od razu powiązany z wpisem w rejestrze, co ułatwia inwentaryzację.",
         technicalSource: "ledger",
         related: ["zarzadzanie-flota"],
-        uiTargets: ["Fleet & Tools → Zasoby i Narzędzia"],
+        uiTargets: ["Zasoby → Zasoby i Narzędzia"],
         vector: "Vector 170"
     },
 
@@ -304,7 +304,7 @@ export const glossaryEntries: HelpEntry[] = [
             "Ważne: Połączenie faktury za paliwo z samochodem NIE zmienia automatycznie marży projektu, na którym ten samochód pracuje. Zapobiega to \"fałszywej ekonomii\" przed wdrożeniem pełnego silnika alokacji motogodzin i kilometrówki.",
         technicalSource: "ledger",
         related: ["project-margin", "zarzadzanie-flota"],
-        uiTargets: ["Fleet & Tools → Header Info"],
+        uiTargets: ["Zasoby → Header Info"],
         vector: "Vector 170"
     }
 ]
