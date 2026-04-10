@@ -1,7 +1,5 @@
 "use server"
 
-import { XMLParser } from "fast-xml-parser"
-
 // Environment Variables and Configuration
 const GUS_API_KEY = process.env.GUS_BIR_KEY || process.env.GUS_API_KEY || "abcde12345abcde12345"
 const GUS_URL = process.env.GUS_BIR_URL || "https://wyszukiwarkaregontest.stat.gov.pl/BIR/PUBLUGLUDSWPUB.svc"
@@ -12,10 +10,30 @@ let sidExpiry: number = 0
 const CACHE_TTL_MS = 55 * 60 * 1000 // 55 minutes (just below 60 to be safe)
 
 /**
+ * Sanitizes a string for security (XSS/SQL-ish prevention).
+ */
+function sanitize(val: any): string {
+    if (typeof val !== "string") return String(val ?? "").trim()
+    return val.replace(/<[^>]*>?/gm, "").trim()
+}
+
+/**
+ * Extracts a value from raw XML/SOAP text using regex.
+ * MTOM-safe: bypasses multipart boundaries and namespace prefixes.
+ * Matches both <Tag>value</Tag> and <ns:Tag>value</ns:Tag> patterns.
+ */
+function extractXmlValue(raw: string, tagName: string): string | null {
+    // Match with optional namespace prefix, 's' flag for multiline/dotall
+    const match = raw.match(new RegExp(`<(?:[\\w]+:)?${tagName}[^>]*>([\\s\\S]*?)<\\/(?:[\\w]+:)?${tagName}>`, "i"))
+    return match ? match[1].trim() : null
+}
+
+/**
  * Authenticates with GUS BIR 1.1 and returns a session ID (sid).
  * Uses an in-memory cache for 55 minutes.
+ * MTOM-safe: uses regex bypass instead of XML parser.
  */
-async function getGusSession() {
+async function getGusSession(): Promise<string> {
     if (cachedSid && Date.now() < sidExpiry) {
         return cachedSid
     }
@@ -33,56 +51,44 @@ async function getGusSession() {
    </soap:Body>
 </soap:Envelope>`
 
-    try {
-        const res = await fetch(GUS_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/soap+xml; charset=utf-8" },
-            body: loginSoap
-        })
+    const res = await fetch(GUS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/soap+xml; charset=utf-8" },
+        body: loginSoap
+    })
 
-        // Fetch the raw text instead of parsing as XML immediately
-        const rawResponse = await res.text()
+    // MTOM-safe: fetch raw text instead of XML parsing
+    const rawResponse = await res.text()
 
-        // Regex to find the value between <ZalogujResult> tags
-        const sidMatch = rawResponse.match(/<ZalogujResult>(.*?)<\/ZalogujResult>/)
-        const sid = sidMatch ? sidMatch[1] : null
+    // REGEX FAIL-SAFE: bypass all multipart boundaries and SOAP namespaces
+    const sidMatch = rawResponse.match(/<ZalogujResult>(.*?)<\/ZalogujResult>/)
+    const sid = sidMatch ? sidMatch[1].trim() : null
 
-        if (!sid) {
-            console.error("[GUS_LOGIN_ERROR] Failed to extract SID from raw response:", rawResponse)
-            throw new Error("Nie udało się wyekstrahować SID z odpowiedzi GUS.")
-        }
-
-        // Success! Use this SID for subsequent DaneSzukajPodmioty calls
-        cachedSid = sid
-        sidExpiry = Date.now() + CACHE_TTL_MS
-        console.log("[GUS_BIR] New session established:", sid)
-        return sid
-    } catch (error) {
-        console.error("[GUS_BIR_AUTH_ERROR]", error)
-        throw error
+    // Validation: SID must be exactly 20 characters
+    if (!sid || sid.length !== 20) {
+        // Mask the raw response to avoid leaking API key in logs
+        const maskedResponse = rawResponse
+            .replace(GUS_API_KEY, "[API_KEY_MASKED]")
+            .substring(0, 500)
+        console.error("[GUS_PARSING_ERROR] SID not found or invalid. Response (masked):", maskedResponse)
+        throw new Error(`GUS_PARSING_ERROR: SID invalid (got "${sid ?? "null"}", expected 20 chars).`)
     }
-}
 
-/**
- * Sanitizes a string for security (XSS/SQL-ish prevention).
- * In React, XSS is naturally handled for text content, but we add extra hardening here.
- */
-function sanitize(val: any): string {
-    if (typeof val !== 'string') return ""
-    // Basic stripping of HTML tags and suspicious characters
-    return val
-        .replace(/<[^>]*>?/gm, '') // Strip HTML
-        .trim()
+    // Success — store in cache
+    cachedSid = sid
+    sidExpiry = Date.now() + CACHE_TTL_MS
+    console.log("[GUS_BIR] New session established. SID length:", sid.length)
+    return sid
 }
 
 /**
  * Fetches contractor data from GUS BIR 1.1 by NIP.
  * Vector 130: Zero-Entry Onboarding Integration.
+ * MTOM-safe: uses regex extraction for all SOAP response fields.
  */
 export async function fetchGusData(nip: string) {
-    // Validacja NIP (usuwanie myślników jeśli są)
     const normalizedNip = nip.replace(/[^0-9]/g, "")
-    
+
     if (normalizedNip.length !== 10) {
         return { success: false, error: "Numer NIP musi składać się z 10 cyfr." }
     }
@@ -107,78 +113,74 @@ export async function fetchGusData(nip: string) {
 
         const res = await fetch(GUS_URL, {
             method: "POST",
-            headers: { 
+            headers: {
                 "Content-Type": "application/soap+xml; charset=utf-8",
                 "sid": sid
             },
             body: searchSoap
         })
 
-        const text = await res.text()
-        const parser = new XMLParser()
-        const obj = parser.parse(text)
-        
-        const envelope = obj['s:Envelope'] || obj['soap:Envelope'] || obj['Envelope']
-        const body = envelope?.['s:Body'] || envelope?.['soap:Body'] || envelope?.['Body']
-        const xmlData = body?.['DaneSzukajPodmiotyResponse']?.['DaneSzukajPodmiotyResult']
+        const rawSearch = await res.text()
 
-        if (!xmlData || xmlData.includes("ErrorCode")) {
-            // Check if it's a session error - if so, clear cache and retry once
-            if (xmlData?.includes("Sesja nieaktywna")) {
-                console.warn("[GUS_BIR] Session expired unexpectedly. Retrying...")
-                cachedSid = null
-                return fetchGusData(nip)
-            }
+        // Session expired mid-request — clear cache and retry once
+        if (rawSearch.includes("Sesja nieaktywna") || rawSearch.includes("Sesja wygasła")) {
+            console.warn("[GUS_BIR] Session expired. Invalidating cache and retrying...")
+            cachedSid = null
+            return fetchGusData(nip)
+        }
+
+        // REGEX FAIL-SAFE: extract the inner encoded XML payload
+        const xmlData = extractXmlValue(rawSearch, "DaneSzukajPodmiotyResult")
+
+        if (!xmlData) {
+            console.error("[GUS_BIR_SEARCH_ERROR] No result in response:", rawSearch.substring(0, 400))
             return { success: false, error: "Nie znaleziono firmy o podanym NIP w bazie GUS." }
         }
 
-        // Unescape internal XML string
+        // Unescape the inner XML (it's HTML-entity encoded inside the SOAP body)
         const unescapedXml = xmlData
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
             .replace(/&quot;/g, '"')
-            .replace(/&amp;/g, '&')
-            
-        const dataObj = parser.parse(unescapedXml)
-        const d = dataObj.root?.dane
+            .replace(/&amp;/g, "&")
 
-        if (!d) {
-            console.error("[GUS_BIR_PARSE_ERROR] Payload:", unescapedXml)
-            return { success: false, error: "Błąd interpretacji danych z GUS." }
+        // Extract each field directly via regex — fully MTOM-safe, no XMLParser needed
+        const nazwa    = extractXmlValue(unescapedXml, "Nazwa") ?? ""
+        const ulica    = extractXmlValue(unescapedXml, "Ulica") ?? ""
+        const nrNier   = extractXmlValue(unescapedXml, "NrNieruchomosci") ?? ""
+        const nrLok    = extractXmlValue(unescapedXml, "NrLokalu") ?? ""
+        const miasto   = extractXmlValue(unescapedXml, "Miejscowosc") ?? ""
+        const kodPoczt = extractXmlValue(unescapedXml, "KodPocztowy") ?? ""
+        const regon    = extractXmlValue(unescapedXml, "Regon") ?? ""
+
+        if (!nazwa) {
+            console.error("[GUS_BIR_PARSE_ERROR] Empty Nazwa. Payload:", unescapedXml.substring(0, 400))
+            return { success: false, error: "Błąd interpretacji danych z GUS — brak nazwy podmiotu." }
         }
 
-        // Build full address
-        const street = d.Ulica || ""
-        const number = d.NrNieruchomosci || ""
-        const local = d.NrLokalu ? `/${d.NrLokalu}` : ""
-        const city = d.Miejscowosc || ""
-        const zip = d.KodPocztowy || ""
-
-        // Format: ul. [Ulica] [Nr], [Kod] [Miasto]
-        let streetPart = street
-        if (street && !street.toLowerCase().startsWith("ul.") && !street.toLowerCase().startsWith("al.")) {
-            streetPart = `ul. ${street}`
+        // Build formatted address: ul. [Ulica] [Nr]/[Lok], [Kod] [Miasto]
+        let streetPart = ulica
+        if (ulica && !ulica.toLowerCase().startsWith("ul.") && !ulica.toLowerCase().startsWith("al.")) {
+            streetPart = `ul. ${ulica}`
         }
-
-        const fullAddress = `${streetPart} ${number}${local}, ${zip} ${city}`.trim().replace(/^,/, "").trim()
+        const localPart = nrLok ? `/${nrLok}` : ""
+        const fullAddress = `${streetPart} ${nrNier}${localPart}, ${kodPoczt} ${miasto}`.trim().replace(/^,\s*/, "")
 
         return {
             success: true,
             data: {
-                name: sanitize(d.Nazwa),
-                nip: normalizedNip,
-                regon: sanitize(d.Regon),
+                name:    sanitize(nazwa),
+                nip:     normalizedNip,
+                regon:   sanitize(regon),
                 address: sanitize(fullAddress),
-                raw: d // Zachowanie surowych danych na wypadek potrzeby debugingu
             }
         }
 
     } catch (error: any) {
-        console.error("[GUS_ACTION_ERROR]", error)
+        console.error("[GUS_ACTION_ERROR]", error.message)
         return { success: false, error: error.message || "Błąd komunikacji z GUS." }
     }
 }
 
-// Alias for backward compatibility if needed
+// Alias for backward compatibility
 export const getGusDataByNip = fetchGusData
-
