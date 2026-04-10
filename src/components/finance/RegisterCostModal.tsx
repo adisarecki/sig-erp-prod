@@ -147,15 +147,25 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
         }
     }, [ocrData, contractors])
     
-    // --- VECTOR 118.1: AUTO-SUGGESTION FOR RETAIL/SERVICE ---
+    // --- VECTOR 160: AUTO-SUGGESTION FOR POS / RETAIL / CASH INVOICES ---
+    // If issueDate === dueDate (or category implies immediate payment), auto-set as paid by card/cash
     useEffect(() => {
+        // Categories that are always POS/cash transactions (no credit period)
+        const POS_CATEGORIES = ["FLOTA", "PALIWO", "KOSZT_FIRMOWY", "PALIWO_PROJEKT", "BIURO", "KOSZTY_OGOLNE", "INNE"]
+        
+        const isPos = POS_CATEGORIES.includes(category)
+        
+        if (isPos && issueDate && !dueDate) {
+            // Auto-fill dueDate = issueDate for POS categories (they're immediate by definition)
+            setDueDate(issueDate)
+        }
+
         if (issueDate && dueDate && issueDate === dueDate) {
-            const retailCategories = ["FLOTA", "PALIWO", "KOSZT_FIRMOWY", "PALIWO_PROJEKT"];
-            if (retailCategories.includes(category)) {
-                setIsPaidImmediately(true);
-                // Default to CARD for these categories as they are usually POS transactions
+            if (isPos || dueDate === issueDate) {
+                setIsPaidImmediately(true)
+                // Default to CARD for POS, CASH for fuel (covers both Orlen POS and manual receipts)
                 if (paymentMethod === "BANK_TRANSFER") {
-                    setPaymentMethod("CARD");
+                    setPaymentMethod(category === "PALIWO" || category === "PALIWO_PROJEKT" ? "CASH" : "CARD")
                 }
             }
         }

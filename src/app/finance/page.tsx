@@ -180,6 +180,7 @@ export default async function FinancePage({
                     title: (inv as any).description || (inv as any).category || 'Dokument Finansowy',
                     documentNumber: inv.externalId,
                     date: displayDate,
+                    issueDate: inv.issueDate,   // Vector 160: POS detection
                     dueDate: inv.dueDate,
                     amount: Number(inv.amountGross),
                     amountNet: Number(inv.amountNet),

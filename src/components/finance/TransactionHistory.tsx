@@ -27,6 +27,7 @@ interface HistoryItem {
     title: string;          // Main clean title
     documentNumber?: string | null;
     date: string;
+    issueDate?: string | null;  // Vector 160: needed for POS detection
     dueDate?: string | null;
     amount: number;
     amountNet?: number;
@@ -451,20 +452,24 @@ export function TransactionHistory({
                             </div>
                         )}
 
-                        {/* VECTOR 118: Status Ambiguity Overrule */}
-                        {viewingItem?.isInvoice && (
-                            <div className="pt-4 border-t border-slate-100">
-                                <Label className="text-[10px] uppercase font-bold text-slate-400 mb-3 block">
-                                    Kontrola Płatności (Bank Authority)
-                                </Label>
-                                <InvoicePaymentToggle 
-                                    invoiceId={viewingItem.id}
-                                    initialPaymentStatus={viewingItem.statusBadge === 'OPŁACONA' ? 'PAID' : 'UNPAID'}
-                                    initialReconciliationStatus={viewingItem.reconciliationStatus || 'PENDING'}
-                                    initialPaymentMethod={viewingItem.paymentMethod || 'BANK_TRANSFER'}
-                                />
-                            </div>
-                        )}
+                {viewingItem?.isInvoice && (
+                    <div className="pt-4 border-t border-slate-100">
+                        <Label className="text-[10px] uppercase font-bold text-slate-400 mb-3 block">
+                            Kontrola Płatności (Bank Authority)
+                        </Label>
+                        <InvoicePaymentToggle 
+                            invoiceId={viewingItem.id}
+                            initialPaymentStatus={viewingItem.statusBadge === 'OPŁACONA' ? 'PAID' : 'UNPAID'}
+                            initialReconciliationStatus={viewingItem.reconciliationStatus || 'PENDING'}
+                            initialPaymentMethod={viewingItem.paymentMethod || 'BANK_TRANSFER'}
+                            isPosPayment={
+                                // Vector 160: detect POS — issueDate === dueDate
+                                !!(viewingItem.issueDate && viewingItem.dueDate &&
+                                    viewingItem.issueDate.split('T')[0] === viewingItem.dueDate.split('T')[0])
+                            }
+                        />
+                    </div>
+                )}
                     </div>
 
                     <DialogFooter className="bg-slate-50 p-4 mt-0 border-t">
