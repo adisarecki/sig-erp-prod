@@ -7,7 +7,41 @@
 
 import type { HelpEntry } from "./glossary"
 
+export const gettingStartedGuide: HelpEntry = {
+  id: "jak_zaczac_prace",
+  title: "🚀 Wielki Start: Przewodnik krok po kroku po SIG ERP",
+  category: "howto",
+  description: `
+Ten poradnik przeprowadzi Cię przez cały system – od dodania pierwszej firmy, aż po moment, w którym dowiesz się, ile naprawdę masz pieniędzy.
+
+KROK 1: Dodawanie Kontrahentów (Magia GUS)
+Zanim wystawisz fakturę, potrzebujesz klienta lub podwykonawcy. 
+Wejdź w "Dodaj firmę", wpisz NIP i kliknij lupkę. System sam pobierze nazwę i adres z bazy GUS. Następnie automatycznie sprawdzi w Ministerstwie Finansów (Biała Lista VAT), czy ta firma uczciwie płaci podatki. Jeśli zobaczysz zielony znaczek [VAT: Czynny] – jesteś bezpieczny.
+
+KROK 2: Tworzenie Projektu (Twoja teczka)
+Każda złotówka w firmie musi mieć swój cel. Dlatego tworzymy "Projekty" (Inwestycje). To do nich będziesz przypinać wszystkie koszty (np. materiały, koparki) i przychody (faktury dla Inwestora).
+
+KROK 3: Wprowadzanie Faktur i Płatności
+- Faktury Kosztowe (Czerwone): Kupiłeś kable? Wpisujesz fakturę. Jeśli data wystawienia to ten sam dzień co termin płatności (np. paliwo na Orlenie), system od razu uzna ją za "OPŁACONĄ" (POS/Gotówka).
+- Faktury Przychodowe (Zielone): Wystawiasz fakturę Inwestorowi. Od razu podajesz kwotę Netto, a system sam wylicza VAT.
+
+KROK 4: System Rezerw (Skarbiec i Podatki)
+Tutaj dzieje się prawdziwa magia SIG ERP. Ty nic nie musisz liczyć. Gdy wprowadzisz faktury, system w tle automatycznie:
+1. Odcina podatek VAT i chowa go do "Salda VAT".
+2. Odcina 9% zysku na poczet "Rezerwy CIT".
+3. Odcina kaucje (np. 5% lub 10% gwarancji) i zamyka je w "Skarbcu" na określony czas.
+
+KROK 5: Dowodzenie (Dashboard i Czysta Gotówka)
+Wracasz na główny ekran (Dashboard). Pamiętaj o złotej zasadzie: SALDO W BANKU TO NIE SĄ TWOJE PIENIĄDZE.
+System bierze Twoje saldo bankowe i odejmuje od niego: VAT, CIT, niezapłacone faktury dostawców oraz zamrożone kaucje.
+Wynik, który widzisz na samej górze to CZYSTA GOTÓWKA (Safe to Spend). To jedyna kwota, którą możesz bezpiecznie wydać na rozwój firmy lub wypłacić, bez strachu o jutro.
+  `.trim(),
+  uiTargets: ["dashboard", "help_index"],
+  related: ["safe_to_spend", "vault", "vat_balance", "cit_reserve"]
+};
+
 export const howtoEntries: HelpEntry[] = [
+    gettingStartedGuide,
     // ─────────────────────────────────────────────────────────
     // GUS BIR LOOKUP
     // ─────────────────────────────────────────────────────────
