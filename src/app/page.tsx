@@ -418,7 +418,7 @@ export default async function DashboardPage({
               <p className="text-base font-medium opacity-90">Uwzględniając 14-dniowe opóźnienia wpłat, bilans 30-dniowy spada na: <span className="font-bold border-b-2 border-white">{formatPln(realisticBalance30d)}</span></p>
             </div>
           </div>
-          <Link href={`/finance?status=UNPAID&sort=dueDate_ASC${selectedYear ? `&year=${selectedYear}` : ''}`}>
+          <Link href={`/finanse?status=UNPAID&sort=dueDate_ASC${selectedYear ? `&year=${selectedYear}` : ''}`}>
             <Button variant="outline" className="bg-white text-rose-600 border-none font-bold hover:bg-rose-50 px-8 h-12 rounded-xl shadow-lg">Zarządzaj Kosztami</Button>
           </Link>
         </div>
@@ -736,7 +736,7 @@ export default async function DashboardPage({
               </div>
               <h2 className="text-xl font-black uppercase tracking-tight">Ostatnie Dokumenty</h2>
             </div>
-            <Link href="/finance">
+            <Link href="/finanse">
               <Button variant="ghost" className="text-sm font-bold text-slate-500 hover:text-slate-900 border border-slate-200">Zobacz wszystko →</Button>
             </Link>
           </div>

@@ -55,7 +55,7 @@ export async function addLegacyDebt(formData: FormData) {
     })
 
     revalidatePath("/")
-    revalidatePath("/finance")
+    revalidatePath("/finanse")
     return { success: true }
 }
 
@@ -110,6 +110,6 @@ export async function markInstallmentAsPaid(installmentId: string, paymentDateSt
     })
 
     revalidatePath("/")
-    revalidatePath("/finance")
+    revalidatePath("/finanse")
     return { success: true }
 }

@@ -29,7 +29,7 @@ export async function mergeContractorsBulk(primaryId: string, secondaryIds: stri
         });
 
         revalidatePath("/crm");
-        revalidatePath("/finance");
+        revalidatePath("/finanse");
         revalidatePath("/projects");
         
         return { success: true };

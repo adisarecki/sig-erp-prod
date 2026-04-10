@@ -67,7 +67,7 @@ export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps)
             // VECTOR 120: Redirect to Bank Reconciliation Hub
             const rawText = await file.text()
             localStorage.setItem("pendingBankCsv", rawText) // Store for the other page
-            window.location.href = "/finance/verify-balance?auto=true"
+            window.location.href = "/finanse/verify-balance?auto=true"
         } catch (err: any) {
             console.error("IMPORT_ERR:", err)
             alert("Błąd połączenia z serwerem.")
@@ -126,7 +126,7 @@ export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps)
             <div className="w-px bg-slate-100 hidden sm:block" />
 
             {/* CENTRALA FINANSOWA – Vector 106 Node */}
-            <Link href="/finance/verify-balance">
+            <Link href="/finanse/verify-balance">
                 <Button 
                   variant="outline"
                   className="h-9 px-4 bg-indigo-50 border-indigo-100 text-indigo-700 hover:bg-indigo-100 rounded-xl font-bold text-xs transition-all active:scale-95 flex items-center gap-2"

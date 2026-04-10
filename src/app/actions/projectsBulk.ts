@@ -21,7 +21,7 @@ export async function bulkUpdateProjectLifecycle(projectIds: string[], status: '
         // Wymuszamy refresh wszystkich stron widocznych dla użytkownika, pobierających projekty
         revalidatePath("/projects");
         revalidatePath("/");
-        revalidatePath("/finance");
+        revalidatePath("/finanse");
 
         return { success: true };
     } catch (error: unknown) {

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import prisma from "@/lib/prisma"
 const db = prisma as any;
 import { getAdminDb } from "@/lib/firebaseAdmin"
-import { syncAssetToFirestore, SyncAssetData } from "@/lib/finance/sync-utils"
+import { syncAssetToFirestore, SyncAssetData } from "@/lib/finanse/sync-utils"
 import { checkAssetConsistency } from "@/lib/sync/consistency-engine"
 import { getCurrentTenantId } from "@/lib/tenant"
 import Decimal from "decimal.js"
@@ -49,7 +49,7 @@ export async function syncPgToFs(assetId: string) {
         });
 
         await checkAssetConsistency(assetId);
-        revalidatePath("/finance/sync-health");
+        revalidatePath("/finanse/sync-health");
         revalidatePath(`/assets/${assetId}`);
 
         return { success: true };
@@ -121,7 +121,7 @@ export async function syncFsToPg(assetId: string) {
         });
 
         await checkAssetConsistency(assetId);
-        revalidatePath("/finance/sync-health");
+        revalidatePath("/finanse/sync-health");
         revalidatePath(`/assets/${assetId}`);
 
         return { success: true };
@@ -204,7 +204,7 @@ export async function resolveDrift(
         }
 
 
-        revalidatePath("/finance/sync-health");
+        revalidatePath("/finanse/sync-health");
         return { success: true };
     } catch (error: any) {
         console.error("[RESOLVE_DRIFT_ERROR]", error);

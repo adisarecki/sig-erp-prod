@@ -18,7 +18,7 @@ const navLinks = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/crm", label: "Kontrahenci", icon: Building2 },
     { href: "/projects", label: "Projekty", icon: Briefcase },
-    { href: "/finance", label: "Finanse", icon: DollarSign },
+    { href: "/finanse", label: "Finanse", icon: DollarSign },
     { href: "/finanse/ksef", label: "Inbox KSeF", icon: DownloadCloud, className: "text-indigo-300" },
 ]
 

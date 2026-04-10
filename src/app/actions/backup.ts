@@ -170,7 +170,7 @@ export async function restoreFromBackup(backupData: unknown) {
 
         revalidatePath("/")
         revalidatePath("/crm")
-        revalidatePath("/finance")
+        revalidatePath("/finanse")
         revalidatePath("/projects")
         revalidatePath("/settings")
 

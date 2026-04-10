@@ -82,7 +82,7 @@ function ImportPreviewPageInner() {
 
     const router = useRouter()
     const searchParams = useSearchParams()
-    const returnTo = searchParams.get("returnTo") || "/finance/reconciliation"
+    const returnTo = searchParams.get("returnTo") || "/finanse/reconciliation"
 
     const showToast = (message: string, type: ToastType) => {
         setToast({ message, type })

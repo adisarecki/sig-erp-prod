@@ -8,7 +8,7 @@ import prisma from "@/lib/prisma"
 // @ts-ignore - Prisma environment lag: Asset model exists in schema.prisma and was generated.
 const db = prisma as any;
 import { checkAssetConsistency } from "@/lib/sync/consistency-engine"
-import { recordLedgerEntry } from "@/lib/finance/ledger-manager"
+import { recordLedgerEntry } from "@/lib/finanse/ledger-manager"
 import { assertAuthorityWrite, assertFinancialMasterWrite } from "@/lib/authority/guards"
 
 export type CreateAssetInput = {
@@ -152,7 +152,7 @@ export async function createAssetFromKsef(invoiceId: string, input: CreateAssetI
         await checkAssetConsistency(assetId)
 
         revalidatePath("/assets")
-        revalidatePath("/finance/ksef")
+        revalidatePath("/finanse/ksef")
         
         return { success: true, id: assetId }
     } catch (error: any) {

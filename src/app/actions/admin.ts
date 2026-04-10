@@ -115,7 +115,7 @@ export async function fullResetTenantData() {
         try {
             revalidatePath("/")
             revalidatePath("/crm")
-            revalidatePath("/finance")
+            revalidatePath("/finanse")
             revalidatePath("/projects")
             revalidatePath("/assets")
             revalidatePath("/settings")

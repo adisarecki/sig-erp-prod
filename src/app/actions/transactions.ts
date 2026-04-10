@@ -7,7 +7,7 @@ import prisma from "@/lib/prisma"
 import Decimal from "decimal.js"
 import { recalculateProjectBudget } from "./projects"
 import { syncRetentionsFromProject } from "./retentions"
-import { recordLedgerEntry } from "@/lib/finance/ledger-manager"
+import { recordLedgerEntry } from "@/lib/finanse/ledger-manager"
 import { assertFinancialMasterWrite } from "@/lib/authority/guards"
 import { randomUUID } from "crypto"
 
@@ -23,7 +23,7 @@ export async function deleteTransaction(id: string): Promise<{ success: boolean,
         // 2. FS-Mirror Sync
         await adminDb.collection("transactions").doc(id).delete()
 
-        revalidatePath("/finance")
+        revalidatePath("/finanse")
         revalidatePath("/projects")
         revalidatePath("/")
 
@@ -108,7 +108,7 @@ export async function addTransaction(formData: FormData): Promise<{ success: boo
 
         revalidatePath("/")
         revalidatePath("/projects")
-        revalidatePath("/finance")
+        revalidatePath("/finanse")
 
         return { success: true }
     } catch (error: any) {

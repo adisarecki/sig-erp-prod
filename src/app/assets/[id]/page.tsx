@@ -144,7 +144,7 @@ export default async function AssetDetailsPage({ params }: { params: { id: strin
                                         <div className="p-2 bg-emerald-50 rounded-xl text-emerald-600">
                                             <ClipboardList className="w-5 h-5" />
                                         </div>
-                                        <Link href={`/finance/invoices/${asset.sourceInvoiceId}`} className="group">
+                                        <Link href={`/finanse/invoices/${asset.sourceInvoiceId}`} className="group">
                                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Dokument Zakupu</p>
                                             <p className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">FA/{asset.invoice?.invoiceNumber || "ID:"+asset.sourceInvoiceId}</p>
                                         </Link>

@@ -30,7 +30,7 @@ export default async function CRMPage() {
                 <div className="flex items-center gap-2">
                     <TooltipHelp content="Importuj kontrahentów automatycznie z historii bankowej PKO BP. Obsługuje formaty XML (ISO 20022) i CSV." />
                     <Link
-                        href="/finance/import?returnTo=/crm"
+                        href="/finanse/import?returnTo=/crm"
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 font-medium text-sm transition-all shadow-sm"
                     >
                         <Upload className="w-4 h-4" />

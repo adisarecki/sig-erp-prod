@@ -49,7 +49,7 @@ export async function applyContractorUpdate(notificationId: string) {
         });
 
         revalidatePath("/");
-        revalidatePath("/finance");
+        revalidatePath("/finanse");
         revalidatePath("/contractors");
 
         return { success: true, message: `Kartoteka ${contractor.name} została zaktualizowana.` };

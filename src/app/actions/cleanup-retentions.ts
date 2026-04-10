@@ -70,7 +70,7 @@ export async function cleanupRetentionGhostEntries() {
         console.log(`[CLEANUP] Finished. Total Ledger entries removed: ${entriesToDelete.length}, Total Retention records removed: ${retentions.length}`)
         
         revalidatePath("/")
-        revalidatePath("/finance")
+        revalidatePath("/finanse")
         revalidatePath("/projects")
         
         return { 

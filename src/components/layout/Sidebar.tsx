@@ -20,11 +20,11 @@ export function Sidebar() {
                     <Briefcase className="w-5 h-5" />
                     <span>Projekty</span>
                 </Link>
-                <Link href="/finance" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800 transition-colors">
+                <Link href="/finanse" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800 transition-colors">
                     <DollarSign className="w-5 h-5" />
                     <span>Finanse</span>
                 </Link>
-                <Link href="/finance/ksef" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800 transition-colors text-indigo-300">
+                <Link href="/finanse/ksef" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800 transition-colors text-indigo-300">
                     <DownloadCloud className="w-5 h-5" />
                     <span>Inbox KSeF</span>
                 </Link>

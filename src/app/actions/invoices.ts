@@ -8,8 +8,8 @@ import { getAdminDb } from "@/lib/firebaseAdmin"
 import prisma from "@/lib/prisma"
 import { recalculateProjectBudget } from "./projects"
 import { syncRetentionsFromProject } from "./retentions"
-import { syncInvoiceToFirestore } from "../../lib/finance/sync-utils"
-import { recordInvoiceToLedger, recordLedgerEntry } from "@/lib/finance/ledger-manager"
+import { syncInvoiceToFirestore } from "../../lib/finanse/sync-utils"
+import { recordInvoiceToLedger, recordLedgerEntry } from "@/lib/finanse/ledger-manager"
 import { assertFinancialMasterWrite } from "@/lib/authority/guards"
 import { randomUUID } from "crypto"
 
@@ -82,7 +82,7 @@ export async function deleteInvoice(id: string): Promise<{ success: boolean, err
             await tx.invoice.delete({ where: { id } })
         })
 
-        revalidatePath("/finance")
+        revalidatePath("/finanse")
         revalidatePath("/projects")
         revalidatePath("/")
 
@@ -223,7 +223,7 @@ export async function markInvoiceAsPaid(id: string, paymentDateOverride?: string
             })
         })
 
-        revalidatePath("/finance")
+        revalidatePath("/finanse")
         revalidatePath("/projects")
         revalidatePath("/")
 
@@ -291,7 +291,7 @@ export async function markInvoiceAsUnpaid(id: string): Promise<{ success: boolea
             updatedAt: new Date().toISOString()
         })
 
-        revalidatePath("/finance")
+        revalidatePath("/finanse")
         revalidatePath("/")
 
         return { success: true }
@@ -636,7 +636,7 @@ export async function addIncomeInvoice(formData: FormData) {
 
         revalidatePath("/")
         revalidatePath("/projects")
-        revalidatePath("/finance")
+        revalidatePath("/finanse")
 
         return { success: true }
     } catch (error: unknown) {
@@ -903,7 +903,7 @@ export async function addCostInvoice(formData: FormData) {
 
         revalidatePath("/")
         revalidatePath("/projects")
-        revalidatePath("/finance")
+        revalidatePath("/finanse")
 
         return { success: true }
     } catch (error: unknown) {

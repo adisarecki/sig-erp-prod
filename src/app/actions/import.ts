@@ -7,8 +7,8 @@ import { getCurrentTenantId } from "@/lib/tenant"
 import type { ParsedBankTransaction } from "@/lib/pko-parser"
 import Decimal from "decimal.js"
 import { randomUUID } from "crypto"
-import { recordLedgerEntry } from "@/lib/finance/ledger-manager"
-import { ContractorResolutionService } from "@/lib/finance/contractorResolutionService"
+import { recordLedgerEntry } from "@/lib/finanse/ledger-manager"
+import { ContractorResolutionService } from "@/lib/finanse/contractorResolutionService"
 
 
 /**
@@ -186,7 +186,7 @@ export async function importBankStatementV2(
         }
 
         revalidatePath("/")
-        revalidatePath("/finance")
+        revalidatePath("/finanse")
         revalidatePath("/crm")
 
         return { success: true, results }
@@ -240,7 +240,7 @@ export async function importContractors(contractorsToImport: { name: string, nip
     revalidatePath("/")
     revalidatePath("/crm")
     revalidatePath("/projects")
-    revalidatePath("/finance")
+    revalidatePath("/finanse")
 
     return results
 }

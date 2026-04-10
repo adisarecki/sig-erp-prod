@@ -141,7 +141,7 @@ export async function syncAllContractorsToPrisma() {
         }
 
         revalidatePath("/crm")
-        revalidatePath("/finance")
+        revalidatePath("/finanse")
         return { success: true, message: `Master Sync zakończony. Zsynchronizowano ${contractorCount} firm i ${invoiceCount} statusów faktur.` }
 
     } catch (error: any) {

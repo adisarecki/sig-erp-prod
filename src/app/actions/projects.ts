@@ -9,8 +9,8 @@ import { randomUUID } from "crypto"
 import Decimal from "decimal.js"
 import { syncRetentionsFromProject } from "./retentions"
 import { createNotification } from "./notifications"
-import { syncInvoiceToFirestore } from "@/lib/finance/sync-utils"
-import { getProjectFinancials } from "@/lib/finance/ledger-service"
+import { syncInvoiceToFirestore } from "@/lib/finanse/sync-utils"
+import { getProjectFinancials } from "@/lib/finanse/ledger-service"
 
 /**
  * POBIERANIE - Dashboard i Lista Projektów
@@ -206,7 +206,7 @@ export async function recalculateProjectBudget(projectId: string) {
         console.log(`[BUDGET_RECALC_LEDGER] Project: ${projectId} | Total Used (from Ledger): ${totalUsed.toNumber()} PLN`)
         
         revalidatePath("/projects")
-        revalidatePath("/finance")
+        revalidatePath("/finanse")
         revalidatePath("/")
         
     } catch (error) {
@@ -744,7 +744,7 @@ export async function deleteProject(id: string): Promise<{ success: boolean, err
 
         try {
             revalidatePath("/projects")
-            revalidatePath("/finance")
+            revalidatePath("/finanse")
             revalidatePath("/")
         } catch (e) {
             console.warn("[PROJECTS] Revalidation warning during delete (ignored):", e)
@@ -789,7 +789,7 @@ export async function deleteSelectedProjects(ids: string[]) {
         await prisma.project.deleteMany({ where: { id: { in: ids } } })
 
         revalidatePath("/projects")
-        revalidatePath("/finance")
+        revalidatePath("/finanse")
         revalidatePath("/")
         return { success: true }
     } catch (error) {

@@ -330,7 +330,7 @@ export async function createContractor(data: { name: string; nip?: string; addre
             createdAt: new Date().toISOString()
         })
 
-        revalidatePath("/finance")
+        revalidatePath("/finanse")
         revalidatePath("/crm")
 
         return { success: true, id: contractorId }

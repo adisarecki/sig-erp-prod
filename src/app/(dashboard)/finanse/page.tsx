@@ -247,7 +247,7 @@ export default async function FinancePage({
                         variant="outline"
                         className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                     />
-                    <Link href="/finance/import" className="bg-white border text-blue-600 hover:bg-blue-50 hover:border-blue-200 border-slate-200 px-4 py-2 rounded-md font-medium transition cursor-pointer shadow-sm">
+                    <Link href="/finanse/import" className="bg-white border text-blue-600 hover:bg-blue-50 hover:border-blue-200 border-slate-200 px-4 py-2 rounded-md font-medium transition cursor-pointer shadow-sm">
                         Import PKO BP
                     </Link>
                 </div>
@@ -274,19 +274,19 @@ export default async function FinancePage({
                     
                     <div className="flex bg-slate-100 p-1 rounded-lg self-stretch sm:self-auto">
                         <Link 
-                            href="/finance?filter=ALL"
+                            href="/finanse?filter=ALL"
                             className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === 'ALL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
                             WSZYSTKIE
                         </Link>
                         <Link 
-                            href="/finance?filter=PROJECT"
+                            href="/finanse?filter=PROJECT"
                             className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === 'PROJECT' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
                             PROJEKTOWE
                         </Link>
                         <Link 
-                            href="/finance?filter=GENERAL"
+                            href="/finanse?filter=GENERAL"
                             className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === 'GENERAL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
                             KOSZTY ADMINISTRACYJNE/OGÓLNE

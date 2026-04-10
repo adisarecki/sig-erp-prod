@@ -57,7 +57,7 @@ export async function verifyAndImportBankStatement(csvContent: string) {
         const result = await ReconciliationEngine.verifyIntegrity(tenantId, anchorBalance)
 
         revalidatePath("/")
-        revalidatePath("/finance/verify-balance")
+        revalidatePath("/finanse/verify-balance")
 
         return { 
             success: true, 

@@ -88,7 +88,7 @@ export async function addRetention(formData: FormData) {
         }
 
         revalidatePath("/")
-        revalidatePath("/finance")
+        revalidatePath("/finanse")
         return { success: true }
     } catch (error: any) {
         console.error("[ADD_RETENTION_ERROR]", error)
@@ -112,7 +112,7 @@ export async function updateRetentionStatus(id: string, status: string) {
         })
 
         revalidatePath("/")
-        revalidatePath("/finance")
+        revalidatePath("/finanse")
         return { success: true }
     } catch (error: any) {
         console.error("[UPDATE_RETENTION_STATUS_ERROR]", error)

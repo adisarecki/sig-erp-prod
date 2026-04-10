@@ -17,9 +17,9 @@ export async function confirmAutoMatch(bankStagingId: string, invoiceId: string)
         // Use the existing logic to calculate retention, update invoice, create ledger
         await ReconciliationEngine.executeAutoMatch(item, invoiceId)
 
-        revalidatePath("/finance/verify-balance")
-        revalidatePath("/finance/reconciliation")
-        revalidatePath("/finance")
+        revalidatePath("/finanse/verify-balance")
+        revalidatePath("/finanse/reconciliation")
+        revalidatePath("/finanse")
         return { success: true }
     } catch (e: any) {
         console.error("CONFIRM_AUTO_MATCH_ERR:", e)
@@ -86,9 +86,9 @@ export async function createOnTheFly(bankStagingId: string, projectId: string | 
             })
         })
 
-        revalidatePath("/finance/verify-balance")
-        revalidatePath("/finance/reconciliation")
-        revalidatePath("/finance")
+        revalidatePath("/finanse/verify-balance")
+        revalidatePath("/finanse/reconciliation")
+        revalidatePath("/finanse")
         return { success: true }
     } catch (e: any) {
         console.error("CREATE_ON_THE_FLY_ERR:", e)
