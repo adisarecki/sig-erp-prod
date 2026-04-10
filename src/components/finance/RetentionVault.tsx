@@ -71,8 +71,8 @@ export function RetentionVault({ retentions, projects, contractors, invoices = [
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <h2 className="text-lg font-black uppercase tracking-tight text-slate-900">Skarbiec Kaucji</h2>
-                            <HelpLink helpId="retention-vault" tooltip="Czym jest Skarbiec Kaucji i jak nim zarządzać?" />
+                            <h2 className="text-lg font-black uppercase tracking-tight text-slate-900">Wartość Skarbca (Kaucje)</h2>
+                            <HelpLink helpId="retention-vault" tooltip="Wartość Skarbca (Kaucje) - zamrożone zabezpieczenia" />
                         </div>
                         <p className="text-xs text-slate-500 font-medium">Środki zamrożone u inwestorów</p>
                     </div>

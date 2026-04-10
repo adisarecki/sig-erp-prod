@@ -396,7 +396,7 @@ export default async function DashboardPage({
       <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight italic">Ekstraklasa Management</h1>
-          <p className="text-slate-500 font-medium">System Operacyjny Firmy • <span className="text-slate-900 uppercase font-bold text-xs bg-slate-100 px-2 py-1 rounded">Prawda Finansowa (Anchor)</span></p>
+          <p className="text-slate-500 font-medium">System Operacyjny Firmy • <span className="text-slate-900 uppercase font-bold text-xs bg-slate-100 px-2 py-1 rounded">Prawda Finansowa (Saldo)</span></p>
         </div>
         <div className="flex flex-col items-end gap-3">
           <TimeFilterTabs availableYears={availableYears} currentYear={selectedYear} />
@@ -468,8 +468,8 @@ export default async function DashboardPage({
           <div className="flex gap-6 mt-6 border-t border-slate-700/50 pt-6">
             <div>
               <div className="flex items-center gap-1.5 mb-1">
-                <p className="text-sm text-slate-400 font-medium uppercase tracking-tighter italic">Czysta Gotówka (Safe to Spend)</p>
-                <HelpLink helpId="safe-to-spend" tooltip="Dowiedz się jak liczona jest Twoja gotówka operacyjna" size="xs" />
+                <p className="text-sm text-slate-400 font-medium uppercase tracking-tighter italic">Czysta Gotówka</p>
+                <HelpLink helpId="safe-to-spend" tooltip="Saldo Bankowe - Skarbiec - VAT - CIT - Zobowiązania" size="xs" />
               </div>
               <p className={`font-bold text-xl ${getFinancialColor(cleanCash)}`}>{formattedCleanCash}</p>
             </div>
@@ -482,7 +482,7 @@ export default async function DashboardPage({
                 <p className={`text-sm font-medium uppercase tracking-tighter ${vatStatusColor}`}>
                   {isVatOverpaid ? 'Nadpłata VAT' : 'Dług VAT'}
                 </p>
-                <HelpLink helpId="vat-debt" tooltip="Zasady kompensaty VAT w systemie" size="xs" />
+                <HelpLink helpId="vat-debt" tooltip="Saldo VAT (Zobowiązanie)" size="xs" />
               </div>
               <p className={`font-bold text-xl ${vatStatusColor}`}>
                 {isVatOverpaid ? '+' : '-'}{formattedNetVat}
@@ -496,14 +496,14 @@ export default async function DashboardPage({
             </div>
             <div>
               <div className="flex items-center gap-1 mb-1">
-                <p className="text-sm font-medium uppercase tracking-tighter text-rose-400">Zobowiązania (Payables)</p>
+                <p className="text-sm font-medium uppercase tracking-tighter text-rose-400">Niezapłacone Faktury (Koszty)</p>
               </div>
               <p className="font-bold text-[18px] mt-0.5 text-rose-400">-{formattedPayables}</p>
             </div>
             <div>
               <div className="flex items-center gap-1.5 mb-1">
-                <p className="text-sm text-slate-400 font-medium uppercase tracking-tighter">Rezerwa CIT/PPE</p>
-                <HelpLink helpId="cit-reserve" tooltip="Dlaczego blokujemy 9% Twojego zysku?" size="xs" />
+                <p className="text-sm text-slate-400 font-medium uppercase tracking-tighter">Rezerwa CIT</p>
+                <HelpLink helpId="cit-reserve" tooltip="Automatyczna rezerwa 9% na podatek dochodowy" size="xs" />
               </div>
               <p className="font-bold text-xl text-orange-400">-{formattedCitReserve}</p>
             </div>
@@ -520,7 +520,7 @@ export default async function DashboardPage({
             </div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Marża Projektowa (Netto)</h3>
-              <HelpLink helpId="project-margin" tooltip="Zasady liczenia marży netto na kontraktach" size="xs" />
+              <HelpLink helpId="project-margin" tooltip="Zysk z projektów (Przychody - Koszty Projektowe)" size="xs" />
             </div>
           </div>
           <p className="text-3xl font-black mt-4 text-indigo-700">{formattedProjectMargin}</p>
@@ -547,8 +547,8 @@ export default async function DashboardPage({
               <BadgeDollarSign className="w-5 h-5" />
             </div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Zysk po opodatkowaniu (Real Profit)</h3>
-              <HelpLink helpId="real-profit" tooltip="Definicja zysku realnego po odjęciu CIT i kosztów ogólnych" size="xs" />
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Zysk po opodatkowaniu</h3>
+              <HelpLink helpId="real-profit" tooltip="Ostateczny wynik firmy po odjęciu kosztów i CIT" size="xs" />
             </div>
           </div>
           <p className="text-3xl font-black mt-4 text-emerald-700">{formattedRealProfit}</p>
@@ -645,7 +645,7 @@ export default async function DashboardPage({
                 <History className="w-5 h-5" />
               </div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold uppercase tracking-tight text-slate-400">Długi (Debt)</h3>
+                <h3 className="text-sm font-bold uppercase tracking-tight text-slate-400">Długi</h3>
                 <TooltipHelp content="Twoje zobowiązania – faktury kosztowe w systemie, za które jeszcze nie przelałeś dostawcom pieniędzy." />
               </div>
             </div>

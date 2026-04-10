@@ -34,15 +34,15 @@ export const glossaryEntries: HelpEntry[] = [
     // ─────────────────────────────────────────────────────────
     {
         id: "safe-to-spend",
-        title: "Czysta Gotówka (Safe to Spend)",
+        title: "Czysta Gotówka",
         category: "concept",
         summary: "Kwota, którą faktycznie możesz wydać po odjęciu wszystkich rezerw i zobowiązań.",
         description:
-            "[VISION LAYER] Pełna definicja biznesowego znaczenia Safe to Spend zostanie dostarczona przez Vision Layer. " +
-            "TECHNICZNE: Obliczane jako: Confirmed Bank Balance − Retention Vault − VAT Debt − CIT Reserve − Unpaid Payables. " +
+            "[VISION LAYER] Pełna definicja biznesowego znaczenia Czystej Gotówki zostanie dostarczona przez Vision Layer. " +
+            "TECHNICZNE: Obliczane jako: Saldo Bankowe (Potwierdzone) − Wartość Skarbca (Kaucje) − Saldo VAT (Zobowiązanie) − Rezerwa CIT − Niezapłacone Faktury (Koszty). " +
             "Źródło: `LedgerService.safeToSpend`. Nie jest wynikiem memoriałowym — wymaga potwierdzonego salda bankowego.",
         technicalSource: "ledger",
-        formula: "Bank Anchor − vaultValue − |vatBalance (jeśli ujemny)| − citReserve − unpaidPayables",
+        formula: "Saldo Bankowe - Skarbiec - VAT - CIT - Zobowiązania",
         dependsOn: ["retention-vault", "vat-debt", "cit-reserve"],
         related: ["real-profit", "bank-anchor"],
         uiTargets: ["Dashboard → Hero Bar → Czysta Gotówka", "Dashboard → Bank Card"],
@@ -54,20 +54,19 @@ export const glossaryEntries: HelpEntry[] = [
     // ─────────────────────────────────────────────────────────
     {
         id: "retention-vault",
-        title: "Skarbiec Kaucji (Retention Vault)",
+        title: "Wartość Skarbca (Kaucje)",
         category: "concept",
         summary: "Zamrożone środki z faktury — zabezpieczenie kontraktowe do zwrotu po upływie okresu gwarancyjnego.",
         description:
             "[VISION LAYER] Definicja kontraktowego znaczenia kaucji zostanie dostarczona przez Vision Layer. " +
             "TECHNICZNE: Agreguje rekordy tablicy `Retention` (Prisma) filtrowane po `status: LOCKED`. " +
-            "Dzieli się na: SHORT_TERM (kaucja bieżąca, np. 5%) i LONG_TERM (kaucja gwarancyjna, np. 5%). " +
-            "Wartość jest odejmowana z Safe to Spend, ale NIE zmniejsza salda bankowego bezpośrednio — to tylko rezerwa logiczna. " +
+            "Wartość jest odejmowana z Czystej Gotówki, ale NIE zmniejsza salda bankowego bezpośrednio — to tylko rezerwa logiczna. " +
             "Uwolnienie następuje przez `retentionReleaseDate` lub ręcznie przez protokół zamknięcia projektu.",
         technicalSource: "ledger",
-        formula: "SUM(Retention WHERE status = LOCKED)",
+        formula: "SUMA(Kaucje GDZIE status = ZABLOKOWANA)",
         dependsOn: ["safe-to-spend"],
         related: ["retention-short", "retention-long", "project-closure"],
-        uiTargets: ["Dashboard → Skarbiec Kaucji (RetentionVault component)", "Project List → Retention column"],
+        uiTargets: ["Dashboard → Wartość Skarbca (Kaucje)", "Project List → Retention column"],
         vector: "Vector 117"
     },
 
@@ -76,16 +75,15 @@ export const glossaryEntries: HelpEntry[] = [
     // ─────────────────────────────────────────────────────────
     {
         id: "retention-short",
-        title: "Kaucja Krótkoterminowa (Short-Term Retention)",
+        title: "Kaucja Krótkoterminowa",
         category: "glossary",
         summary: "Część wartości faktury zatrzymana do czasu odbioru robót lub okresu rękojmi.",
         description:
             "[VISION LAYER] Definicja kontraktowa wg umowy z inwestorem zostanie dostarczona przez Vision Layer. " +
             "TECHNICZNE: Procent przechowywany w `project.retentionShortTermRate`. " +
-            "Podstawa naliczenia (NET lub GROSS) kontrolowana przez `project.retentionBase`. " +
             "Automatycznie naliczana dla kategorii MONTAŻ/USŁUGA/PROJEKT przy zapisie faktury kosztowej.",
         technicalSource: "ledger",
-        formula: "invoiceNet (lub Gross) × retentionShortTermRate",
+        formula: "Netto (lub Brutto) faktury × Stopa Kaucji Krótkiej",
         dependsOn: ["retention-vault"],
         related: ["retention-long"],
         uiTargets: ["RegisterCostModal → Kaucja (SHORT)", "RetentionVault → Kaucja Bieżąca row"],
@@ -97,15 +95,14 @@ export const glossaryEntries: HelpEntry[] = [
     // ─────────────────────────────────────────────────────────
     {
         id: "retention-long",
-        title: "Kaucja Długoterminowa (Long-Term Retention)",
+        title: "Kaucja Długoterminowa",
         category: "glossary",
         summary: "Część wartości faktury zatrzymana na cały okres gwarancji (zwykle 2-5 lat).",
         description:
             "[VISION LAYER] Definicja kontraktowa zostanie dostarczona przez Vision Layer. " +
-            "TECHNICZNE: Procent przechowywany w `project.retentionLongTermRate`. " +
-            "Uwalniana po `retentionReleaseDate` lub zamknięciu projektu (Handover Protocol).",
+            "TECHNICZNE: Procent przechowywany w `project.retentionLongTermRate`.",
         technicalSource: "ledger",
-        formula: "invoiceNet (lub Gross) × retentionLongTermRate",
+        formula: "Netto (lub Brutto) faktury × Stopa Kaucji Długiej",
         dependsOn: ["retention-vault"],
         related: ["retention-short", "project-closure"],
         uiTargets: ["RetentionVault → Kaucja Gwarancyjna row"],
@@ -117,17 +114,17 @@ export const glossaryEntries: HelpEntry[] = [
     // ─────────────────────────────────────────────────────────
     {
         id: "vat-debt",
-        title: "Dług VAT / Nadpłata VAT",
+        title: "Saldo VAT (Zobowiązanie)",
         category: "concept",
-        summary: "Netto pozycja VAT: różnica między VAT z faktur kosztowych (odliczalny) a VAT z faktur sprzedażowych (należny).",
+        summary: "Netto pozycja VAT: różnica między VAT z faktur kosztowych a sprzedażowych.",
         description:
             "[VISION LAYER] Znaczenie podatkowe i taktyczne definiuje Vision Layer. " +
-            "TECHNICZNE: Wynika z `LedgerEntry` records o `source: INVOICE_VAT`. " +
-            "Formuła: SUM(VAT z faktur EXPENSE) − SUM(VAT z faktur INCOME). " +
-            "Wynik dodatni = nadpłata VAT (zwrot z US). Wynik ujemny = dług VAT (do zapłaty do US). " +
-            "WAŻNE: Nie jest gotówką — to zobowiązanie podatkowe. Odejmowane od Safe to Spend jeśli ujemny.",
+            "TECHNICZNE: Wynika z zapisów Ledger o `source: INVOICE_VAT`. " +
+            "Formuła: SUMA(VAT z faktur KOSZTOWYCH) − SUMA(VAT z faktur PRZYCHODOWYCH). " +
+            "Wynik ujemny = Zobowiązanie VAT (do zapłaty). Wynik dodatni = Nadpłata VAT. " +
+            "Odejmowane od Czystej Gotówki jeśli ujemne.",
         technicalSource: "ledger",
-        formula: "SUM(LedgerEntry WHERE source=INVOICE_VAT AND type=EXPENSE) − SUM(LedgerEntry WHERE source=INVOICE_VAT AND type=INCOME)",
+        formula: "SUMA(VAT Koszty) − SUMA(VAT Sprzedaż)",
         dependsOn: ["safe-to-spend"],
         related: ["cit-reserve", "real-profit"],
         uiTargets: ["Dashboard → Hero Bar → Dług VAT / Nadpłata VAT"],
@@ -139,16 +136,15 @@ export const glossaryEntries: HelpEntry[] = [
     // ─────────────────────────────────────────────────────────
     {
         id: "cit-reserve",
-        title: "Rezerwa CIT/PPE (9%)",
+        title: "Rezerwa CIT",
         category: "concept",
         summary: "Odłożone 9% od zrealizowanego zysku netto — automatyczna rezerwa na podatek dochodowy.",
         description:
             "[VISION LAYER] Taktyczne znaczenie dla planowania podatkowego definiuje Vision Layer. " +
-            "TECHNICZNE: CIT_RATE = 0.09 (Mały Podatnik). Obliczana jako: realProfit × 0.09. " +
-            "Traktowana jako HARD LIABILITY — odejmowana z Safe to Spend zawsze, gdy realProfit > 0. " +
-            "Źródło konfiguracji: `src/lib/config/tax.ts → CIT_RATE`.",
+            "TECHNICZNE: Obliczana jako: Zysk Realny × 0.09. " +
+            "Traktowana jako TWARDE ZOBOWIĄZANIE — odejmowana z Czystej Gotówki zawsze, gdy Zysk Realny > 0.",
         technicalSource: "ledger",
-        formula: "MAX(0, realProfit) × CIT_RATE (0.09)",
+        formula: "MAX(0, Zysk Realny) × 0.09",
         dependsOn: ["real-profit", "safe-to-spend"],
         related: ["vat-debt"],
         uiTargets: ["Dashboard → Hero Bar → Rezerwa CIT", "Dashboard → Metrics grid"],
@@ -162,15 +158,13 @@ export const glossaryEntries: HelpEntry[] = [
         id: "project-margin",
         title: "Marża Projektowa (Netto)",
         category: "concept",
-        summary: "Zysk wygenerowany na projektach — suma przychodów projektowych minus koszty projektowe (wartości netto).",
+        summary: "Zysk wygenerowany na projektach (Netto).",
         description:
-            "[VISION LAYER] Znaczenie strategiczne i progi rentowności definiuje Vision Layer. " +
-            "TECHNICZNE: Agreguje `LedgerEntry WHERE projectId IS NOT NULL`. " +
-            "Obliczana wyłącznie na wartościach NETTO (bez VAT). " +
-            "NIE UWZGLĘDNIA kosztów ogólnych firmy (PALIWO, BIURO etc.). " +
-            "Jest bazą wejściową do Real Profit po odjęciu kosztów ogólnych i CIT.",
+            "[VISION LAYER] Znaczenie strategiczne definiuje Vision Layer. " +
+            "TECHNICZNE: Agreguje zapisy Ledger przypisane do projektów (wartości NETTO). " +
+            "NIE UWZGLĘDNIA kosztów ogólnych firmy.",
         technicalSource: "ledger",
-        formula: "SUM(LedgerEntry WHERE projectId NOT NULL AND type=INCOME) + SUM(LedgerEntry WHERE projectId NOT NULL AND type=EXPENSE)",
+        formula: "SUMA(Przychody Projektowe Netto) − SUMA(Koszty Projektowe Netto)",
         dependsOn: [],
         related: ["real-profit", "general-costs"],
         uiTargets: ["Dashboard → Strategic Metrics → Marża Projektowa (Netto)"],
@@ -182,21 +176,18 @@ export const glossaryEntries: HelpEntry[] = [
     // ─────────────────────────────────────────────────────────
     {
         id: "real-profit",
-        title: "Zysk Realny (Real Profit)",
+        title: "Zysk Realny",
         category: "concept",
-        summary: "Ostateczny wynik firmy: Marża projektowa − Koszty ogólne − Rezerwa CIT.",
+        summary: "Ostateczny wynik firmy po odjęciu kosztów ogólnych i Rezerwy CIT.",
         description:
-            "[VISION LAYER] Interpretacja zarządcza i znaczenie dla dywidend definiuje Vision Layer. " +
-            "TECHNICZNE: Obliczany przez `LedgerService.realProfit`. " +
-            "Formuła: fuelAccrualNet − (CIT_RATE × MAX(0, fuelAccrualNet)). " +
-            "To wynik MEMORIAŁOWY — uwzględnia faktury wystawione ale jeszcze nie opłacone. " +
-            "Jest różny od Safe to Spend (który jest kasowy). " +
-            "Źródło: `src/lib/finance/ledger-service.ts`.",
+            "[VISION LAYER] Interpretacja zarządcza definiuje Vision Layer. " +
+            "TECHNICZNE: Wynik MEMORIAŁOWY — uwzględnia faktury wystawione ale jeszcze nie opłacone. " +
+            "Różny od Czystej Gotówki (która jest kasowa / potwierdzona bankowo).",
         technicalSource: "ledger",
-        formula: "fuelAccrualNet − (CIT_RATE × MAX(0, fuelAccrualNet))",
+        formula: "Zysk Netto (Memoriałowy) − Rezerwa CIT",
         dependsOn: ["project-margin", "cit-reserve"],
         related: ["safe-to-spend", "project-margin"],
-        uiTargets: ["Dashboard → Zysk po opodatkowaniu (Real Profit) card"],
+        uiTargets: ["Dashboard → Zysk po opodatkowaniu card"],
         vector: "Vector 125"
     },
 
@@ -205,15 +196,12 @@ export const glossaryEntries: HelpEntry[] = [
     // ─────────────────────────────────────────────────────────
     {
         id: "bank-anchor",
-        title: "Kotwica Salda Bankowego (Bank Anchor)",
+        title: "Saldo Bankowe",
         category: "concept",
-        summary: "Ostatnie potwierdzone saldo bankowe z wyciągu PKO BP — absolutna podstawa płynności.",
+        summary: "Ostatnie potwierdzone saldo bankowe z wyciągu PKO BP.",
         description:
-            "[VISION LAYER] znaczenie jako punkt odniesienia definiuje Vision Layer. " +
-            "TECHNICZNE: Przechowywane w `BankBalanceState` (Prisma). " +
-            "Ustawiane podczas importu wyciągu bankowego CSV/MT940. " +
-            "Porównywane z `LedgerService.realCashBalance` celem wykrycia rozbieżności (DISCREPANCY_ALERT). " +
-            "NIE jest aktualizowane automatycznie — wymaga nowego importu wyciągu.",
+            "TECHNICZNE: Przechowywane w `BankBalanceState`. " +
+            "Podstawa do wyliczenia Czystej Gotówki.",
         technicalSource: "bank",
         dependsOn: [],
         related: ["safe-to-spend"],
@@ -226,21 +214,17 @@ export const glossaryEntries: HelpEntry[] = [
     // ─────────────────────────────────────────────────────────
     {
         id: "invoice-status",
-        title: "Status faktury i logika płatności",
+        title: "Status faktury i płatności",
         category: "concept",
-        summary:
-            "Faktura może być: ACTIVE (otwarta), PAID (opłacona), XML_MISSING (z KSeF bez XML). Płatność może być: UNPAID, PAID, POS (auto).",
+        summary: "Statusy rozliczenia dokumentu i weryfikacji bankowej.",
         description:
-            "TECHNICZNE: `invoice.status` (ACTIVE / PAID / XML_MISSING) to stan dokumentu. " +
-            "`invoice.paymentStatus` (UNPAID / PAID) to stan rozliczenia. " +
+            "TECHNICZNE: `invoice.paymentStatus` (UNPAID / PAID) to stan rozliczenia. " +
             "`invoice.reconciliationStatus` (PENDING / MATCHED / GAP) to potwierdzenie bankowe. " +
-            "BANK_TRANSFER + MATCHED = najwyższy autorytet (blokada edycji). " +
-            "CARD / CASH = płatność manualna, oczekuje na wyciąg. " +
-            "Vector 160: jeśli issueDate === dueDate → status POS/GOTÓWKA (zielony baner, nie czerwony).",
+            "Vector 160: jeśli data wystawienia = data płatności → status POS/GOTÓWKA.",
         technicalSource: "ledger",
         dependsOn: [],
         related: ["safe-to-spend", "bank-anchor"],
-        uiTargets: ["Finance → Transaction History → InvoicePaymentToggle", "Finance page → statusBadge column"],
+        uiTargets: ["Finance → Transaction History → InvoicePaymentToggle"],
         vector: "Vector 160"
     }
 ]

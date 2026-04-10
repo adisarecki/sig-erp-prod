@@ -305,7 +305,7 @@ export function TransactionHistory({
                 </div>
 
                 <div className="bg-slate-800/50 p-4 px-6 rounded-2xl border border-white/5 flex flex-col items-center sm:items-end w-full md:w-auto">
-                    <p className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.3em] mb-1">Saldo Końcowe (Safe to Spend)</p>
+                    <p className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.3em] mb-1">Czysta Gotówka</p>
                     <div className="flex items-baseline gap-3">
                         <CurrencyDisplay 
                             gross={initialTransactions.reduce((acc, t) => (t.type === 'INCOME' || t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? acc + t.amount : acc - t.amount, 0)} 
@@ -459,7 +459,7 @@ export function TransactionHistory({
                             <Label className="text-[10px] uppercase font-bold text-slate-400">
                                 Kontrola Płatności (Bank Authority)
                             </Label>
-                            <HelpLink helpId="invoice-status" tooltip="Jak działają statusy płatności i weryfikacja bankowa?" size="xs" />
+                            <HelpLink helpId="invoice-status" tooltip="Status faktury i płatności (Weryfikacja Bankowa)" size="xs" />
                         </div>
                         <InvoicePaymentToggle 
                             invoiceId={viewingItem.id}
