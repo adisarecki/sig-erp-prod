@@ -208,33 +208,41 @@ export function AddContractorModal() {
 
                     <div>
                         <label className="text-sm font-semibold text-slate-700 block mb-1">Nazwa firmy *</label>
-                        <input
-                            name="name"
-                            value={formDataObj.name}
-                            onChange={handleChange}
-                            required
-                            className={cn(
-                                "w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-500",
-                                successFlash && "bg-green-50 ring-2 ring-green-400 border-green-500"
-                            )}
-                            placeholder="np. Demetrix"
-                        />
+                        {gusLoading ? (
+                            <div className="w-full h-10 bg-slate-100 animate-pulse rounded-md border border-slate-200" />
+                        ) : (
+                            <input
+                                name="name"
+                                value={formDataObj.name}
+                                onChange={handleChange}
+                                required
+                                className={cn(
+                                    "w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-500",
+                                    successFlash && "bg-green-50 ring-2 ring-green-400 border-green-500"
+                                )}
+                                placeholder="np. Demetrix"
+                            />
+                        )}
                     </div>
 
                     <div>
                         <label className="text-sm font-semibold text-slate-700 block mb-1">Adres siedziby</label>
-                        <input
-                            id="contractor-address-add"
-                            name="address"
-                            value={formDataObj.address}
-                            onChange={handleChange}
-                            autoComplete="off"
-                            className={cn(
-                                "w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-500",
-                                successFlash && "bg-green-50 ring-2 ring-green-400 border-green-500"
-                            )}
-                            placeholder="ul. Słoneczna 1, Siemianowice"
-                        />
+                        {gusLoading ? (
+                            <div className="w-full h-10 bg-slate-100 animate-pulse rounded-md border border-slate-200" />
+                        ) : (
+                            <input
+                                id="contractor-address-add"
+                                name="address"
+                                value={formDataObj.address}
+                                onChange={handleChange}
+                                autoComplete="off"
+                                className={cn(
+                                    "w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-500",
+                                    successFlash && "bg-green-50 ring-2 ring-green-400 border-green-500"
+                                )}
+                                placeholder="ul. Słoneczna 1, Siemianowice"
+                            />
+                        )}
                     </div>
 
                     <div>
@@ -247,7 +255,9 @@ export function AddContractorModal() {
                                 />
                             )}
                         </div>
-                        {accountNumbers.length > 1 ? (
+                        {gusLoading ? (
+                            <div className="w-full h-10 bg-slate-100 animate-pulse rounded-md border border-slate-200" />
+                        ) : accountNumbers.length > 1 ? (
                             <select
                                 name="bankAccount"
                                 value={formDataObj.bankAccount}
@@ -260,18 +270,25 @@ export function AddContractorModal() {
                                 ))}
                             </select>
                         ) : (
-                            <input
-                                name="bankAccount"
-                                value={formDataObj.bankAccount}
-                                onChange={handleChange}
-                                className={cn(
-                                    "w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500",
-                                    successFlash && accountNumbers.length === 1 && "bg-green-50 ring-2 ring-green-400 border-green-500"
+                            <div className="space-y-1.5">
+                                <input
+                                    name="bankAccount"
+                                    value={formDataObj.bankAccount}
+                                    onChange={handleChange}
+                                    className={cn(
+                                        "w-full border border-slate-300 rounded-md px-3 py-2 text-slate-900 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-500",
+                                        successFlash && accountNumbers.length === 1 && "bg-green-50 ring-2 ring-green-400 border-green-500"
+                                    )}
+                                    placeholder="00 0000 0000 0000 0000 0000 0000"
+                                />
+                                {!accountNumbers.includes(formDataObj.bankAccount.replace(/\s/g, "")) && formDataObj.bankAccount.length > 10 && (
+                                    <p className="text-[10px] text-rose-600 font-bold flex items-center gap-1 animate-pulse">
+                                        <ShieldAlert className="w-3 h-3" /> UWAGA: Tego konta brak na Białej Liście MF!
+                                    </p>
                                 )}
-                                placeholder="00 0000 0000 0000 0000 0000 0000"
-                            />
+                            </div>
                         )}
-                        {accountNumbers.length > 0 && (
+                        {!gusLoading && accountNumbers.length > 0 && (
                             <p className="text-[10px] text-slate-500 mt-1 italic">
                                 {accountNumbers.length === 1 
                                     ? "Konto automatycznie pobrane i zweryfikowane w Wykazie MF." 

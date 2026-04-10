@@ -140,7 +140,8 @@ export const howtoEntries: HelpEntry[] = [
             "KROK 2: Przy wpisywaniu faktury kosztowej, system sprawdza numer konta w czasie rzeczywistym. Widzisz to dzięki ikonom tarczy:\n" +
             "- 🟢 **Zweryfikowane**: Konto jest na Białej Liście. Możesz bezpiecznie płacić.\n" +
             "- 🔴 **Brak na liście**: Ryzyko pomyłki lub oszustwa. Sprawdź dokładnie numer konta u dostawcy.\n\n" +
-            "KROK 3: Jeśli konto nie figuruje na liście, system wyświetli pulsacyjne ostrzeżenie obok pola numeru konta.",
+            "KROK 3: Jeśli konto nie figuruje na liście, system wyświetli pulsacyjne ostrzeżenie obok pola numeru konta.\n\n" +
+            "BEZPIECZEŃSTWO PODATKOWE: System automatycznie pobiera listę rachunków zgłoszonych do Urzędu Skarbowego. Jeśli kontrahent posiada więcej niż jedno konto, zobaczysz listę wyboru. Wybranie konta z listy gwarantuje bezpieczeństwo podatkowe przy płatnościach powyżej 15 tys. zł.",
         technicalSource: "mf-whitelist",
         dependsOn: ["bank-verification"],
         related: ["howto-gus-lookup"],

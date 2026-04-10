@@ -185,7 +185,7 @@ export async function fetchGusData(nip: string) {
             const vatResult = await checkVatStatus(normalizedNip)
             if (vatResult.success) {
                 vatStatus = vatResult.statusVat
-                accountNumbers = vatResult.accountNumbers
+                accountNumbers = vatResult.accountNumbers.map(acc => acc.replace(/\D/g, ""))
             }
         } catch (vatErr) {
             console.warn("[GUS_VAT_CHAIN] VAT check failed silently:", vatErr)
