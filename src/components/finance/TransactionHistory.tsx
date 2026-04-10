@@ -142,6 +142,8 @@ export function TransactionHistory({
                 const dynamicTitle = t.isInvoice 
                     ? (isIncome ? 'Faktura Sprzedaży' : 'Faktura Zakupu')
                     : (t.contractorName || t.title);
+                
+                const showContractorInTitle = t.isInvoice && t.contractorName;
 
                 return (
                     <div 
@@ -164,12 +166,19 @@ export function TransactionHistory({
                             </div>
                             <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="font-bold text-slate-900 text-lg truncate uppercase tracking-tight">
-                                        {dynamicTitle}
-                                    </p>
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 ${t.statusColor}`}>
-                                        {t.statusBadge}
-                                    </span>
+                                    <div className="flex items-baseline gap-2 flex-wrap">
+                                        <p className="font-bold text-slate-900 text-lg truncate uppercase tracking-tight">
+                                            {dynamicTitle}
+                                        </p>
+                                        {showContractorInTitle && (
+                                            <span className="text-indigo-600 font-extrabold text-lg uppercase tracking-tight">
+                                                — {t.contractorName}
+                                            </span>
+                                        )}
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 ${t.statusColor}`}>
+                                            {t.statusBadge}
+                                        </span>
+                                    </div>
                                     {t.tags?.split(',').map(tag => (
                                         <Badge key={tag} variant="outline" className="text-[10px] font-black tracking-tighter shrink-0 bg-blue-50 text-blue-700 border-blue-200">
                                             {tag.trim()}
@@ -186,7 +195,7 @@ export function TransactionHistory({
                                     )}
                                 </div>
                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 mt-0.5">
-                                    {t.counterpartyRaw && (
+                                    {t.counterpartyRaw && !showContractorInTitle && (
                                         <div className="flex items-center gap-1.5">
                                             <Building2 className="w-3.5 h-3.5 text-slate-400" />
                                             <span className="font-semibold text-slate-700 truncate max-w-[200px]">
@@ -194,14 +203,14 @@ export function TransactionHistory({
                                             </span>
                                         </div>
                                     )}
-                                    {t.documentNumber && (
-                                        <span className="font-mono text-[11px] text-slate-400 font-medium whitespace-nowrap">
-                                            Dok: {t.documentNumber}
-                                        </span>
-                                    )}
-                                    <span className="font-medium px-2 py-0.5 rounded-md bg-slate-100 whitespace-nowrap">
+                                    <span className="font-medium px-2 py-0.5 rounded-md bg-slate-100 whitespace-nowrap order-last sm:order-none">
                                         {new Date(t.date).toLocaleDateString('pl-PL')}
                                     </span>
+                                    {t.documentNumber && (
+                                        <span className="font-mono text-[11px] text-slate-400 font-medium truncate max-w-[120px] sm:max-w-none">
+                                            ID: {t.documentNumber}
+                                        </span>
+                                    )}
                                     <span className="hidden sm:inline text-slate-300">•</span>
                                     <div className="flex items-center gap-2 min-w-0">
                                         <span className="shrink-0">Projekt:</span>

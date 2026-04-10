@@ -89,7 +89,7 @@ export async function getAssetSummary() {
 
             const lastInvoiceDate = a.invoices[0]?.issueDate || null
             const lastTxDate = a.transactions[0]?.transactionDate || null
-            const lastCostDate = (lastInvoiceDate && lastTxDate) 
+            const lastCostDate = (lastInvoiceDate && lastTxDate)
                 ? (lastInvoiceDate > lastTxDate ? lastInvoiceDate : lastTxDate)
                 : (lastInvoiceDate || lastTxDate)
 
