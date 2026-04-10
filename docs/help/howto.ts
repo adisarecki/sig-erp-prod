@@ -8,10 +8,11 @@
 import type { HelpEntry } from "./glossary"
 
 export const gettingStartedGuide: HelpEntry = {
-  id: "jak_zaczac_prace",
-  title: "🚀 Wielki Start: Przewodnik krok po kroku po SIG ERP",
-  category: "howto",
-  description: `
+    id: "jak_zaczac_prace",
+    title: "🚀 Wielki Start: Przewodnik krok po kroku po SIG ERP",
+    category: "howto",
+    summary: "Kompletny przewodnik po SIG ERP: od dodania firmy, przez projekty i faktury, aż po zrozumienie Czystej Gotówki.",
+    description: `
 Ten poradnik przeprowadzi Cię przez cały system – od dodania pierwszej firmy, aż po moment, w którym dowiesz się, ile naprawdę masz pieniędzy.
 
 KROK 1: Dodawanie Kontrahentów (Magia GUS)
@@ -36,8 +37,8 @@ Wracasz na główny ekran (Dashboard). Pamiętaj o złotej zasadzie: SALDO W BAN
 System bierze Twoje saldo bankowe i odejmuje od niego: VAT, CIT, niezapłacone faktury dostawców oraz zamrożone kaucje.
 Wynik, który widzisz na samej górze to CZYSTA GOTÓWKA (Safe to Spend). To jedyna kwota, którą możesz bezpiecznie wydać na rozwój firmy lub wypłacić, bez strachu o jutro.
   `.trim(),
-  uiTargets: ["dashboard", "help_index"],
-  related: ["safe_to_spend", "vault", "vat_balance", "cit_reserve"]
+    uiTargets: ["dashboard", "help_index"],
+    related: ["safe_to_spend", "vault", "vat_balance", "cit_reserve"]
 };
 
 export const howtoEntries: HelpEntry[] = [
