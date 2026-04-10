@@ -4,16 +4,16 @@ Ten plik jest „DNA” technologicznego systemu SIG ERP. Jest przeznaczony wył
 
 ---
 
-## 🏛️ 0. Główne Prawa Systemu (Laws of SIG ERP)
+## 🏛️ 0. Główne Prawa Systemu (Prawa SIG ERP)
 
 AI operujące na tym kodzie MUSI przestrzegać tych zasad bezwzględnie:
-1.  **PG-Master for Finance**: Wszystkie sumy, wskaźniki KPI i weryfikacje sald POCHODZĄ Z POSTGRESQL (LedgerEntry). Firestore to tylko mirror.
-2.  **Financial Signs Integrity**: 
+1.  **PG-Master dla Finansów**: Wszystkie sumy, wskaźniki KPI i weryfikacje sald POCHODZĄ Z POSTGRESQL (LedgerEntry). Firestore to tylko mirror.
+2.  **Integralność Znaków Finansowych**: 
     *   Zakupy (COST): Brutto (-), VAT (+), Netto (-).
     *   Sprzedaż (INCOME): Brutto (+), VAT (-), Netto (+).
-3.  **Double-Shield Persistence**: Zapis faktury ZAWSZE wymaga sprawdzenia unikalności przez `ksefId` LUB parę `(contractorId + invoiceNumber)`.
-4.  **Mirror-on-Success**: Synchronizacja do Firestore odbywa się PO udanym zapisie do PostgreSQL (PG-First).
-5.  **Strict Serializability**: Akcje serwerowe zwracają ujednolicony interfejs `{ success: boolean, results?: T, error?: string }`.
+3.  **Podwójna Tarcza Zapisu**: Zapis faktury ZAWSZE wymaga sprawdzenia unikalności przez `ksefId` LUB parę `(contractorId + invoiceNumber)`.
+4.  **Lustro po Sukcesie**: Synchronizacja do Firestore odbywa się PO udanym zapisie do PostgreSQL (PG-First).
+5.  **Ścisła Serializacja**: Akcje serwerowe zwracają ujednolicony interfejs `{ success: boolean, results?: T, error?: string }`.
 
 ---
 
