@@ -298,12 +298,15 @@ export const glossaryEntries: HelpEntry[] = [
     // ─────────────────────────────────────────────────────────
     {
         id: 'fleet-cost-allocation',
-        term: 'Alokacja kosztów floty',
-        definition: 'Mechanizm przypisywania dokumentów finansowych (faktur i płatności) do konkretnych jednostek floty (pojazdów i maszyn).',
-        businessContext: 'W systemie SIG ERP rozróżniamy dwa poziomy alokacji: 1. Koszt Memoriałowy (Faktura) - wpływający na rentowność i wynik, oraz 2. Wypływ Gotówki (Płatność) - wpływający na płynność floty (Cash Flow). Dzięki funkcji "Smart Link", system automatycznie wykrywa powiązane transakcje bankowe przy przypisywaniu faktur do pojazdów, zapobiegając deficytom w raportowaniu przepływów pieniężnych.',
+        title: 'Alokacja kosztów floty',
+        category: 'concept',
+        summary: 'Mechanizm przypisywania dokumentów finansowych (faktur i płatności) do konkretnych jednostek floty (pojazdów i maszyn).',
         description:
-            "Na obecnym etapie (Stage 1) przypisanie kosztu do pojazdu SŁUŻY WYŁĄCZNIE WIDOCZNOŚCI. \n\n" +
-            "Ważne: Połączenie faktury za paliwo z samochodem NIE zmienia automatycznie marży projektu, na którym ten samochód pracuje. Zapobiega to \"fałszywej ekonomii\" przed wdrożeniem pełnego silnika alokacji motogodzin i kilometrówki.",
+            "W systemie SIG ERP rozróżniamy dwa poziomy alokacji: \n\n" +
+            "1. Koszt Memoriałowy (Faktura) - wpływający na rentowność i wynik, oraz \n" +
+            "2. Wypływ Gotówki (Płatność) - wpływający na płynność floty (Cash Flow).\n\n" +
+            "Dzięki funkcji \"Smart Link\", system automatycznie wykrywa powiązane transakcje bankowe przy przypisywaniu faktur do pojazdów, zapobiegając deficytom w raportowaniu przepływów pieniężnych.\n\n" +
+            "Na obecnym etapie (Stage 1) przypisanie kosztu do pojazdu SŁUŻY WYŁĄCZNIE WIDOCZNOŚCI i nie zmienia automatycznie marży projektu.",
         technicalSource: "ledger",
         related: ["project-margin", "zarzadzanie-flota"],
         uiTargets: ["Zasoby → Header Info"],
