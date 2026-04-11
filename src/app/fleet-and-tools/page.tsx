@@ -8,8 +8,8 @@ export default async function FleetAndToolsPage() {
     const fleetResult = await getFleetSummary()
     const toolsResult = await getAssetSummary()
 
-    const fleet = fleetResult.success ? fleetResult.summary : []
-    const tools = toolsResult.success ? toolsResult.summary : []
+    const fleet = (fleetResult.success ? fleetResult.summary : []) as any[]
+    const tools = (toolsResult.success ? toolsResult.summary : []) as any[]
 
     return (
         <div className="p-8 space-y-12 bg-[#0a0a0b] min-h-screen text-slate-200">
@@ -31,7 +31,7 @@ export default async function FleetAndToolsPage() {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {fleet.map((v) => (
+                    {fleet.map((v: any) => (
                         <div key={v.id} className="group relative bg-[#161618] border border-slate-800 rounded-2xl p-6 transition-all hover:border-blue-500/50 hover:shadow-[0_0_20px_rgba(59,130,246,0.1)]">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
@@ -109,7 +109,7 @@ export default async function FleetAndToolsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {tools.map((a) => (
+                    {tools.map((a: any) => (
                         <div key={a.id} className="bg-[#161618] border border-slate-800 rounded-xl p-5 hover:bg-[#1c1c1f] transition-colors">
                             <div className="flex flex-col h-full space-y-4">
                                 <div className="flex justify-between items-start">

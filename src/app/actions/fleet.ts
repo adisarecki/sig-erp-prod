@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { getCurrentTenantId } from "@/lib/tenant"
+import { getAdminDb } from "@/lib/firebaseAdmin"
 import prisma from "@/lib/prisma"
 import { startOfDay, subDays } from "date-fns"
 
