@@ -514,6 +514,7 @@ export async function addIncomeInvoice(formData: FormData) {
                     reconciliationStatus: (isPaidImmediately && paymentMethod === 'BANK_TRANSFER') ? 'MATCHED' : 'PENDING',
                     externalId: description,
                     bankAccountNumber,
+                    vehicleId: formData.get("vehicleId") as string || null,
                     retainedAmount: retainedAmount ? retainedAmount.toNumber() : null,
                     retentionReleaseDate
                 }
@@ -607,12 +608,13 @@ export async function addIncomeInvoice(formData: FormData) {
             }
         }
 
-        // Sync Invoice
-        fsBatch.set(adminDb.collection("invoices").doc(result.invoice.id), {
-            tenantId,
-            contractorId: result.finalContractorId,
-            projectId: result.finalProjectId || '',
-            type: "SPRZEDAŻ",
+            // Sync Invoice
+            fsBatch.set(adminDb.collection("invoices").doc(result.invoice.id), {
+                tenantId,
+                contractorId: result.finalContractorId,
+                projectId: result.finalProjectId || '',
+                vehicleId: formData.get("vehicleId") as string || null,
+                type: "SPRZEDAŻ",
             amountNet: Number(result.invoice.amountNet),
             amountGross: Number(result.invoice.amountGross),
             taxRate: Number(result.invoice.taxRate),
@@ -798,6 +800,7 @@ export async function addCostInvoice(formData: FormData) {
                     reconciliationStatus: (isPaidImmediately && paymentMethod === 'BANK_TRANSFER') ? 'MATCHED' : 'PENDING',
                     externalId: description,
                     bankAccountNumber,
+                    vehicleId: formData.get("vehicleId") as string || null,
                     retainedAmount: retainedAmount ? retainedAmount.toNumber() : null,
                     retentionReleaseDate
                 }
@@ -892,6 +895,7 @@ export async function addCostInvoice(formData: FormData) {
             tenantId,
             contractorId: result.finalContractorId,
             projectId: result.finalProjectId || '',
+            vehicleId: formData.get("vehicleId") as string || null,
             type: "EXPENSE",
             amountNet: Number(result.invoice.amountNet),
             amountGross: Number(result.invoice.amountGross),
@@ -965,5 +969,37 @@ export async function assignInvoiceToProject(invoiceId: string, projectId: strin
     } catch (error: any) {
         console.error("[ASSIGN_INVOICE_ERROR]", error)
         return { success: false, error: error.message || "Nie udało się przypisać faktury do projektu." }
+    }
+}
+
+/**
+ * PRZYPISANIE FAKTURY DO POJAZDU (Vector 170 Stage 1)
+ */
+export async function assignInvoiceToVehicle(invoiceId: string, vehicleId: string) {
+    if (!invoiceId || !vehicleId) throw new Error("ID faktury oraz ID pojazdu są wymagane.")
+
+    try {
+        const tenantId = await getCurrentTenantId()
+        const adminDb = getAdminDb()
+
+        // 1. Prisma Update
+        await prisma.invoice.update({
+            where: { id: invoiceId, tenantId },
+            data: { vehicleId }
+        })
+
+        // 2. Firestore Sync (Mirror)
+        await adminDb.collection("invoices").doc(invoiceId).update({
+            vehicleId,
+            updatedAt: new Date().toISOString()
+        })
+
+        revalidatePath("/finanse")
+        revalidatePath("/")
+
+        return { success: true }
+    } catch (error: any) {
+        console.error("[ASSIGN_INVOICE_TO_VEHICLE_ERROR]", error)
+        return { success: false, error: error.message || "Nie udało się przypisać faktury do pojazdu." }
     }
 }

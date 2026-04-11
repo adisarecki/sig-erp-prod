@@ -24,7 +24,7 @@ const InvoiceScanner = dynamic(() => import("@/components/finance/InvoiceScanner
     loading: () => <div className="animate-pulse bg-slate-100 h-9 w-24 rounded-lg" />
 })
 import Link from "next/link"
-import { type Contractor, type Project } from "@/lib/types/crm"
+import { type Contractor, type Project, type Vehicle } from "@/lib/types/crm"
 import { TrendingUp, TrendingDown, ScanLine, DownloadCloud, History, Loader2, Trash2, AlertTriangle, Info } from "lucide-react"
 import {
     Dialog,
@@ -39,9 +39,10 @@ import { Button } from "@/components/ui/button"
 interface QuickActionsBarProps {
     projects: Project[]
     contractors: Contractor[]
+    vehicles: Vehicle[]
 }
 
-export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps) {
+export function QuickActionsBar({ projects, contractors, vehicles }: QuickActionsBarProps) {
     const [isImporting, setIsImporting] = useState(false)
     const [isPurging, setIsPurging] = useState(false)
     const [showPurgeConfirm, setShowPurgeConfirm] = useState(false)
@@ -123,6 +124,12 @@ export function QuickActionsBar({ projects, contractors }: QuickActionsBarProps)
                 </div>
                 <RegisterDebtModal />
             </div>
+
+            <div className="w-px bg-slate-100 hidden sm:block" />
+
+            {/* Income/Cost Modals (Standard SIG ERP) */}
+            <RegisterIncomeModal projects={projects} contractors={contractors} />
+            <RegisterCostModal projects={projects} contractors={contractors} vehicles={vehicles} />
 
             <div className="w-px bg-slate-100 hidden sm:block" />
 

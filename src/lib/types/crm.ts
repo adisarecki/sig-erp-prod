@@ -21,3 +21,13 @@ export interface Project {
     retentionLongTermRate?: number;
     retentionBase?: 'NET' | 'GROSS';
 }
+
+export interface Vehicle {
+    id: string;
+    make: string;
+    model: string;
+    plates: string;
+    vin?: string | null;
+    status?: string;
+    assignedProjectId?: string | null;
+}

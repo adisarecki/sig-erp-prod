@@ -3,7 +3,7 @@
 import { Trash2, ArrowUpRight, ArrowDownRight, Link as LinkIcon, Loader2, X, AlertTriangle, FileText, Calendar, Building2, Briefcase, Info, Sparkles, CheckCircle } from "lucide-react"
 import { HelpLink } from "@/components/ui/HelpLink"
 import { assignTransactionToProject, deleteTransaction } from "../../app/actions/transactions"
-import { assignInvoiceToProject, deleteInvoice, markInvoiceAsPaid } from "../../app/actions/invoices"
+import { assignInvoiceToProject, assignInvoiceToVehicle, deleteInvoice, markInvoiceAsPaid } from "../../app/actions/invoices"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { InvoicePaymentToggle } from "./InvoicePaymentToggle"
@@ -44,24 +44,29 @@ interface HistoryItem {
     tags?: string | null;
     paymentMethod?: string | null;
     reconciliationStatus?: string | null;
+    vehicleId?: string | null;
+    vehiclePlates?: string | null;
 }
 
 interface TransactionHistoryProps {
     transactions: HistoryItem[];
     projectsMap?: Record<string, string>;
     allProjects?: { id: string, name: string }[];
+    allVehicles?: { id: string, plates: string, make: string, model: string }[];
 }
 
 export function TransactionHistory({
     transactions: initialTransactions,
     projectsMap = {},
-    allProjects = []
+    allProjects = [],
+    allVehicles = []
 }: TransactionHistoryProps) {
     const [assigningId, setAssigningId] = useState<string | null>(null)
     const [deleteConfirmItem, setDeleteConfirmItem] = useState<HistoryItem | null>(null)
     const [viewingItem, setViewingItem] = useState<HistoryItem | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
     const [payingId, setPayingId] = useState<string | null>(null)
+    const [assigningVehicleId, setAssigningVehicleId] = useState<string | null>(null)
     const router = useRouter()
 
     const handleQuickPay = async (e: React.MouseEvent, id: string) => {
@@ -127,6 +132,24 @@ export function TransactionHistory({
         }
     }
 
+    const handleAssignVehicle = async (itemId: string, vehicleId: string) => {
+        if (!vehicleId) return
+
+        setAssigningVehicleId(itemId)
+        try {
+            const result = await assignInvoiceToVehicle(itemId, vehicleId)
+            if (result.success) {
+                router.refresh()
+            } else {
+                alert(result.error || "Błąd podczas przypisywania do pojazdu.")
+            }
+        } catch (err: any) {
+            alert(err.message || "Błąd sieci.")
+        } finally {
+            setAssigningVehicleId(null)
+        }
+    }
+
     if (initialTransactions.length === 0) {
         return (
             <div className="p-8 text-center text-slate-500">
@@ -178,6 +201,11 @@ export function TransactionHistory({
                                                     <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-black tracking-tighter shrink-0 ${t.statusColor}`}>
                                                         {t.statusBadge}
                                                     </span>
+                                                    {t.vehiclePlates && (
+                                                        <Badge variant="outline" className="text-[10px] font-black tracking-tighter shrink-0 bg-slate-900 text-white border-slate-900 px-2 py-0.5">
+                                                            🚗 {t.vehiclePlates}
+                                                        </Badge>
+                                                    )}
                                                 </div>
                                                 {t.tags?.split(',').map(tag => (
                                                     <Badge key={tag} variant="outline" className="text-[10px] font-black tracking-tighter shrink-0 bg-blue-50 text-blue-700 border-blue-200">
@@ -242,6 +270,42 @@ export function TransactionHistory({
                                                         </div>
                                                     )}
                                                 </div>
+
+                                                {/* PRZYPISANIE POJAZDU (Vector 170) */}
+                                                {t.isInvoice && (
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <span className="shrink-0">Pojazd:</span>
+                                                        {t.vehicleId ? (
+                                                            <span className="font-medium text-slate-700 truncate">
+                                                                {allVehicles.find(v => v.id === t.vehicleId)?.plates || t.vehiclePlates || 'Pojazd'}
+                                                            </span>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="italic text-slate-400 shrink-0">Brak</span>
+                                                                <div className="pointer-events-auto">
+                                                                    {assigningVehicleId === t.id ? (
+                                                                        <Loader2 className="w-4 h-4 animate-spin text-orange-600" />
+                                                                    ) : (
+                                                                        <select
+                                                                            className="text-xs bg-white border border-slate-200 rounded px-2 py-1 focus:ring-2 focus:ring-orange-500 outline-none cursor-pointer hover:border-orange-300 transition-colors"
+                                                                            onChange={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleAssignVehicle(t.id, e.target.value);
+                                                                            }}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            defaultValue=""
+                                                                        >
+                                                                            <option value="" disabled>Przypisz Pojazd...</option>
+                                                                            {allVehicles.map(v => (
+                                                                                <option key={v.id} value={v.id}>{v.plates} ({v.make})</option>
+                                                                            ))}
+                                                                        </select>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

@@ -40,7 +40,7 @@ export function applyFinancialSign(amount: Decimal | number, type: LedgerType): 
       // VAT Shield is (+) for Expenses (refund expectation) 
       // and (-) for Income (debt expectation).
       // This is handled in recordInvoiceToLedger more explicitly.
-      return new Decimal(String(amount)); 
+      return new Decimal(String(amount));
     case 'RETENTION_LOCK':
       return absVal; // Always positive (Vaulted)
     default:
@@ -92,6 +92,15 @@ export async function recordInvoiceToLedger(params: {
   const { tenantId, projectId, invoiceId, amountNet, vatAmount, retainedAmount, type, date } = params;
 
   const action = async (tx: any) => {
+    // [VECTOR 160.1] Idempotency: Clear existing invoice-related entries before re-recording
+    await tx.ledgerEntry.deleteMany({
+      where: {
+        tenantId,
+        source: 'INVOICE',
+        sourceId: invoiceId
+      }
+    });
+
     const entries = [];
 
     // 1. Net Entry
@@ -108,8 +117,6 @@ export async function recordInvoiceToLedger(params: {
     }));
 
     // 2. VAT Entry (Vector 099 signs)
-    // INCOME -> VAT Debt (Negative)
-    // EXPENSE -> VAT Shield (Positive)
     const vatSignMultiplier = type === 'INCOME' ? -1 : 1;
     entries.push(await tx.ledgerEntry.create({
       data: {
@@ -137,7 +144,7 @@ export async function recordInvoiceToLedger(params: {
         }
       }));
     }
-    
+
     return entries;
   };
 

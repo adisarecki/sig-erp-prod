@@ -111,3 +111,20 @@ export async function getFleetSummary() {
         return { success: false, error: error.message }
     }
 }
+
+/**
+ * Fetch all active vehicles for the current tenant.
+ */
+export async function getVehicles() {
+    try {
+        const tenantId = await getCurrentTenantId()
+        const vehicles = await prisma.vehicle.findMany({
+            where: { tenantId, status: 'ACTIVE' },
+            orderBy: { plates: 'asc' }
+        })
+        return vehicles
+    } catch (error) {
+        console.error("[GET_VEHICLES_ERROR]", error)
+        return []
+    }
+}

@@ -39,30 +39,56 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
     where: { tenantId }
   });
 
-  // 1. Unrealized Invoices — split into Receivables vs Payables
-  const unpaidInvoices = await prisma.invoice.findMany({
-    where: { tenantId, paymentStatus: 'UNPAID', status: 'ACTIVE' }
+  // 1. Unrealized Invoices — split into Receivables vs Payables (Vector 109 Refactor)
+  // We source status from Invoice but AMOUNTS from LedgerEntry (SSoT)
+  const unrealizedInvoices = await prisma.invoice.findMany({
+    where: { 
+      tenantId, 
+      paymentStatus: { in: ['UNPAID', 'PARTIALLY_PAID'] },
+      status: { in: ['ACTIVE', 'XML_MISSING', 'PENDING'] }
+    },
+    select: { id: true, type: true }
+  });
+
+  const unrealizedIds = unrealizedInvoices.map((inv: any) => inv.id);
+  const unrealizedLedgerEntries = await db.ledgerEntry.findMany({
+    where: { 
+      tenantId, 
+      source: 'INVOICE',
+      sourceId: { in: unrealizedIds }
+    }
   });
 
   const SALES_TYPES = new Set(['SPRZEDAŻ', 'INCOME', 'REVENUE']);
   const COST_TYPES  = new Set(['ZAKUP', 'EXPENSE', 'COST', 'KSeF_PURCHASE']);
 
   // Receivables: money we will RECEIVE — positive (+)
-  const unpaidReceivables = unpaidInvoices
+  // Formula: Sum of INCOME + VAT_SHIELD (abs) - RETENTION_LOCK
+  const unpaidReceivables = unrealizedInvoices
     .filter((inv: any) => SALES_TYPES.has(inv.type))
     .reduce((sum: Decimal, inv: any) => {
-      const gross = new Decimal(String(inv.amountGross || 0));
-      const retention = new Decimal(String(inv.retainedAmount || 0));
-      return sum.plus(gross.minus(retention));
+      const invEntries = unrealizedLedgerEntries.filter((e: any) => e.sourceId === inv.id);
+      
+      const net = invEntries.find((e: any) => e.type === 'INCOME')?.amount || new Decimal(0);
+      const vat = invEntries.find((e: any) => e.type === 'VAT_SHIELD')?.amount || new Decimal(0);
+      const retention = invEntries.find((e: any) => e.type === 'RETENTION_LOCK')?.amount || new Decimal(0);
+
+      // Gross - Retention = Net + ABS(VAT) - Retention
+      return sum.plus(new Decimal(String(net)).plus(new Decimal(String(vat)).abs()).minus(new Decimal(String(retention)).abs()));
     }, new Decimal(0));
 
-  // Payables: money we will PAY OUT — kept as positive for UI display, context implies outflow
-  const unpaidPayables = unpaidInvoices
+  // Payables: money we will PAY OUT — kept as positive for UI display
+  const unpaidPayables = unrealizedInvoices
     .filter((inv: any) => COST_TYPES.has(inv.type))
     .reduce((sum: Decimal, inv: any) => {
-      const gross = new Decimal(String(inv.amountGross || 0));
-      const retention = new Decimal(String(inv.retainedAmount || 0));
-      return sum.plus(gross.minus(retention));
+      const invEntries = unrealizedLedgerEntries.filter((e: any) => e.sourceId === inv.id);
+      
+      const net = invEntries.find((e: any) => e.type === 'EXPENSE')?.amount || new Decimal(0);
+      const vat = invEntries.find((e: any) => e.type === 'VAT_SHIELD')?.amount || new Decimal(0);
+      const retention = invEntries.find((e: any) => e.type === 'RETENTION_LOCK')?.amount || new Decimal(0);
+
+      // Gross - Retention = ABS(Net) + ABS(VAT) - ABS(Retention)
+      return sum.plus(new Decimal(String(net)).abs().plus(new Decimal(String(vat)).abs()).minus(new Decimal(String(retention)).abs()));
     }, new Decimal(0));
 
   // Legacy combined figure (kept for backwards-compat)

@@ -302,11 +302,31 @@ export const glossaryEntries: HelpEntry[] = [
         category: "concept",
         summary: "Zasady przypisywania kosztów pojazdów do projektów (widoczność vs automatyzacja).",
         description:
+            "Niektóre koszty (jak przeglądy, ubezpieczenia czy paliwo) są przypisywane bezpośrednio do pojazdu, aby umożliwić analizę rentowności floty jako całości.\n\n" +
             "Na obecnym etapie (Stage 1) przypisanie kosztu do pojazdu SŁUŻY WYŁĄCZNIE WIDOCZNOŚCI. \n\n" +
             "Ważne: Połączenie faktury za paliwo z samochodem NIE zmienia automatycznie marży projektu, na którym ten samochód pracuje. Zapobiega to \"fałszywej ekonomii\" przed wdrożeniem pełnego silnika alokacji motogodzin i kilometrówki.",
         technicalSource: "ledger",
         related: ["project-margin", "zarzadzanie-flota"],
         uiTargets: ["Zasoby → Header Info"],
         vector: "Vector 170"
+    },
+
+    // ─────────────────────────────────────────────────────────
+    // EXPECTED PAYMENTS (RECEIVABLES) - Vector 160.1
+    // ─────────────────────────────────────────────────────────
+    {
+        id: "expected-payments",
+        title: "Oczekiwane wpłaty (Należności)",
+        category: "concept",
+        summary: "Suma wystawionych faktur sprzedażowych, za które jeszcze nie wpłynęły środki (po odjęciu kaucji).",
+        description:
+            "Całkowita kwota, którą masz otrzymać od swoich kontrahentów za wykonane usługi lub sprzedane towary.\n\n" +
+            "Dlaczego to ważne? Pokazuje Twoją przyszłą płynność. SIG ERP odejmuje od tej kwoty kaucje (zamrożone w Skarbcu), żebyś wiedział, ile realnej gotówki faktycznie wpłynie na Twoje konto w najbliższym terminie.",
+        technicalSource: "ledger",
+        formula: "Suma(Brutto) - Skarbiec (Kaucje)",
+        dependsOn: ["retention-vault"],
+        related: ["safe-to-spend", "bank-anchor"],
+        uiTargets: ["Dashboard → Hero Bar → Oczekiwane wpłaty"],
+        vector: "Vector 160.1"
     }
 ]

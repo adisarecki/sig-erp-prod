@@ -18,17 +18,18 @@ import { toast } from "sonner"
 import { Loader2, PlusCircle, ScanText, AlertTriangle, FileCheck, ShieldAlert } from "lucide-react"
 import { scanInvoiceAction } from "@/app/actions/ocr"
 import { BankStatusBadge } from "@/components/ui/BankStatusBadge"
-import { type Contractor, type BankAccountInfo, type Project } from "@/lib/types/crm"
+import { type Contractor, type BankAccountInfo, type Project, type Vehicle } from "@/lib/types/crm"
 
 interface RegisterCostModalProps {
     projects: Project[]
     contractors: Contractor[]
+    vehicles?: Vehicle[]
     ocrData?: SanitizedOcrDraft
     lockedProjectId?: string
     trigger?: React.ReactNode
 }
 
-export function RegisterCostModal({ projects, contractors, ocrData, lockedProjectId, trigger }: RegisterCostModalProps) {
+export function RegisterCostModal({ projects, contractors, vehicles = [], ocrData, lockedProjectId, trigger }: RegisterCostModalProps) {
     const [open, setOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const router = useRouter()
@@ -48,6 +49,7 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
     const [isNewContractor, setIsNewContractor] = useState(false)
     const [bankAccountNumber, setBankAccountNumber] = useState("")
     const [isPaidImmediately, setIsPaidImmediately] = useState(true)
+    const [selectedVehicleId, setSelectedVehicleId] = useState<string>("NONE")
     const [paymentMethod, setPaymentMethod] = useState("BANK_TRANSFER")
 
     const [newContractorName, setNewContractorName] = useState("")
@@ -262,6 +264,9 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
         formData.set("bankAccountNumber", bankAccountNumber)
         formData.set("isPaidImmediately", isPaidImmediately ? "true" : "false")
         formData.set("paymentMethod", paymentMethod)
+        if (selectedVehicleId && selectedVehicleId !== "NONE") {
+            formData.set("vehicleId", selectedVehicleId)
+        }
 
         try {
             const result = await addCostInvoice(formData)
@@ -458,6 +463,30 @@ export function RegisterCostModal({ projects, contractors, ocrData, lockedProjec
                                         </Select>
                                     </div>
                                 )}
+
+                                <div className="space-y-2">
+                                    <Label className="text-slate-700 font-bold flex items-center gap-2">
+                                        🚗 Przypisany Pojazd / Maszyna
+                                        <span className="text-[10px] text-slate-400 font-normal uppercase tracking-widest">(Opcjonalnie)</span>
+                                    </Label>
+                                    <Select
+                                        name="vehicleId"
+                                        value={selectedVehicleId}
+                                        onValueChange={(v) => setSelectedVehicleId(v || "NONE")}
+                                    >
+                                        <SelectTrigger className="h-12 border-slate-200 bg-white" onPointerDown={(e) => e.stopPropagation()}>
+                                            <SelectValue placeholder="Wybierz pojazd z floty" />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-[70vh] overflow-y-auto">
+                                            <SelectItem value="NONE" className="text-slate-400 italic">Brak (Koszty ogólne)</SelectItem>
+                                            {vehicles.map(v => (
+                                                <SelectItem key={v.id} value={v.id}>
+                                                    <span className="font-bold mr-2">[{v.plates}]</span> {v.make} {v.model}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">

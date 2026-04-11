@@ -12,6 +12,7 @@ import { getAdminDb } from "@/lib/firebaseAdmin"
 import { getCurrentTenantId } from "@/lib/tenant"
 import { getProjects } from "@/app/actions/projects"
 import { getContractors } from "@/app/actions/crm"
+import { getVehicles } from "@/app/actions/fleet"
 
 import { TransactionHistory } from "@/components/finance/TransactionHistory"
 import { mapFinancialValues, FinancialType } from "@/lib/utils/financeMapper"
@@ -41,6 +42,7 @@ export default async function FinancePage({
     let transactions: any[] = []
     let projectsMap: any[] = []
     let contractorsMap: any[] = []
+    let vehicles: any[] = []
     let leakageAlerts: any[] = []
     let fetchError: string | null = null
 
@@ -53,6 +55,9 @@ export default async function FinancePage({
         // Pobieramy kontrahentów
         contractorsMap = await getContractors() as any[]
 
+        // Pobieramy pojazdy
+        vehicles = await getVehicles()
+
         // Pobieramy transakcje z Firestore (Bank imports) i Invoices z Prisma (Single Source of Truth)
         const adminDb = getAdminDb()
         const [transactionsSnap, prismaInvoices] = await Promise.all([
@@ -62,7 +67,7 @@ export default async function FinancePage({
                     tenantId,
                     status: { in: ['ACTIVE', 'XML_MISSING', 'PAID'] }
                 },
-                include: { contractor: true },
+                include: { contractor: true, vehicle: true },
                 orderBy: { issueDate: 'desc' }
             })
         ])
@@ -91,7 +96,9 @@ export default async function FinancePage({
             createdAt: inv.createdAt.toISOString(),
             // Pass contractor name through to avoid double search
             contractorName: inv.contractor.name,
-            contractorNip: inv.contractor.nip
+            contractorNip: inv.contractor.nip,
+            vehicleId: inv.vehicleId,
+            vehiclePlates: inv.vehicle?.plates || null
         }))
 
         const now = new Date()
@@ -138,6 +145,7 @@ export default async function FinancePage({
                         counterpartyRaw: t.counterpartyRaw,
                         contractorName: matchedContractor?.name || null,
                         matchedContractorId: t.matchedContractorId,
+                        vehicleId: t.vehicleId || null,
                         tags: t.tags
                     });
                 }),
@@ -189,7 +197,9 @@ export default async function FinancePage({
                     statusColor: color,
                     contractorId: inv.contractorId,
                     contractorName: (inv as any).contractorName || contractor?.name || 'Nieznany kontrahent',
-                    nip: (inv as any).contractorNip || contractor?.nip || null
+                    nip: (inv as any).contractorNip || contractor?.nip || null,
+                    vehicleId: inv.vehicleId,
+                    vehiclePlates: (inv as any).vehiclePlates || null
                 }
             })
         ]
@@ -263,7 +273,7 @@ export default async function FinancePage({
             <LeakageAlerts alerts={leakageAlerts} />
 
             {/* PANEL SZYBKICH AKCJI */}
-            <QuickActionsBar projects={projectsMap} contractors={contractorsMap} />
+            <QuickActionsBar projects={projectsMap} contractors={contractorsMap} vehicles={vehicles} />
 
             <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
                 <div className="border-b border-slate-100 px-6 py-4 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -297,6 +307,7 @@ export default async function FinancePage({
                     transactions={transactions} 
                     projectsMap={Object.fromEntries(projectsMap.map(p => [p.id, p.name]))}
                     allProjects={projectsMap}
+                    allVehicles={vehicles}
                 />
                 
                 {/* FOOTER SUMMARY BAR (Vector 097) */}
