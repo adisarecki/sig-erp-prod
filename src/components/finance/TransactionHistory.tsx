@@ -4,6 +4,7 @@ import { Trash2, ArrowUpRight, ArrowDownRight, Link as LinkIcon, Loader2, X, Ale
 import { HelpLink } from "@/components/ui/HelpLink"
 import { assignTransactionToProject, deleteTransaction } from "../../app/actions/transactions"
 import { assignInvoiceToProject, assignInvoiceToVehicle, deleteInvoice, markInvoiceAsPaid } from "../../app/actions/invoices"
+import { assignTransactionsToVehicle } from "../../app/actions/fleet"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { InvoicePaymentToggle } from "./InvoicePaymentToggle"
@@ -67,6 +68,7 @@ export function TransactionHistory({
     const [isDeleting, setIsDeleting] = useState(false)
     const [payingId, setPayingId] = useState<string | null>(null)
     const [assigningVehicleId, setAssigningVehicleId] = useState<string | null>(null)
+    const [autoLinkData, setAutoLinkData] = useState<{ invoiceId: string, transactionIds: string[], plates: string, vehicleId: string } | null>(null)
     const router = useRouter()
 
     const handleQuickPay = async (e: React.MouseEvent, id: string) => {
@@ -139,7 +141,17 @@ export function TransactionHistory({
         try {
             const result = await assignInvoiceToVehicle(itemId, vehicleId)
             if (result.success) {
-                router.refresh()
+                if (result.relatedTransactionIds && result.relatedTransactionIds.length > 0) {
+                    const vehicle = allVehicles.find(v => v.id === vehicleId)
+                    setAutoLinkData({
+                        invoiceId: itemId,
+                        transactionIds: result.relatedTransactionIds,
+                        plates: vehicle?.plates || 'pojazdu',
+                        vehicleId
+                    })
+                } else {
+                    router.refresh()
+                }
             } else {
                 alert(result.error || "Błąd podczas przypisywania do pojazdu.")
             }
@@ -147,6 +159,22 @@ export function TransactionHistory({
             alert(err.message || "Błąd sieci.")
         } finally {
             setAssigningVehicleId(null)
+        }
+    }
+
+    const handleAutoLinkConfirm = async () => {
+        if (!autoLinkData) return
+        
+        try {
+            const result = await assignTransactionsToVehicle(autoLinkData.transactionIds, autoLinkData.vehicleId)
+            if (!result.success) {
+                alert(result.error || "Błąd podczas automatycznego przypisywania płatności.")
+            }
+            setAutoLinkData(null)
+            router.refresh()
+        } catch (err: any) {
+            alert("Błąd podczas łączenia płatności.")
+            setAutoLinkData(null)
         }
     }
 
@@ -551,6 +579,45 @@ export function TransactionHistory({
                     <DialogFooter className="bg-slate-50 p-4 mt-0 border-t">
                         <Button onClick={() => setViewingItem(null)} variant="secondary" className="w-full font-bold uppercase tracking-tight">
                             Zamknij Podgląd
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* SMART PROMPT: VEHICLE TRANSACTION AUTO-LINK (Vector 170) */}
+            <Dialog open={!!autoLinkData} onOpenChange={(open) => !open && setAutoLinkData(null)}>
+                <DialogContent className="sm:max-w-[450px] border-blue-100 shadow-2xl">
+                    <DialogHeader className="space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-500 flex items-center justify-center text-white mb-2 shadow-lg shadow-blue-200">
+                            <LinkIcon className="w-6 h-6" />
+                        </div>
+                        <DialogTitle className="text-xl font-bold text-slate-900">
+                            Wykryto Powiązaną Płatność
+                        </DialogTitle>
+                        <DialogDescription className="text-slate-600 font-medium">
+                            Faktura została przypisana do pojazdu <span className="text-blue-600 font-bold">{autoLinkData?.plates}</span>. 
+                            Czy chcesz również przypisać powiązaną płatność ({autoLinkData?.transactionIds.length} szt.), aby poprawnie odzwierciedlić wypływ gotówki floty?
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="py-2 space-y-3">
+                        <div className="flex items-start gap-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100 text-xs text-blue-800">
+                            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                            <p>
+                                Bez przypisania płatności, koszty w dashboardzie floty będą pokazywać 0.00 PLN jako realny wypływ gotówki (Cash Flow).
+                            </p>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="mt-4 flex flex-col sm:flex-row gap-2">
+                        <Button variant="ghost" onClick={() => setAutoLinkData(null)} className="flex-1 text-slate-500">
+                            Nie, tylko faktura
+                        </Button>
+                        <Button
+                            onClick={handleAutoLinkConfirm}
+                            className="flex-1 font-bold bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200"
+                        >
+                            PRZYPISZ PŁATNOŚĆ
                         </Button>
                     </DialogFooter>
                 </DialogContent>

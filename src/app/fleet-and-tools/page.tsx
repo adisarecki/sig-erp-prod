@@ -73,14 +73,21 @@ export default async function FleetAndToolsPage() {
                                         </span>
                                     </div>
 
-                                    <div className="flex items-center justify-between p-2 bg-emerald-500/5 rounded-lg border border-emerald-500/10">
+                                    <div className="flex items-center justify-between p-2 bg-emerald-500/5 rounded-lg border border-emerald-500/10 relative overflow-hidden">
                                         <div className="flex items-center space-x-2">
                                             <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
                                             <span className="text-xs text-slate-400">Wypływ gotówki (30 dni)</span>
                                         </div>
-                                        <span className="text-sm font-bold text-emerald-400">
-                                            {v.cashOutflow30d?.toLocaleString('pl-PL', { style: 'currency', currency: 'PLN' }) || '0,00 zł'}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            {v.operationalCost30d > 0 && v.cashOutflow30d === 0 && (
+                                                <div title="Wykryto faktury bez przypisanych płatności (Cash Flow Miss)" className="cursor-help transition-transform hover:scale-110">
+                                                    <AlertTriangle className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+                                                </div>
+                                            )}
+                                            <span className="text-sm font-bold text-emerald-400">
+                                                {v.cashOutflow30d?.toLocaleString('pl-PL', { style: 'currency', currency: 'PLN' }) || '0,00 zł'}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

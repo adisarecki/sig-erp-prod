@@ -994,10 +994,25 @@ export async function assignInvoiceToVehicle(invoiceId: string, vehicleId: strin
             updatedAt: new Date().toISOString()
         })
 
+        // 3. Find related transactions (Vector 170 UX Refinement)
+        // We look for transactions linked to this invoice that don't have this vehicleId yet
+        const relatedPayments = await prisma.invoicePayment.findMany({
+            where: { invoiceId },
+            include: { transaction: true }
+        })
+
+        const relatedTransactionIds = relatedPayments
+            .filter(p => p.transaction.vehicleId !== vehicleId)
+            .map(p => p.transactionId)
+
         revalidatePath("/finanse")
+        revalidatePath("/fleet-and-tools")
         revalidatePath("/")
 
-        return { success: true }
+        return { 
+            success: true, 
+            relatedTransactionIds: relatedTransactionIds.length > 0 ? relatedTransactionIds : null 
+        }
     } catch (error: any) {
         console.error("[ASSIGN_INVOICE_TO_VEHICLE_ERROR]", error)
         return { success: false, error: error.message || "Nie udało się przypisać faktury do pojazdu." }

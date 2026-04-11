@@ -297,12 +297,11 @@ export const glossaryEntries: HelpEntry[] = [
     // VECTOR 170: COST ALLOCATION POLICY
     // ─────────────────────────────────────────────────────────
     {
-        id: "fleet-cost-allocation",
-        title: "Alokacja kosztów floty",
-        category: "concept",
-        summary: "Zasady przypisywania kosztów pojazdów do projektów (widoczność vs automatyzacja).",
+        id: 'fleet-cost-allocation',
+        term: 'Alokacja kosztów floty',
+        definition: 'Mechanizm przypisywania dokumentów finansowych (faktur i płatności) do konkretnych jednostek floty (pojazdów i maszyn).',
+        businessContext: 'W systemie SIG ERP rozróżniamy dwa poziomy alokacji: 1. Koszt Memoriałowy (Faktura) - wpływający na rentowność i wynik, oraz 2. Wypływ Gotówki (Płatność) - wpływający na płynność floty (Cash Flow). Dzięki funkcji "Smart Link", system automatycznie wykrywa powiązane transakcje bankowe przy przypisywaniu faktur do pojazdów, zapobiegając deficytom w raportowaniu przepływów pieniężnych.',
         description:
-            "Niektóre koszty (jak przeglądy, ubezpieczenia czy paliwo) są przypisywane bezpośrednio do pojazdu, aby umożliwić analizę rentowności floty jako całości.\n\n" +
             "Na obecnym etapie (Stage 1) przypisanie kosztu do pojazdu SŁUŻY WYŁĄCZNIE WIDOCZNOŚCI. \n\n" +
             "Ważne: Połączenie faktury za paliwo z samochodem NIE zmienia automatycznie marży projektu, na którym ten samochód pracuje. Zapobiega to \"fałszywej ekonomii\" przed wdrożeniem pełnego silnika alokacji motogodzin i kilometrówki.",
         technicalSource: "ledger",

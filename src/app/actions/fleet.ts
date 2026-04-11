@@ -128,3 +128,40 @@ export async function getVehicles() {
         return []
     }
 }
+
+/**
+ * Assign a batch of transactions to a vehicle (Vector 170 UX Refinement).
+ */
+export async function assignTransactionsToVehicle(transactionIds: string[], vehicleId: string) {
+    if (!transactionIds.length || !vehicleId) throw new Error("ID transakcji oraz ID pojazdu są wymagane.")
+
+    try {
+        const tenantId = await getCurrentTenantId()
+        const adminDb = getAdminDb()
+
+        // 1. Prisma Update
+        await prisma.transaction.updateMany({
+            where: { id: { in: transactionIds }, tenantId },
+            data: { vehicleId }
+        })
+
+        // 2. Firestore Sync (Mirror)
+        const batch = adminDb.batch()
+        transactionIds.forEach(id => {
+            batch.update(adminDb.collection("transactions").doc(id), {
+                vehicleId,
+                updatedAt: new Date().toISOString()
+            })
+        })
+        await batch.commit()
+
+        revalidatePath("/finanse")
+        revalidatePath("/fleet-and-tools")
+        revalidatePath("/")
+
+        return { success: true }
+    } catch (error: any) {
+        console.error("[ASSIGN_TRANSACTIONS_TO_VEHICLE_ERROR]", error)
+        return { success: false, error: error.message || "Nie udało się przypisać płatności do pojazdu." }
+    }
+}
