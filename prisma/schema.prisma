@@ -226,6 +226,8 @@ model Invoice {
   assetId      String?
   asset        Asset?        @relation("linked_costs", fields: [assetId], references: [id])
   purchasedAssets Asset[]    @relation("asset_purchase_source")
+  rawOcrData   Json?
+  auditDiscrepancy Boolean @default(false)
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
@@ -530,6 +532,8 @@ model LedgerEntry {
   amount    Decimal      @db.Decimal(12, 2)
   type      LedgerType
   date      DateTime
+  rawOcrData Json?
+  auditDiscrepancy Boolean @default(false)
   createdAt DateTime     @default(now())
 
   @@index([tenantId])

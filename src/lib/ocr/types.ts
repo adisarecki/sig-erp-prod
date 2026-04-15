@@ -26,14 +26,20 @@ export interface OcrInvoiceData {
     vatAmount: string
     /** Invoice number / reference */
     invoiceNumber: string | null
-    /** COST or INCOME */
-    type: "COST" | "INCOME"
+    /** COST or INCOME or UNRECOGNIZED_ENTITY */
+    type: "COST" | "INCOME" | "UNRECOGNIZED_ENTITY"
     /** VAT rate as string, e.g. "0.23" */
     vatRate: string
     /** OCR confidence score 0.0–1.0 */
     ocrConfidence: number
     /** Whether the invoice is already paid based on keywords (zapłacono, gotówka, blik, etc.) */
     isPaid?: boolean
+    /** Extracted license plate if any */
+    licensePlate?: string
+    /** Extracted keywords for asset linking */
+    rawTextKeywords?: string
+    /** The raw JSON representing this document from OCR */
+    rawOcrData?: any
 }
 
 /**

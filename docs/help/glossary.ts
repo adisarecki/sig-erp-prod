@@ -330,5 +330,23 @@ export const glossaryEntries: HelpEntry[] = [
         related: ["safe-to-spend", "bank-anchor"],
         uiTargets: ["Dashboard → Hero Bar → Oczekiwane wpłaty"],
         vector: "Vector 160.1"
+    },
+
+    // ─────────────────────────────────────────────────────────
+    // VECTOR 150: AUTOMATIC DOCUMENT CLASSIFICATION
+    // ─────────────────────────────────────────────────────────
+    {
+        id: "automatyczna-klasyfikacja",
+        title: "Automatyczna Klasyfikacja Dokumentów",
+        category: "concept",
+        summary: "System OCR używa NIP-u jako kotwicy do rozpoznawania stron faktury.",
+        description:
+            "System OCR używa Twojego NIP-u (9542751368) jako kotwicy. Automatycznie rozpoznaje, czy jesteś sprzedawcą czy kupującym, eliminując błędy w księgowaniu VAT i CIT.\n\n" +
+            "Nierozpoznane dokumenty są zgłaszane jako UNRECOGNIZED_ENTITY (Znak ostrzegawczy), by nikt nie pominął weryfikacji ręcznej.",
+        technicalSource: "ui",
+        dependsOn: ["invoice-status"],
+        related: [],
+        uiTargets: ["Finance → InvoiceScanner Szybki Skan"],
+        vector: "Vector 150"
     }
 ]

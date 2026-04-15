@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
             
             Struktura pojedynczego obiektu:
             {
-                "nip": "10 cyfr bez myślników",
+                "sellerNip": "NIP sprzedawcy (sprzedającego), 10 cyfr bez myślników",
+                "buyerNip": "NIP nabywcy (kupującego), 10 cyfr bez myślników",
                 "parsedName": "Nazwa sprzedawcy",
                 "issueDate": "YYYY-MM-DD",
                 "dueDate": "YYYY-MM-DD lub null",
@@ -49,10 +50,11 @@ export async function POST(req: NextRequest) {
                 "grossAmount": "kwota brutto",
                 "vatAmount": "kwota VAT",
                 "invoiceNumber": "numer faktury",
-                "type": "COST",
                 "vatRate": "ułamek np. 0.23",
                 "bankAccountNumber": "26 cyfr bez spacji (numer konta do wpłaty)",
-                "isPaid": true/false (czy na dokumencie są słowa: Zapłacono, Gotówka, Karta, BLIK, Przelew wykonany itp.)
+                "isPaid": true/false (czy na dokumencie są słowa: Zapłacono, Gotówka, Karta, BLIK, Przelew wykonany itp.),
+                "licensePlate": "Numer rejestracyjny pojazdu np. WE452YS (jeśli wykryto na fakturze za paliwo/naprawę)",
+                "rawTextKeywords": "Główne pozycje, np. PALIWO, PRZEGLĄD, MATERIAŁY BUDOWLANE"
             }`,
             {
                 inlineData: {
@@ -78,10 +80,16 @@ export async function POST(req: NextRequest) {
             const OWNER_NIP = "9542751368";
             
             parsedData = parsedData.map((item: any) => {
-                const itemNip = (item.nip || "").replace(/\D/g, "");
-                // Jeśli Sprzedawca (nip z dokumentu) to My -> INCOME
-                // W przeciwnym razie -> COST (Kupujemy coś)
-                const type = itemNip === OWNER_NIP ? "INCOME" : "COST";
+                const sellerNip = (item.sellerNip || "").replace(/\D/g, "");
+                const buyerNip = (item.buyerNip || "").replace(/\D/g, "");
+
+                // Auto-Classification Logic (The "Truth" Engine)
+                let type = "UNRECOGNIZED_ENTITY";
+                if (sellerNip === OWNER_NIP) {
+                    type = "INCOME"; // My jesteśmy sprzedawcą
+                } else if (buyerNip === OWNER_NIP) {
+                    type = "COST";   // My jesteśmy nabywcą
+                }
 
                 // --- Business Rule: issueDate == dueDate => PAID ---
                 const autoPaid = item.issueDate && item.dueDate && (item.issueDate === item.dueDate);
@@ -89,8 +97,9 @@ export async function POST(req: NextRequest) {
                 return {
                     ...item,
                     type,
-                    nip: itemNip, // Sanitize NIP to digits only
-                    isPaid: item.isPaid || autoPaid
+                    nip: sellerNip, // Fallback dla istniejącego UI (wymaga 'nip' jako NIP kontrahenta)
+                    isPaid: item.isPaid || autoPaid,
+                    rawOcrData: { ...item } // Store raw data for Audit Reconciliation Layer
                 };
             });
 

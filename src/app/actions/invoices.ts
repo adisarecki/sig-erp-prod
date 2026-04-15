@@ -362,6 +362,9 @@ export async function addIncomeInvoice(formData: FormData) {
         let newContractorNip = (formData.get("newContractorNip") as string || "").replace(/\s/g, "")
         let newContractorAddress = formData.get("newContractorAddress") as string || ""
         const verifiedAccountsJson = formData.get("verifiedAccounts") as string
+        
+        const rawOcrDataStr = formData.get("rawOcrData") as string
+        const rawOcrData = rawOcrDataStr ? JSON.parse(rawOcrDataStr) : null
 
         // Heuristic: If address looks like a NIP and nip is empty, swap them
         if (!newContractorNip && /^\d{10}$/.test(newContractorAddress.trim())) {
@@ -516,7 +519,8 @@ export async function addIncomeInvoice(formData: FormData) {
                     bankAccountNumber,
                     vehicleId: formData.get("vehicleId") as string || null,
                     retainedAmount: retainedAmount ? retainedAmount.toNumber() : null,
-                    retentionReleaseDate
+                    retentionReleaseDate,
+                    rawOcrData: rawOcrData || undefined
                 }
             });
 
@@ -682,6 +686,9 @@ export async function addCostInvoice(formData: FormData) {
         let newContractorAddress = formData.get("newContractorAddress") as string || ""
         const verifiedAccountsJson = formData.get("verifiedAccounts") as string 
 
+        const rawOcrDataStr = formData.get("rawOcrData") as string
+        const rawOcrData = rawOcrDataStr ? JSON.parse(rawOcrDataStr) : null
+
         if (!amountNetStr || !dateStr || !dueDateStr) {
             throw new Error("Pola Kwota i Daty są bezwzględnie wymagane.")
         }
@@ -802,7 +809,8 @@ export async function addCostInvoice(formData: FormData) {
                     bankAccountNumber,
                     vehicleId: formData.get("vehicleId") as string || null,
                     retainedAmount: retainedAmount ? retainedAmount.toNumber() : null,
-                    retentionReleaseDate
+                    retentionReleaseDate,
+                    rawOcrData: rawOcrData || undefined
                 }
             });
 

@@ -114,6 +114,11 @@ export function QuickActionsBar({ projects, contractors, vehicles }: QuickAction
 
             <div className="w-px bg-slate-100 hidden sm:block" />
 
+            {/* SZYBKI SKAN / INGESTION */}
+            <InvoiceScanner vehicles={vehicles} />
+
+            <div className="w-px bg-slate-100 hidden sm:block" />
+
             {/* Dług Historyczny – Fort Knox: Rose/Slate */}
             <div className="flex items-center gap-1.5 pr-2 group">
                 <div className="p-1.5 bg-rose-50 rounded-lg text-rose-600 group-hover:bg-rose-100 transition-colors">

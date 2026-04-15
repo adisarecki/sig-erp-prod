@@ -35,9 +35,11 @@ interface QueueItem extends OcrInvoiceData {
     isNewContractorOverride?: boolean
     newContractorNameOverride?: string
     contractorId?: string | null
+    vehicleId?: string | null
 }
+import type { Vehicle } from "@/lib/types/crm"
 
-export function InvoiceScanner() {
+export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
     const [open, setOpen] = useState(false)
     const [dragActive, setDragActive] = useState(false)
     const [files, setFiles] = useState<File[]>([])
@@ -135,6 +137,16 @@ export function InvoiceScanner() {
                                 }
                             }
                         }
+                        // Asset Linking Integration (Vehicles/Keywords)
+                        let vehicleId = null
+                        if (data.licensePlate) {
+                            const vMatch = vehicles.find(v => v.plates.replace(/\s/g, '').toUpperCase() === data.licensePlate?.replace(/\s/g, '').toUpperCase())
+                            if (vMatch) vehicleId = vMatch.id
+                        } else if (data.rawTextKeywords && (data.rawTextKeywords.toUpperCase().includes('PALIWO') || data.rawTextKeywords.toUpperCase().includes('PRZEGLĄD'))) {
+                            // If user only has 1 vehicle, could auto-assign or leave for manual. We'll leave null if not exactly matched.
+                        }
+                        item.vehicleId = vehicleId
+
                         allItems.push(item)
                     }
                 }
@@ -224,6 +236,12 @@ export function InvoiceScanner() {
             // Zero-Day Auto-Pay Logic
             const isAutoPaid = item.isPaid || (item.issueDate === item.dueDate && item.issueDate !== null)
             formData.append("isPaidImmediately", isAutoPaid ? "true" : "false")
+            if (item.vehicleId) {
+                formData.append("vehicleId", item.vehicleId)
+            }
+            if (item.rawOcrData) {
+                formData.append("rawOcrData", JSON.stringify(item.rawOcrData))
+            }
 
             const action = item.type === "INCOME" ? addIncomeInvoice : addCostInvoice
             try {
@@ -268,8 +286,8 @@ export function InvoiceScanner() {
     return (
         <Dialog open={open} onOpenChange={(val) => { setOpen(val); if (!val) resetState(); }}>
             <DialogTrigger asChild>
-                <Button className="bg-cyan-600 hover:bg-cyan-700 text-white gap-2 shadow-lg active:scale-95">
-                    <ScanLine className="h-4 w-4" /> OCR Inbox
+                <Button className="bg-cyan-600 hover:bg-cyan-700 text-white gap-2 shadow-lg active:scale-95 h-12 px-6 font-black uppercase tracking-wider rounded-xl">
+                    <ScanLine className="h-5 w-5" /> Szybki Skan / Ingestion
                 </Button>
             </DialogTrigger>
             <DialogContent className={`${scannerState === "INBOX" ? 'sm:max-w-[900px]' : 'sm:max-w-[600px]'} max-h-[90vh] overflow-hidden flex flex-col p-0`}>
@@ -277,7 +295,7 @@ export function InvoiceScanner() {
                     <DialogTitle className="text-2xl font-bold flex items-center justify-between">
                         <span className="flex items-center gap-2">
                             <ScanLine className="text-cyan-600" /> 
-                            {scannerState === "INBOX" ? `Kolejka Skanów (${queue.length})` : "Skaner Gemini AI"}
+                            {scannerState === "INBOX" ? `Kolejka Skanów (${queue.length})` : "Szybki Skan / Ingestion"}
                         </span>
                         {scannerState === "INBOX" && (
                             <div className="flex gap-2">
@@ -358,13 +376,33 @@ export function InvoiceScanner() {
                                             </div>
                                         </div>
 
-                                        <div className="flex gap-2 items-center text-[10px] font-bold uppercase tracking-wider mt-1">
+                                        <div className="flex gap-2 items-center text-[10px] font-bold uppercase tracking-wider mt-2">
+                                            {item.type === "INCOME" && (
+                                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded border border-emerald-200">
+                                                    + FAKTURA SPRZEDAŻY
+                                                </span>
+                                            )}
+                                            {item.type === "COST" && (
+                                                <span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded border border-rose-200">
+                                                    - FAKTURA ZAKUPU
+                                                </span>
+                                            )}
+                                            {item.type === "UNRECOGNIZED_ENTITY" && (
+                                                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded border border-amber-200 flex items-center gap-1">
+                                                    <AlertTriangle className="w-3 h-3" /> ZWERYFIKUJ STRONĘ
+                                                </span>
+                                            )}
+                                            {item.vehicleId && (
+                                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded border border-blue-200">
+                                                    🚗 {item.licensePlate}
+                                                </span>
+                                            )}
                                             {item.autoMatched?.category ? (
-                                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded border border-emerald-200 flex items-center gap-1">
+                                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded border border-emerald-200 flex items-center gap-1 ml-auto">
                                                     <Sparkles className="w-3 h-3" /> Pewniak: {item.category}
                                                 </span>
                                             ) : (
-                                                <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded border border-slate-200">
+                                                <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded border border-slate-200 ml-auto">
                                                     {item.category}
                                                 </span>
                                             )}
