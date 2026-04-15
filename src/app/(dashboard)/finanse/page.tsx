@@ -29,6 +29,7 @@ export default async function FinancePage({
         status?: string; 
         sort?: string; 
         year?: string;
+        audit?: string;
     }> 
 }) {
     const params = await searchParams
@@ -36,6 +37,7 @@ export default async function FinancePage({
     const activeStatus = params.status || null
     const activeSort = params.sort || null
     const activeYear = params.year ? parseInt(params.year) : null
+    const showAudit = params.audit === 'true'
 
     const tenantId = await getCurrentTenantId()
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } }) as any
@@ -65,7 +67,8 @@ export default async function FinancePage({
             prisma.invoice.findMany({
                 where: { 
                     tenantId,
-                    status: { in: ['ACTIVE', 'XML_MISSING', 'PAID'] }
+                    status: { in: ['ACTIVE', 'XML_MISSING', 'PAID'] },
+                    isAudit: showAudit ? undefined : false
                 },
                 include: { contractor: true, vehicle: true },
                 orderBy: { issueDate: 'desc' }
@@ -295,10 +298,19 @@ export default async function FinancePage({
                             PROJEKTOWE
                         </Link>
                         <Link 
-                            href="/finanse?filter=GENERAL"
+                            href={`/finanse?filter=GENERAL${showAudit ? '&audit=true' : ''}`}
                             className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === 'GENERAL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
                             KOSZTY ADMINISTRACYJNE/OGÓLNE
+                        </Link>
+                    </div>
+
+                    <div className="flex bg-slate-100 p-1 rounded-lg">
+                        <Link 
+                            href={`/finanse?filter=${activeFilter}${!showAudit ? '&audit=true' : ''}`}
+                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${showAudit ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            {showAudit ? '⚠️ DANE AUDYTOWE: WŁ.' : 'DANE AUDYTOWE: WYŁ.'}
                         </Link>
                     </div>
                 </div>

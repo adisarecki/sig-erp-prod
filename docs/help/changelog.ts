@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
     {
+        date: "2026-04-15",
+        vector: "Vector 180",
+        title: "🛡️ Hardening Ingestion & Skarbiec Audytowy",
+        type: "feature",
+        description:
+            "Wprowadziliśmy zaawansowaną izolację danych dla procesów skanowania faktur. " +
+            "Dzięki nowej fladze Audytu (isAudit), możesz bezpiecznie przesyłać dokumenty do weryfikacji bez wpływu na płynność finansową firmy. " +
+            "Dodatkowo zintegrowaliśmy automatyczne pobieranie danych kontrahentów z GUS bezpośrednio w trakcie skanowania oraz wprowadziliśmy rygorystyczne wykrywanie duplikatów oparte na numerze NIP i kwocie brutto.",
+        relatedHelpIds: ["is-audit-vault", "automatyczna-klasyfikacja", "expected-payments"]
+    },
+    {
         date: "2026-04-10",
         vector: "Vector 140.2",
         title: "Automatyczna nauka numerów kont bankowych (KSeF & Bank)",

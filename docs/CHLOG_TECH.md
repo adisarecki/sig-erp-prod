@@ -86,7 +86,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 140 | VAT / Compliance | FIXED | VAT Shield Engine (Wykaz MF). | Integracja z publicznym API Ministerstwa Finansów. `checkVatStatus(nip)` → `statusVat` + `accountNumbers[]`. `VatStatusBadge` w CRM i modalu. `VatCheckButton` on-demand w liście kontrahentów. Weryfikacja rachunków bankowych przez `verifyBankAccount(nip, iban)`. Brak klucza API, limit 100 zapytań search/dzień. |
 | Vector 140.1 | VAT / Compliance | FIXED | Bank Account Safeguard. | Rozszerzenie weryfikacji o automatyczne pobieranie kont z MF. Autouzupełnianie w `AddContractorModal`, `Select` dla wielu kont. Wizualna "Tarcza Ochronna" (`BankStatusBadge`) w `RegisterCostModal`. Persystencja `bankAccountNumber` w modelu `Invoice`. |
 | Vector 140.2 | VAT / Compliance | FIXED | Bank Account Multi-Ingestion & Matching. | Automatyczna nauka numerów kont z KSeF i wyciągów. Synchronizacja relacyjna (table) + denormalizacja (array). Priorytetyzacja kont MF-API (+0.2 score) w silniku reconciliation. |
-| Vector 150 | Help / UX | FIXED | Localization of Knowledge Hub. | Refaktoryzacja bazy wiedzy na język biznesowy. Usunięcie "Dev-Speak". Standaryzacja terminologii: "Czysta Gotówka", "Skarbiec", "Saldo VAT". |
+| Vector 180 | Finance / Audit | FIXED | Universal Ingestion Hardening & Audit Vault. | Wdrożono izolację `isAudit` dla faktur i zapisów księgowych. Implementacja Skanera z Anchor NIP routingiem, detekcją duplikatów (NIP+Kwota) i atomicznym commitowaniem do Audytu. |
 
 ---
 
@@ -116,4 +116,13 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
     - Zsynchronizowano bazy kont: relacyjna `ContractorBankAccount` + denormalizowana tablica `bankAccounts`.
     - Dodano dokumentację "Automatyczna nauka numerów kont" do Knowledge Hub (Vector 150).
 
-*Ostatnia aktywność techniczna: 2026-04-10. Build Verified (TSC: OK). Vector 140.2 operationalized.*
+### 2026-04-15 (Vector 180)
+- **Vector 180**: **Universal Ingestion Hardening & Audit Vault**:
+    - Dodano pole `isAudit` do modeli `Invoice` i `LedgerEntry` w Prisma (Data Isolation).
+    - Zaktualizowano `ledger-service.ts` o rygorystyczne filtrowanie rekordów audytowych w obliczeniach `Safe-to-Spend`.
+    - Wdrożono Anchor NIP routing (`9542751368`) w API OCR oraz UI Ingestion.
+    - Dodano funkcję `bulkCommitToAudit` do atomicznego zapisywania dokumentów w Skarbcu Audytowym.
+    - Zaimplementowano UI dla duplikatów (NIP + Gross Amount) oraz statusu `UNRECOGNIZED_ENTITY` w `InvoiceScanner`.
+    - Dodano globalny filtr `Audit Toggle` w Rejestrze Transakcji.
+
+*Ostatnia aktywność techniczna: 2026-04-15. Build Verified (TSC: OK). Vector 180 operationalized.*

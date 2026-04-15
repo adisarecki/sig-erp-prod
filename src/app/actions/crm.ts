@@ -7,6 +7,7 @@ import prisma from "@/lib/prisma"
 import { assertAuthorityWrite } from "@/lib/authority/guards"
 import { randomUUID } from "crypto"
 import { type Contractor } from "@/lib/types/crm"
+import { fetchGusData } from "@/app/actions/gus"
 
 /**
  * 1. Dodawanie kontrahenta
@@ -361,6 +362,39 @@ export async function createContractor(data: { name: string; nip?: string; addre
     } catch (error) {
         console.error("[CRM_ACTION] Quick Create error:", error)
         throw new Error("Nie udało się dodać kontrahenta.")
+    }
+}
+
+/**
+ * ZER0-ENTRY ONBOARDING: Vector 180 GUS Autocreate
+ * Pings GUS by NIP. If found, silently creates a Contractor and returns its ID.
+ * Returns null if not found or on error, never throws (safe for batch processing).
+ */
+export async function autoCreateContractorWithGus(nip: string): Promise<string | null> {
+    try {
+        const cleanNip = nip.replace(/\D/g, "");
+        if (cleanNip.length !== 10) return null;
+
+        const gusResult = await fetchGusData(cleanNip);
+        if (!gusResult.success || !gusResult.data) {
+            console.warn(`[GUS_AUTOCREATE] No results for NIP ${cleanNip}. Proceeding without auto-mapping.`);
+            return null;
+        }
+
+        const createRes = await createContractor({
+            name: gusResult.data.name,
+            nip: cleanNip,
+            address: gusResult.data.address,
+            type: "DOSTAWCA" // Domyślnie nadawany jako dostawca dla skanowania
+        });
+
+        if (createRes.success && createRes.id) {
+            return createRes.id;
+        }
+        return null;
+    } catch (e) {
+        console.error(`[GUS_AUTOCREATE_ERROR] Failed for NIP ${nip}:`, e);
+        return null; // Graceful fallback
     }
 }
 

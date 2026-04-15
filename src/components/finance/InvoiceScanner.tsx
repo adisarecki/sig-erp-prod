@@ -10,13 +10,13 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { 
     ScanLine, Upload, AlertTriangle, Loader2, Sparkles, 
-    Save, Trash2, Edit3, CheckCircle2, XCircle
+    Save, Trash2, Edit3, CheckCircle2, XCircle, Archive, History
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import type { OcrInvoiceData } from "@/lib/ocr/types"
-import { getAutoMatchData, addCostInvoice, addIncomeInvoice, checkDuplicateInvoice } from "@/app/actions/invoices"
+import { getAutoMatchData, addCostInvoice, addIncomeInvoice, checkDuplicateInvoice, bulkCommitToAudit } from "@/app/actions/invoices"
 import { getProjects } from "@/app/actions/projects"
-import { getContractors } from "@/app/actions/crm"
+import { getContractors, autoCreateContractorWithGus } from "@/app/actions/crm"
 import { COST_CATEGORIES } from "@/lib/categories"
 
 interface QueueItem extends OcrInvoiceData {
@@ -36,6 +36,7 @@ interface QueueItem extends OcrInvoiceData {
     newContractorNameOverride?: string
     contractorId?: string | null
     vehicleId?: string | null
+    duplicateId?: string
 }
 import type { Vehicle } from "@/lib/types/crm"
 
@@ -136,6 +137,12 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                                     category: !!match.lastCategory
                                 }
                             }
+                            if (!item.contractorId) {
+                                const newContractorId = await autoCreateContractorWithGus(data.nip)
+                                if (newContractorId) {
+                                    item.contractorId = newContractorId
+                                }
+                            }
                         }
                         // Asset Linking Integration (Vehicles/Keywords)
                         let vehicleId = null
@@ -147,8 +154,11 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                         }
                         // Duplicate Check Pre-Save
                         if (data.invoiceNumber && data.nip) {
-                            const isDup = await checkDuplicateInvoice(data.invoiceNumber, data.nip)
-                            if (isDup) item.isDuplicate = true
+                            const dupCheck = await checkDuplicateInvoice(data.invoiceNumber, data.nip, data.grossAmount)
+                            if (dupCheck.isDuplicate) {
+                                item.isDuplicate = true
+                                item.duplicateId = dupCheck.duplicateId
+                            }
                         }
 
                         allItems.push(item)
@@ -272,6 +282,31 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
         }
     }
 
+    const handleVaultToAudit = async (index: number) => {
+        const item = queue[index];
+        const updated = [...queue];
+        updated[index].status = "SAVING";
+        setQueue([...updated]);
+
+        try {
+            const res = await bulkCommitToAudit([item]);
+            if (res.success) {
+                updated[index].status = "SUCCESS";
+                // Auto-remove after short delay
+                setTimeout(() => {
+                    setQueue(prev => prev.filter(q => q.id !== item.id));
+                }, 2000);
+            } else {
+                updated[index].status = "ERROR";
+                updated[index].validationError = res.error || "Błąd zapisu do Audytu";
+            }
+        } catch (err) {
+            updated[index].status = "ERROR";
+            updated[index].validationError = "Błąd komunikacji z serwerem";
+        }
+        setQueue([...updated]);
+    }
+
     const updateItem = (index: number, data: Partial<QueueItem>) => {
         setQueue(prev => {
             const next = [...prev]
@@ -293,7 +328,8 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
         if (item.type === "INCOME") {
             acc.netIncome += net
             acc.vatIncome += vat
-        } else if (item.type === "COST") {
+        } else if (item.type === "COST" || item.type === "UNRECOGNIZED_ENTITY") {
+            // UNRECOGNIZED items are treated as COST for safety in metrics until toggled
             acc.netCost += net
             acc.vatCost += vat
         }
@@ -395,7 +431,14 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                                 }`}>
                                     <div className="absolute -top-2 -right-2 flex gap-1">
                                         {item.isDuplicate && (
-                                            <Badge className="bg-orange-500 text-white border-none text-[9px] font-bold shadow-sm">🚨 POTENCJALNY DUPLIKAT</Badge>
+                                            <div className="group/dup relative">
+                                                <Badge className="bg-orange-500 text-white border-none text-[9px] font-bold shadow-sm cursor-help">🚨 POTENCJALNY DUPLIKAT</Badge>
+                                                {item.duplicateId && (
+                                                    <div className="absolute right-0 top-6 hidden group-hover/dup:block bg-slate-800 text-white text-[10px] p-2 rounded shadow-xl w-48 z-10 font-mono">
+                                                        ID: {item.duplicateId}
+                                                    </div>
+                                                )}
+                                            </div>
                                         )}
                                         {item.status === "VALID" && (item.issueDate === item.dueDate || item.isPaid) && (
                                             <Badge className="bg-emerald-500 text-white border-none text-[9px] font-bold">ZAPŁACONO (AUTO)</Badge>
@@ -408,6 +451,9 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                                                     {item.validationError}
                                                 </div>
                                             </div>
+                                        )}
+                                        {item.type === "UNRECOGNIZED_ENTITY" && (
+                                            <Badge className="bg-amber-500 text-white border-none text-[9px] font-bold shadow-sm">⚠️ NIEZIDENTYFIKOWANY</Badge>
                                         )}
                                     </div>
 
@@ -428,8 +474,18 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                                                 onClick={() => updateItem(idx, { type: item.type === "INCOME" ? "COST" : "INCOME" })}
                                                 className={`px-2 py-0.5 rounded border transition-colors hover:opacity-80 active:scale-95 ${item.type === "INCOME" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : item.type === "COST" ? "bg-rose-100 text-rose-700 border-rose-200" : "bg-amber-100 text-amber-700 border-amber-200"}`}
                                             >
-                                                {item.type === "INCOME" ? "+ FAKTURA SPRZEDAŻY" : item.type === "COST" ? "- FAKTURA ZAKUPU" : "⚠️ ZWERYFIKUJ STRONĘ"}
+                                                {item.type === "INCOME" ? "+ SPRZEDAŻ" : item.type === "COST" ? "- KOSZT" : "⚠️ KIERUNEK?"}
                                             </button>
+                                            {(item.isDuplicate || item.type === "UNRECOGNIZED_ENTITY") && (
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm" 
+                                                    onClick={() => handleVaultToAudit(idx)}
+                                                    className="h-6 px-2 text-[8px] bg-slate-800 text-white hover:bg-black font-black uppercase tracking-tighter rounded-md flex items-center gap-1"
+                                                >
+                                                    <Archive className="w-3 h-3" /> Audit Vault
+                                                </Button>
+                                            )}
                                             {item.vehicleId && (
                                                 <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded border border-blue-200">
                                                     🚗 {item.licensePlate}

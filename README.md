@@ -45,6 +45,7 @@ System wylicza "Czystą Gotówkę" (Real Profit) odejmując od salda bankowego:
 - [x] **Vector 130: GUS BIR 1.1 Integration** – Automatyczne pobieranie danych kontrahentów po NIP.
 - [x] **Vector 140.1: Bank Account Safeguard** – Automatyczna weryfikacja i import kont z Białej Listy MF.
 - [x] **Vector 140.2: Smart Bank Matching** – Automatyczna nauka numerów kont z KSeF i priorytetyzacja kont zweryfikowanych.
+- [x] **Vector 180: Universal Ingestion Vault** – Skaner OCR z warstwą izolacji (isAudit) i wsparciem na poczekalnię "Szybki Skan".
 - [ ] **Vector 140: Inteligentne Sugestie AI** – Predykcyjne dopasowanie kategorii kosztów.
 
 ### 💰 Inteligentna Bankowość

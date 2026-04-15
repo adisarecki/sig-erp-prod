@@ -350,9 +350,6 @@ export const glossaryEntries: HelpEntry[] = [
         vector: "Vector 150"
     },
 
-    // ─────────────────────────────────────────────────────────
-    // VECTOR 150: SCANNER TROUBLESHOOTING
-    // ─────────────────────────────────────────────────────────
     {
         id: "scanner-troubleshooting",
         title: "Rozwiązywanie problemów ze skanerem",
@@ -366,5 +363,23 @@ export const glossaryEntries: HelpEntry[] = [
         related: ["automatyczna-klasyfikacja"],
         uiTargets: ["Finance → InvoiceScanner"],
         vector: "Vector 150.4"
+    },
+
+    // ─────────────────────────────────────────────────────────
+    // VECTOR 180: IS_AUDIT FLAG & ISOLATION
+    // ─────────────────────────────────────────────────────────
+    {
+        id: "is-audit-vault",
+        title: "Skarbiec Audytowy (isAudit)",
+        category: "concept",
+        summary: "Mechanizm izolacji dokumentów roboczych, duplikatów i faktur niezweryfikowanych od głównych KPI firmy.",
+        description:
+            "Specjalna flaga izolacji (isAudit: true), która pozwala na zapisanie dokumentu w systemie bez wpływu na Twoją płynność (Czysta Gotówka) czy zysk.\n\n" +
+            "Dlaczego to ważne? Czasami masz wątpliwą fakturę lub potencjalny duplikat. Zamiast go usuwać, możesz go 'uzarchiwizować' w Audycie. Dzięki temu dokument jest w bazie dla księgowej, ale nie psuje Twoich codziennych statystyk finansowych.\n\n" +
+            "Gdzie to widać? Na liście faktur możesz włączyć/wyłączyć widok danych audytowych specjalnym przyciskiem '⚠️ DANE AUDYTOWE'.",
+        technicalSource: "ledger",
+        related: ["safe-to-spend", "automatyczna-klasyfikacja"],
+        uiTargets: ["Finance Page → Audit Toggle", "InvoiceScanner → Audit Vault button"],
+        vector: "Vector 180"
     }
 ]

@@ -228,6 +228,7 @@ model Invoice {
   purchasedAssets Asset[]    @relation("asset_purchase_source")
   rawOcrData   Json?
   auditDiscrepancy Boolean @default(false)
+  isAudit      Boolean         @default(false)
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
@@ -534,6 +535,7 @@ model LedgerEntry {
   date      DateTime
   rawOcrData Json?
   auditDiscrepancy Boolean @default(false)
+  isAudit   Boolean      @default(false)
   createdAt DateTime     @default(now())
 
   @@index([tenantId])

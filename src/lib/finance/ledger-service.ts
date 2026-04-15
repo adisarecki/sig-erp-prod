@@ -36,7 +36,7 @@ export interface FinancialSnapshot {
  */
 export async function getFinancialSnapshot(tenantId: string): Promise<FinancialSnapshot> {
   const entries = await db.ledgerEntry.findMany({
-    where: { tenantId }
+    where: { tenantId, isAudit: false }
   });
 
   // 1. Unrealized Invoices — split into Receivables vs Payables (Vector 109 Refactor)
@@ -44,6 +44,7 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
   const unrealizedInvoices = await prisma.invoice.findMany({
     where: { 
       tenantId, 
+      isAudit: false,
       paymentStatus: { in: ['UNPAID', 'PARTIALLY_PAID'] },
       status: { in: ['ACTIVE', 'XML_MISSING', 'PENDING'] }
     },
@@ -54,6 +55,7 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
   const unrealizedLedgerEntries = await db.ledgerEntry.findMany({
     where: { 
       tenantId, 
+      isAudit: false,
       source: 'INVOICE',
       sourceId: { in: unrealizedIds }
     }
@@ -147,7 +149,7 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
  */
 export async function getProjectFinancials(tenantId: string, projectId: string) {
   const entries = await db.ledgerEntry.findMany({
-    where: { tenantId, projectId }
+    where: { tenantId, projectId, isAudit: false }
   });
 
   const income = entries
