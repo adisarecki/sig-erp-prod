@@ -349,7 +349,7 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
     }, { netIncome: 0, vatIncome: 0, netCost: 0, vatCost: 0 })
 
     const vatSaldo = liveSummary.vatIncome - liveSummary.vatCost
-    const isVatAsset = vatSaldo >= 0 
+    const isVatAsset = vatSaldo < 0 
     const citEstimate = (liveSummary.netIncome - liveSummary.netCost) * 0.19
 
     return (
@@ -397,14 +397,14 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                         <div className="flex gap-6">
                             <div>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">VAT Saldo</p>
-                                <p className={`text-sm font-black ${vatSaldo >= 0 ? 'text-[#10b981]' : 'text-rose-600'}`}>
-                                    {vatSaldo >= 0 ? '+' : ''}{vatSaldo.toFixed(2)} PLN
+                                <p className={`text-sm font-black ${vatSaldo < 0 ? 'text-emerald-500' : 'text-rose-600'}`}>
+                                    {vatSaldo > 0 ? '+' : ''}{vatSaldo.toFixed(2)} PLN
                                 </p>
                             </div>
                             <div>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estymowany CIT (19%)</p>
-                                <p className={`text-sm font-black ${citEstimate >= 0 ? 'text-[#06b6d4]' : 'text-rose-600'}`}>
-                                    {citEstimate >= 0 ? '+' : ''}{citEstimate.toFixed(2)} PLN
+                                <p className={`text-sm font-black ${citEstimate < 0 ? 'text-cyan-500' : 'text-rose-600'}`}>
+                                    {citEstimate > 0 ? '+' : ''}{citEstimate.toFixed(2)} PLN
                                 </p>
                             </div>
                             <div>
@@ -518,11 +518,6 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                                                 >
                                                     <Archive className="w-3 h-3" /> Audit Vault
                                                 </Button>
-                                            )}
-                                            {item.vehicleId && (
-                                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded border border-blue-200">
-                                                    🚗 {item.licensePlate}
-                                                </span>
                                             )}
                                             {item.autoMatched?.category ? (
                                                 <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded border border-emerald-200 flex items-center gap-1 ml-auto">
