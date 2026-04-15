@@ -55,7 +55,7 @@ export function MoneyPieChart({ data }: MoneyPieChartProps) {
 
     return (
         <div className="w-full h-[400px] min-h-[400px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
                 <PieChart>
                     <Pie
                         data={data}

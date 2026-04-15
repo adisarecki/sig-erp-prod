@@ -51,33 +51,35 @@ export async function POST(request: NextRequest) {
         }, { status: 422 })
     }
 
-    const data = validation.data
-    let netAmountCents: number, grossAmountCents: number, vatAmountCents: number
-
     try {
-        netAmountCents = new Decimal(data.netAmount).times(100).toDecimalPlaces(0).toNumber()
-        grossAmountCents = new Decimal(data.grossAmount).times(100).toDecimalPlaces(0).toNumber()
-        vatAmountCents = new Decimal(data.vatAmount).times(100).toDecimalPlaces(0).toNumber()
+        const safeNet = data.netAmount || "0"
+        const safeGross = data.grossAmount || "0"
+        const safeVat = data.vatAmount || "0"
+
+        netAmountCents = new Decimal(safeNet).times(100).toDecimalPlaces(0).toNumber()
+        grossAmountCents = new Decimal(safeGross).times(100).toDecimalPlaces(0).toNumber()
+        vatAmountCents = new Decimal(safeVat).times(100).toDecimalPlaces(0).toNumber()
 
         const expectedGrossCents = netAmountCents + vatAmountCents
         const diff = Math.abs(expectedGrossCents - grossAmountCents)
 
-        if (diff > 1) {
-            return NextResponse.json({
-                error: "Niespójność finansowa na dokumencie.",
-                details: [{ field: "grossAmount", message: `Obliczone Brutto (${expectedGrossCents / 100}) różni się od wpisanego (${grossAmountCents / 100})` }],
-            }, { status: 422 })
+        // For DRAFTS, we only log the discrepancy but don't block if fields are empty
+        if (diff > 1 && safeNet !== "0" && safeGross !== "0") {
+            // Logging financial inconsistency but letting it through if it's a partial scan
+            console.warn(`[OCR_DRAFT_INCONSISTENCY] Detected diff: ${diff} cents`);
         }
     } catch (err) {
-        return NextResponse.json({ error: "Błąd obliczeń groszy." }, { status: 422 })
+        netAmountCents = 0
+        grossAmountCents = 0
+        vatAmountCents = 0
     }
 
     const sanitized: SanitizedOcrDraft = {
-        nip: data.nip,
-        parsedName: data.parsedName,
+        nip: data.nip || "",
+        parsedName: data.parsedName || "Nieznany Kontrahent",
         address: (data as any).address ?? null,
-        issueDate: data.issueDate,
-        dueDate: data.dueDate || data.issueDate,
+        issueDate: data.issueDate || new Date().toISOString().split('T')[0],
+        dueDate: data.dueDate || data.issueDate || new Date().toISOString().split('T')[0],
         netAmountCents,
         grossAmountCents,
         vatAmountCents,

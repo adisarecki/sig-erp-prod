@@ -288,8 +288,8 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
     const someValid = queue.some(i => i.status === "VALID")
 
     const liveSummary = queue.reduce((acc, item) => {
-        const net = parseFloat(item.netAmount.replace(',', '.') || "0")
-        const vat = parseFloat(item.vatAmount.replace(',', '.') || "0")
+        const net = parseFloat(String(item.netAmount || "0").replace(',', '.').replace(/[^0-9.]/g, '') || "0")
+        const vat = parseFloat(String(item.vatAmount || "0").replace(',', '.').replace(/[^0-9.]/g, '') || "0")
         if (item.type === "INCOME") {
             acc.netIncome += net
             acc.vatIncome += vat

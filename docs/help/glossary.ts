@@ -348,5 +348,23 @@ export const glossaryEntries: HelpEntry[] = [
         related: [],
         uiTargets: ["Finance → InvoiceScanner Szybki Skan"],
         vector: "Vector 150"
+    },
+
+    // ─────────────────────────────────────────────────────────
+    // VECTOR 150: SCANNER TROUBLESHOOTING
+    // ─────────────────────────────────────────────────────────
+    {
+        id: "scanner-troubleshooting",
+        title: "Rozwiązywanie problemów ze skanerem",
+        category: "howto",
+        summary: "Błąd 'Client-side exception' najczęściej wynika z błędnego odczytu kwot przez OCR.",
+        description:
+            "Błąd 'Client-side exception' najczęściej wynika z błędnego odczytu kwot przez OCR (np. zły format liczb). " +
+            "System został zaktualizowany, aby automatycznie konwertować dane i pozwalać na ręczną poprawę dokumentów o niskiej jakości w Kolejce Skanów.\n\n" +
+            "Jeśli błąd się powtarza, upewnij się, że przesyłany plik jest czytelny i nie zawiera pieczątek zasłaniających kwoty.",
+        technicalSource: "ui",
+        related: ["automatyczna-klasyfikacja"],
+        uiTargets: ["Finance → InvoiceScanner"],
+        vector: "Vector 150.4"
     }
 ]

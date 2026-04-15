@@ -17,17 +17,20 @@ import { z } from "zod"
 /** Validates a monetary string: must be a valid decimal number as a string */
 const moneyString = z
     .string()
-    .regex(/^\d+(\.\d{1,2})?$/, "Kwota musi być stringiem w formacie '1250.50' (max 2 miejsca po przecinku)")
+    .regex(/^\d*(\.\d{1,2})?$/, "Kwota musi być stringiem w formacie '1250.50' (max 2 miejsca po przecinku)")
+    .or(z.literal(""))
 
 /** Validates NIP: exactly 10 digits, no separators */
 const nipString = z
     .string()
-    .regex(/^\d{10}$/, "NIP musi zawierać dokładnie 10 cyfr bez separatorów")
+    .regex(/^(\d{10})?$/, "NIP musi zawierać dokładnie 10 cyfr bez separatorów lub być pusty")
+    .or(z.literal(""))
 
 /** ISO 8601 date string: YYYY-MM-DD */
 const dateString = z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data musi być w formacie YYYY-MM-DD")
+    .regex(/^(\d{4}-\d{2}-\d{2})?$/, "Data musi być w formacie YYYY-MM-DD lub być pusta")
+    .or(z.literal(""))
 
 // ─── Main Schema ─────────────────────────────────────────────────────────────
 
@@ -36,7 +39,7 @@ export const ocrDraftSchema = z.object({
      * Contractor NIP extracted by OCR.
      * Clean 10-digit string, no dashes or spaces.
      */
-    nip: nipString,
+    nip: nipString.optional(),
 
     /**
      * Name of the contractor as read from the invoice by OCR.
@@ -44,8 +47,9 @@ export const ocrDraftSchema = z.object({
      */
     parsedName: z
         .string()
-        .min(2, "Nazwa kontrahenta musi mieć minimum 2 znaki")
-        .max(200, "Nazwa kontrahenta nie może przekraczać 200 znaków"),
+        .max(200, "Nazwa kontrahenta nie może przekraczać 200 znaków")
+        .optional()
+        .or(z.literal("")),
 
     /**
      * Address of the contractor (optional).
@@ -55,7 +59,7 @@ export const ocrDraftSchema = z.object({
     /**
      * Invoice issue date in ISO format.
      */
-    issueDate: dateString,
+    issueDate: dateString.optional().or(z.literal("")),
 
     /**
      * Invoice due date in ISO format (optional – defaults to issueDate + 14 days).
@@ -66,17 +70,9 @@ export const ocrDraftSchema = z.object({
      * NET amount as a string. Example: "10000.00"
      * NEVER a float/number. This prevents JS floating-point precision errors.
      */
-    netAmount: moneyString,
-
-    /**
-     * GROSS amount as a string. Example: "12300.00"
-     */
-    grossAmount: moneyString,
-
-    /**
-     * VAT amount as a string. Example: "2300.00"
-     */
-    vatAmount: moneyString,
+    netAmount: moneyString.optional().or(z.literal("")),
+    grossAmount: moneyString.optional().or(z.literal("")),
+    vatAmount: moneyString.optional().or(z.literal("")),
 
     /**
      * Invoice number / reference as read by OCR (optional).
