@@ -88,6 +88,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 140.2 | VAT / Compliance | FIXED | Bank Account Multi-Ingestion & Matching. | Automatyczna nauka numerów kont z KSeF i wyciągów. Synchronizacja relacyjna (table) + denormalizacja (array). Priorytetyzacja kont MF-API (+0.2 score) w silniku reconciliation. |
 | Vector 180 | Finance / Audit | FIXED | Universal Ingestion Hardening & Audit Vault. | Wdrożono izolację `isAudit` dla faktur i zapisów księgowych. Implementacja Skanera z Anchor NIP routingiem, detekcją duplikatów (NIP+Kwota) i atomicznym commitowaniem do Audytu. |
 | Vector 180.9 | Finance / UI | FIXED | UI/UX Refurbishment & Fiscal Hardening. | Refaktoryzacja Skanera na 'Net-First', automatyczna izolacja rocznika 2025 (Audit Shield), badgowanie floty (Vehicle Link) i nowa logika kolorystyczna paska VAT Saldo. |
+| Vector 180.11 | Finance / UI | FIXED | Investigation Mode & Auto-Verification. | Implementacja 'Pewniak' (High-Confidence Auto-Verify), persistent sessions (Append mode) w Skanerze, i recalibracja kolorów fiskalnych (Emerald/Cyan). |
 
 ---
 
@@ -134,4 +135,12 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
     - Fleet Intelligence: wizualne badgowanie pojazdów (`🚗 Plate`) na kartach ingestii przy wykryciu tablic rejestracyjnych.
     - Utworzono dokumentację pryncypiów biznesowych w `docs/help/concepts.ts`.
 
-*Ostatnia aktywność techniczna: 2026-04-15. Build Verified (TSC: OK). Vector 180.9 operationalized.*
+### 2026-04-15 (Vector 180.11)
+- **Vector 180.11**: **Investigation Mode & Auto-Verification**:
+    - Implementacja 'Pewniak' (High-Confidence Auto-Verification): automatyczne zatwierdzanie faktur od znanych kontrahentów z przypisanym pojazdem.
+    - Wprowadzenie 'Persistent Session' (Append Mode): nowe skany są dopisywane do koleji zamiast jej resetowania.
+    - Refaktoryzacja UI: przyciski indywidualnego i seryjnego zatwierdzania, oraz przycisk czyszczenia sesji.
+    - Recalibracja kolorystyczna: Emerald Green (`#10b981`) dla nadpłat VAT i Cyan Blue (`#06b6d4`) dla estymowanych strat CIT (aktywa podatkowe).
+    - Dokumentacja 'Investigation Session' w Glosariuszu.
+
+*Ostatnia aktywność techniczna: 2026-04-15. Build Verified (TSC: OK). Vector 180.11 operationalized.*

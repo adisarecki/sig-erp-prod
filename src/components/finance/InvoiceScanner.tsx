@@ -149,9 +149,9 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                         if (data.licensePlate) {
                             const vMatch = vehicles.find(v => v.plates.replace(/\s/g, '').toUpperCase() === data.licensePlate?.replace(/\s/g, '').toUpperCase())
                             if (vMatch) vehicleId = vMatch.id
-                        } else if (data.rawTextKeywords && (data.rawTextKeywords.toUpperCase().includes('PALIWO') || data.rawTextKeywords.toUpperCase().includes('PRZEGLĄD'))) {
-                            // If user only has 1 vehicle, could auto-assign or leave for manual. We'll leave null if not exactly matched.
                         }
+                        item.vehicleId = vehicleId
+
                         // Duplicate Check Pre-Save
                         if (data.invoiceNumber && data.nip) {
                             const dupCheck = await checkDuplicateInvoice(data.invoiceNumber, data.nip, data.grossAmount)
@@ -161,20 +161,23 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                             }
                         }
 
+                        // Vector 180.11: "Pewniak" Auto-Verification Logic
+                        const isKnownEntity = !!item.contractorId
+                        const isAnchorBuyer = item.type === "COST"
+                        const isVehicleMatched = !!item.vehicleId
+                        if (isKnownEntity && isAnchorBuyer && isVehicleMatched && !item.isDuplicate) {
+                            item.status = "VALID"
+                        }
+
                         allItems.push(item)
                     }
+                    setQueue(prev => [...prev, ...allItems])
+                    setScannerState("INBOX")
                 }
             }
-
-            if (allItems.length === 0) throw new Error("Nie wykryto żadnych dokumentów.")
-
-            setQueue(allItems)
-            setScannerState("INBOX")
-            
-            // Background validation
-            validateQueue(allItems)
-        } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : "Błąd skanowania"); setScannerState("ERROR")
+        } catch (err: any) {
+            setError(err.message)
+            setScannerState("ERROR")
         }
     }
 
@@ -346,7 +349,7 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
     }, { netIncome: 0, vatIncome: 0, netCost: 0, vatCost: 0 })
 
     const vatSaldo = liveSummary.vatIncome - liveSummary.vatCost
-    const isVatAsset = vatSaldo < 0 
+    const isVatAsset = vatSaldo >= 0 
     const citEstimate = (liveSummary.netIncome - liveSummary.netCost) * 0.19
 
     return (
@@ -365,17 +368,22 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                         </span>
                         {scannerState === "INBOX" && (
                             <div className="flex gap-4 items-center">
-                                <div className={`flex flex-col items-end px-4 py-1.5 rounded-lg border ${isVatAsset ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
-                                    <span className={`text-[10px] font-bold uppercase tracking-tighter ${isVatAsset ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                <div className={`flex flex-col items-end px-4 py-1.5 rounded-lg border ${isVatAsset ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                                    <span className={`text-[10px] font-bold uppercase tracking-tighter ${isVatAsset ? 'text-emerald-700' : 'text-rose-700'}`}>
                                         {isVatAsset ? 'NADPLATA / ZWROT (Bezpieczna strona mocy 🟢)' : 'DO ZAPLATY (Mamy problem 🔴)'}
                                     </span>
                                     <span className={`text-lg font-black leading-tight ${isVatAsset ? 'text-emerald-700' : 'text-rose-700'}`}>
                                         {Math.abs(vatSaldo).toFixed(2)} PLN
                                     </span>
                                 </div>
-                                <Button variant="outline" size="sm" onClick={() => validateQueue(queue)} className="text-[10px] uppercase font-bold tracking-tight h-8">
-                                    Re-Waliduj
-                                </Button>
+                                <div className="flex flex-col gap-1">
+                                    <Button variant="outline" size="sm" onClick={() => validateQueue(queue)} className="text-[9px] h-7 uppercase font-bold tracking-tight">
+                                        Re-Waliduj
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={() => setQueue(q => q.map(i => ({...i, status: 'VALID'})))} className="text-[9px] h-7 uppercase font-bold tracking-tight border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                                        Zatwierdź Wszystkie
+                                    </Button>
+                                </div>
                             </div>
                         )}
                     </DialogTitle>
@@ -389,14 +397,14 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                         <div className="flex gap-6">
                             <div>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">VAT Saldo</p>
-                                <p className={`text-sm font-black ${vatSaldo > 0 ? 'text-emerald-600' : vatSaldo < 0 ? 'text-rose-600' : 'text-slate-600'}`}>
-                                    {vatSaldo > 0 ? '+' : ''}{vatSaldo.toFixed(2)} PLN
+                                <p className={`text-sm font-black ${vatSaldo >= 0 ? 'text-[#10b981]' : 'text-rose-600'}`}>
+                                    {vatSaldo >= 0 ? '+' : ''}{vatSaldo.toFixed(2)} PLN
                                 </p>
                             </div>
                             <div>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estymowany CIT (19%)</p>
-                                <p className={`text-sm font-black ${citEstimate > 0 ? 'text-emerald-600' : citEstimate < 0 ? 'text-rose-600' : 'text-slate-600'}`}>
-                                    {citEstimate > 0 ? '+' : ''}{citEstimate.toFixed(2)} PLN
+                                <p className={`text-sm font-black ${citEstimate >= 0 ? 'text-[#06b6d4]' : 'text-rose-600'}`}>
+                                    {citEstimate >= 0 ? '+' : ''}{citEstimate.toFixed(2)} PLN
                                 </p>
                             </div>
                             <div>
@@ -404,6 +412,7 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                                 <p className="text-sm font-black text-slate-700">{queue.length}</p>
                             </div>
                         </div>
+                        <Button variant="ghost" size="sm" onClick={() => setQueue([])} className="text-xs text-rose-500 hover:text-rose-600 font-bold uppercase tracking-tighter h-8">Wyczyść sesję</Button>
                     </div>
                 )}
 
@@ -527,8 +536,21 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                                         </div>
 
                                         <div className="pt-2 border-t border-slate-100 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Button variant="ghost" size="sm" onClick={() => setEditingIndex(idx)} className="h-7 text-[10px] text-cyan-600 hover:text-cyan-700 hover:bg-cyan-50 font-bold uppercase transition-all translate-y-1 group-hover:translate-y-0">
-                                                <Edit3 className="w-3 h-3 mr-1" /> Edytuj
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                onClick={() => updateItem(idx, { status: "VALID" })}
+                                                className="h-7 px-2 text-emerald-600 hover:bg-emerald-50 font-bold uppercase tracking-tighter text-[10px] gap-1"
+                                            >
+                                                <CheckCircle2 className="w-4 h-4" /> Zatwierdź
+                                            </Button>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                onClick={() => setEditingIndex(idx)}
+                                                className="h-7 px-2 text-blue-600 hover:bg-blue-50 font-bold uppercase tracking-tighter text-[10px] gap-1"
+                                            >
+                                                <Edit3 className="w-4 h-4" /> Edytuj
                                             </Button>
                                             <Button variant="ghost" size="sm" onClick={() => removeItem(idx)} className="h-7 text-[10px] text-red-400 hover:text-red-600 hover:bg-red-50 font-bold uppercase">
                                                 <Trash2 className="w-3 h-3" />

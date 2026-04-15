@@ -17,6 +17,17 @@ export interface ChangelogEntry {
 export const changelogEntries: ChangelogEntry[] = [
     {
         date: "2026-04-15",
+        vector: "Vector 180.11",
+        title: "🔍 Investigation Mode & Auto-Verification",
+        type: "feature",
+        description:
+            "Wprowadziliśmy tryb 'Investigation Session', który pozwala na prowadzenie ciągłej sesji skanowania dokumentów bez resetowania kolejki. " +
+            "Zaimplementowaliśmy algorytm 'Pewniak' dla wysokopoziomowej auto-weryfikacji faktur od znanych dostawców, przypisanych do floty. " +
+            "Udoskonaliliśmy UI o przyciski szybkiego zatwierdzania i seryjnej akceptacji, oraz poprawiliśmy kalibrację kolorystyczną wskaźników fiskalnych.",
+        relatedHelpIds: ["investigation-session", "net-first-philosophy", "fiscal-audit-vault"]
+    },
+    {
+        date: "2026-04-15",
         vector: "Vector 180.9",
         title: "🎨 UI/UX Refurbishment & Fiscal Hardening",
         type: "feature",

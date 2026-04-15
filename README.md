@@ -73,6 +73,7 @@ System Sig ERP wykorzystuje inteligentny silnik parowania wyciągów PKO BP:
 ### 🤖 Szybkie Skanowanie Faktur (AI)
 - **Skanuj & Zapomnij**: Wrzucasz PDF lub zdjęcie faktury – nasza Sztuczna Inteligencja sama odczyta NIP, kwoty i daty.
 - **Skanowanie Seryjne**: Masz paczkę faktur? Wrzucasz je wszystkie naraz, a system przetworzy je w tle.
+- **Pewniak Auto-Verification**: System automatycznie zatwierdza (✅) faktury, które posiadają: znanego dostawcę, NIP nabywcy zgodny z Twoją firmą oraz przypisany pojazd z floty.
 - **Filozofia Net-First**: System priorytetyzuje kwoty Netto jako jedyny twardy punkt odniesienia dla Twojego wyniku. Brutto i VAT są traktowane jako dane weryfikacyjne.
 - **Audit Shield**: Wszystkie dokumenty z datą 2025 są automatycznie izolowane od bieżących wskaźników 2026, chroniąc Twoją płynność przed szumem historycznym.
 

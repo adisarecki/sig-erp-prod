@@ -381,5 +381,21 @@ export const glossaryEntries: HelpEntry[] = [
         related: ["safe-to-spend", "automatyczna-klasyfikacja"],
         uiTargets: ["Finance Page → Audit Toggle", "InvoiceScanner → Audit Vault button"],
         vector: "Vector 180"
+    },
+
+    {
+        id: "investigation-session",
+        title: "Sesja Inwestygacji (Investigation Session)",
+        category: "concept",
+        summary: "Tryb zaawansowanego skanowania seryjnego z automatyczną weryfikacją (Pewniaki).",
+        description:
+            "Zamiast pojedynczych wrzutek, system pozwala na prowadzenie wielodniowej sesji gromadzenia dokumentów. " +
+            "W trybie sesji system wykorzystuje algorytm 'Pewniak', aby automatycznie zatwierdzać faktury od znanych dostawców, " +
+            "przypisane do konkretnych pojazdów.\n\n" +
+            "Sesja nie resetuje się po dodaniu nowych plików — możesz 'dodorzucać' faktury do momentu, aż uznasz, że cały plik (np. miesięczny) jest gotowy do zaksięgowania.",
+        technicalSource: "ui",
+        related: ["is-audit-vault", "automatyczna-klasyfikacja"],
+        uiTargets: ["InvoiceScanner → Szybki Skan"],
+        vector: "Vector 180.11"
     }
 ]
