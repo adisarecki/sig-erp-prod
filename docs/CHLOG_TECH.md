@@ -87,6 +87,7 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 140.1 | VAT / Compliance | FIXED | Bank Account Safeguard. | Rozszerzenie weryfikacji o automatyczne pobieranie kont z MF. Autouzupełnianie w `AddContractorModal`, `Select` dla wielu kont. Wizualna "Tarcza Ochronna" (`BankStatusBadge`) w `RegisterCostModal`. Persystencja `bankAccountNumber` w modelu `Invoice`. |
 | Vector 140.2 | VAT / Compliance | FIXED | Bank Account Multi-Ingestion & Matching. | Automatyczna nauka numerów kont z KSeF i wyciągów. Synchronizacja relacyjna (table) + denormalizacja (array). Priorytetyzacja kont MF-API (+0.2 score) w silniku reconciliation. |
 | Vector 180 | Finance / Audit | FIXED | Universal Ingestion Hardening & Audit Vault. | Wdrożono izolację `isAudit` dla faktur i zapisów księgowych. Implementacja Skanera z Anchor NIP routingiem, detekcją duplikatów (NIP+Kwota) i atomicznym commitowaniem do Audytu. |
+| Vector 180.9 | Finance / UI | FIXED | UI/UX Refurbishment & Fiscal Hardening. | Refaktoryzacja Skanera na 'Net-First', automatyczna izolacja rocznika 2025 (Audit Shield), badgowanie floty (Vehicle Link) i nowa logika kolorystyczna paska VAT Saldo. |
 
 ---
 
@@ -125,4 +126,12 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
     - Zaimplementowano UI dla duplikatów (NIP + Gross Amount) oraz statusu `UNRECOGNIZED_ENTITY` w `InvoiceScanner`.
     - Dodano globalny filtr `Audit Toggle` w Rejestrze Transakcji.
 
-*Ostatnia aktywność techniczna: 2026-04-15. Build Verified (TSC: OK). Vector 180 operationalized.*
+### 2026-04-15 (Vector 180.9)
+- **Vector 180.9**: **UI/UX Refurbishment & Fiscal Hardening**:
+    - Wdrożono filozofię 'Net-First' w `InvoiceScanner`: kwoty Netto są teraz nadrzędną metryką w kartach i modalach edycji.
+    - Implementacja 'Audit Shield': automatyczna izolacja dokumentów z roku 2025 (`isAudit: true`) w celu ochrony Dashboardu 2026.
+    - Recalibracja paska podsumowania VAT: nowa logika 'emocjonalna' (Green/NADPLATA dla aktywów, Red/DO ZAPLATY dla zobowiązań).
+    - Fleet Intelligence: wizualne badgowanie pojazdów (`🚗 Plate`) na kartach ingestii przy wykryciu tablic rejestracyjnych.
+    - Utworzono dokumentację pryncypiów biznesowych w `docs/help/concepts.ts`.
+
+*Ostatnia aktywność techniczna: 2026-04-15. Build Verified (TSC: OK). Vector 180.9 operationalized.*

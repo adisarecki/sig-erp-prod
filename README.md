@@ -46,6 +46,7 @@ System wylicza "Czystą Gotówkę" (Real Profit) odejmując od salda bankowego:
 - [x] **Vector 140.1: Bank Account Safeguard** – Automatyczna weryfikacja i import kont z Białej Listy MF.
 - [x] **Vector 140.2: Smart Bank Matching** – Automatyczna nauka numerów kont z KSeF i priorytetyzacja kont zweryfikowanych.
 - [x] **Vector 180: Universal Ingestion Vault** – Skaner OCR z warstwą izolacji (isAudit) i wsparciem na poczekalnię "Szybki Skan".
+- [x] **Vector 180.9: Fiscal Hardening** – Filozofia Net-First, automatyczne badgowanie floty oraz izolacja roczników historycznych (Audit Shield).
 - [ ] **Vector 140: Inteligentne Sugestie AI** – Predykcyjne dopasowanie kategorii kosztów.
 
 ### 💰 Inteligentna Bankowość
@@ -72,6 +73,8 @@ System Sig ERP wykorzystuje inteligentny silnik parowania wyciągów PKO BP:
 ### 🤖 Szybkie Skanowanie Faktur (AI)
 - **Skanuj & Zapomnij**: Wrzucasz PDF lub zdjęcie faktury – nasza Sztuczna Inteligencja sama odczyta NIP, kwoty i daty.
 - **Skanowanie Seryjne**: Masz paczkę faktur? Wrzucasz je wszystkie naraz, a system przetworzy je w tle.
+- **Filozofia Net-First**: System priorytetyzuje kwoty Netto jako jedyny twardy punkt odniesienia dla Twojego wyniku. Brutto i VAT są traktowane jako dane weryfikacyjne.
+- **Audit Shield**: Wszystkie dokumenty z datą 2025 są automatycznie izolowane od bieżących wskaźników 2026, chroniąc Twoją płynność przed szumem historycznym.
 
 ### 🏦 Centrala Weryfikacji Salda (Vector 106)
 Nowy standard "Prawdy Finansowej" w Sig ERP:

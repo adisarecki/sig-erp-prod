@@ -257,6 +257,11 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                 formData.append("rawOcrData", JSON.stringify(item.rawOcrData))
             }
 
+            // Vector 180.9: 2025 Audit Shield
+            if (item.issueDate?.startsWith('2025')) {
+                formData.append("isAudit", "true")
+            }
+
             const action = item.type === "INCOME" ? addIncomeInvoice : addCostInvoice
             try {
                 const result = await action(formData)
@@ -289,7 +294,12 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
         setQueue([...updated]);
 
         try {
-            const res = await bulkCommitToAudit([item]);
+            // Vector 180.9: 2025 Audit Shield
+            const payload = {...item};
+            if (item.issueDate?.startsWith('2025')) {
+                (payload as any).isAudit = true;
+            }
+            const res = await bulkCommitToAudit([payload]);
             if (res.success) {
                 updated[index].status = "SUCCESS";
                 // Auto-remove after short delay
@@ -329,7 +339,6 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
             acc.netIncome += net
             acc.vatIncome += vat
         } else if (item.type === "COST" || item.type === "UNRECOGNIZED_ENTITY") {
-            // UNRECOGNIZED items are treated as COST for safety in metrics until toggled
             acc.netCost += net
             acc.vatCost += vat
         }
@@ -337,6 +346,7 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
     }, { netIncome: 0, vatIncome: 0, netCost: 0, vatCost: 0 })
 
     const vatSaldo = liveSummary.vatIncome - liveSummary.vatCost
+    const isVatAsset = vatSaldo < 0 
     const citEstimate = (liveSummary.netIncome - liveSummary.netCost) * 0.19
 
     return (
@@ -346,7 +356,7 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                     <ScanLine className="h-5 w-5" /> Szybki Skan / Ingestion
                 </Button>
             </DialogTrigger>
-            <DialogContent className={`${scannerState === "INBOX" ? 'sm:max-w-[900px]' : 'sm:max-w-[600px]'} max-h-[90vh] overflow-hidden flex flex-col p-0`}>
+            <DialogContent className={`${scannerState === "INBOX" ? 'sm:max-w-[1000px]' : 'sm:max-w-[600px]'} max-h-[90vh] overflow-hidden flex flex-col p-0`}>
                 <DialogHeader className="p-6 pb-2">
                     <DialogTitle className="text-2xl font-bold flex items-center justify-between">
                         <span className="flex items-center gap-2">
@@ -354,8 +364,16 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                             {scannerState === "INBOX" ? `Kolejka Skanów (${queue.length})` : "Szybki Skan / Ingestion"}
                         </span>
                         {scannerState === "INBOX" && (
-                            <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={() => validateQueue(queue)} className="text-[10px] uppercase font-bold tracking-tight">
+                            <div className="flex gap-4 items-center">
+                                <div className={`flex flex-col items-end px-4 py-1.5 rounded-lg border ${isVatAsset ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+                                    <span className={`text-[10px] font-bold uppercase tracking-tighter ${isVatAsset ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                        {isVatAsset ? 'NADPLATA / ZWROT (Bezpieczna strona mocy 🟢)' : 'DO ZAPLATY (Mamy problem 🔴)'}
+                                    </span>
+                                    <span className={`text-lg font-black leading-tight ${isVatAsset ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                        {Math.abs(vatSaldo).toFixed(2)} PLN
+                                    </span>
+                                </div>
+                                <Button variant="outline" size="sm" onClick={() => validateQueue(queue)} className="text-[10px] uppercase font-bold tracking-tight h-8">
                                     Re-Waliduj
                                 </Button>
                             </div>
@@ -455,6 +473,9 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                                         {item.type === "UNRECOGNIZED_ENTITY" && (
                                             <Badge className="bg-amber-500 text-white border-none text-[9px] font-bold shadow-sm">⚠️ NIEZIDENTYFIKOWANY</Badge>
                                         )}
+                                        {item.licensePlate && (
+                                            <Badge className="bg-slate-700 text-white border-none text-[9px] font-bold shadow-sm">🚗 {item.licensePlate}</Badge>
+                                        )}
                                     </div>
 
                                     <div className="space-y-3">
@@ -464,8 +485,11 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                                                 <span className="text-[10px] text-slate-400 font-mono">{item.nip}</span>
                                             </div>
                                             <div className="text-right">
-                                                <div className="font-black text-sm text-cyan-700">{item.grossAmount} PLN</div>
-                                                <div className="text-[10px] text-slate-400">{item.issueDate}</div>
+                                                <div className="font-bold text-lg text-slate-900 leading-none">{item.netAmount} PLN</div>
+                                                <div className="text-[10px] text-slate-500 font-medium mt-1">
+                                                    VAT: {item.vatAmount} | BRUTTO: {item.grossAmount}
+                                                </div>
+                                                <div className="text-[9px] text-slate-400 mt-1 uppercase tracking-tighter">{item.issueDate}</div>
                                             </div>
                                         </div>
 
@@ -572,9 +596,19 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                                     <Label className="text-[10px] uppercase font-bold text-slate-500">Nr Faktury</Label>
                                     <Input value={currentEditingItem.invoiceNumber || ""} onChange={(e) => updateItem(editingIndex, { invoiceNumber: e.target.value })} className="bg-white" />
                                 </div>
-                                <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase font-bold text-slate-500">Brutto</Label>
-                                    <Input value={currentEditingItem.grossAmount} onChange={(e) => updateItem(editingIndex, { grossAmount: e.target.value })} className="bg-white font-bold" />
+                                <div className="grid grid-cols-3 gap-2">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-bold text-slate-500">Netto</Label>
+                                        <Input value={currentEditingItem.netAmount} onChange={(e) => updateItem(editingIndex, { netAmount: e.target.value })} className="bg-white font-bold text-blue-700" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-bold text-slate-500">VAT</Label>
+                                        <Input value={currentEditingItem.vatAmount} onChange={(e) => updateItem(editingIndex, { vatAmount: e.target.value })} className="bg-white" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-bold text-slate-500">Brutto</Label>
+                                        <Input value={currentEditingItem.grossAmount} onChange={(e) => updateItem(editingIndex, { grossAmount: e.target.value })} className="bg-white" />
+                                    </div>
                                 </div>
                                 <div className="space-y-1">
                                     <Label className="text-[10px] uppercase font-bold text-slate-500">Data</Label>

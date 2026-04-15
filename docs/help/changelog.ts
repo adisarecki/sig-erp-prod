@@ -17,6 +17,17 @@ export interface ChangelogEntry {
 export const changelogEntries: ChangelogEntry[] = [
     {
         date: "2026-04-15",
+        vector: "Vector 180.9",
+        title: "🎨 UI/UX Refurbishment & Fiscal Hardening",
+        type: "feature",
+        description:
+            "Przebudowaliśmy kolejkę skanowania faktur zgodnie z filozofią 'Net-First'. " +
+            "Kwota Netto jest teraz nadrzędną metryką, a VAT i Brutto służą jako dane pomocnicze. " +
+            "Wprowadziliśmy 'Audit Shield' – automatyczną izolację dokumentów z roku 2025, inteligentne badgowanie floty pojazdów oraz nową, emocjonalną logikę kolorystyczną paska podsumowania VAT (asset vs liability).",
+        relatedHelpIds: ["net-first-philosophy", "fiscal-audit-vault", "is-audit-vault"]
+    },
+    {
+        date: "2026-04-15",
         vector: "Vector 180",
         title: "🛡️ Hardening Ingestion & Skarbiec Audytowy",
         type: "feature",
