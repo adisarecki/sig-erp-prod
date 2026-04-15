@@ -14,7 +14,7 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import type { OcrInvoiceData } from "@/lib/ocr/types"
-import { getAutoMatchData, addCostInvoice, addIncomeInvoice } from "@/app/actions/invoices"
+import { getAutoMatchData, addCostInvoice, addIncomeInvoice, checkDuplicateInvoice } from "@/app/actions/invoices"
 import { getProjects } from "@/app/actions/projects"
 import { getContractors } from "@/app/actions/crm"
 import { COST_CATEGORIES } from "@/lib/categories"
@@ -145,7 +145,11 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                         } else if (data.rawTextKeywords && (data.rawTextKeywords.toUpperCase().includes('PALIWO') || data.rawTextKeywords.toUpperCase().includes('PRZEGLĄD'))) {
                             // If user only has 1 vehicle, could auto-assign or leave for manual. We'll leave null if not exactly matched.
                         }
-                        item.vehicleId = vehicleId
+                        // Duplicate Check Pre-Save
+                        if (data.invoiceNumber && data.nip) {
+                            const isDup = await checkDuplicateInvoice(data.invoiceNumber, data.nip)
+                            if (isDup) item.isDuplicate = true
+                        }
 
                         allItems.push(item)
                     }
@@ -283,6 +287,22 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
     const currentEditingItem = editingIndex !== null ? queue[editingIndex] : null
     const someValid = queue.some(i => i.status === "VALID")
 
+    const liveSummary = queue.reduce((acc, item) => {
+        const net = parseFloat(item.netAmount.replace(',', '.') || "0")
+        const vat = parseFloat(item.vatAmount.replace(',', '.') || "0")
+        if (item.type === "INCOME") {
+            acc.netIncome += net
+            acc.vatIncome += vat
+        } else if (item.type === "COST") {
+            acc.netCost += net
+            acc.vatCost += vat
+        }
+        return acc
+    }, { netIncome: 0, vatIncome: 0, netCost: 0, vatCost: 0 })
+
+    const vatSaldo = liveSummary.vatIncome - liveSummary.vatCost
+    const citEstimate = (liveSummary.netIncome - liveSummary.netCost) * 0.19
+
     return (
         <Dialog open={open} onOpenChange={(val) => { setOpen(val); if (!val) resetState(); }}>
             <DialogTrigger asChild>
@@ -309,6 +329,29 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                         {scannerState === "INBOX" ? "Zweryfikuj wykryte dokumenty. Pola oznaczone gwiazdką zostały dopasowane automatycznie." : "Wgraj do 5 plików (PDF/JPG). Gemini wyodrębni dane z każdego wykrytego dokumentu."}
                     </DialogDescription>
                 </DialogHeader>
+
+                {scannerState === "INBOX" && queue.length > 0 && (
+                    <div className="bg-slate-50 border-y border-slate-100 px-6 py-3 flex gap-6 items-center justify-between sticky top-0 z-10 shadow-sm">
+                        <div className="flex gap-6">
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">VAT Saldo</p>
+                                <p className={`text-sm font-black ${vatSaldo > 0 ? 'text-emerald-600' : vatSaldo < 0 ? 'text-rose-600' : 'text-slate-600'}`}>
+                                    {vatSaldo > 0 ? '+' : ''}{vatSaldo.toFixed(2)} PLN
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estymowany CIT (19%)</p>
+                                <p className={`text-sm font-black ${citEstimate > 0 ? 'text-emerald-600' : citEstimate < 0 ? 'text-rose-600' : 'text-slate-600'}`}>
+                                    {citEstimate > 0 ? '+' : ''}{citEstimate.toFixed(2)} PLN
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Liczba Faktur</p>
+                                <p className="text-sm font-black text-slate-700">{queue.length}</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="flex-1 overflow-y-auto p-6 pt-2">
                     {scannerState === "IDLE" && (
@@ -344,12 +387,16 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             {queue.map((item, idx) => (
                                 <div key={item.id} className={`group relative p-4 rounded-2xl border-2 transition-all hover:shadow-md ${
+                                    item.isDuplicate ? 'border-orange-400 bg-orange-50/30' :
                                     item.status === "ERROR" ? 'border-red-200 bg-red-50/30' : 
                                     item.status === "SUCCESS" ? 'border-emerald-200 bg-emerald-50/30' : 
                                     (item.autoMatched?.category || item.autoMatched?.project) ? 'border-emerald-100 bg-emerald-50/10 shadow-sm' : 
                                     'border-slate-100 bg-white'
                                 }`}>
                                     <div className="absolute -top-2 -right-2 flex gap-1">
+                                        {item.isDuplicate && (
+                                            <Badge className="bg-orange-500 text-white border-none text-[9px] font-bold shadow-sm">🚨 POTENCJALNY DUPLIKAT</Badge>
+                                        )}
                                         {item.status === "VALID" && (item.issueDate === item.dueDate || item.isPaid) && (
                                             <Badge className="bg-emerald-500 text-white border-none text-[9px] font-bold">ZAPŁACONO (AUTO)</Badge>
                                         )}
@@ -377,21 +424,12 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                                         </div>
 
                                         <div className="flex gap-2 items-center text-[10px] font-bold uppercase tracking-wider mt-2">
-                                            {item.type === "INCOME" && (
-                                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded border border-emerald-200">
-                                                    + FAKTURA SPRZEDAŻY
-                                                </span>
-                                            )}
-                                            {item.type === "COST" && (
-                                                <span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded border border-rose-200">
-                                                    - FAKTURA ZAKUPU
-                                                </span>
-                                            )}
-                                            {item.type === "UNRECOGNIZED_ENTITY" && (
-                                                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded border border-amber-200 flex items-center gap-1">
-                                                    <AlertTriangle className="w-3 h-3" /> ZWERYFIKUJ STRONĘ
-                                                </span>
-                                            )}
+                                            <button 
+                                                onClick={() => updateItem(idx, { type: item.type === "INCOME" ? "COST" : "INCOME" })}
+                                                className={`px-2 py-0.5 rounded border transition-colors hover:opacity-80 active:scale-95 ${item.type === "INCOME" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : item.type === "COST" ? "bg-rose-100 text-rose-700 border-rose-200" : "bg-amber-100 text-amber-700 border-amber-200"}`}
+                                            >
+                                                {item.type === "INCOME" ? "+ FAKTURA SPRZEDAŻY" : item.type === "COST" ? "- FAKTURA ZAKUPU" : "⚠️ ZWERYFIKUJ STRONĘ"}
+                                            </button>
                                             {item.vehicleId && (
                                                 <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded border border-blue-200">
                                                     🚗 {item.licensePlate}

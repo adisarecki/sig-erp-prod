@@ -1026,3 +1026,29 @@ export async function assignInvoiceToVehicle(invoiceId: string, vehicleId: strin
         return { success: false, error: error.message || "Nie udało się przypisać faktury do pojazdu." }
     }
 }
+
+export async function checkDuplicateInvoice(invoiceNumber: string | null | undefined, nip: string | null | undefined): Promise<boolean> {
+    if (!invoiceNumber || !nip) return false;
+    
+    try {
+        const tenantId = await getCurrentTenantId();
+        const cleanNip = nip.replace(/\D/g, "");
+        const cleanNumber = invoiceNumber.trim();
+        
+        const existing = await prisma.invoice.findFirst({
+            where: {
+                tenantId,
+                contractor: { nip: cleanNip },
+                OR: [
+                    { externalId: cleanNumber },
+                    { externalId: { contains: cleanNumber } }
+                ]
+            }
+        });
+        
+        return !!existing;
+    } catch (error) {
+        console.error("[CHECK_DUPLICATE_ERROR]", error);
+        return false;
+    }
+}

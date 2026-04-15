@@ -40,6 +40,8 @@ export interface OcrInvoiceData {
     rawTextKeywords?: string
     /** The raw JSON representing this document from OCR */
     rawOcrData?: any
+    /** Frontend flag indicating a possible duplicate prior to save */
+    isDuplicate?: boolean
 }
 
 /**
