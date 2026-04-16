@@ -148,9 +148,15 @@ export class AuditSessionService {
     } = this._normalizeCorrectionAmounts(netAmount, vatAmount, grossAmount, isCorrection);
 
     const getDelta = (d: any, a: any, b: any, fallback: Decimal) => {
-      if (d != null) return new Decimal(safeNum(d));
-      if (a != null && b != null) return new Decimal(safeNum(a)).sub(new Decimal(safeNum(b)));
-      return fallback;
+      let result = fallback;
+      if (d != null) result = new Decimal(safeNum(d));
+      else if (a != null && b != null) result = new Decimal(safeNum(a)).sub(new Decimal(safeNum(b)));
+      
+      // VECTOR 200.51: Force negative sign for corrections if result is currently positive
+      if (isCorrection && result.gt(0)) {
+        return result.mul(-1);
+      }
+      return result;
     };
 
     const auditItem = await prisma.auditInvoiceItem.create({
@@ -240,7 +246,10 @@ export class AuditSessionService {
    */
   static async getLiveSummary(sessionId: string, tenantId: string): Promise<LiveSummary> {
     const session = await this.getSession(sessionId, tenantId);
-
+    
+    // VECTOR 200.51: One-time repair for existing items during summary retrieval
+    await this.repairSessionSigns(sessionId, tenantId);
+ 
     // Recalculate from items (in case of manual edits)
     const totals = await this._calculateTotals(sessionId);
 
@@ -301,7 +310,13 @@ export class AuditSessionService {
 
     // ─── VECTOR 200.25: TRANSACTION STACK AGGREGATION ──────────────────────
     // Math logic centrally verified via coreMath.ts to eliminate fragmentation.
+    console.log(`[AUDIT_AGGREGATION] Aggregating ${items.length} items for session ${sessionId}`);
+    items.forEach(item => {
+      console.log(`  > Item: ${item.invoiceNumber} | VAT: ${item.vatAmount} | IsCorrection: ${item.isCorrection}`);
+    });
+
     const totalsResponse = calculateReconciledTotals(items, session!.citRate);
+    console.log(`[AUDIT_AGGREGATION] Result totalVat: ${totalsResponse.totalVat}`);
 
     return {
       netAmount: new Decimal(totalsResponse.totalNet),
@@ -638,7 +653,47 @@ export class AuditSessionService {
       });
     }
   }
-
+ 
+  /**
+   * VECTOR 200.51: Automated Repair for signed math integrity
+   * Fixes items that are corrections but were saved with positive values.
+   */
+  static async repairSessionSigns(sessionId: string, tenantId: string) {
+    const itemsToFix = await prisma.auditInvoiceItem.findMany({
+      where: {
+        auditSessionId: sessionId,
+        tenantId,
+        isCorrection: true,
+        OR: [
+          { netAmount: { gt: 0 } },
+          { vatAmount: { gt: 0 } },
+          { grossAmount: { gt: 0 } }
+        ]
+      }
+    });
+ 
+    if (itemsToFix.length > 0) {
+      console.log(`[AUDIT_REPAIR] Fixing ${itemsToFix.length} correction items with wrong signs`);
+      for (const item of itemsToFix) {
+        const net = new Decimal(item.netAmount.toString());
+        const vat = new Decimal(item.vatAmount.toString());
+        const gross = new Decimal(item.grossAmount.toString());
+ 
+        await prisma.auditInvoiceItem.update({
+          where: { id: item.id },
+          data: {
+            netAmount: net.abs().mul(-1),
+            vatAmount: vat.abs().mul(-1),
+            grossAmount: gross.abs().mul(-1),
+            deltaNetAmount: item.deltaNetAmount ? new Decimal(item.deltaNetAmount.toString()).abs().mul(-1) : null,
+            deltaVatAmount: item.deltaVatAmount ? new Decimal(item.deltaVatAmount.toString()).abs().mul(-1) : null,
+            deltaGrossAmount: item.deltaGrossAmount ? new Decimal(item.deltaGrossAmount.toString()).abs().mul(-1) : null,
+          }
+        });
+      }
+    }
+  }
+ 
   /**
    * Update item status
    */
