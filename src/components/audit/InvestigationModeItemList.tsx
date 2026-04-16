@@ -17,108 +17,217 @@ export function InvestigationModeItemList({ items }: InvestigationModeItemListPr
     );
   }
 
-  const groups = items.reduce((acc: Record<string, any>, item) => {
-    const groupKey = item.correctionGroup || item.projectId || item.contractorName || "INNE";
-    const groupLabel = item.correctionGroup
-      ? `Project Shadow: ${item.correctionGroup}`
-      : item.projectId
-      ? `Project: ${item.projectId}`
-      : `${item.contractorName}`;
+  // ─── VECTOR 200.25: TRANSACTION STACK GROUPING ────────────────────────────
+  // Group by correctionGroup (shared Transaction Stack) or fall back to
+  // a unique key per item so standalone documents never merge.
+  type StackGroup = {
+    label: string;
+    items: any[];
+    isStack: boolean;
+    netAmount: Decimal;
+    vatAmount: Decimal;
+    grossAmount: Decimal;
+  };
 
-    if (!acc[groupKey]) {
-      acc[groupKey] = {
-        label: groupLabel,
+  const stacks: Record<string, StackGroup> = {};
+
+  items.forEach((item) => {
+    const stackKey = item.correctionGroup
+      ? `CG::${item.correctionGroup}`
+      : `SOLO::${item.id}`;
+
+    if (!stacks[stackKey]) {
+      stacks[stackKey] = {
+        label: item.correctionGroup || item.contractorName || "INNE",
         items: [],
+        isStack: false,
         netAmount: new Decimal(0),
         vatAmount: new Decimal(0),
         grossAmount: new Decimal(0),
       };
     }
 
-    acc[groupKey].items.push(item);
-    acc[groupKey].netAmount = acc[groupKey].netAmount.add(new Decimal(item.netAmount || 0));
-    acc[groupKey].vatAmount = acc[groupKey].vatAmount.add(new Decimal(item.vatAmount || 0));
-    acc[groupKey].grossAmount = acc[groupKey].grossAmount.add(new Decimal(item.grossAmount || 0));
+    stacks[stackKey].items.push(item);
+    // Signed math — corrections are already negative in the DB
+    stacks[stackKey].netAmount = stacks[stackKey].netAmount.add(new Decimal(String(item.netAmount || 0)));
+    stacks[stackKey].vatAmount = stacks[stackKey].vatAmount.add(new Decimal(String(item.vatAmount || 0)));
+    stacks[stackKey].grossAmount = stacks[stackKey].grossAmount.add(new Decimal(String(item.grossAmount || 0)));
+  });
 
-    return acc;
-  }, {});
+  // Mark stacks that truly contain a correction
+  Object.values(stacks).forEach((group) => {
+    if (group.items.some((i) => i.isCorrection)) {
+      group.isStack = true;
+    }
+  });
+  // ──────────────────────────────────────────────────────────────────────────
+
+  const fmt = (v: Decimal) =>
+    new Intl.NumberFormat("pl-PL", {
+      style: "currency",
+      currency: "PLN",
+      signDisplay: "always",
+    }).format(v.toNumber());
 
   return (
     <div className="space-y-6">
-      {Object.values(groups).map((group: any) => (
-        <div key={group.label} className="p-5 rounded-3xl border border-slate-200 bg-white shadow-sm">
+      {Object.values(stacks).map((group: StackGroup) => (
+        <div
+          key={group.label}
+          className={`p-5 rounded-3xl border shadow-sm ${
+            group.isStack
+              ? "border-cyan-200 bg-cyan-50/30"
+              : "border-slate-200 bg-white"
+          }`}
+        >
+          {/* Stack Header */}
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
             <div>
               <div className="flex items-center gap-2 mb-2 text-sm uppercase tracking-[0.18em] text-slate-500 font-semibold">
-                <span>Project Shadow</span>
-                {group.label.includes("Project Shadow") ? (
-                  <Badge variant="secondary" className="uppercase text-[10px] px-2 py-1">
-                    korekta
-                  </Badge>
-                ) : null}
+                {group.isStack ? (
+                  <>
+                    <span className="text-cyan-600">🔗 Transaction Stack</span>
+                    <Badge className="bg-cyan-100 text-cyan-800 border-none text-[10px] px-2 py-0.5 uppercase tracking-widest">
+                      Net Truth: {fmt(group.netAmount)}
+                    </Badge>
+                  </>
+                ) : (
+                  <span>Dokument</span>
+                )}
               </div>
               <h3 className="text-lg font-semibold text-slate-900">{group.label}</h3>
             </div>
+
+            {/* Reconciled totals for this stack */}
             <div className="grid grid-cols-3 gap-3 text-sm text-slate-600">
               <div>
                 <div className="text-xs uppercase tracking-[0.24em] text-slate-400">Net</div>
-                <div className="font-bold text-slate-900">{group.netAmount.toFixed(2)} PLN</div>
+                <div className={`font-bold ${group.netAmount.gte(0) ? "text-slate-900" : "text-rose-600"}`}>
+                  {fmt(group.netAmount)}
+                </div>
               </div>
               <div>
                 <div className="text-xs uppercase tracking-[0.24em] text-slate-400">VAT</div>
-                <div className="font-bold text-slate-900">{group.vatAmount.toFixed(2)} PLN</div>
+                <div className={`font-bold ${group.vatAmount.gte(0) ? "text-slate-900" : "text-rose-600"}`}>
+                  {fmt(group.vatAmount)}
+                </div>
               </div>
               <div>
                 <div className="text-xs uppercase tracking-[0.24em] text-slate-400">Gross</div>
-                <div className="font-bold text-slate-900">{group.grossAmount.toFixed(2)} PLN</div>
+                <div className={`font-bold ${group.grossAmount.gte(0) ? "text-slate-900" : "text-rose-600"}`}>
+                  {fmt(group.grossAmount)}
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="grid gap-4">
-            {group.items.map((item: any) => (
-              <div
-                key={item.id}
-                className="rounded-2xl border border-slate-200 bg-slate-50 p-4 grid gap-3 md:grid-cols-3 md:items-center"
-              >
-                <div className="space-y-2">
-                  <div className="flex flex-wrap gap-2 items-center">
-                    <span className="text-sm font-semibold text-slate-900">{item.invoiceNumber}</span>
-                    {item.isCorrection && item.correctionReference ? (
-                      <Badge className="bg-cyan-100 text-cyan-800 border-none">🔗 POWIĄZANO Z #{item.correctionReference}</Badge>
-                    ) : item.correctionOfItem?.invoiceNumber ? (
-                      <Badge className="bg-emerald-100 text-emerald-800 border-none">🔗 POWIĄZANO Z #{item.correctionOfItem.invoiceNumber}</Badge>
-                    ) : item.linkedInvoice?.invoiceNumber ? (
-                      <Badge className="bg-slate-100 text-slate-900 border-none">🔗 Zapisano jako #{item.linkedInvoice.invoiceNumber}</Badge>
-                    ) : null}
-                  </div>
-                  <div className="text-sm text-slate-600">{item.contractorName} • {new Date(item.issueDate).toLocaleDateString()}</div>
-                </div>
+          {/* Individual documents in the stack — oldest first */}
+          <div className="grid gap-3">
+            {group.items
+              .slice()
+              .sort((a, b) => new Date(a.issueDate).getTime() - new Date(b.issueDate).getTime())
+              .map((item: any) => {
+                const isIntelligentCorrection = item.isCorrection && item.correctionOfItemId;
+                const net = new Decimal(String(item.netAmount || 0));
+                const vat = new Decimal(String(item.vatAmount || 0));
+                const gross = new Decimal(String(item.grossAmount || 0));
 
-                <div className="grid gap-1 text-sm text-slate-600">
-                  <div className="flex items-center justify-between">
-                    <span>Net</span>
-                    <span className="font-semibold text-slate-900">{new Decimal(item.netAmount || 0).toFixed(2)} PLN</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>VAT</span>
-                    <span className="font-semibold text-slate-900">{new Decimal(item.vatAmount || 0).toFixed(2)} PLN</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Gross</span>
-                    <span className="font-semibold text-slate-900">{new Decimal(item.grossAmount || 0).toFixed(2)} PLN</span>
-                  </div>
-                </div>
+                return (
+                  <div
+                    key={item.id}
+                    className={`rounded-2xl border p-4 grid gap-3 md:grid-cols-3 md:items-center ${
+                      item.isCorrection
+                        ? "border-cyan-200 bg-cyan-50"
+                        : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
+                    {/* Left: Invoice details */}
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <span className="text-sm font-semibold text-slate-900">
+                          {item.invoiceNumber}
+                        </span>
 
-                <div className="flex flex-col gap-2 text-right">
-                  <span className="text-xs uppercase tracking-[0.24em] text-slate-400">Status</span>
-                  <span className="font-semibold text-slate-900">{item.status || "PENDING"}</span>
-                  {item.isCorrection && (
-                    <span className="text-[11px] uppercase tracking-[0.24em] text-cyan-700">Korekta dokumentu</span>
-                  )}
-                </div>
-              </div>
-            ))}
+                        {/* Collision-detected (Relational Intelligence) badge */}
+                        {isIntelligentCorrection && (
+                          <Badge className="bg-cyan-600 text-white border-none text-[10px] px-2 py-0.5">
+                            🔗 INTELIGENTNA KOREKTA: ZMIANA WARTOŚCI
+                          </Badge>
+                        )}
+
+                        {/* Keyword-detected correction without direct DB link */}
+                        {item.isCorrection && !isIntelligentCorrection && item.correctionReference && (
+                          <Badge className="bg-cyan-100 text-cyan-800 border-none">
+                            🔗 Korekta #{item.correctionReference}
+                          </Badge>
+                        )}
+
+                        {/* Original document in a stack */}
+                        {!item.isCorrection && group.isStack && (
+                          <Badge className="bg-slate-200 text-slate-700 border-none text-[10px]">
+                            📄 Oryginał
+                          </Badge>
+                        )}
+
+                        {/* Legacy link badges */}
+                        {item.correctionOfItem?.invoiceNumber && !isIntelligentCorrection && (
+                          <Badge className="bg-emerald-100 text-emerald-800 border-none">
+                            🔗 Powiązano z #{item.correctionOfItem.invoiceNumber}
+                          </Badge>
+                        )}
+                        {item.linkedInvoice?.invoiceNumber && (
+                          <Badge className="bg-slate-100 text-slate-900 border-none">
+                            🔗 Zapisano jako #{item.linkedInvoice.invoiceNumber}
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="text-sm text-slate-600">
+                        {item.contractorName} •{" "}
+                        {new Date(item.issueDate).toLocaleDateString("pl-PL")}
+                      </div>
+                      {item.nip && (
+                        <div className="text-xs text-slate-400 font-mono">NIP: {item.nip}</div>
+                      )}
+                    </div>
+
+                    {/* Center: Amounts */}
+                    <div className="grid gap-1 text-sm text-slate-600">
+                      <div className="flex items-center justify-between">
+                        <span>Net</span>
+                        <span className={`font-semibold ${net.lt(0) ? "text-rose-600" : "text-slate-900"}`}>
+                          {fmt(net)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>VAT</span>
+                        <span className={`font-semibold ${vat.lt(0) ? "text-rose-600" : "text-slate-900"}`}>
+                          {fmt(vat)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Gross</span>
+                        <span className={`font-semibold ${gross.lt(0) ? "text-rose-600" : "text-slate-900"}`}>
+                          {fmt(gross)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Right: Status */}
+                    <div className="flex flex-col gap-2 text-right">
+                      <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
+                        Status
+                      </span>
+                      <span className="font-semibold text-slate-900">{item.status || "PENDING"}</span>
+                      {item.isCorrection && (
+                        <span className="text-[11px] uppercase tracking-[0.18em] text-cyan-700">
+                          Korekta dokumentu
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
       ))}

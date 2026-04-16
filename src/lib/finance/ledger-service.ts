@@ -42,8 +42,8 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
   // 1. Unrealized Invoices — split into Receivables vs Payables (Vector 109 Refactor)
   // We source status from Invoice but AMOUNTS from LedgerEntry (SSoT)
   const unrealizedInvoices = await prisma.invoice.findMany({
-    where: { 
-      tenantId, 
+    where: {
+      tenantId,
       recordContext: 'OPERATIONAL',
       paymentStatus: { in: ['UNPAID', 'PARTIALLY_PAID'] },
       status: { in: ['ACTIVE', 'XML_MISSING', 'PENDING'] }
@@ -53,8 +53,8 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
 
   const unrealizedIds = unrealizedInvoices.map((inv: any) => inv.id);
   const unrealizedLedgerEntries = await db.ledgerEntry.findMany({
-    where: { 
-      tenantId, 
+    where: {
+      tenantId,
       recordContext: 'OPERATIONAL',
       source: 'INVOICE',
       sourceId: { in: unrealizedIds }
@@ -62,7 +62,7 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
   });
 
   const SALES_TYPES = new Set(['SPRZEDAŻ', 'INCOME', 'REVENUE']);
-  const COST_TYPES  = new Set(['ZAKUP', 'EXPENSE', 'COST', 'KSeF_PURCHASE']);
+  const COST_TYPES = new Set(['ZAKUP', 'EXPENSE', 'COST', 'KSeF_PURCHASE']);
 
   // Receivables: money we will RECEIVE — positive (+)
   // Formula: Sum of INCOME + VAT_SHIELD (abs) - RETENTION_LOCK
@@ -70,7 +70,7 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
     .filter((inv: any) => SALES_TYPES.has(inv.type))
     .reduce((sum: Decimal, inv: any) => {
       const invEntries = unrealizedLedgerEntries.filter((e: any) => e.sourceId === inv.id);
-      
+
       const net = invEntries.find((e: any) => e.type === 'INCOME')?.amount || new Decimal(0);
       const vat = invEntries.find((e: any) => e.type === 'VAT_SHIELD')?.amount || new Decimal(0);
       const retention = invEntries.find((e: any) => e.type === 'RETENTION_LOCK')?.amount || new Decimal(0);
@@ -84,7 +84,7 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
     .filter((inv: any) => COST_TYPES.has(inv.type))
     .reduce((sum: Decimal, inv: any) => {
       const invEntries = unrealizedLedgerEntries.filter((e: any) => e.sourceId === inv.id);
-      
+
       const net = invEntries.find((e: any) => e.type === 'EXPENSE')?.amount || new Decimal(0);
       const vat = invEntries.find((e: any) => e.type === 'VAT_SHIELD')?.amount || new Decimal(0);
       const retention = invEntries.find((e: any) => e.type === 'RETENTION_LOCK')?.amount || new Decimal(0);
@@ -115,12 +115,12 @@ export async function getFinancialSnapshot(tenantId: string): Promise<FinancialS
 
   // 3. Safe to Spend (Vector 117 Logic)
   const vatDebt = vatBalance.lt(0) ? vatBalance.abs() : new Decimal(0);
-  
+
   // CIT Reserve uses configured rate (default 9%)
   const citRate = new Decimal(process.env.NEXT_PUBLIC_CIT_RATE || '0.09');
   const citReserve = fuelAccrualNet.gt(0) ? fuelAccrualNet.mul(citRate) : new Decimal(0);
   const realProfit = fuelAccrualNet.minus(citReserve);
-  
+
   const safeToSpend = realCashBalance
     .minus(vatDebt)
     .minus(citReserve)

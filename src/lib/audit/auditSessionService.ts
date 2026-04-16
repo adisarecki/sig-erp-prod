@@ -72,17 +72,45 @@ export class AuditSessionService {
     const session = await this.getSession(sessionId, tenantId);
 
     // Calculate VAT if not provided
-    const netAmount = new Decimal(item.netAmount);
-    const vatRate = new Decimal(item.vatRate || "0.23");
-    const vatAmount = item.vatAmount
-      ? new Decimal(item.vatAmount)
+    const safeNum = (v: any) => {
+      const n = parseFloat(String(v ?? '0').replace(',', '.'));
+      return isNaN(n) ? 0 : n;
+    };
+    const netAmount = new Decimal(safeNum(item.netAmount));
+    const vatRate = new Decimal(safeNum(item.vatRate) || "0.23");
+    const vatAmount = item.vatAmount != null
+      ? new Decimal(safeNum(item.vatAmount))
       : netAmount.mul(vatRate);
-    const grossAmount = item.grossAmount
-      ? new Decimal(item.grossAmount)
+    const grossAmount = item.grossAmount != null
+      ? new Decimal(safeNum(item.grossAmount))
       : netAmount.add(vatAmount);
 
-    const correction = this._analyzeCorrection(item);
-    const isCorrection = item.isCorrection || correction.isCorrection;
+    // ─── VECTOR 200.25: RELATIONAL INTELLIGENCE ────────────────────────────
+    // Step 1: Keyword-based correction signals (legacy — still useful)
+    const keywordCorrection = this._analyzeCorrection(item);
+
+    // Step 2: Collision Detection — same invoiceNumber + NIP = potential correction
+    const relationalCollision = await this._detectRelationalCollision(
+      sessionId, tenantId, item
+    );
+
+    // Merge signals: relational takes precedence when it fires
+    const isCorrection =
+      item.isCorrection ||
+      keywordCorrection.isCorrection ||
+      relationalCollision.isCorrection;
+
+    const correctionReference =
+      relationalCollision.correctionReference ||
+      keywordCorrection.correctionReference;
+
+    const correctionGroup =
+      relationalCollision.correctionGroup ||
+      keywordCorrection.correctionGroup;
+
+    const correctionOfItemId = relationalCollision.correctionOfItemId;
+    // ───────────────────────────────────────────────────────────────────────
+
     const transactionType = this._determineTransactionType(item, session.nipAnchor);
     const {
       netAmount: correctedNet,
@@ -108,38 +136,24 @@ export class AuditSessionService {
         category: item.category || "PROJECT_COST",
         projectId: item.projectId,
         transactionType,
-        isCorrection: correction.isCorrection,
-        correctionReference: correction.correctionReference,
-        correctionGroup: correction.correctionGroup,
+        isCorrection,
+        correctionReference,
+        correctionGroup,
+        correctionOfItemId,
         recordContext: "AUDIT_SESSION",
       },
     });
 
-    if (correction.correctionReference) {
-      const target = await this._findCorrectionTarget(sessionId, tenantId, correction.correctionReference);
-      if (target) {
-        if (target.id) {
-          await prisma.auditInvoiceItem.update({
-            where: { id: auditItem.id },
-            data: { correctionOfItemId: target.id },
-          });
-
-          if (!target.correctionGroup && correction.correctionGroup) {
-            await prisma.auditInvoiceItem.update({
-              where: { id: target.id },
-              data: { correctionGroup: correction.correctionGroup },
-            });
-          }
-        } else if ((target as any).linkedInvoiceId) {
-          await prisma.auditInvoiceItem.update({
-            where: { id: auditItem.id },
-            data: { linkedInvoiceId: (target as any).linkedInvoiceId },
-          });
-        }
-      }
+    // Ensure parent item also gets correctionGroup stamped
+    if (correctionOfItemId && correctionGroup) {
+      await prisma.auditInvoiceItem.update({
+        where: { id: correctionOfItemId },
+        data: { correctionGroup },
+      });
     }
 
-    if (!correction.isCorrection) {
+    // Legacy keyword-based linking (still runs for documents without number collisions)
+    if (!isCorrection) {
       await this._attachPendingCorrections(sessionId, auditItem);
     }
 
@@ -232,17 +246,36 @@ export class AuditSessionService {
       where: { id: sessionId },
     });
 
+    // ─── VECTOR 200.25: TRANSACTION STACK AGGREGATION ──────────────────────
+    // Group items by correctionGroup (stack key). Items in the same stack are
+    // summed with SIGNED math — corrections are already negative — so the
+    // result is automatically the reconciled "Net Truth" for that stack.
+    // Items with no correctionGroup are treated as standalone stacks.
+    const stacks = new Map<string, { net: Decimal; vat: Decimal; gross: Decimal }>();
+
+    items.forEach((item, idx) => {
+      const stackKey = item.correctionGroup || `__standalone_${idx}`;
+      const existing = stacks.get(stackKey) ?? { net: new Decimal(0), vat: new Decimal(0), gross: new Decimal(0) };
+      stacks.set(stackKey, {
+        net: existing.net.add(new Decimal(String(item.netAmount))),
+        vat: existing.vat.add(new Decimal(String(item.vatAmount))),
+        gross: existing.gross.add(new Decimal(String(item.grossAmount))),
+      });
+    });
+
     let netAmount = new Decimal(0);
     let vatAmount = new Decimal(0);
     let grossAmount = new Decimal(0);
 
-    items.forEach((item) => {
-      netAmount = netAmount.add(item.netAmount);
-      vatAmount = vatAmount.add(item.vatAmount);
-      grossAmount = grossAmount.add(item.grossAmount);
+    stacks.forEach((stack) => {
+      netAmount = netAmount.add(stack.net);
+      vatAmount = vatAmount.add(stack.vat);
+      grossAmount = grossAmount.add(stack.gross);
     });
+    // ───────────────────────────────────────────────────────────────────────
 
-    const citAmount = netAmount.mul(session!.citRate);
+    // CIT is applied strictly to the reconciled net total (Vector 200.25)
+    const citAmount = netAmount.gt(0) ? netAmount.mul(session!.citRate) : new Decimal(0);
 
     return {
       netAmount,
@@ -253,7 +286,7 @@ export class AuditSessionService {
   }
 
   /**
-   * Parse correction signals from invoice OCR / metadata
+   * Parse correction signals from invoice OCR / metadata (keyword-based layer)
    */
   private static _analyzeCorrection(item: AuditInvoiceItemInput) {
     const textFragments: string[] = [
@@ -286,6 +319,99 @@ export class AuditSessionService {
       correctionReference,
       correctionGroup,
     };
+  }
+
+  /**
+   * VECTOR 200.25: RELATIONAL INTELLIGENCE — Collision Detection Engine
+   *
+   * Detects a "collision": same invoiceNumber (normalized) + same NIP in the
+   * current session or main Invoice table. Uses temporal logic to determine
+   * which document is the correction:
+   *   - Later issueDate  →  isCorrection = true
+   *   - Earlier issueDate →  the existing one gets retroactively marked
+   */
+  private static async _detectRelationalCollision(
+    sessionId: string,
+    tenantId: string,
+    item: AuditInvoiceItemInput
+  ): Promise<{
+    isCorrection: boolean;
+    correctionOfItemId?: string;
+    correctionReference?: string;
+    correctionGroup?: string;
+  }> {
+    const normalizedNumber = this._normalizeInvoiceNumber(item.invoiceNumber);
+    const cleanNip = item.nip.replace(/\D/g, "");
+
+    // Search within the same audit session
+    const sessionCollision = await prisma.auditInvoiceItem.findFirst({
+      where: {
+        auditSessionId: sessionId,
+        nip: { contains: cleanNip },
+        OR: [
+          { invoiceNumber: { equals: normalizedNumber, mode: "insensitive" } },
+          { invoiceNumber: { equals: item.invoiceNumber, mode: "insensitive" } },
+        ],
+      },
+    });
+
+    if (sessionCollision) {
+      const existingDate = new Date(sessionCollision.issueDate).getTime();
+      const incomingDate = new Date(item.issueDate).getTime();
+      const sharedGroup = this._normalizeInvoiceNumber(item.invoiceNumber);
+
+      if (incomingDate > existingDate) {
+        // INCOMING is the correction — "Later is Correction" rule
+        return {
+          isCorrection: true,
+          correctionOfItemId: sessionCollision.id,
+          correctionReference: normalizedNumber,
+          correctionGroup: sharedGroup,
+        };
+      } else if (incomingDate < existingDate) {
+        // EXISTING is actually the correction — retroactively update existing item
+        await prisma.auditInvoiceItem.update({
+          where: { id: sessionCollision.id },
+          data: {
+            isCorrection: true,
+            correctionOfItemId: undefined, // will be set after incoming is created
+            correctionReference: normalizedNumber,
+            correctionGroup: sharedGroup,
+          },
+        });
+        // Incoming is the ORIGINAL — but flag it as part of the group
+        return {
+          isCorrection: false,
+          correctionGroup: sharedGroup,
+        };
+      } else {
+        // Same date — treat as duplicate, flag but don't force correction
+        return { isCorrection: false, correctionGroup: sharedGroup };
+      }
+    }
+
+    // Also check the main operational Invoice table
+    const dbCollision = await prisma.invoice.findFirst({
+      where: {
+        tenantId,
+        invoiceNumber: { equals: item.invoiceNumber, mode: "insensitive" },
+        contractor: { nip: cleanNip },
+      },
+    });
+
+    if (dbCollision) {
+      const existingDate = new Date(dbCollision.issueDate).getTime();
+      const incomingDate = new Date(item.issueDate).getTime();
+      if (incomingDate > existingDate) {
+        return {
+          isCorrection: true,
+          correctionReference: normalizedNumber,
+          correctionGroup: this._normalizeInvoiceNumber(item.invoiceNumber),
+        };
+      }
+    }
+
+    return { isCorrection: false };
   }
 
   private static _normalizeCorrectionAmounts(
