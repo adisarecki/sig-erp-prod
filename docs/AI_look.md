@@ -212,6 +212,8 @@ Obliczony dla MAKSYMALNEGO bezpieczeństwa: `Saldo Bankowe - Dług VAT - Rezerwa
 | **140.2** | VAT Shield 2.0 | Multi-ingestion, bank account self-learning and relational multi-account support. |
 | **150** | Knowledge Hub | Centralized business logic documentation & glossary integrated into UI tooltips. |
 | **170** | Fleet & Asset Registry | Specialized models for Vehicles and Tools, unit-level cost tracking, operational dashboard. |
+| **200.50** | Correction Model | Structured Adjustment Model (Before/After/Delta) for Faktura Korygująca documents. |
+| **200.99** | Central Math Core | Centralized signed math engine (coreMath.ts) to prevent sign-loss and math drift. |
 
 ---
 
@@ -398,4 +400,17 @@ System SIG ERP posługuje się precyzyjną terminologią biznesową, aby AI nie 
     - Jądro `coreMath.ts` używa `decimal.js` i zwraca standardowy, zaokrąglony bezpiecznie output w object struct: `{ totalNet: number, totalVat: number, totalGross: number, estimatedCit: number }`.
 
 ---
-*Plik utrzymywany przez Antigravity dla kolejnych sesji AI. Ostatnia aktualizacja: 2026-04-16 (Vector 200.99 - SIGN INTEGRITY RESTORED).*
+
+## 🔄 12. Vector 200.50: Structured Correction Model (Faktura Korygująca)
+
+### Model Principles:
+1. **Delta-First Accounting**: In audit/investigation sessions, corrections must be aggregated ONLY via their **Delta** values (`deltaNetAmount`, etc.).
+2. **Comparison Table**: Every correction document must extract and persist the triple-state:
+   - **Before**: Original values being corrected.
+   - **After**: Target values after correction.
+   - **Delta**: The signed difference (Przed -> Po).
+3. **Robust Linking**: Use `correctedInvoiceNumber` + `NIP` as the primary key for linking corrections to originals, bypassing the "same-day" collision lottery.
+4. **Sign Integrity**: `getDelta` logic ensures that even if OCR misses the sign, the delta is calculated as `After - Before` to preserve fiscal truth.
+
+---
+*Plik utrzymywany przez Antigravity dla kolejnych sesji AI. Ostatnia aktualizacja: 2026-04-16 (Vector 200.50 - STRUCTURED CORRECTION MODEL).*

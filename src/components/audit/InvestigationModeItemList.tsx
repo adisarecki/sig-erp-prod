@@ -189,6 +189,32 @@ export function InvestigationModeItemList({ items }: InvestigationModeItemListPr
                       {item.nip && (
                         <div className="text-xs text-slate-400 font-mono">NIP: {item.nip}</div>
                       )}
+
+                      {/* VECTOR 200.50: Structured Comparison Model Display */}
+                      {item.isCorrection && item.beforeNetAmount != null && (
+                        <div className="mt-2 p-2.5 rounded-xl bg-white/60 border border-cyan-200/50 text-[10px] sm:text-xs">
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <div className="text-slate-400 uppercase tracking-wider mb-0.5">Przed</div>
+                              <div className="text-slate-600 font-medium">
+                                {new Intl.NumberFormat("pl-PL").format(Number(item.beforeNetAmount))}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-slate-400 uppercase tracking-wider mb-0.5">Po</div>
+                              <div className="text-slate-600 font-medium">
+                                {new Intl.NumberFormat("pl-PL").format(Number(item.afterNetAmount))}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-cyan-600 uppercase tracking-wider mb-0.5 font-bold">Różnica</div>
+                              <div className="text-cyan-700 font-bold">
+                                {new Intl.NumberFormat("pl-PL").format(Number(item.deltaNetAmount))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Center: Amounts */}

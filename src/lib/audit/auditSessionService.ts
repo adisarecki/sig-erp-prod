@@ -147,6 +147,12 @@ export class AuditSessionService {
       grossAmount: correctedGross,
     } = this._normalizeCorrectionAmounts(netAmount, vatAmount, grossAmount, isCorrection);
 
+    const getDelta = (d: any, a: any, b: any, fallback: Decimal) => {
+      if (d != null) return new Decimal(safeNum(d));
+      if (a != null && b != null) return new Decimal(safeNum(a)).sub(new Decimal(safeNum(b)));
+      return fallback;
+    };
+
     const auditItem = await prisma.auditInvoiceItem.create({
       data: {
         auditSessionId: sessionId,
@@ -155,10 +161,10 @@ export class AuditSessionService {
         issueDate: item.issueDate,
         nip: item.nip,
         contractorName: item.contractorName,
-        netAmount: correctedNet,
+        netAmount: getDelta(item.deltaNetAmount, item.afterNetAmount, item.beforeNetAmount, correctedNet),
         vatRate,
-        vatAmount: correctedVat,
-        grossAmount: correctedGross,
+        vatAmount: getDelta(item.deltaVatAmount, item.afterVatAmount, item.beforeVatAmount, correctedVat),
+        grossAmount: getDelta(item.deltaGrossAmount, item.afterGrossAmount, item.beforeGrossAmount, correctedGross),
         ocrConfidence: item.ocrConfidence || 0,
         rawOcrData: item.rawOcrData,
         licensePlate: item.licensePlate,
@@ -169,6 +175,20 @@ export class AuditSessionService {
         correctionReference,
         correctionGroup,
         correctionOfItemId,
+        
+        // VECTOR 200.50: persist structured model
+        correctedInvoiceNumber: item.correctedInvoiceNumber,
+        correctedInvoiceDate: item.correctedInvoiceDate ? new Date(item.correctedInvoiceDate) : null,
+        beforeNetAmount: item.beforeNetAmount ? new Decimal(safeNum(item.beforeNetAmount)) : null,
+        beforeVatAmount: item.beforeVatAmount ? new Decimal(safeNum(item.beforeVatAmount)) : null,
+        beforeGrossAmount: item.beforeGrossAmount ? new Decimal(safeNum(item.beforeGrossAmount)) : null,
+        afterNetAmount: item.afterNetAmount ? new Decimal(safeNum(item.afterNetAmount)) : null,
+        afterVatAmount: item.afterVatAmount ? new Decimal(safeNum(item.afterVatAmount)) : null,
+        afterGrossAmount: item.afterGrossAmount ? new Decimal(safeNum(item.afterGrossAmount)) : null,
+        deltaNetAmount: item.deltaNetAmount ? new Decimal(safeNum(item.deltaNetAmount)) : correctedNet,
+        deltaVatAmount: item.deltaVatAmount ? new Decimal(safeNum(item.deltaVatAmount)) : correctedVat,
+        deltaGrossAmount: item.deltaGrossAmount ? new Decimal(safeNum(item.deltaGrossAmount)) : correctedGross,
+        
         recordContext: "AUDIT_SESSION",
       },
     });
@@ -363,6 +383,26 @@ export class AuditSessionService {
       },
       orderBy: { issueDate: 'asc' },
     });
+
+    // TIER 1.5: Explicit OCR-based linking (correctedInvoiceNumber)
+    if (item.correctedInvoiceNumber) {
+      const explicitReference = this._normalizeInvoiceNumber(item.correctedInvoiceNumber);
+      const target = await prisma.auditInvoiceItem.findFirst({
+        where: {
+          auditSessionId: sessionId,
+          invoiceNumber: { equals: explicitReference, mode: "insensitive" },
+          nip: { contains: cleanNip },
+        }
+      });
+      if (target) {
+        return {
+          isCorrection: true,
+          correctionOfItemId: target.id,
+          correctionReference: explicitReference,
+          correctionGroup: explicitReference,
+        };
+      }
+    }
 
     if (sessionCollisions.length > 0) {
       const sharedGroup = normalizedNumber;
@@ -715,6 +755,20 @@ export class AuditSessionService {
           rawOcrData: item.rawOcrData as any,
           auditDiscrepancy: item.flaggedAsDiscrepancy,
           recordContext: "AUDIT_SESSION",
+
+          // VECTOR 200.50: Commit correction model to main Invoice
+          isCorrection: item.isCorrection,
+          correctedInvoiceNumber: item.correctedInvoiceNumber,
+          correctedInvoiceDate: item.correctedInvoiceDate,
+          beforeNetAmount: item.beforeNetAmount,
+          beforeVatAmount: item.beforeVatAmount,
+          beforeGrossAmount: item.beforeGrossAmount,
+          afterNetAmount: item.afterNetAmount,
+          afterVatAmount: item.afterVatAmount,
+          afterGrossAmount: item.afterGrossAmount,
+          deltaNetAmount: item.deltaNetAmount,
+          deltaVatAmount: item.deltaVatAmount,
+          deltaGrossAmount: item.deltaGrossAmount,
         },
       });
 

@@ -22,6 +22,17 @@ export interface OcrResult {
         isDuplicate: boolean;
         duplicateId?: string;
         bankAccountNumber?: string;
+        isCorrection?: boolean;
+        correctedInvoiceNumber?: string;
+        beforeNetAmount?: string;
+        beforeVatAmount?: string;
+        beforeGrossAmount?: string;
+        afterNetAmount?: string;
+        afterVatAmount?: string;
+        afterGrossAmount?: string;
+        deltaNetAmount?: string;
+        deltaVatAmount?: string;
+        deltaGrossAmount?: string;
     };
     error?: string;
 }
@@ -39,16 +50,29 @@ export async function scanInvoiceAction(base64Data: string, mimeType: string): P
         const model = getGeminiModel();
 
         const prompt = `
-            Extract data from this invoice. Return ONLY a valid JSON object.
+            Extract data from this invoice. Identify if it is a "FAKTURA KORYGUJĄCA" (Correction/Adjustment Invoice).
+            Return ONLY a valid JSON object.
+            
             Fields:
             - nip: Vendor NIP (only 10 digits)
             - parsedName: Vendor Name
-            - invoiceNumber: Invoice Number (externalId)
+            - invoiceNumber: Current Invoice Number (externalId)
             - issueDate: YYYY-MM-DD
             - dueDate: YYYY-MM-DD
+            - isCorrection: boolean (true if title is FAKTURA KORYGUJĄCA or KOREKTA)
+            - correctedInvoiceNumber: string (The original invoice number being corrected, if found)
+            
+            Comparison Values (ONLY for corrections):
+            - beforeNetAmount, beforeVatAmount, beforeGrossAmount: strings (Values before correction / "Przed korektą")
+            - afterNetAmount, afterVatAmount, afterGrossAmount: strings (Values after correction / "Po korekcie")
+            - deltaNetAmount, deltaVatAmount, deltaGrossAmount: strings (The delta/difference / "Różnica" or "Kwota korekty")
+            
+            Standard Totals (Use these if NOT a correction, or populate from Delta if it is a correction):
             - netAmount: string like "1250.50"
             - vatAmount: string like "287.62"
             - grossAmount: string like "1538.12"
+            
+            Other:
             - vatRate: string like "0.23" for 23%
             - bankAccountNumber: 26-digit account number (no spaces)
         `;

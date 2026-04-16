@@ -33,6 +33,19 @@ export interface AuditInvoiceItemInput {
   correctionGroup?: string;
   isCorrection?: boolean;
   linkedInvoiceId?: string;
+  
+  // VECTOR 200.50: Correction Model
+  correctedInvoiceNumber?: string;
+  correctedInvoiceDate?: Date | string;
+  beforeNetAmount?: Decimal | number;
+  beforeVatAmount?: Decimal | number;
+  beforeGrossAmount?: Decimal | number;
+  afterNetAmount?: Decimal | number;
+  afterVatAmount?: Decimal | number;
+  afterGrossAmount?: Decimal | number;
+  deltaNetAmount?: Decimal | number;
+  deltaVatAmount?: Decimal | number;
+  deltaGrossAmount?: Decimal | number;
 }
 
 export interface AuditItemVerificationResult {

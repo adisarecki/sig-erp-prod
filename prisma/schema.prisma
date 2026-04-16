@@ -233,6 +233,21 @@ model Invoice {
   auditDiscrepancy Boolean @default(false)
   recordContext RecordContext @default(OPERATIONAL)
   auditItems   AuditInvoiceItem[] @relation("audit_to_invoice")
+
+  // VECTOR 200.50: Correction Modeling
+  isCorrection         Boolean   @default(false)
+  correctedInvoiceNumber String?
+  correctedInvoiceDate   DateTime?
+  beforeNetAmount      Decimal?  @db.Decimal(12, 2)
+  beforeVatAmount      Decimal?  @db.Decimal(12, 2)
+  beforeGrossAmount    Decimal?  @db.Decimal(12, 2)
+  afterNetAmount       Decimal?  @db.Decimal(12, 2)
+  afterVatAmount       Decimal?  @db.Decimal(12, 2)
+  afterGrossAmount     Decimal?  @db.Decimal(12, 2)
+  deltaNetAmount       Decimal?  @db.Decimal(12, 2)
+  deltaVatAmount       Decimal?  @db.Decimal(12, 2)
+  deltaGrossAmount     Decimal?  @db.Decimal(12, 2)
+
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
@@ -766,6 +781,18 @@ model AuditInvoiceItem {
   correctionOfItem  AuditInvoiceItem?   @relation("CorrectionParent", fields: [correctionOfItemId], references: [id])
   correctedItems    AuditInvoiceItem[]  @relation("CorrectionParent")
 
+  // VECTOR 200.50: Structured Correction Model
+  correctedInvoiceNumber String?
+  correctedInvoiceDate   DateTime?
+  beforeNetAmount      Decimal?  @db.Decimal(12, 2)
+  beforeVatAmount      Decimal?  @db.Decimal(12, 2)
+  beforeGrossAmount    Decimal?  @db.Decimal(12, 2)
+  afterNetAmount       Decimal?  @db.Decimal(12, 2)
+  afterVatAmount       Decimal?  @db.Decimal(12, 2)
+  afterGrossAmount     Decimal?  @db.Decimal(12, 2)
+  deltaNetAmount       Decimal?  @db.Decimal(12, 2)
+  deltaVatAmount       Decimal?  @db.Decimal(12, 2)
+  deltaGrossAmount     Decimal?  @db.Decimal(12, 2)
   
   // Manual Review
   manualReviewNotes String?             @db.Text
