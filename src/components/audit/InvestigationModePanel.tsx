@@ -37,6 +37,7 @@ export function InvestigationModePanel({
   const [sourceMonth, setSourceMonth] = useState<number | undefined>();
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [reportGenerated, setReportGenerated] = useState(false);
+  const [showSuccessPrompt, setShowSuccessPrompt] = useState(false);
 
   const handleStartSession = async () => {
     try {
@@ -79,6 +80,7 @@ export function InvestigationModePanel({
 
       if (response.ok) {
         await updateLiveSummary();
+        setShowSuccessPrompt(true);
       }
     } catch (err) {
       console.error("Bulk approve failed", err);
@@ -156,6 +158,47 @@ export function InvestigationModePanel({
               </div>
             </div>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  if (showSuccessPrompt) {
+    return (
+      <div className="w-full max-w-4xl mx-auto p-10 bg-white rounded-3xl border border-emerald-100 shadow-2xl text-center space-y-8 animate-in fade-in zoom-in duration-300">
+        <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+          <CheckCircle2 className="w-10 h-10" />
+        </div>
+        
+        <div className="space-y-2">
+          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Dokumenty Zaksięgowane! ✅</h2>
+          <p className="text-slate-500 text-lg">
+            Wszystkie zweryfikowane pozycje zostały pomyślnie przeniesione do Rejestru głównego.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto">
+          <button
+            onClick={() => setShowSuccessPrompt(false)}
+            className="flex flex-col items-center gap-2 p-6 rounded-2xl border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 transition-all group"
+          >
+            <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+              <Download className="w-6 h-6 rotate-180" />
+            </div>
+            <span className="font-bold text-slate-900">KONTYNUUJ WGRYWANIE</span>
+            <span className="text-xs text-slate-400">Dodaj kolejne dokumenty do tej sesji</span>
+          </button>
+
+          <button
+            onClick={handleFinalize}
+            className="flex flex-col items-center gap-2 p-6 rounded-2xl border-2 border-slate-100 hover:border-purple-500 hover:bg-purple-50 transition-all group"
+          >
+            <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <span className="font-bold text-slate-900">ZAKOŃCZ I RAPORT</span>
+            <span className="text-xs text-slate-400">Zamknij sesję i wygeneruj podsumowanie</span>
+          </button>
         </div>
       </div>
     );

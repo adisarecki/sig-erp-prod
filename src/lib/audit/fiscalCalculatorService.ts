@@ -70,18 +70,18 @@ export class FiscalCalculatorService {
     return {
       vatSaldo: {
         amount: vatSaldo,
-        color: vatSaldo.isNegative() ? "#10b981" : "#f43f5e", // Green if NADPLATA (refund), Red if liability
-        label: vatSaldo.isNegative() ? "NADPLATA / ZWROT" : "DO ZAPŁATY",
+        color: vatSaldo.isNegative() ? "#10b981" : "#f43f5e", // Emerald Green if NADPŁATA
+        label: vatSaldo.isNegative() ? "NADPŁATA" : "DO ZAPŁATY",
       },
       citLiability: {
         amount: citLiability,
-        color: citLiability.isNegative() ? "#06b6d4" : "#f43f5e", // Cyan if loss (STRATA), Red if liability
-        label: citLiability.isNegative() ? "TARCZA / STRATA" : "DO ZAPŁATY",
+        color: citLiability.isNegative() ? "#06b6d4" : "#f43f5e", // Cyan if loss
+        label: citLiability.isNegative() ? "TARCZA PODATKOWA" : "DO ZAPŁATY",
       },
       grossLiability: {
         amount: grossLiability,
-        color: grossLiability.isPositive() ? "#f43f5e" : "#10b981", // Red if liability, Green if asset
-        label: grossLiability.isPositive() ? "DO ZAPŁATY" : "ZWROT",
+        color: grossLiability.isPositive() ? "#f43f5e" : "#10b981",
+        label: grossLiability.isPositive() ? "DO ZAPŁATY" : "DO ZWROTU",
       },
     };
   }

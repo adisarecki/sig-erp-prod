@@ -94,14 +94,35 @@ export class AuditSessionService {
       sessionId, tenantId, item, netAmount
     );
 
-    // TIER 1: Exact Duplicate (NIP + Number + Date + Net all match) — DISCARD immediately
+    // TIER 0: Hard Deduplication (Internal Session or Main Database)
     if (relationalCollision.isDuplicate) {
-      console.warn(`[AUDIT_DEDUP] Discarding exact duplicate: ${item.invoiceNumber} / ${item.nip}`);
+      console.warn(`[AUDIT_DEDUP] Rejecting duplicate: ${item.invoiceNumber} / ${item.nip}`);
+      
+      const duplicateItem = await prisma.auditInvoiceItem.create({
+        data: {
+          auditSessionId: sessionId,
+          tenantId,
+          invoiceNumber: item.invoiceNumber,
+          issueDate: item.issueDate,
+          nip: item.nip,
+          contractorName: item.contractorName,
+          netAmount: netAmount,
+          vatRate,
+          vatAmount: vatAmount,
+          grossAmount: grossAmount,
+          ocrConfidence: item.ocrConfidence || 0,
+          rawOcrData: item.rawOcrData as any,
+          category: item.category || "PROJECT_COST",
+          transactionType: this._determineTransactionType(item, session.nipAnchor),
+          status: "REJECTED",
+          flaggedAsDiscrepancy: true,
+          discrepancyReason: "DUPLICATE",
+          recordContext: "AUDIT_SESSION",
+        },
+      });
+
       await this._updateSessionAggregates(sessionId);
-      // Return the existing item instead of creating a new one
-      return prisma.auditInvoiceItem.findFirst({
-        where: { auditSessionId: sessionId, invoiceNumber: item.invoiceNumber }
-      }) as any;
+      return duplicateItem;
     }
 
     // Merge signals: relational takes precedence when it fires
@@ -463,16 +484,25 @@ export class AuditSessionService {
       return { isCorrection: false, correctionGroup: sharedGroup };
     }
 
-    // Also check the main operational Invoice table (cross-session)
+    // Also check the main operational Invoice table (cross-session/cross-audit deduplication)
     const dbCollision = await prisma.invoice.findFirst({
       where: {
         tenantId,
-        invoiceNumber: { equals: item.invoiceNumber, mode: "insensitive" },
+        invoiceNumber: { equals: normalizedNumber, mode: "insensitive" },
         contractor: { nip: cleanNip },
       },
     });
 
     if (dbCollision) {
+      const dbDateStr = new Date(dbCollision.issueDate).toISOString().slice(0, 10);
+      const dbNet = new Decimal(String(dbCollision.amountNet)).abs();
+      const absIncoming = incomingNet.abs();
+
+      // STRICT DEDUPLICATION: If NIP + Number + Net match exactly in main DB
+      if (dbNet.eq(absIncoming)) {
+        return { isDuplicate: true, isCorrection: false };
+      }
+
       const existingDate = new Date(dbCollision.issueDate).getTime();
       const incomingDate = new Date(item.issueDate).getTime();
       if (incomingDate > existingDate) {
@@ -505,6 +535,8 @@ export class AuditSessionService {
       };
     }
 
+    // VECTOR 200.35: Ensure corrections are always treated as deltas (negative from base)
+    // If they are already negative, keep them. If positive, negate them.
     return {
       netAmount: net.isNegative() ? net : net.negated(),
       vatAmount: vat.isNegative() ? vat : vat.negated(),
