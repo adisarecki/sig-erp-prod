@@ -15,7 +15,7 @@ import { getContractors } from "@/app/actions/crm"
 import { getVehicles } from "@/app/actions/fleet"
 
 import { TransactionHistory } from "@/components/finance/TransactionHistory"
-import { mapFinancialValues, FinancialType, deepSerialize } from "@/lib/utils/financeMapper"
+import { mapFinancialValues, FinancialType } from "@/lib/utils/financeMapper"
 import Decimal from "decimal.js"
 import { type Contractor } from "@/lib/types/crm"
 
@@ -47,18 +47,26 @@ export default async function FinancePage({
     let vehicles: any[] = []
     let leakageAlerts: any[] = []
     let fetchError: string | null = null
+    // Initialized with safe defaults — NEVER read from global/module state
+    let viewSummary = { totalNet: 0, totalVat: 0, totalGross: 0 }
+    let summaryNet = ''
+    let summaryVat = ''
+    let summaryGross = ''
+    let summaryNetPositive = true
+    let summaryVatPositive = true
+    let summaryGrossPositive = true
 
     try {
         leakageAlerts = await scanForLeaks(tenantId)
 
-        // Pobieramy projekty z Firestore
-        projectsMap = deepSerialize(await getProjects() as any[])
+        // Pobieramy projekty z Firestore (JSON round-trip ensures full serializability)
+        projectsMap = JSON.parse(JSON.stringify(await getProjects()))
 
         // Pobieramy kontrahentów
-        contractorsMap = deepSerialize(await getContractors() as any[])
+        contractorsMap = JSON.parse(JSON.stringify(await getContractors()))
 
         // Pobieramy pojazdy
-        vehicles = deepSerialize(await getVehicles())
+        vehicles = JSON.parse(JSON.stringify(await getVehicles()))
 
         // Pobieramy transakcje z Firestore (Bank imports) i Invoices z Prisma (Single Source of Truth)
         const adminDb = getAdminDb()
@@ -290,13 +298,26 @@ export default async function FinancePage({
             totalGross: preCalcGross.toNumber()
         };
 
-        // Final pass: ensure all transactions items are fully serializable for Client Components
-        transactions = deepSerialize(transactions);
-        (global as any).currentViewSummary = viewSummary; // Temporary store or just pass down
+        // Final pass: JSON round-trip is the 100% safe serialization guarantee
+        transactions = JSON.parse(JSON.stringify(transactions));
+
+        // Pre-compute display strings for the summary bar (keep Decimal OUT of JSX)
+        const fmt = new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', signDisplay: 'always' });
+        summaryNet = fmt.format(preCalcNet.toNumber());
+        summaryVat = fmt.format(preCalcVat.toNumber());
+        summaryGross = fmt.format(preCalcGross.toNumber());
+        summaryNetPositive = preCalcNet.gte(0);
+        summaryVatPositive = preCalcVat.gte(0);
+        summaryGrossPositive = preCalcGross.gte(0);
+        viewSummary = {
+            totalNet: preCalcNet.toNumber(),
+            totalVat: preCalcVat.toNumber(),
+            totalGross: preCalcGross.toNumber()
+        };
 
     } catch (err: any) {
-        console.error("Finance Page fetch error:", err)
-        fetchError = err.message || "Wystąpił nieoczekiwany błąd podczas pobierania danych z bazy."
+        console.error("[FINANCE_PAGE_ERROR]", err)
+        fetchError = err?.message || "Wystąpił nieoczekiwany błąd podczas pobierania danych."
     }
 
     return (
@@ -376,7 +397,7 @@ export default async function FinancePage({
                     allVehicles={vehicles}
                 />
                 
-                {/* FOOTER SUMMARY BAR (Vector 097) */}
+                {/* FOOTER SUMMARY BAR (Vector 097) - All values pre-computed server-side, no Decimal in JSX */}
                 <div className="bg-slate-900 text-white px-8 py-6 flex flex-col lg:flex-row justify-between items-center gap-6 border-t-4 border-indigo-500 rounded-b-xl">
                     <div className="flex flex-col">
                         <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Podsumowanie Widoku</span>
@@ -384,38 +405,29 @@ export default async function FinancePage({
                             {activeFilter === 'PROJECT' ? 'Wyfiltrowano: Tylko Koszty Projektowe' : activeFilter === 'GENERAL' ? 'Wyfiltrowano: Tylko Koszty Ogólne' : 'Bilans wszystkich dokumentów'}
                         </span>
                     </div>
-                    
-                    {(() => {
-                        const summary = (global as any).currentViewSummary || { totalNet: 0, totalVat: 0, totalGross: 0 };
-                        const totalNet = new Decimal(summary.totalNet);
-                        const totalVat = new Decimal(summary.totalVat);
-                        const totalGross = new Decimal(summary.totalGross);
 
-                        return (
-                            <div className="flex flex-wrap justify-center lg:justify-end gap-8 lg:gap-14">
-                                <div className="text-center sm:text-right">
-                                    <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1 text-balance">Netto (Realny Bilans)</p>
-                                    <p className={`text-xl font-black italic ${totalNet.gte(0) ? 'text-indigo-100' : 'text-rose-400'}`}>
-                                        {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', signDisplay: 'always' }).format(totalNet.toNumber())}
-                                    </p>
-                                </div>
-                                
-                                <div className="text-center sm:text-right">
-                                    <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1 text-balance">VAT (Kompensata)</p>
-                                    <p className={`text-xl font-black ${totalVat.gte(0) ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', signDisplay: 'always' }).format(totalVat.toNumber())}
-                                    </p>
-                                </div>
-                                
-                                <div className="text-center sm:text-right border-l border-slate-700 pl-8">
-                                    <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1 text-balance">Brutto (Cash Impact)</p>
-                                    <p className={`text-3xl font-black drop-shadow-sm ${totalGross.gte(0) ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', signDisplay: 'always' }).format(totalGross.toNumber())}
-                                    </p>
-                                </div>
-                            </div>
-                        );
-                    })()}
+                    <div className="flex flex-wrap justify-center lg:justify-end gap-8 lg:gap-14">
+                        <div className="text-center sm:text-right">
+                            <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1 text-balance">Netto (Realny Bilans)</p>
+                            <p className={`text-xl font-black italic ${summaryNetPositive ? 'text-indigo-100' : 'text-rose-400'}`}>
+                                {summaryNet || '+0,00 zł'}
+                            </p>
+                        </div>
+
+                        <div className="text-center sm:text-right">
+                            <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1 text-balance">VAT (Kompensata)</p>
+                            <p className={`text-xl font-black ${summaryVatPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {summaryVat || '+0,00 zł'}
+                            </p>
+                        </div>
+
+                        <div className="text-center sm:text-right border-l border-slate-700 pl-8">
+                            <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1 text-balance">Brutto (Cash Impact)</p>
+                            <p className={`text-3xl font-black drop-shadow-sm ${summaryGrossPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {summaryGross || '+0,00 zł'}
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
