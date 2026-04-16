@@ -41,6 +41,9 @@ model Tenant {
   vehicles           Vehicle[]
   contractorBankAccounts ContractorBankAccount[]
   identityConflicts  IdentityConflictRecord[]
+  auditSessions      AuditSession[]
+  auditItems        AuditInvoiceItem[]
+  auditReports       AuditReport[]
 }
 
 model BankBalanceState {
@@ -229,6 +232,7 @@ model Invoice {
   rawOcrData   Json?
   auditDiscrepancy Boolean @default(false)
   isAudit      Boolean         @default(false)
+  auditItems   AuditInvoiceItem[] @relation("audit_to_invoice")
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
@@ -664,6 +668,163 @@ model IdentityConflictRecord {
 
   @@index([tenantId])
   @@index([iban])
+}
+
+// Vector 180.15: Persistent Audit & Fiscal Investigation Engine
+// ============================================================
+
+enum AuditSessionStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum AuditItemStatus {
+  PENDING
+  VERIFIED
+  MANUAL_OVERRIDE
+  REJECTED
+  DUPLICATE
+}
+
+model AuditSession {
+  id                String              @id @default(uuid())
+  tenantId          String
+  tenant            Tenant              @relation(fields: [tenantId], references: [id])
+  status            AuditSessionStatus  @default(ACTIVE)
+  citRate           Decimal             @default(0.09) @db.Decimal(5, 4)
+  nipAnchor         String              @default("9542751368")
+  sourceYear        Int                 // The fiscal year being audited (e.g., 2025)
+  sourceMonth       Int?                // Optional: specific month (1-12), NULL for full year
+  
+  // Session Aggregates (Updated in real-time)
+  totalNetAmount    Decimal             @default(0) @db.Decimal(14, 2)
+  totalVatAmount    Decimal             @default(0) @db.Decimal(14, 2)
+  totalGrossAmount  Decimal             @default(0) @db.Decimal(14, 2)
+  totalCitAmount    Decimal             @default(0) @db.Decimal(14, 2)
+  
+  // State tracking
+  itemCount         Int                 @default(0)
+  verifiedCount     Int                 @default(0)
+  pendingCount      Int                 @default(0)
+  rejectedCount     Int                 @default(0)
+  
+  // Audit Items
+  items             AuditInvoiceItem[]
+  
+  // Generated Report
+  generatedReport   AuditReport?
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@index([tenantId])
+  @@index([sourceYear])
+  @@index([status])
+}
+
+model AuditInvoiceItem {
+  id                String              @id @default(uuid())
+  auditSessionId    String
+  auditSession      AuditSession        @relation(fields: [auditSessionId], references: [id], onDelete: Cascade)
+  tenantId          String
+  tenant            Tenant              @relation(fields: [tenantId], references: [id])
+  
+  status            AuditItemStatus     @default(PENDING)
+  
+  // OCR Data & Confidence
+  ocrConfidence     Float               @default(0) // 0-100
+  rawOcrData        Json?               // Original OCR payload
+  
+  // Invoice Details (from OCR or manual entry)
+  invoiceNumber     String
+  issueDate         DateTime
+  nip               String
+  contractorName    String
+  licensePlate      String?             // For vehicle-related expenses
+  
+  netAmount         Decimal             @db.Decimal(12, 2)
+  vatRate           Decimal             @default(0.23) @db.Decimal(5, 4)
+  vatAmount         Decimal             @db.Decimal(12, 2)
+  grossAmount       Decimal             @db.Decimal(12, 2)
+  
+  // Classification
+  category          String              @default("PROJECT_COST") // PROJECT_COST, GENERAL_COST, etc.
+  projectId         String?
+  
+  // Automatic Verification Result
+  isAutoVerified    Boolean             @default(false)
+  autoVerifyReason  String?             // "OCR_CONFIDENCE", "NIP_MATCHED", "LICENSE_PLATE_MATCHED"
+  
+  // Manual Review
+  manualReviewNotes String?             @db.Text
+  reviewedBy        String?             // User ID who manually reviewed
+  reviewedAt        DateTime?
+  
+  // Linking to Actual Invoice (after commit)
+  linkedInvoiceId   String?
+  linkedInvoice     Invoice?            @relation("audit_to_invoice", fields: [linkedInvoiceId], references: [id])
+  
+  // Discrepancy Tracking
+  flaggedAsDiscrepancy Boolean          @default(false)
+  discrepancyReason String?
+  duplicateOf       String?             // If this is flagged as duplicate, reference to the original
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@index([auditSessionId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([ocrConfidence])
+  @@index([issueDate])
+}
+
+model AuditReport {
+  id                String              @id @default(uuid())
+  auditSessionId    String              @unique
+  auditSession      AuditSession        @relation(fields: [auditSessionId], references: [id], onDelete: Cascade)
+  tenantId          String
+  tenant            Tenant              @relation(fields: [tenantId], references: [id])
+  
+  // Report Period
+  period            String              // e.g., "2025-01" for Jan 2025 or "2025" for full year
+  fiscalYear        Int
+  fiscalMonth       Int?                // NULL for annual reports
+  
+  // Aggregates
+  totalNetAmount    Decimal             @db.Decimal(14, 2)
+  totalVatAmount    Decimal             @db.Decimal(14, 2)
+  totalGrossAmount  Decimal             @db.Decimal(14, 2)
+  totalCitAmount    Decimal             @db.Decimal(14, 2)
+  
+  // Liability vs Assets
+  vatSaldomonetaryUnit Decimal          @db.Decimal(14, 2)   // VAT Saldo (can be negative = refund due)
+  citLiability      Decimal             @db.Decimal(14, 2)   // CIT liability (can be negative = loss carrier)
+  netLiability      Decimal             @db.Decimal(14, 2)   // Total net amount due
+  
+  // Discrepancy Summary
+  totalItemsProcessed Int
+  duplicateCount    Int                 @default(0)
+  unrecognizedNipCount Int              @default(0)
+  failedVerificationCount Int           @default(0)
+  
+  // Detailed Logs
+  discrepancyLog    Json?               // Array of discrepancy records
+  monthlyBreakdown  Json?               // Array of monthly summaries [{month, net, vat, cit}, ...]
+  
+  // Status
+  isFinalized       Boolean             @default(false)
+  finalizedAt       DateTime?
+  exportedAt        DateTime?
+  exportFormat      String?             // PDF, XLSX, JSON
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@index([tenantId])
+  @@index([fiscalYear])
+  @@index([period])
 }
 
 // Vector 150: Knowledge Hub — Feedback System

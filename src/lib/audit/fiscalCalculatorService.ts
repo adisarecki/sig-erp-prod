@@ -1,0 +1,149 @@
+/**
+ * Fiscal Calculator Service - Vector 180.15
+ * Real-time VAT and CIT aggregation with dynamic updates
+ */
+
+import Decimal from "decimal.js";
+import { FiscalAggregates } from "./types";
+
+export class FiscalCalculatorService {
+  /**
+   * Calculate VAT from net amount and rate
+   */
+  static calculateVAT(netAmount: Decimal | number, vatRate: Decimal | number = 0.23): Decimal {
+    const net = new Decimal(netAmount);
+    const rate = new Decimal(vatRate);
+    return net.mul(rate);
+  }
+
+  /**
+   * Calculate gross from net and VAT
+   */
+  static calculateGross(netAmount: Decimal | number, vatAmount: Decimal | number): Decimal {
+    const net = new Decimal(netAmount);
+    const vat = new Decimal(vatAmount);
+    return net.add(vat);
+  }
+
+  /**
+   * Calculate CIT from net amount and rate
+   */
+  static calculateCIT(netAmount: Decimal | number, citRate: Decimal | number = 0.09): Decimal {
+    const net = new Decimal(netAmount);
+    const rate = new Decimal(citRate);
+    return net.mul(rate);
+  }
+
+  /**
+   * Aggregate multiple items into fiscal summary
+   */
+  static aggregateItems(items: Array<{ netAmount: Decimal | number; vatAmount: Decimal | number; grossAmount: Decimal | number }>, citRate: Decimal | number = 0.09): FiscalAggregates {
+    let netAmount = new Decimal(0);
+    let vatAmount = new Decimal(0);
+    let grossAmount = new Decimal(0);
+
+    items.forEach((item) => {
+      netAmount = netAmount.add(new Decimal(item.netAmount));
+      vatAmount = vatAmount.add(new Decimal(item.vatAmount));
+      grossAmount = grossAmount.add(new Decimal(item.grossAmount));
+    });
+
+    const citAmount = this.calculateCIT(netAmount, citRate);
+
+    return {
+      netAmount,
+      vatAmount,
+      grossAmount,
+      citAmount,
+    };
+  }
+
+  /**
+   * Calculate fiscal liabilities
+   * Returns color-coded liability states for UI
+   */
+  static calculateLiabilities(aggregates: FiscalAggregates) {
+    const vatSaldo = aggregates.vatAmount;
+    const citLiability = aggregates.citAmount;
+    const grossLiability = aggregates.grossAmount;
+
+    return {
+      vatSaldo: {
+        amount: vatSaldo,
+        color: vatSaldo.isNegative() ? "#10b981" : "#f43f5e", // Green if NADPLATA (refund), Red if liability
+        label: vatSaldo.isNegative() ? "NADPLATA / ZWROT" : "DO ZAPŁATY",
+      },
+      citLiability: {
+        amount: citLiability,
+        color: citLiability.isNegative() ? "#06b6d4" : "#f43f5e", // Cyan if loss (STRATA), Red if liability
+        label: citLiability.isNegative() ? "TARCZA / STRATA" : "DO ZAPŁATY",
+      },
+      grossLiability: {
+        amount: grossLiability,
+        color: grossLiability.isPositive() ? "#f43f5e" : "#10b981", // Red if liability, Green if asset
+        label: grossLiability.isPositive() ? "DO ZAPŁATY" : "ZWROT",
+      },
+    };
+  }
+
+  /**
+   * Format liability for display
+   */
+  static formatLiability(amount: Decimal): string {
+    const val = amount.toDP(2);
+    return `${val.isNegative() ? "-" : "+"}${val.abs().toString()} PLN`;
+  }
+
+  /**
+   * Calculate monthly summary
+   */
+  static calculateMonthlySummary(
+    items: Array<{ issueDate: Date; netAmount: Decimal | number; vatAmount: Decimal | number; grossAmount: Decimal | number }>,
+    citRate: Decimal | number = 0.09
+  ) {
+    const byMonth = new Map<string, FiscalAggregates>();
+
+    items.forEach((item) => {
+      const key = `${item.issueDate.getFullYear()}-${String(item.issueDate.getMonth() + 1).padStart(2, "0")}`;
+
+      if (!byMonth.has(key)) {
+        byMonth.set(key, {
+          netAmount: new Decimal(0),
+          vatAmount: new Decimal(0),
+          grossAmount: new Decimal(0),
+          citAmount: new Decimal(0),
+        });
+      }
+
+      const month = byMonth.get(key)!;
+      month.netAmount = month.netAmount.add(new Decimal(item.netAmount));
+      month.vatAmount = month.vatAmount.add(new Decimal(item.vatAmount));
+      month.grossAmount = month.grossAmount.add(new Decimal(item.grossAmount));
+    });
+
+    // Recalculate CIT for all months
+    const result: Record<string, FiscalAggregates> = {};
+    byMonth.forEach((aggregates, key) => {
+      result[key] = {
+        ...aggregates,
+        citAmount: this.calculateCIT(aggregates.netAmount, citRate),
+      };
+    });
+
+    return result;
+  }
+
+  /**
+   * Compare two fiscal periods
+   */
+  static comparePeriods(current: FiscalAggregates, previous: FiscalAggregates) {
+    return {
+      netChange: current.netAmount.sub(previous.netAmount),
+      vatChange: current.vatAmount.sub(previous.vatAmount),
+      grossChange: current.grossAmount.sub(previous.grossAmount),
+      citChange: current.citAmount.sub(previous.citAmount),
+      netChangePercent: current.netAmount.div(previous.netAmount || 1).mul(100).sub(100),
+      vatChangePercent: current.vatAmount.div(previous.vatAmount || 1).mul(100).sub(100),
+    };
+  }
+}

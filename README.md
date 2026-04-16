@@ -77,6 +77,29 @@ System Sig ERP wykorzystuje inteligentny silnik parowania wyciągów PKO BP:
 - **Filozofia Net-First**: System priorytetyzuje kwoty Netto jako jedyny twardy punkt odniesienia dla Twojego wyniku. Brutto i VAT są traktowane jako dane weryfikacyjne.
 - **Audit Shield**: Wszystkie dokumenty z datą 2025 są automatycznie izolowane od bieżących wskaźników 2026, chroniąc Twoją płynność przed szumem historycznym.
 
+### 🔍 Investigation Mode – Persistent Fiscal Audit System (Vector 180.15) 🆕
+Nowy tryb dedykowany profesjonalnym audytom finansowym i retrospektywnym skanerom:
+
+**Cechy kluczowe:**
+- **Sesja Persistent**: Otwórz sesję audytu na wybrany rok/miesiąc. System przechowuje wszystkie dokumenty bez czyszczenia między wrzutami (1-5 plików naraz).
+- **Real-Time Agregacja VAT/CIT (9%)**: Każdy dodany dokument aktualizuje żywy pasek podsumowania z kolorowym kodowaniem:
+  - 🟢 **NADPLATA / ZWROT** (VAT Saldo < 0): Emerald Green (#10b981)
+  - 🔵 **TARCZA / STRATA** (CIT < 0): Cyan Blue (#06b6d4)
+  - 🔴 **DO ZAPŁATY** (Liability > 0): Rose Red (#f43f5e)
+- **PEWNIAK Auto-Verification**: System automatycznie weryfikuje fakt ury z OCR confidence > 95%, znanych dostawców (Orlen, Stefania Machniewska) i pojazdu WE452YS.
+- **Bulk Approve (ZATWIERDŹ WSZYSTKIE)**: Zatwierdź wszystkie zweryfikowane faktury jednym przyciskiem, z gotowością do commit.
+- **Zakończ Wczytywanie**: Finalizacja sesji generuje komprehensywny raport z:
+  - 📊 Raportem Miesięcznym (Net/VAT/CIT per month)
+  - 🎯 Podsumowaniem Rocznym (2025: całkowita odpowiedzialność podatkowa)
+  - ⚠️ Logiem Rozbieżności (duplikaty, nieznane NIPs)
+- **Izolacja Danych (isAudit Flag)**: Wszystkie faktury z sesji audytu trafiają z flagą `isAudit: true`, izolując je od dashbordów operacyjnych 2026.
+- **Wdrożono dokumentację**: Zaktualizowano pliki w `docs/` i dodano skróty w `doc/` dla trybu audytu.
+
+**Architektura:**
+- Backend: `AuditSessionService`, `VerificationEngine` (PEWNIAK), `ReportGeneratorService`, `FiscalCalculatorService`
+- Frontend: `InvestigationModePanel`, `LiveSummaryBar` (with semantic colors), `FileUploadZone`
+- API: `/api/audit/session/*`, `/api/audit/reports/{annual,monthly}`
+
 ### 🏦 Centrala Weryfikacji Salda (Vector 106)
 Nowy standard "Prawdy Finansowej" w Sig ERP:
 1. **Absolutna Kotwica (Anchor)**: System nie tylko liczy pieniądze – on je weryfikuje. Fizyczne saldo z Twojego banku (PKO BP) jest nadrzędnym źródłem prawdy.
