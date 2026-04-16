@@ -26,7 +26,7 @@ export class AuditSessionService {
         tenantId,
         citRate: config.citRate || new Decimal("0.09"),
         nipAnchor: config.nipAnchor || "9542751368",
-        sourceYear: config.sourceYear,
+        sourceYear: config.sourceYear || new Date().getFullYear(),
         sourceMonth: config.sourceMonth,
       },
       include: {
@@ -85,14 +85,24 @@ export class AuditSessionService {
       ? new Decimal(safeNum(item.grossAmount))
       : netAmount.add(vatAmount);
 
-    // ─── VECTOR 200.25: RELATIONAL INTELLIGENCE ────────────────────────────
-    // Step 1: Keyword-based correction signals (legacy — still useful)
+    // ─── VECTOR 200.30: HARDENED COLLISION ENGINE ──────────────────────────
+    // Step 1: Keyword-based correction signals (legacy layer)
     const keywordCorrection = this._analyzeCorrection(item);
 
-    // Step 2: Collision Detection — same invoiceNumber + NIP = potential correction
+    // Step 2: Relational Collision — 3-tier logic (duplicate / same-day-correction / date-hierarchy)
     const relationalCollision = await this._detectRelationalCollision(
-      sessionId, tenantId, item
+      sessionId, tenantId, item, netAmount
     );
+
+    // TIER 1: Exact Duplicate (NIP + Number + Date + Net all match) — DISCARD immediately
+    if (relationalCollision.isDuplicate) {
+      console.warn(`[AUDIT_DEDUP] Discarding exact duplicate: ${item.invoiceNumber} / ${item.nip}`);
+      await this._updateSessionAggregates(sessionId);
+      // Return the existing item instead of creating a new one
+      return prisma.auditInvoiceItem.findFirst({
+        where: { auditSessionId: sessionId, invoiceNumber: item.invoiceNumber }
+      }) as any;
+    }
 
     // Merge signals: relational takes precedence when it fires
     const isCorrection =
@@ -154,7 +164,11 @@ export class AuditSessionService {
 
     // Legacy keyword-based linking (still runs for documents without number collisions)
     if (!isCorrection) {
-      await this._attachPendingCorrections(sessionId, auditItem);
+      await this._attachPendingCorrections(sessionId, {
+        id: auditItem.id,
+        invoiceNumber: auditItem.invoiceNumber,
+        correctionGroup: auditItem.correctionGroup ?? undefined
+      });
     }
 
     // Update session aggregates
@@ -218,7 +232,7 @@ export class AuditSessionService {
       where: { id: sessionId },
       data: {
         itemCount: items.length,
-        verifiedCount: items.filter((i) => i.isAutoVerified).length,
+        verifiedCount: items.filter((i) => i.status === "VERIFIED" || i.ocrConfidence >= 95).length,
         pendingCount: items.filter((i) => i.status === "PENDING").length,
         rejectedCount: items.filter((i) => i.status === "REJECTED").length,
         totalNetAmount: totals.netAmount.toDP(2),
@@ -322,19 +336,20 @@ export class AuditSessionService {
   }
 
   /**
-   * VECTOR 200.25: RELATIONAL INTELLIGENCE — Collision Detection Engine
+   * VECTOR 200.30: HARDENED COLLISION ENGINE — 3-Tier Detection
    *
-   * Detects a "collision": same invoiceNumber (normalized) + same NIP in the
-   * current session or main Invoice table. Uses temporal logic to determine
-   * which document is the correction:
-   *   - Later issueDate  →  isCorrection = true
-   *   - Earlier issueDate →  the existing one gets retroactively marked
+   * TIER 1 — Exact Duplicate: NIP + Number + Date + Net all match → isDuplicate = true
+   * TIER 2 — Same-day Correction: NIP + Number + Date match, Net differs →
+   *           check /KOR suffix or OCR keywords → isCorrection = true
+   * TIER 3 — Temporal (date-based): Later date = correction (original Vector 200.25 rule)
    */
   private static async _detectRelationalCollision(
     sessionId: string,
     tenantId: string,
-    item: AuditInvoiceItemInput
+    item: AuditInvoiceItemInput,
+    incomingNet: Decimal
   ): Promise<{
+    isDuplicate?: boolean;
     isCorrection: boolean;
     correctionOfItemId?: string;
     correctionReference?: string;
@@ -342,9 +357,10 @@ export class AuditSessionService {
   }> {
     const normalizedNumber = this._normalizeInvoiceNumber(item.invoiceNumber);
     const cleanNip = item.nip.replace(/\D/g, "");
+    const incomingDateStr = new Date(item.issueDate).toISOString().slice(0, 10);
 
-    // Search within the same audit session
-    const sessionCollision = await prisma.auditInvoiceItem.findFirst({
+    // Search all collisions in the same session (same number + NIP)
+    const sessionCollisions = await prisma.auditInvoiceItem.findMany({
       where: {
         auditSessionId: sessionId,
         nip: { contains: cleanNip },
@@ -353,44 +369,101 @@ export class AuditSessionService {
           { invoiceNumber: { equals: item.invoiceNumber, mode: "insensitive" } },
         ],
       },
+      orderBy: { issueDate: 'asc' },
     });
 
-    if (sessionCollision) {
-      const existingDate = new Date(sessionCollision.issueDate).getTime();
-      const incomingDate = new Date(item.issueDate).getTime();
-      const sharedGroup = this._normalizeInvoiceNumber(item.invoiceNumber);
+    if (sessionCollisions.length > 0) {
+      const sharedGroup = normalizedNumber;
 
-      if (incomingDate > existingDate) {
-        // INCOMING is the correction — "Later is Correction" rule
-        return {
-          isCorrection: true,
-          correctionOfItemId: sessionCollision.id,
-          correctionReference: normalizedNumber,
-          correctionGroup: sharedGroup,
-        };
-      } else if (incomingDate < existingDate) {
-        // EXISTING is actually the correction — retroactively update existing item
-        await prisma.auditInvoiceItem.update({
-          where: { id: sessionCollision.id },
-          data: {
+      for (const existing of sessionCollisions) {
+        const existingDateStr = new Date(existing.issueDate).toISOString().slice(0, 10);
+        const existingNet = new Decimal(String(existing.netAmount)).abs();
+        const absIncoming = incomingNet.abs();
+
+        // ── TIER 1: EXACT DUPLICATE ──────────────────────────────────────────
+        // NIP + Number + Date + Net (absolute) all identical → discard
+        if (
+          existingDateStr === incomingDateStr &&
+          existingNet.eq(absIncoming)
+        ) {
+          return { isDuplicate: true, isCorrection: false };
+        }
+
+        // ── TIER 2: SAME-DAY CORRECTION ──────────────────────────────────────
+        // NIP + Number + Date match, but Net differs → determine which is correction
+        if (existingDateStr === incomingDateStr && !existingNet.eq(absIncoming)) {
+          // Check if INCOMING has correction signals (/KOR, keyword)
+          const incomingHasKorSignal =
+            /\/KOR(EKTA)?$/i.test(item.invoiceNumber) ||
+            /KORYGUJ|KOREKTA|KOR\b/i.test(JSON.stringify(item.rawOcrData || ""));
+
+          // Check if EXISTING has correction signals
+          const existingHasKorSignal =
+            /\/KOR(EKTA)?$/i.test(existing.invoiceNumber) ||
+            /KORYGUJ|KOREKTA|KOR\b/i.test(JSON.stringify(existing.rawOcrData || ""));
+
+          if (incomingHasKorSignal && !existingHasKorSignal) {
+            // INCOMING is the correction (has /KOR or keyword)
+            return {
+              isCorrection: true,
+              correctionOfItemId: existing.id,
+              correctionReference: normalizedNumber,
+              correctionGroup: sharedGroup,
+            };
+          } else if (existingHasKorSignal && !incomingHasKorSignal) {
+            // EXISTING is the correction — retroactively stamp it, incoming is original
+            await prisma.auditInvoiceItem.update({
+              where: { id: existing.id },
+              data: { isCorrection: true, correctionReference: normalizedNumber, correctionGroup: sharedGroup },
+            });
+            return { isCorrection: false, correctionGroup: sharedGroup };
+          } else {
+            // No KOR signal on either — use smaller absolute value as the delta/correction
+            const incomingIsSmaller = absIncoming.lt(existingNet);
+            if (incomingIsSmaller) {
+              // Smaller value = correction delta
+              return {
+                isCorrection: true,
+                correctionOfItemId: existing.id,
+                correctionReference: normalizedNumber,
+                correctionGroup: sharedGroup,
+              };
+            } else {
+              // Existing is smaller (it came in first and is the correction)
+              await prisma.auditInvoiceItem.update({
+                where: { id: existing.id },
+                data: { isCorrection: true, correctionReference: normalizedNumber, correctionGroup: sharedGroup },
+              });
+              return { isCorrection: false, correctionGroup: sharedGroup };
+            }
+          }
+        }
+
+        // ── TIER 3: DATE HIERARCHY ────────────────────────────────────────────
+        const existingDate = new Date(existing.issueDate).getTime();
+        const incomingDate = new Date(item.issueDate).getTime();
+
+        if (incomingDate > existingDate) {
+          return {
             isCorrection: true,
-            correctionOfItemId: undefined, // will be set after incoming is created
+            correctionOfItemId: existing.id,
             correctionReference: normalizedNumber,
             correctionGroup: sharedGroup,
-          },
-        });
-        // Incoming is the ORIGINAL — but flag it as part of the group
-        return {
-          isCorrection: false,
-          correctionGroup: sharedGroup,
-        };
-      } else {
-        // Same date — treat as duplicate, flag but don't force correction
-        return { isCorrection: false, correctionGroup: sharedGroup };
+          };
+        } else if (incomingDate < existingDate) {
+          await prisma.auditInvoiceItem.update({
+            where: { id: existing.id },
+            data: { isCorrection: true, correctionReference: normalizedNumber, correctionGroup: sharedGroup },
+          });
+          return { isCorrection: false, correctionGroup: sharedGroup };
+        }
       }
+
+      // Collision found but no clear correction signal — just group them
+      return { isCorrection: false, correctionGroup: sharedGroup };
     }
 
-    // Also check the main operational Invoice table
+    // Also check the main operational Invoice table (cross-session)
     const dbCollision = await prisma.invoice.findFirst({
       where: {
         tenantId,
@@ -406,7 +479,7 @@ export class AuditSessionService {
         return {
           isCorrection: true,
           correctionReference: normalizedNumber,
-          correctionGroup: this._normalizeInvoiceNumber(item.invoiceNumber),
+          correctionGroup: normalizedNumber,
         };
       }
     }
@@ -534,7 +607,7 @@ export class AuditSessionService {
   ) {
     const item = await prisma.auditInvoiceItem.update({
       where: { id: itemId },
-      data: { status },
+      data: { status: status as any },
     });
 
     // Update session aggregates
@@ -637,7 +710,7 @@ export class AuditSessionService {
           paymentStatus: "UNPAID",
           invoiceNumber: item.invoiceNumber,
           externalId: item.invoiceNumber,
-          rawOcrData: item.rawOcrData,
+          rawOcrData: item.rawOcrData as any,
           auditDiscrepancy: item.flaggedAsDiscrepancy,
           recordContext: "AUDIT_SESSION",
         },
@@ -652,7 +725,7 @@ export class AuditSessionService {
           amount: item.netAmount,
           type: invoiceType === "SPRZEDAŻ" ? "INCOME" : "EXPENSE",
           date: item.issueDate,
-          rawOcrData: item.rawOcrData,
+          rawOcrData: item.rawOcrData as any,
           recordContext: "AUDIT_SESSION",
         },
       });
