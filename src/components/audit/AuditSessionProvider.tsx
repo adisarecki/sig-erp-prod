@@ -12,6 +12,7 @@ import Decimal from "decimal.js";
 interface AuditSessionContextType {
   sessionId: string | null;
   tenantId: string | null;
+  session: any | null;
   liveSummary: LiveSummary | null;
   isLoading: boolean;
   error: string | null;
@@ -28,6 +29,7 @@ const AuditSessionContext = createContext<AuditSessionContextType | undefined>(u
 export function AuditSessionProvider({ children }: { children: ReactNode }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
+  const [session, setSession] = useState<any | null>(null);
   const [liveSummary, setLiveSummary] = useState<LiveSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +53,7 @@ export function AuditSessionProvider({ children }: { children: ReactNode }) {
         const session = await response.json();
         setSessionId(session.id);
         setTenantId(tenantId);
+        setSession(session);
         return session.id;
       } catch (err: any) {
         setError(err.message);
@@ -91,7 +94,7 @@ export function AuditSessionProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     },
-    [sessionId, tenantId]
+    [sessionId, tenantId, updateLiveSummary]
   );
 
   const verifyAll = useCallback(
@@ -138,6 +141,7 @@ export function AuditSessionProvider({ children }: { children: ReactNode }) {
         if (response.ok) {
           const data = await response.json();
           setLiveSummary(data.liveSummary);
+          setSession(data.session);
         }
       } catch (err) {
         console.error("Failed to update live summary", err);
@@ -169,6 +173,7 @@ export function AuditSessionProvider({ children }: { children: ReactNode }) {
 
         // Clear session after finalization
         setSessionId(null);
+        setSession(null);
       } catch (err: any) {
         setError(err.message);
         throw err;
@@ -184,6 +189,7 @@ export function AuditSessionProvider({ children }: { children: ReactNode }) {
       value={{
         sessionId,
         tenantId,
+        session,
         liveSummary,
         isLoading,
         error,

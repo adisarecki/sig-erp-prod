@@ -41,7 +41,12 @@ export class AuditSessionService {
     const session = await prisma.auditSession.findUnique({
       where: { id: sessionId },
       include: {
-        items: true,
+        items: {
+          orderBy: { issueDate: "desc" },
+          include: {
+            correctionOfItem: true,
+          },
+        },
         generatedReport: true,
       },
     });
@@ -73,6 +78,11 @@ export class AuditSessionService {
       ? new Decimal(item.grossAmount)
       : netAmount.add(vatAmount);
 
+    const correction = this._analyzeCorrection(item);
+    const correctedNet = correction.isCorrection ? netAmount.negated() : netAmount;
+    const correctedVat = correction.isCorrection ? vatAmount.negated() : vatAmount;
+    const correctedGross = correction.isCorrection ? grossAmount.negated() : grossAmount;
+
     const auditItem = await prisma.auditInvoiceItem.create({
       data: {
         auditSessionId: sessionId,
@@ -81,17 +91,48 @@ export class AuditSessionService {
         issueDate: item.issueDate,
         nip: item.nip,
         contractorName: item.contractorName,
-        netAmount,
+        netAmount: correctedNet,
         vatRate,
-        vatAmount,
-        grossAmount,
+        vatAmount: correctedVat,
+        grossAmount: correctedGross,
         ocrConfidence: item.ocrConfidence || 0,
         rawOcrData: item.rawOcrData,
         licensePlate: item.licensePlate,
         category: item.category || "PROJECT_COST",
         projectId: item.projectId,
+        isCorrection: correction.isCorrection,
+        correctionReference: correction.correctionReference,
+        correctionGroup: correction.correctionGroup,
       },
     });
+
+    if (correction.correctionReference) {
+      const target = await this._findCorrectionTarget(sessionId, tenantId, correction.correctionReference);
+      if (target) {
+        if (target.id) {
+          await prisma.auditInvoiceItem.update({
+            where: { id: auditItem.id },
+            data: { correctionOfItemId: target.id },
+          });
+
+          if (!target.correctionGroup && correction.correctionGroup) {
+            await prisma.auditInvoiceItem.update({
+              where: { id: target.id },
+              data: { correctionGroup: correction.correctionGroup },
+            });
+          }
+        } else if ((target as any).linkedInvoiceId) {
+          await prisma.auditInvoiceItem.update({
+            where: { id: auditItem.id },
+            data: { linkedInvoiceId: (target as any).linkedInvoiceId },
+          });
+        }
+      }
+    }
+
+    if (!correction.isCorrection) {
+      await this._attachPendingCorrections(sessionId, auditItem);
+    }
 
     // Update session aggregates
     await this._updateSessionAggregates(sessionId);
@@ -136,6 +177,7 @@ export class AuditSessionService {
       vatSaldo: totals.vatAmount,
       citLiability: totals.citAmount,
       grossLiability: totals.grossAmount,
+      citRate: session.citRate,
     };
   }
 
@@ -199,6 +241,117 @@ export class AuditSessionService {
       grossAmount,
       citAmount,
     };
+  }
+
+  /**
+   * Parse correction signals from invoice OCR / metadata
+   */
+  private static _analyzeCorrection(item: AuditInvoiceItemInput) {
+    const textFragments: string[] = [
+      item.invoiceNumber || "",
+      item.contractorName || "",
+      item.rawOcrData ? JSON.stringify(item.rawOcrData) : "",
+    ];
+
+    const text = textFragments.join(" ").toUpperCase();
+    const isCorrection = /KORYGUJĄCA|KORYGUJACA|\bKOR\b|DOTYCZY FAKTURY NR/.test(text);
+
+    let correctionReference: string | undefined;
+    const referenceMatch = text.match(/DOTYCZY FAKTURY NR[:\s]*([A-Z0-9\/\-\.]+)/i);
+    if (referenceMatch) {
+      correctionReference = this._normalizeInvoiceNumber(referenceMatch[1]);
+    } else if (item.invoiceNumber?.toUpperCase().includes("/KOR")) {
+      correctionReference = this._normalizeInvoiceNumber(
+        item.invoiceNumber.replace(/\/KOR$/i, "")
+      );
+    }
+
+    const correctionGroup = correctionReference ||
+      (isCorrection && item.invoiceNumber
+        ? this._normalizeInvoiceNumber(item.invoiceNumber)
+        : undefined);
+
+    return {
+      isCorrection,
+      correctionReference,
+      correctionGroup,
+    };
+  }
+
+  private static _normalizeInvoiceNumber(invoiceNumber: string) {
+    return invoiceNumber
+      .trim()
+      .replace(/\s+/g, "")
+      .replace(/[^A-Z0-9\/\-\.]/gi, "")
+      .toUpperCase();
+  }
+
+  private static async _findCorrectionTarget(
+    sessionId: string,
+    tenantId: string,
+    correctionReference: string
+  ) {
+    const normalizedReference = this._normalizeInvoiceNumber(correctionReference);
+
+    const sessionItem = await prisma.auditInvoiceItem.findFirst({
+      where: {
+        auditSessionId: sessionId,
+        OR: [
+          { invoiceNumber: { equals: correctionReference, mode: "insensitive" } },
+          { invoiceNumber: { equals: normalizedReference, mode: "insensitive" } },
+          { correctionGroup: normalizedReference },
+        ],
+      },
+    });
+
+    if (sessionItem) {
+      return sessionItem;
+    }
+
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        tenantId,
+        invoiceNumber: { equals: normalizedReference, mode: "insensitive" },
+      },
+    });
+
+    if (invoice) {
+      return {
+        id: undefined,
+        correctionGroup: normalizedReference,
+        linkedInvoiceId: invoice.id,
+      } as any;
+    }
+
+    return null;
+  }
+
+  private static async _attachPendingCorrections(
+    sessionId: string,
+    auditItem: { id: string; invoiceNumber: string; correctionGroup?: string }
+  ) {
+    if (!auditItem.invoiceNumber) {
+      return;
+    }
+
+    const normalizedInvoiceNumber = this._normalizeInvoiceNumber(auditItem.invoiceNumber);
+
+    const pendingCorrections = await prisma.auditInvoiceItem.findMany({
+      where: {
+        auditSessionId: sessionId,
+        correctionReference: normalizedInvoiceNumber,
+      },
+    });
+
+    for (const correction of pendingCorrections) {
+      await prisma.auditInvoiceItem.update({
+        where: { id: correction.id },
+        data: {
+          correctionOfItemId: auditItem.id,
+          correctionGroup: correction.correctionGroup || auditItem.correctionGroup,
+        },
+      });
+    }
   }
 
   /**

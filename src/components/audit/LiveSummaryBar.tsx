@@ -151,7 +151,7 @@ export function LiveSummaryBar({
           </span>
         </div>
         <div>
-          <span className="text-gray-600">CIT (9%):</span>
+          <span className="text-gray-600">CIT ({new Decimal(liveSummary.citRate).mul(100).toFixed(0)}%):</span>
           <span className="font-bold ml-2">
             {liveSummary.totals.citAmount.toString()} PLN
           </span>

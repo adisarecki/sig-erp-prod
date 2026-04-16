@@ -5,10 +5,11 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useAuditSession } from "./AuditSessionProvider";
 import { LiveSummaryBar } from "./LiveSummaryBar";
 import { FileUploadZone } from "./FileUploadZone";
+import { InvestigationModeItemList } from "./InvestigationModeItemList";
 import { CheckCircle2, AlertTriangle, Download } from "lucide-react";
 
 interface InvestigationModePanelProps {
@@ -22,6 +23,7 @@ export function InvestigationModePanel({
 }: InvestigationModePanelProps) {
   const {
     sessionId,
+    session,
     liveSummary,
     isLoading,
     error,
@@ -197,6 +199,13 @@ export function InvestigationModePanel({
 
       {/* Live Summary Bar */}
       {liveSummary && <LiveSummaryBar liveSummary={liveSummary} />}
+
+      {/* Project Shadow & Document Linkage */}
+      {session?.items && session.items.length > 0 && (
+        <div className="pt-4">
+          <InvestigationModeItemList items={session.items} />
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="grid grid-cols-3 gap-6">

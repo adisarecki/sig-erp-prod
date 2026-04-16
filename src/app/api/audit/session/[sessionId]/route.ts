@@ -40,6 +40,7 @@ export async function GET(
         vatSaldo: liveSummary.vatSaldo.toString(),
         citLiability: liveSummary.citLiability.toString(),
         grossLiability: liveSummary.grossLiability.toString(),
+        citRate: liveSummary.citRate.toString(),
       },
     });
   } catch (error: any) {

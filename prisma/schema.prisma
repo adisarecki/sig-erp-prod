@@ -752,9 +752,14 @@ model AuditInvoiceItem {
   category          String              @default("PROJECT_COST") // PROJECT_COST, GENERAL_COST, etc.
   projectId         String?
   
-  // Automatic Verification Result
-  isAutoVerified    Boolean             @default(false)
-  autoVerifyReason  String?             // "OCR_CONFIDENCE", "NIP_MATCHED", "LICENSE_PLATE_MATCHED"
+  // Correction / Reconciliation Links
+  isCorrection      Boolean             @default(false)
+  correctionReference String?
+  correctionGroup   String?
+  correctionOfItemId String?
+  correctionOfItem  AuditInvoiceItem?   @relation("CorrectionParent", fields: [correctionOfItemId], references: [id])
+  correctedItems    AuditInvoiceItem[]  @relation("CorrectionParent")
+
   
   // Manual Review
   manualReviewNotes String?             @db.Text

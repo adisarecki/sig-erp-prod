@@ -26,6 +26,9 @@ export interface AuditInvoiceItemInput {
   licensePlate?: string;
   category?: string;
   projectId?: string;
+  correctionReference?: string;
+  correctionGroup?: string;
+  isCorrection?: boolean;
 }
 
 export interface AuditItemVerificationResult {
@@ -51,6 +54,7 @@ export interface LiveSummary {
   vatSaldo: Decimal; // VAT amount (can be negative = NADPLATA/ZWROT)
   citLiability: Decimal; // CIT liability (can be negative = TARCZA/STRATA)
   grossLiability: Decimal; // DO ZAPŁATY
+  citRate: Decimal;
 }
 
 export interface MonthlyReportSummary {
