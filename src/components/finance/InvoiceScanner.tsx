@@ -350,7 +350,7 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
 
     const vatSaldo = liveSummary.vatIncome - liveSummary.vatCost
     const isVatAsset = vatSaldo < 0 
-    const citEstimate = (liveSummary.netIncome - liveSummary.netCost) * 0.19
+    const citEstimate = (liveSummary.netIncome - liveSummary.netCost) * 0.09
 
     return (
         <Dialog open={open} onOpenChange={(val) => { setOpen(val); if (!val) resetState(); }}>
@@ -402,7 +402,7 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                                 </p>
                             </div>
                             <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estymowany CIT (19%)</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estymowany CIT (9%)</p>
                                 <p className={`text-sm font-black ${citEstimate < 0 ? 'text-cyan-500' : 'text-rose-600'}`}>
                                     {citEstimate > 0 ? '+' : ''}{citEstimate.toFixed(2)} PLN
                                 </p>
