@@ -1,10 +1,6 @@
-/**
- * Fiscal Calculator Service - Vector 180.15
- * Real-time VAT and CIT aggregation with dynamic updates
- */
-
 import Decimal from "decimal.js";
 import { FiscalAggregates } from "./types";
+import { calculateReconciledTotals, formatSignedCurrency, FinancialItem } from "../finance/coreMath";
 
 export class FiscalCalculatorService {
   /**
@@ -34,27 +30,14 @@ export class FiscalCalculatorService {
     return net.mul(rate);
   }
 
-  /**
-   * Aggregate multiple items into fiscal summary
-   */
-  static aggregateItems(items: Array<{ netAmount: Decimal | number; vatAmount: Decimal | number; grossAmount: Decimal | number }>, citRate: Decimal | number = 0.09): FiscalAggregates {
-    let netAmount = new Decimal(0);
-    let vatAmount = new Decimal(0);
-    let grossAmount = new Decimal(0);
-
-    items.forEach((item) => {
-      netAmount = netAmount.add(new Decimal(item.netAmount));
-      vatAmount = vatAmount.add(new Decimal(item.vatAmount));
-      grossAmount = grossAmount.add(new Decimal(item.grossAmount));
-    });
-
-    const citAmount = this.calculateCIT(netAmount, citRate);
+  static aggregateItems(items: FinancialItem[], citRate: Decimal | number = 0.09): FiscalAggregates {
+    const totals = calculateReconciledTotals(items, citRate);
 
     return {
-      netAmount,
-      vatAmount,
-      grossAmount,
-      citAmount,
+      netAmount: new Decimal(totals.totalNet),
+      vatAmount: new Decimal(totals.totalVat),
+      grossAmount: new Decimal(totals.totalGross),
+      citAmount: new Decimal(totals.estimatedCit),
     };
   }
 
@@ -86,12 +69,8 @@ export class FiscalCalculatorService {
     };
   }
 
-  /**
-   * Format liability for display
-   */
   static formatLiability(amount: Decimal): string {
-    const val = amount.toDP(2);
-    return `${val.isPositive() && val.gt(0) ? "+" : ""}${val.toString()} PLN`;
+    return formatSignedCurrency(amount);
   }
 
   /**

@@ -383,4 +383,19 @@ System SIG ERP posługuje się precyzyjną terminologią biznesową, aby AI nie 
 - **Relational Hooks**: Optional `vehicleId` and `assetId` in `Invoice` and `Transaction` models.
 
 ---
-*Plik utrzymywany przez Antigravity dla kolejnych sesji AI. Ostatnia aktualizacja: 2026-04-10 (Vector 170 PRODUCTION READY).*
+---
+
+## 🧮 11. Vector 200.99: Global Financial Math Centralization (The Signed Array Rule)
+
+### Architectural Integrity Rules:
+1. **Rule A — No Local Reducers**: 
+    - Absolutny ZAKAZ korzystania z komend `.reduce()` iterujących po surowych arrayach w kodzie UI lub innych serwisach w celu wyliczenia wartości Marży, Przychodów czy Kosztów. 
+2. **Rule B — Single Math Core**:
+    - Do agregacji wszelkiego rodzaju dokumentów finansowych należy WYŁĄCZNIE używać `calculateReconciledTotals` (dostępnej w `src/lib/finance/coreMath.ts`). 
+3. **Rule C — Preservation of the Negative Sign**:
+    - **`Math.abs()` JEST SUROWO WZBRONIONY**. Korekty finansowe i dokumenty in minus muszą zachować autentyczny, ujemny znak. Jedyne formatowanie stringów powinno odbywać się za pomocą `formatSignedCurrency` by wymusić ewentualne pokazanie plusa, lub bezpiecznie po strone frontendu z native renderem (- pozostaje -).
+4. **Rule D — Decimal Core Engine**:
+    - Jądro `coreMath.ts` używa `decimal.js` i zwraca standardowy, zaokrąglony bezpiecznie output w object struct: `{ totalNet: number, totalVat: number, totalGross: number, estimatedCit: number }`.
+
+---
+*Plik utrzymywany przez Antigravity dla kolejnych sesji AI. Ostatnia aktualizacja: 2026-04-16 (Vector 200.99 - SIGN INTEGRITY RESTORED).*

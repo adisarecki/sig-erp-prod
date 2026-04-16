@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
+import { calculateReconciledTotals } from "@/lib/finance/coreMath"
 import { mapFinancialValues, FinancialType } from "@/lib/utils/financeMapper"
 
 interface HistoryItem {
@@ -374,53 +375,68 @@ export function TransactionHistory({
                 );
             })}
 
-            {/* GRAND TOTAL SUMMARY FOOTER */}
-            <div className="bg-slate-900 text-white p-6 sm:px-10 flex flex-col md:flex-row justify-between items-center gap-6 border-t border-slate-800 shadow-2xl relative z-10">
-                <div className="flex flex-col sm:flex-row gap-6 sm:gap-12 w-full md:w-auto">
-                    <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Suma Przychodów (INCOME)</p>
-                        <div className="flex items-baseline gap-2">
-                            <CurrencyDisplay
-                                gross={initialTransactions.reduce((acc, t) => (t.type === 'INCOME' || t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? acc + t.amount : acc, 0)}
-                                isIncome={true}
-                                className="text-xl font-black text-green-400"
-                            />
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
-                                Netto: {initialTransactions.reduce((acc, t) => (t.type === 'INCOME' || t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? acc + (t.amountNet || 0) : acc, 0).toFixed(2)}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Suma Kosztów (EXPENSE)</p>
-                        <div className="flex items-baseline gap-2">
-                            <CurrencyDisplay
-                                gross={initialTransactions.reduce((acc, t) => (t.type === 'EXPENSE' || t.type === 'KOSZT') ? acc + t.amount : acc, 0)}
-                                isIncome={false}
-                                className="text-xl font-black text-rose-400"
-                            />
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
-                                Netto: {initialTransactions.reduce((acc, t) => (t.type === 'EXPENSE' || t.type === 'KOSZT') ? acc + (t.amountNet || 0) : acc, 0).toFixed(2)}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+            <div className="bg-slate-900 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row justify-between items-center gap-6 shadow-xl relative overflow-hidden border border-slate-800">
+                {(() => {
+                    const incomesItems = initialTransactions
+                        .filter(t => ['INCOME', 'PRZYCHÓD', 'SPRZEDAŻ', 'REVENUE'].includes(t.type))
+                        .map(t => ({ netAmount: t.amountNet || 0, grossAmount: t.amount }));
+                    const expensesItems = initialTransactions
+                        .filter(t => ['EXPENSE', 'KOSZT'].includes(t.type))
+                        .map(t => ({ netAmount: t.amountNet || 0, grossAmount: t.amount }));
+                    
+                    const incomesTotals = calculateReconciledTotals(incomesItems);
+                    const expensesTotals = calculateReconciledTotals(expensesItems);
 
-                <div className="bg-slate-800/50 p-4 px-6 rounded-2xl border border-white/5 flex flex-col items-center sm:items-end w-full md:w-auto">
-                    <p className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.3em] mb-1">Czysta Gotówka</p>
-                    <div className="flex items-baseline gap-3">
-                        <CurrencyDisplay
-                            gross={initialTransactions.reduce((acc, t) => (t.type === 'INCOME' || t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? acc + t.amount : acc - t.amount, 0)}
-                            isIncome={initialTransactions.reduce((acc, t) => (t.type === 'INCOME' || t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? acc + t.amount : acc - t.amount, 0) >= 0}
-                            className={`text-3xl font-black tracking-tighter ${initialTransactions.reduce((acc, t) => (t.type === 'INCOME' || t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? acc + t.amount : acc - t.amount, 0) >= 0
-                                    ? 'text-white'
-                                    : 'text-rose-400'
-                                }`}
-                        />
-                    </div>
-                    <p className="text-[11px] text-slate-400 font-bold mt-1">
-                        Zysk Netto: {initialTransactions.reduce((acc, t) => (t.type === 'INCOME' || t.type === 'PRZYCHÓD' || t.type === 'SPRZEDAŻ' || t.type === 'REVENUE') ? acc + (t.amountNet || 0) : acc - (t.amountNet || 0), 0).toFixed(2)} PLN
-                    </p>
-                </div>
+                    return (
+                        <>
+                            <div className="flex flex-col sm:flex-row gap-6 md:gap-12 w-full md:w-auto relative z-10">
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Suma Przychodów (INCOME)</p>
+                                    <div className="flex items-baseline gap-2">
+                                        <CurrencyDisplay
+                                            gross={incomesTotals.totalGross}
+                                            isIncome={true}
+                                            className="text-xl font-black text-green-400"
+                                        />
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
+                                            Netto: {incomesTotals.totalNet.toFixed(2)}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Suma Kosztów (EXPENSE)</p>
+                                    <div className="flex items-baseline gap-2">
+                                        <CurrencyDisplay
+                                            gross={expensesTotals.totalGross}
+                                            isIncome={false}
+                                            className="text-xl font-black text-rose-400"
+                                        />
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
+                                            Netto: {expensesTotals.totalNet.toFixed(2)}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+            
+                            <div className="bg-slate-800/50 p-4 px-6 rounded-2xl border border-white/5 flex flex-col items-center sm:items-end w-full md:w-auto">
+                                <p className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.3em] mb-1">Czysta Gotówka</p>
+                                <div className="flex items-baseline gap-3">
+                                    <CurrencyDisplay
+                                        gross={incomesTotals.totalGross - expensesTotals.totalGross}
+                                        isIncome={incomesTotals.totalGross - expensesTotals.totalGross >= 0}
+                                        className={`text-3xl font-black tracking-tighter ${incomesTotals.totalGross - expensesTotals.totalGross >= 0
+                                                ? 'text-white'
+                                                : 'text-rose-400'
+                                            }`}
+                                    />
+                                </div>
+                                <p className="text-[11px] text-slate-400 font-bold mt-1">
+                                    Zysk Netto: {(incomesTotals.totalNet - expensesTotals.totalNet).toFixed(2)} PLN
+                                </p>
+                            </div>
+                        </>
+                    );
+                })()}
             </div>
 
             {/* SAFE DELETE MODAL ... existing Dialogs ... */}

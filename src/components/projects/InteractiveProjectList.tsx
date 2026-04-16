@@ -19,6 +19,7 @@ import { TooltipHelp } from "@/components/ui/TooltipHelp"
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 import { PageContainer } from "@/components/layout/PageContainer"
 import { type Contractor } from "@/lib/types/crm"
+import { calculateReconciledTotals } from "@/lib/finance/coreMath"
 
 // Typ pomocniczy dla formattera PLN
 const formatPln = (value: number) => {
@@ -267,19 +268,27 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
             {projects.map((project) => {
                 const invoices = project.invoices || []
                 const transactions = project.transactions || []
-                const totalInvoicedNet = invoices
-                    .filter((inv) => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE' || inv.type === 'PRZYCHÓD')
-                    .reduce((sum: number, inv) => sum + Number(inv.amountNet), 0)
-                const totalInvoicedGross = invoices
-                    .filter((inv) => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE' || inv.type === 'PRZYCHÓD')
-                    .reduce((sum: number, inv) => sum + Number(inv.amountGross || inv.amountNet), 0)
+                const totalInvoicedNet = calculateReconciledTotals(
+                    invoices
+                        .filter((inv) => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE' || inv.type === 'PRZYCHÓD')
+                        .map(inv => ({ netAmount: inv.amountNet }))
+                ).totalNet;
+                const totalInvoicedGross = calculateReconciledTotals(
+                    invoices
+                        .filter((inv) => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE' || inv.type === 'PRZYCHÓD')
+                        .map(inv => ({ grossAmount: inv.amountGross || inv.amountNet }))
+                ).totalGross;
 
-                const totalCostsNet = invoices
-                    .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'ZAKUP' || inv.type === 'WYDATEK')
-                    .reduce((sum: number, inv) => sum + Number(inv.amountNet), 0)
-                const totalCostsGross = invoices
-                    .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'ZAKUP' || inv.type === 'WYDATEK')
-                    .reduce((sum: number, inv) => sum + Number(inv.amountGross || inv.amountNet), 0)
+                const totalCostsNet = calculateReconciledTotals(
+                    invoices
+                        .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'ZAKUP' || inv.type === 'WYDATEK')
+                        .map(inv => ({ netAmount: inv.amountNet }))
+                ).totalNet;
+                const totalCostsGross = calculateReconciledTotals(
+                    invoices
+                        .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'ZAKUP' || inv.type === 'WYDATEK')
+                        .map(inv => ({ grossAmount: inv.amountGross || inv.amountNet }))
+                ).totalGross;
 
                 const currentMarginNet = totalInvoicedNet - totalCostsNet
                 const currentMarginGross = totalInvoicedGross - totalCostsGross
@@ -531,30 +540,30 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                         invoiceNumber: (inv as any).invoiceNumber,
                         contractorName: (inv as any).contractorName
                     })) || []}
-                    totalInvoicedNet={projects.find(p => p.id === financialModalState.projectId)?.invoices
+                    totalInvoicedNet={calculateReconciledTotals(projects.find(p => p.id === financialModalState.projectId)?.invoices
                         .filter((inv) => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE' || inv.type === 'PRZYCHÓD')
-                        .reduce((sum: number, inv) => sum + Number(inv.amountNet), 0) || 0}
-                    totalInvoicedGross={projects.find(p => p.id === financialModalState.projectId)?.invoices
+                        .map(inv => ({ netAmount: inv.amountNet })) || []).totalNet}
+                    totalInvoicedGross={calculateReconciledTotals(projects.find(p => p.id === financialModalState.projectId)?.invoices
                         .filter((inv) => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE' || inv.type === 'PRZYCHÓD')
-                        .reduce((sum: number, inv) => sum + Number(inv.amountGross || inv.amountNet), 0) || 0}
-                    totalCostsNet={projects.find(p => p.id === financialModalState.projectId)?.invoices
+                        .map(inv => ({ grossAmount: inv.amountGross || inv.amountNet })) || []).totalGross}
+                    totalCostsNet={calculateReconciledTotals(projects.find(p => p.id === financialModalState.projectId)?.invoices
                         .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'ZAKUP' || inv.type === 'WYDATEK')
-                        .reduce((sum: number, inv) => sum + Number(inv.amountNet), 0) || 0}
-                    totalCostsGross={projects.find(p => p.id === financialModalState.projectId)?.invoices
+                        .map(inv => ({ netAmount: inv.amountNet })) || []).totalNet}
+                    totalCostsGross={calculateReconciledTotals(projects.find(p => p.id === financialModalState.projectId)?.invoices
                         .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'ZAKUP' || inv.type === 'WYDATEK')
-                        .reduce((sum: number, inv) => sum + Number(inv.amountGross || inv.amountNet), 0) || 0}
-                    currentMarginNet={(projects.find(p => p.id === financialModalState.projectId)?.invoices
+                        .map(inv => ({ grossAmount: inv.amountGross || inv.amountNet })) || []).totalGross}
+                    currentMarginNet={calculateReconciledTotals(projects.find(p => p.id === financialModalState.projectId)?.invoices
                         .filter((inv) => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE' || inv.type === 'PRZYCHÓD')
-                        .reduce((sum: number, inv) => sum + Number(inv.amountNet), 0) || 0) - 
-                        (projects.find(p => p.id === financialModalState.projectId)?.invoices
+                        .map(inv => ({ netAmount: inv.amountNet })) || []).totalNet - 
+                        calculateReconciledTotals(projects.find(p => p.id === financialModalState.projectId)?.invoices
                         .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'ZAKUP' || inv.type === 'WYDATEK')
-                        .reduce((sum: number, inv) => sum + Number(inv.amountNet), 0) || 0)}
-                    currentMarginGross={(projects.find(p => p.id === financialModalState.projectId)?.invoices
+                        .map(inv => ({ netAmount: inv.amountNet })) || []).totalNet}
+                    currentMarginGross={calculateReconciledTotals(projects.find(p => p.id === financialModalState.projectId)?.invoices
                         .filter((inv) => inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE' || inv.type === 'PRZYCHÓD')
-                        .reduce((sum: number, inv) => sum + Number(inv.amountGross || inv.amountNet), 0) || 0) - 
-                        (projects.find(p => p.id === financialModalState.projectId)?.invoices
+                        .map(inv => ({ grossAmount: inv.amountGross || inv.amountNet })) || []).totalGross - 
+                        calculateReconciledTotals(projects.find(p => p.id === financialModalState.projectId)?.invoices
                         .filter((inv) => inv.type === 'KOSZT' || inv.type === 'EXPENSE' || inv.type === 'ZAKUP' || inv.type === 'WYDATEK')
-                        .reduce((sum: number, inv) => sum + Number(inv.amountGross || inv.amountNet), 0) || 0)}
+                        .map(inv => ({ grossAmount: inv.amountGross || inv.amountNet })) || []).totalGross}
                 />
             )}
         </PageContainer>

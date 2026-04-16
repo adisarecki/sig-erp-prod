@@ -23,6 +23,7 @@ import { PendingInvoicesWidget } from "@/components/dashboard/PendingInvoicesWid
 import { getVatBalanceColor, getFinancialColor } from "@/lib/utils/financeMapper"
 import { EnrichmentProposalWidget } from "@/components/dashboard/EnrichmentProposalWidget"
 import { getFinancialSnapshot } from "@/lib/finance/ledger-service"
+import { calculateReconciledTotals } from "@/lib/finance/coreMath"
 
 // Inicjalizacja Firebase Admin dla Dashboardu
 initFirebaseAdmin();
@@ -147,25 +148,33 @@ export default async function DashboardPage({
   const debtIds = legacyDebts.map(d => d.id)
   const tenantDebtInstallments = allDebtInstallments.filter(di => debtIds.includes(di.debtId))
 
-  // Special aggregates (will be moved to LedgerService in next refinement)
-  const totalGeneralCostsNet = await (prisma as any).ledgerEntry.aggregate({
+  // Special aggregates driven by core signed engine
+  const generalCostsAggregate = await (prisma as any).ledgerEntry.aggregate({
     where: { tenantId, type: 'EXPENSE', projectId: null },
     _sum: { amount: true }
-  }).then((res: any) => new Decimal(String(res._sum.amount || 0)).abs());
+  })
+  
+  const totalGeneralCostsNet = new Decimal(calculateReconciledTotals([{ netAmount: generalCostsAggregate._sum.amount || 0 }]).totalNet);
 
-  const projectMarginSumNet = await (prisma as any).ledgerEntry.aggregate({
+  const projectMarginAggregate = await (prisma as any).ledgerEntry.aggregate({
     where: { tenantId, type: { in: ['INCOME', 'EXPENSE'] }, NOT: { projectId: null } },
     _sum: { amount: true }
-  }).then((res: any) => new Decimal(String(res._sum.amount || 0)));
+  })
+  const projectMarginSumNet = new Decimal(calculateReconciledTotals([{ netAmount: projectMarginAggregate._sum.amount || 0 }]).totalNet);
 
-  const realCashCostsNet = await (prisma as any).ledgerEntry.aggregate({
+  const realCashAggregate = await (prisma as any).ledgerEntry.aggregate({
     where: { tenantId, type: 'EXPENSE', source: { in: ['BANK_PAYMENT', 'SHADOW_COST'] } },
     _sum: { amount: true }
-  }).then((res: any) => new Decimal(String(res._sum.amount || 0)).abs());
+  })
+  const realCashCostsNet = new Decimal(calculateReconciledTotals([{ netAmount: realCashAggregate._sum.amount || 0 }]).totalNet);
 
-  const uncollectedRevenue = allInvoices
-    .filter((inv: any) => (inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME') && inv.status !== 'PAID')
-    .reduce((sum: Decimal, inv: any) => sum.plus(new Decimal(inv.amountNet)), new Decimal(0))
+  const uncollectedRevenue = new Decimal(
+    calculateReconciledTotals(
+      allInvoices
+        .filter((inv: any) => (inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME') && inv.status !== 'PAID')
+        .map((inv: any) => ({ netAmount: inv.amountNet }))
+    ).totalNet
+  )
 
   const releasedRetentionValue = new Decimal(0)
   const totalReserve = unpaidPayables
@@ -320,24 +329,24 @@ export default async function DashboardPage({
   const showRealityAlert = realisticBalance30d.lt(0)
   const sortedAlerts = allAlerts.sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, 4)
 
-  // Metryki do Progress Barów i Hero Section
-  const cfIncomes30d = unpaidIncomes
+  // Metryki do Progress Barów i Hero Section 
+  const cfIncomesItems = unpaidIncomes
     .filter((inv: any) => new Date(inv.dueDate) <= thirtyDaysFromNow)
-    .reduce((sum: any, inv: any) => {
-      const gross = new Decimal(inv.amountGross || 0)
-      const retention = new Decimal(inv.retainedAmount || 0)
-      return sum.plus(gross.minus(retention))
-    }, new Decimal(0))
-    .plus(releasedRetentionValue)
+    .map((inv: any) => ({
+      grossAmount: new Decimal(inv.amountGross || 0).minus(new Decimal(inv.retainedAmount || 0))
+    }));
+  const cfIncomes30d = new Decimal(calculateReconciledTotals(cfIncomesItems).totalGross).plus(releasedRetentionValue);
 
-  const cfExpenses30d = unpaidCosts
+  const cfExpensesItems = unpaidCosts
     .filter((inv: any) => new Date(inv.dueDate) <= thirtyDaysFromNow)
-    .reduce((sum: any, inv: any) => {
-      const gross = new Decimal(inv.amountGross || 0)
-      const retention = new Decimal(inv.retainedAmount || 0)
-      return sum.plus(gross.minus(retention))
-    }, new Decimal(0))
-    .plus(activeInstallments.filter((di: any) => new Date(di.dueDate) <= thirtyDaysFromNow).reduce((sum: any, di: any) => sum.plus(new Decimal(di.amount)), new Decimal(0)))
+    .map((inv: any) => ({
+      grossAmount: new Decimal(inv.amountGross || 0).minus(new Decimal(inv.retainedAmount || 0))
+    }));
+  const activeInstallmentItems = activeInstallments
+    .filter((di: any) => new Date(di.dueDate) <= thirtyDaysFromNow)
+    .map((di: any) => ({ grossAmount: di.amount }));
+    
+  const cfExpenses30d = new Decimal(calculateReconciledTotals([...cfExpensesItems, ...activeInstallmentItems]).totalGross);
 
   // Ostatnie Dokumenty
   const recentInvoices = allInvoices.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5)
@@ -378,7 +387,7 @@ export default async function DashboardPage({
   const formattedPayables = formatPln(unpaidPayables);
   const formattedVerifiedBalance = verifiedBalance ? formatPln(verifiedBalance) : "BRAK DANYCH"
 
-  const formattedNetVat = formatPln(netVat.abs());
+  const formattedNetVat = formatPln(netVat);
   const isVatOverpaid = netVat.gte(0);
   const vatStatusColor = getVatBalanceColor(netVat);
   const formattedGeneralCosts = formatPln(totalGeneralCostsNet);
@@ -485,7 +494,7 @@ export default async function DashboardPage({
                 <HelpLink helpId="vat-debt" tooltip="Saldo VAT (Zobowiązanie)" size="xs" />
               </div>
               <p className={`font-bold text-xl ${vatStatusColor}`}>
-                {isVatOverpaid ? '+' : '-'}{formattedNetVat}
+                {formattedNetVat}
               </p>
             </div>
             <div>
@@ -537,7 +546,7 @@ export default async function DashboardPage({
               <TooltipHelp content="Wydatki na funkcjonowanie firmy (np. paliwo, biuro, usługi księgowe), które nie są bezpośrednio powiązane z konkretnym zleceniem." />
             </div>
           </div>
-          <p className="text-3xl font-black mt-4 text-orange-700">-{formattedGeneralCosts}</p>
+          <p className="text-3xl font-black mt-4 text-orange-700">{formatPln(totalGeneralCostsNet)}</p>
           <p className="text-xs mt-1 text-slate-500 font-medium">Koszty zarządu i biurowe (bez VAT).</p>
         </div>
 

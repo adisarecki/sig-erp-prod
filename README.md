@@ -141,6 +141,11 @@ Plan strategiczny mający na celu przywrócenie pełnej integralności danych pr
 
 ---
 
+## 🧮 3. Scentralizowane Jądro Matematyczne (VECTOR 200.99)
+Wdrożyliśmy bezwzględną Centralizację Matematyki Finansowej (`src/lib/finance/coreMath.ts`). Oznacza to definitywny koniec lokalnego wyliczania przychodów/kosztów w widokach za pomocą standardowych poleceń tablicowych. System korzysta teraz wyłącznie z centralnego silnika typu "Signed Math", natywnie wspierającego korekty roczne i operacyjne bez możliwości utraty wartości ujemnych w agregatorach takich jak LiveSummaryBar czy InteractiveProjectList. 
+
+---
+
 ## 💡 Instrukcja "Na Start"
 
 - **Centrala Finansowa**: To Twój najważniejszy punkt kontrolny. Tu wgrywasz wyciągi i sprawdzasz, czy system "widzi" to samo co bank.

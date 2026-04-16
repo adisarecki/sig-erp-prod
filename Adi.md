@@ -160,6 +160,12 @@ Wprowadziliśmy **Centrum Rozwiązywania Driftu**, które aktywuje się, gdy tyl
 
 *Dla techników: Szczegółowe zasady budowy znajdują się w [AI_look.md](./docs/AI_look.md).*
 
+---
+
+## 🧮 13. System-wide Financial Integrity (Vector 200.99)
+Zlikwidowaliśmy problem gubienia ujemnych znaków (jak np. korekty VAT) spowodowany przez lokalne skrypty UI (`.reduce()`, `Math.abs()`). Cały system posługuje się teraz wyłącznie **jednym** matematycznym rdzeniem walidacyjnym: `src/lib/finance/coreMath.ts` (Financial Math Engine). Od tego momentu dashboardy, audyty oraz widgety projektowe wyciągają perfekcyjne stany finansowe opierające się natywnie o `decimal.js`, z zakazem modyfikacji matematyki na froncie.
+
+
 **Sig ERP – Twoja firma pod pełną kontrolą.**
 – to Twoje centrum akcji.
 

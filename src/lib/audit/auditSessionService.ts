@@ -7,11 +7,9 @@ import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import Decimal from "decimal.js";
 import { autoCreateContractorWithGus } from "@/app/actions/crm";
-import {
-  AuditSessionConfig,
-  AuditInvoiceItemInput,
-  LiveSummary,
-} from "./types";
+import { AuditSessionConfig, AuditInvoiceItemInput, LiveSummary, FiscalAggregates } from "./types";
+import { FiscalCalculatorService } from "./FiscalCalculatorService";
+import { calculateReconciledTotals } from "../finance/coreMath";
 
 export class AuditSessionService {
   /**
@@ -282,41 +280,14 @@ export class AuditSessionService {
     });
 
     // ─── VECTOR 200.25: TRANSACTION STACK AGGREGATION ──────────────────────
-    // Group items by correctionGroup (stack key). Items in the same stack are
-    // summed with SIGNED math — corrections are already negative — so the
-    // result is automatically the reconciled "Net Truth" for that stack.
-    // Items with no correctionGroup are treated as standalone stacks.
-    const stacks = new Map<string, { net: Decimal; vat: Decimal; gross: Decimal }>();
-
-    items.forEach((item, idx) => {
-      const stackKey = item.correctionGroup || `__standalone_${idx}`;
-      const existing = stacks.get(stackKey) ?? { net: new Decimal(0), vat: new Decimal(0), gross: new Decimal(0) };
-      stacks.set(stackKey, {
-        net: existing.net.add(new Decimal(String(item.netAmount))),
-        vat: existing.vat.add(new Decimal(String(item.vatAmount))),
-        gross: existing.gross.add(new Decimal(String(item.grossAmount))),
-      });
-    });
-
-    let netAmount = new Decimal(0);
-    let vatAmount = new Decimal(0);
-    let grossAmount = new Decimal(0);
-
-    stacks.forEach((stack) => {
-      netAmount = netAmount.add(stack.net);
-      vatAmount = vatAmount.add(stack.vat);
-      grossAmount = grossAmount.add(stack.gross);
-    });
-    // ───────────────────────────────────────────────────────────────────────
-
-    // CIT is applied strictly to the reconciled net total (Vector 200.25)
-    const citAmount = netAmount.gt(0) ? netAmount.mul(session!.citRate) : new Decimal(0);
+    // Math logic centrally verified via coreMath.ts to eliminate fragmentation.
+    const totalsResponse = calculateReconciledTotals(items, session!.citRate);
 
     return {
-      netAmount,
-      vatAmount,
-      grossAmount,
-      citAmount,
+      netAmount: new Decimal(totalsResponse.totalNet),
+      vatAmount: new Decimal(totalsResponse.totalVat),
+      grossAmount: new Decimal(totalsResponse.totalGross),
+      citAmount: new Decimal(totalsResponse.estimatedCit),
     };
   }
 
