@@ -25,7 +25,7 @@ const InvoiceScanner = dynamic(() => import("@/components/finance/InvoiceScanner
 })
 import Link from "next/link"
 import { type Contractor, type Project, type Vehicle } from "@/lib/types/crm"
-import { TrendingUp, TrendingDown, ScanLine, DownloadCloud, History, Loader2, Trash2, AlertTriangle, Info } from "lucide-react"
+import { TrendingUp, TrendingDown, ScanLine, DownloadCloud, History, Loader2, Trash2, AlertTriangle, Info, ShieldAlert } from "lucide-react"
 import {
     Dialog,
     DialogContent,
@@ -139,15 +139,27 @@ export function QuickActionsBar({ projects, contractors, vehicles }: QuickAction
             <div className="w-px bg-slate-100 hidden sm:block" />
 
             {/* CENTRALA FINANSOWA – Vector 106 Node */}
-            <Link href="/finanse/verify-balance">
-                <Button 
-                  variant="outline"
-                  className="h-9 px-4 bg-indigo-50 border-indigo-100 text-indigo-700 hover:bg-indigo-100 rounded-xl font-bold text-xs transition-all active:scale-95 flex items-center gap-2"
-                >
-                    <DownloadCloud className="w-3 h-3" />
-                    Weryfikuj Saldo i Import
-                </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+                <Link href="/finanse/verify-balance">
+                    <Button 
+                      variant="outline"
+                      className="h-9 px-4 bg-indigo-50 border-indigo-100 text-indigo-700 hover:bg-indigo-100 rounded-xl font-bold text-xs transition-all active:scale-95 flex items-center gap-2"
+                    >
+                        <DownloadCloud className="w-3 h-3" />
+                        Weryfikuj Saldo i Import
+                    </Button>
+                </Link>
+
+                <Link href="/finanse/audit/investigation">
+                    <Button 
+                      variant="outline"
+                      className="h-9 px-4 bg-amber-50 border-amber-100 text-amber-700 hover:bg-amber-100 rounded-xl font-bold text-xs transition-all active:scale-95 flex items-center gap-2"
+                    >
+                        <ShieldAlert className="w-3 h-3" />
+                        Tryb Dochodzeniowy
+                    </Button>
+                </Link>
+            </div>
 
             <div className="w-px bg-slate-100 hidden sm:block" />
 

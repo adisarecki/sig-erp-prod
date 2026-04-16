@@ -24,8 +24,11 @@ import {
     TableRow 
 } from "@/components/ui/table"
 import Link from "next/link"
+import { AiAuditButton } from "@/components/audit/AiAuditButton"
+import { getCurrentTenantId } from "@/lib/tenant"
 
 export default async function SyncHealthPage() {
+    const tenantId = await getCurrentTenantId()
     const auditRecords = await db.syncAuditRecord.findMany({
         orderBy: { lastCheckedAt: 'desc' }
     })
@@ -55,6 +58,7 @@ export default async function SyncHealthPage() {
                     <p className="text-slate-500 font-medium">System Spójności Dual-DB • Vector 108 Engine</p>
                 </div>
                 <div className="flex items-center gap-3">
+                    <AiAuditButton tenantId={tenantId} />
                     <Button variant="outline" className="h-12 px-6 rounded-2xl font-bold text-slate-600 border-slate-200 bg-white">
                         <RefreshCcw className="w-4 h-4 mr-2" /> Pełny Skan Systemu
                     </Button>

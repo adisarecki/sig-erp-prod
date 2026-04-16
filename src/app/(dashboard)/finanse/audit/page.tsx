@@ -1,6 +1,7 @@
 import { getCurrentTenantId } from "@/lib/tenant"
 import prisma from "@/lib/prisma"
-import { ShieldAlert, Download, Search, Settings2, FileText, CheckCircle2, XCircle } from "lucide-react"
+import Link from "next/link"
+import { ShieldAlert, Download, Search, Settings2, FileText, CheckCircle2, XCircle, ChevronRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { Invoice, Contractor } from "@prisma/client"
@@ -66,11 +67,37 @@ export default async function AuditPage() {
                         </p>
                     </div>
 
-                    <div className="flex gap-2">
-                        <Button className="bg-white text-slate-900 hover:bg-slate-100 rounded-xl font-bold shadow gap-2">
+                    <div className="flex gap-3">
+                        <Link href="/finanse/audit/investigation">
+                            <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-900/20 gap-2 border-none">
+                                <Settings2 className="w-4 h-4" /> Uruchom Tryb Dochodzeniowy
+                            </Button>
+                        </Link>
+                        <Button variant="outline" className="bg-white/10 text-white hover:bg-white/20 border-white/20 rounded-xl font-bold gap-2">
                             <Download className="w-4 h-4" /> Eksport (CSV)
                         </Button>
                     </div>
+                </div>
+            </div>
+
+            {/* UPGRADE CARD: INVESTIGATION MODE */}
+            <div className="bg-gradient-to-r from-indigo-600 to-blue-700 rounded-3xl p-1 shadow-xl shadow-indigo-100 group transition-all hover:scale-[1.01]">
+                <div className="bg-white rounded-[22px] p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 group-hover:rotate-6 transition-transform">
+                            <ShieldAlert className="w-8 h-8" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black text-slate-900">Uruchom Autonomiczny Audyt AI</h3>
+                            <p className="text-slate-500 font-medium">Tryb Dochodzeniowy pozwala na masowe przetwarzanie, autoweryfikację "Pewniak" oraz głęboką analizę rozbieżności.</p>
+                        </div>
+                    </div>
+                    <Link href="/finanse/audit/investigation">
+                        <Button className="h-12 px-8 bg-slate-900 hover:bg-black text-white rounded-2xl font-black uppercase tracking-tighter transition-all shadow-xl shadow-slate-200">
+                            Otwórz Centrum Dochodzeniowe
+                            <ChevronRight className="w-4 h-4 ml-2" />
+                        </Button>
+                    </Link>
                 </div>
             </div>
 
