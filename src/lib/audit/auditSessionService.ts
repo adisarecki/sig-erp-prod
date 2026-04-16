@@ -523,9 +523,9 @@ export class AuditSessionService {
     grossAmount: Decimal,
     isCorrection: boolean
   ) {
-    const net = new Decimal(netAmount);
-    const vat = new Decimal(vatAmount);
-    const gross = new Decimal(grossAmount);
+    const net = new Decimal(String(netAmount));
+    const vat = new Decimal(String(vatAmount));
+    const gross = new Decimal(String(grossAmount));
 
     if (!isCorrection) {
       return {
@@ -535,12 +535,11 @@ export class AuditSessionService {
       };
     }
 
-    // VECTOR 200.35: Ensure corrections are always treated as deltas (negative from base)
-    // If they are already negative, keep them. If positive, negate them.
+    // VECTOR 200.99: Strictly enforce negative values and DESTROY the sign-killer!
     return {
-      netAmount: net.isNegative() ? net : net.negated(),
-      vatAmount: vat.isNegative() ? vat : vat.negated(),
-      grossAmount: gross.isNegative() ? gross : gross.negated(),
+      netAmount: net.isNegative() ? net : net.mul(-1),
+      vatAmount: vat.isNegative() ? vat : vat.mul(-1),
+      grossAmount: gross.isNegative() ? gross : gross.mul(-1),
     };
   }
 

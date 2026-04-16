@@ -91,7 +91,7 @@ export class FiscalCalculatorService {
    */
   static formatLiability(amount: Decimal): string {
     const val = amount.toDP(2);
-    return `${val.isNegative() ? "-" : "+"}${val.abs().toString()} PLN`;
+    return `${val.isPositive() && val.gt(0) ? "+" : ""}${val.toString()} PLN`;
   }
 
   /**
