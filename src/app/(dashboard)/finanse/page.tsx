@@ -292,12 +292,6 @@ export default async function FinancePage({
             preCalcGross = preCalcGross.plus(signedGross);
         });
 
-        const viewSummary = {
-            totalNet: preCalcNet.toNumber(),
-            totalVat: preCalcVat.toNumber(),
-            totalGross: preCalcGross.toNumber()
-        };
-
         // Final pass: JSON round-trip is the 100% safe serialization guarantee
         transactions = JSON.parse(JSON.stringify(transactions));
 
