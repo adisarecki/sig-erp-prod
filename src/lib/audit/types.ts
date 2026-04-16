@@ -5,6 +5,8 @@
 
 import { Decimal } from "@prisma/client/runtime/library";
 
+export type SemanticIntent = 'income' | 'cost' | 'tax-shield' | 'warning' | 'neutral';
+
 export interface AuditSessionConfig {
   citRate: Decimal;
   nipAnchor: string;
@@ -33,7 +35,7 @@ export interface AuditInvoiceItemInput {
   correctionGroup?: string;
   isCorrection?: boolean;
   linkedInvoiceId?: string;
-  
+
   // VECTOR 200.50: Correction Model
   correctedInvoiceNumber?: string;
   correctedInvoiceDate?: Date | string;

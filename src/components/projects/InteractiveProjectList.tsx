@@ -21,10 +21,7 @@ import { PageContainer } from "@/components/layout/PageContainer"
 import { type Contractor } from "@/lib/types/crm"
 import { calculateReconciledTotals } from "@/lib/finance/coreMath"
 
-// Typ pomocniczy dla formattera PLN
-const formatPln = (value: number) => {
-    return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(value)
-}
+// Note: Global CurrencyDisplay is now the preferred formatter (Vector 200)
 
 interface ProjectData {
     id: string;
@@ -199,18 +196,21 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                 const tooltipContent = (
                     <div className="space-y-3 text-left">
                         <div>
-                            <p className="font-bold text-blue-300 mb-1">📋 CAŁKOWITA UMOWA (Wszystkie Projekty):</p>
-                            <p className="text-lg font-black text-blue-200">{formatPln(totalGlobalRealRevenue + totalGlobalRetention)}</p>
+                            <div className="text-lg font-black text-blue-200">
+                                <CurrencyDisplay gross={totalGlobalRealRevenue + totalGlobalRetention} net={totalGlobalRealRevenue + totalGlobalRetention} intent="neutral" hideSign={true} />
+                            </div>
                             <p className="text-xs text-slate-300 mt-1">Suma wartości wszystkich kontraktów</p>
                         </div>
                         <div className="border-t border-slate-600 pt-2">
-                            <p className="font-bold text-amber-300 mb-1">🔒 KAUCJE (Zabezpieczenia):</p>
-                            <p className="text-lg font-black text-amber-200">{formatPln(totalGlobalRetention)}</p>
+                            <div className="text-lg font-black text-amber-200">
+                                <CurrencyDisplay gross={totalGlobalRetention} net={totalGlobalRetention} intent="warning" hideSign={true} />
+                            </div>
                             <p className="text-xs text-slate-300 mt-1">Zatrzymane u kontraktorów - będą zwrócone</p>
                         </div>
                         <div className="border-t border-slate-600 pt-2">
-                            <p className="font-bold text-emerald-300 mb-1">💚 DOSTĘPNE (Rzeczywista Płynność):</p>
-                            <p className="text-lg font-black text-emerald-200">{formatPln(totalGlobalRealRevenue)}</p>
+                            <div className="text-lg font-black text-emerald-200">
+                                <CurrencyDisplay gross={totalGlobalRealRevenue} net={totalGlobalRealRevenue} intent="income" hideSign={true} />
+                            </div>
                             <p className="text-xs text-slate-300 mt-1">Pieniądze gotowe do operacyjnego wydania</p>
                         </div>
                         <div className="border-t border-slate-600 pt-2">
@@ -229,8 +229,8 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                                 <span className="font-semibold text-slate-200">{p.name}</span>
                                             </div>
                                             <div className="flex gap-2 mt-0.5 text-slate-300">
-                                                <span>💚 {formatPln(pBudget - (p.retentionBase === 'GROSS' ? pBudget * 1.23 : pBudget) * pTotalRate)}</span>
-                                                <span>🔒 {formatPln((p.retentionBase === 'GROSS' ? pBudget * 1.23 : pBudget) * pTotalRate)}</span>
+                                                <span>💚 <CurrencyDisplay gross={pBudget - (p.retentionBase === 'GROSS' ? pBudget * 1.23 : pBudget) * pTotalRate} net={pBudget - (p.retentionBase === 'GROSS' ? pBudget * 1.23 : pBudget) * pTotalRate} intent="income" hideSign={true} /></span>
+                                                <span>🔒 <CurrencyDisplay gross={(p.retentionBase === 'GROSS' ? pBudget * 1.23 : pBudget) * pTotalRate} net={(p.retentionBase === 'GROSS' ? pBudget * 1.23 : pBudget) * pTotalRate} intent="warning" hideSign={true} /></span>
                                             </div>
                                         </div>
                                     );
@@ -254,7 +254,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                     <TooltipHelp content={tooltipContent} />
                                 </div>
                                 <p className="text-3xl sm:text-4xl font-black text-slate-900 mt-1 sm:mt-2 leading-tight truncate">
-                                    {formatPln(totalGlobalRealRevenue)}
+                                    <CurrencyDisplay gross={totalGlobalRealRevenue} net={totalGlobalRealRevenue} isIncome={true} hideSign={true} />
                                 </p>
                                 <p className="text-[10px] sm:text-xs font-semibold text-slate-500 mt-1 sm:mt-2 uppercase tracking-widest leading-relaxed">
                                     Rzeczywista Płynność Operacyjna – Suma wszystkich projektów
@@ -395,11 +395,15 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                             <div className="space-y-2 text-left">
                                                 <div>
                                                     <p className="font-bold text-blue-300 mb-0.5">📋 UMOWA (Całkowita)</p>
-                                                    <p className="text-sm font-black text-blue-200">{formatPln(budgetVal)}</p>
+                                                    <div className="text-sm font-black text-blue-200">
+                                                        <CurrencyDisplay gross={budgetVal} net={budgetVal} isIncome={true} hideSign={true} />
+                                                    </div>
                                                 </div>
                                                 <div className="border-t border-slate-600 pt-2">
                                                     <p className="font-bold text-emerald-300 mb-0.5">💚 DOSTĘPNE</p>
-                                                    <p className="text-sm font-black text-emerald-200">{formatPln(realRevenue)}</p>
+                                                    <div className="text-sm font-black text-emerald-200">
+                                                        <CurrencyDisplay gross={realRevenue} net={realRevenue} isIncome={true} hideSign={true} />
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
@@ -408,12 +412,11 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                             <div className="flex flex-col items-start lg:items-end w-full sm:w-auto">
                                                 <div className="flex items-center justify-between sm:justify-end gap-2 w-full">
                                                     <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest whitespace-nowrap">
-                                                        Paliwo projektu
                                                     </p>
                                                     <TooltipHelp content={projectTooltip} />
                                                 </div>
-                                                <p className="text-xl sm:text-lg font-black text-emerald-600 leading-tight mt-0.5">
-                                                    {formatPln(realRevenue)}
+                                                <p className="text-xl sm:text-lg font-black leading-tight mt-0.5">
+                                                    <CurrencyDisplay gross={realRevenue} net={realRevenue} intent="income" hideSign={true} />
                                                 </p>
                                                 
                                                 {totalRate > 0 && (
@@ -422,7 +425,9 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                                         <div className="flex-1 flex justify-between items-center sm:items-start sm:flex-col overflow-hidden">
                                                             <p className="text-[9px] font-bold text-amber-700 uppercase leading-none">Kaucja</p>
                                                             <div className="flex items-center gap-1.5">
-                                                                <p className="text-xs font-bold text-amber-800">{formatPln(retentionAmount)}</p>
+                                                                <div className="text-xs font-bold">
+                                                                    <CurrencyDisplay gross={retentionAmount} net={retentionAmount} intent="warning" hideSign={true} />
+                                                                </div>
                                                                 <p className="text-[10px] text-amber-600 font-medium">({(totalRate * 100).toFixed(0)}%)</p>
                                                             </div>
                                                         </div>
@@ -473,7 +478,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                     }}
                                 >
                                     <p className="text-[10px] sm:text-sm font-bold sm:font-medium text-slate-500 uppercase sm:normal-case tracking-wider sm:tracking-normal mb-1">Koszty</p>
-                                    <CurrencyDisplay gross={totalCostsGross} net={totalCostsNet} isIncome={false} className="text-lg sm:text-xl font-black sm:font-bold text-red-600" />
+                                    <CurrencyDisplay gross={totalCostsGross} net={totalCostsNet} isIncome={false} className="text-lg sm:text-xl font-black sm:font-bold text-rose-600" />
                                 </div>
                                 <div 
                                     className="flex-1 md:pl-6 md:border-l md:border-slate-200 cursor-pointer hover:opacity-75 transition-opacity bg-white p-3 rounded-xl border border-slate-100 sm:border-none sm:p-0 sm:bg-transparent"
@@ -483,7 +488,7 @@ export function InteractiveProjectList({ projects, contractors, isArchivedView =
                                     }}
                                 >
                                     <p className="text-[10px] sm:text-sm font-bold sm:font-medium text-slate-500 uppercase sm:normal-case tracking-wider sm:tracking-normal mb-1">Marża (Netto)</p>
-                                    <CurrencyDisplay gross={currentMarginGross} net={currentMarginNet} isIncome={true} className={`text-xl sm:text-2xl font-black ${isLoss ? 'text-red-600' : 'text-green-600'}`} />
+                                    <CurrencyDisplay gross={currentMarginGross} net={currentMarginNet} isIncome={true} className={`text-xl sm:text-2xl font-black ${isLoss ? 'text-rose-600' : 'text-emerald-600'}`} />
                                 </div>
                             </div>
 

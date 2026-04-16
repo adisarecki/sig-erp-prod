@@ -28,10 +28,9 @@ import { calculateReconciledTotals } from "@/lib/finance/coreMath"
 // Inicjalizacja Firebase Admin dla Dashboardu
 initFirebaseAdmin();
 
-// Pomocnicza funkcja do formatowania PLN
-const formatPln = (value: number | string | Decimal) => {
-  const num = typeof value === 'number' ? value : new Decimal(String(value)).toNumber()
-  return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(num)
+// Note: Local formatPln restored for inline string compatibility (tooltips/labels)
+const formatPln = (val: number | Decimal) => {
+  return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(Number(val))
 }
 
 
@@ -356,9 +355,9 @@ export default async function DashboardPage({
 
   // Dane do Wykresu Kołowego
   const pieChartData = [
-    { name: 'Poniesione Koszty (Netto)', value: realCashCostsNet.toNumber(), color: '#ef4444' },
-    { name: 'Należności z Faktur (Netto)', value: uncollectedRevenue.toNumber(), color: '#f59e0b' },
-    { name: 'Płynna Gotówka (Post-Tax)', value: Decimal.max(0, ledgerSnapshot.realProfit).toNumber(), color: '#10b981' }
+    { name: 'Poniesione Koszty (Netto)', value: realCashCostsNet.toNumber(), color: '#f43f5e' }, // Rose
+    { name: 'Należności z Faktur (Netto)', value: uncollectedRevenue.toNumber(), color: '#10b981' }, // Emerald
+    { name: 'Płynna Gotówka (Post-Tax)', value: Decimal.max(0, ledgerSnapshot.realProfit).toNumber(), color: '#10b981' } // Emerald
   ]
 
   // Formatted Strings for UI
@@ -379,22 +378,7 @@ export default async function DashboardPage({
   const delta = verifiedBalance ? globalBilans.minus(verifiedBalance).abs() : null
   const financialIntegrityStatus = delta !== null ? (delta.isZero() ? 'VERIFIED_STABLE' : 'DISCREPANCY_ALERT') : 'NOT_VERIFIED'
 
-  const formattedNetCash = formatPln(globalBilans);
-  const formattedCfExpenses30d = formatPln(cfExpenses30d);
-  const formattedTaxReserve = formatPln(totalReserve);
-  const formattedNetProfit = formatPln(netProfit);
-  const formattedRealProfit = formatPln(ledgerSnapshot.realProfit);
-  const formattedCleanCash = formatPln(cleanCash);
-  const formattedCitReserve = formatPln(citReserveValue);
-  const formattedReceivables = formatPln(unpaidReceivables);
-  const formattedPayables = formatPln(unpaidPayables);
-  const formattedVerifiedBalance = verifiedBalance ? formatPln(verifiedBalance) : "BRAK DANYCH"
-
-  const formattedNetVat = formatPln(netVat);
   const isVatOverpaid = netVat.gte(0);
-  const vatStatusColor = getVatBalanceColor(netVat);
-  const formattedGeneralCosts = formatPln(totalGeneralCostsNet);
-  const formattedProjectMargin = formatPln(projectMarginSumNet);
 
   // Dynamiczna lista lat (Vector 023)
   const invoiceYears = allInvoices.map(inv => new Date(inv.issueDate).getFullYear())
@@ -468,9 +452,13 @@ export default async function DashboardPage({
             />
           </div>
           <div className="flex items-end gap-4 mt-4">
-            <p className="text-6xl font-black tracking-tighter drop-shadow-sm text-indigo-100">
-              {formattedVerifiedBalance}
-            </p>
+            <div className="text-6xl font-black tracking-tighter drop-shadow-sm text-indigo-100">
+              {verifiedBalance ? (
+                <CurrencyDisplay gross={verifiedBalance} net={verifiedBalance} intent="neutral" hideSign={true} />
+              ) : (
+                "BRAK DANYCH"
+              )}
+            </div>
             <div className="pb-2">
               <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border ${financialIntegrityStatus === 'VERIFIED_STABLE' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
                 {financialIntegrityStatus}
@@ -484,41 +472,49 @@ export default async function DashboardPage({
                 <p className="text-sm text-slate-400 font-medium uppercase tracking-tighter italic">Czysta Gotówka</p>
                 <HelpLink helpId="safe-to-spend" tooltip="Saldo Bankowe - Skarbiec - VAT - CIT - Zobowiązania" size="xs" />
               </div>
-              <p className={`font-bold text-xl ${getFinancialColor(cleanCash)}`}>{formattedCleanCash}</p>
+              <CurrencyDisplay gross={cleanCash} net={cleanCash} intent={cleanCash.gt(0) ? "income" : "cost"} className="text-xl" />
             </div>
             <div>
               <p className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-tighter">Bilans Systemowy (Ledger)</p>
-              <p className={`font-bold text-xl ${getFinancialColor(globalBilans)}`}>{formattedNetCash}</p>
+              <CurrencyDisplay gross={globalBilans} net={globalBilans} className="text-xl" />
             </div>
             <div>
               <div className="flex items-center gap-1.5 mb-1">
-                <p className={`text-sm font-medium uppercase tracking-tighter ${vatStatusColor}`}>
+                <p className={`text-sm font-medium uppercase tracking-tighter ${isVatOverpaid ? 'text-cyan-400' : 'text-rose-400'}`}>
                   {isVatOverpaid ? 'Nadpłata VAT' : 'Dług VAT'}
                 </p>
                 <HelpLink helpId="vat-debt" tooltip="Saldo VAT (Zobowiązanie)" size="xs" />
               </div>
-              <p className={`font-bold text-xl ${vatStatusColor}`}>
-                {formattedNetVat}
-              </p>
+              <CurrencyDisplay gross={netVat} net={netVat} intent={isVatOverpaid ? "tax-shield" : "cost"} className="text-xl" />
+            </div>
+            <div>
+              <p className="text-sm text-slate-400 font-medium mb-1 uppercase tracking-tighter">Rezerwa CIT</p>
+              <CurrencyDisplay gross={citReserveValue} net={citReserveValue} intent="cost" className="text-xl" />
             </div>
             <div>
               <div className="flex items-center gap-1 mb-1">
                 <p className="text-sm font-medium uppercase tracking-tighter text-emerald-400">Oczekiwane wpłaty (Należności)</p>
               </div>
-              <p className="font-bold text-[18px] mt-0.5 text-emerald-400">+{formattedReceivables}</p>
+              <div className="font-bold text-[18px] mt-0.5 text-emerald-400">
+                +<CurrencyDisplay gross={uncollectedRevenue} net={uncollectedRevenue} intent="income" hideSign={true} />
+              </div>
             </div>
             <div>
               <div className="flex items-center gap-1 mb-1">
                 <p className="text-sm font-medium uppercase tracking-tighter text-rose-400">Niezapłacone Faktury (Koszty)</p>
               </div>
-              <p className="font-bold text-[18px] mt-0.5 text-rose-400">-{formattedPayables}</p>
+              <div className="font-bold text-[18px] mt-0.5 text-rose-400">
+                -<CurrencyDisplay gross={totalDebtRemaining} net={totalDebtRemaining} intent="cost" hideSign={true} />
+              </div>
             </div>
             <div>
               <div className="flex items-center gap-1.5 mb-1">
                 <p className="text-sm text-slate-400 font-medium uppercase tracking-tighter">Rezerwa CIT</p>
                 <HelpLink helpId="cit-reserve" tooltip="Automatyczna rezerwa 9% na podatek dochodowy" size="xs" />
               </div>
-              <p className="font-bold text-xl text-orange-400">-{formattedCitReserve}</p>
+              <div className="font-bold text-xl text-orange-400">
+                -<CurrencyDisplay gross={citReserveValue} net={citReserveValue} intent="cost" hideSign={true} />
+              </div>
             </div>
           </div>
         </div>
@@ -536,7 +532,9 @@ export default async function DashboardPage({
               <HelpLink helpId="project-margin" tooltip="Zysk z projektów (Przychody - Koszty Projektowe)" size="xs" />
             </div>
           </div>
-          <p className="text-3xl font-black mt-4 text-indigo-700">{formattedProjectMargin}</p>
+          <div className="text-3xl font-black mt-4 text-indigo-700">
+            <CurrencyDisplay gross={ledgerSnapshot.projectMargin} net={ledgerSnapshot.projectMargin} intent="income" hideSign={true} />
+          </div>
           <p className="text-xs mt-1 text-slate-500 font-medium">Zysk zrealizowany na projektach (bez VAT).</p>
         </div>
 
@@ -564,8 +562,12 @@ export default async function DashboardPage({
               <HelpLink helpId="real-profit" tooltip="Ostateczny wynik firmy po odjęciu kosztów i CIT" size="xs" />
             </div>
           </div>
-          <p className="text-3xl font-black mt-4 text-emerald-700">{formattedRealProfit}</p>
-          <p className="text-xs mt-1 text-slate-500 font-medium italic">Netto: {formattedNetProfit} (przed CIT)</p>
+          <div className="text-3xl font-black mt-4 text-emerald-700">
+            <CurrencyDisplay gross={ledgerSnapshot.realProfit} net={ledgerSnapshot.realProfit} intent="income" hideSign={true} />
+          </div>
+          <p className="text-xs mt-1 text-slate-500 font-medium italic">
+            Netto: <CurrencyDisplay gross={ledgerSnapshot.netProfit} net={ledgerSnapshot.netProfit} intent="neutral" hideSign={true} /> (przed CIT)
+          </p>
         </div>
 
         <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm border-l-4 border-l-cyan-600">
@@ -615,7 +617,7 @@ export default async function DashboardPage({
         <div className="p-6 bg-white border border-slate-200 rounded-2xl shadow-sm relative overflow-hidden group">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 text-green-600 rounded-lg">
+              <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
                 <ArrowUpRight className="w-5 h-5" />
               </div>
               <div className="flex items-center gap-2">
@@ -624,7 +626,7 @@ export default async function DashboardPage({
               </div>
             </div>
           </div>
-          <p className="text-3xl font-bold mt-4 text-green-600">+{formatPln(cfIncomes30d)}</p>
+          <p className="text-3xl font-bold mt-4 text-emerald-600">+{formatPln(cfIncomes30d)}</p>
           <div className="flex flex-col mt-1">
             <p className="text-[10px] text-slate-500 font-medium">Faktury + {formatPln(releasedRetentionValue)} kaucji.</p>
             {overdueAmount.gt(0) && (
@@ -663,7 +665,9 @@ export default async function DashboardPage({
               </div>
             </div>
           </div>
-          <p className="text-3xl font-black mt-4 font-mono text-rose-100">{formatPln(totalDebtRemaining)}</p>
+          <div className="flex items-center mt-4">
+            <CurrencyDisplay gross={totalDebtRemaining} net={totalDebtRemaining} intent="cost" className="text-3xl" />
+          </div>
           <p className="text-[10px] mt-1 text-slate-500 font-medium">Pozostało do spłaty wierzycielom.</p>
         </div>
       </div>
@@ -687,9 +691,7 @@ export default async function DashboardPage({
           <CashFlowChart data={chartData} />
           <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
             <span className="font-semibold text-slate-700">Prognoza 'Realista' (30D):</span>
-            <span className={`text-xl font-bold ${realisticBalance30d.gte(0) ? 'text-green-600' : 'text-red-600'}`}>
-              {formatPln(realisticBalance30d)}
-            </span>
+            <CurrencyDisplay gross={realisticBalance30d} net={realisticBalance30d} intent={realisticBalance30d.gte(0) ? "income" : "cost"} className="text-xl" />
           </div>
         </div>
 
@@ -707,17 +709,17 @@ export default async function DashboardPage({
               sortedAlerts.map((alert, idx) => (
                 <div key={idx} className={`flex flex-col gap-3 p-4 rounded-xl border transition-colors ${alert.date < now ? 'border-rose-300 bg-rose-50/50' : 'border-slate-100 hover:border-slate-200 bg-slate-50/50'}`}>
                   <div className="flex gap-4">
-                    <div className={`p-3 rounded-lg flex items-center justify-center shrink-0 ${alert.isIncome ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
+                    <div className={`p-3 rounded-lg flex items-center justify-center shrink-0 ${alert.isIncome ? 'bg-emerald-100 text-emerald-600' : 'bg-orange-100 text-orange-600'}`}>
                       <CalendarDays className="w-5 h-5" />
                     </div>
                     <div className="flex-1 min-w-0 flex flex-col justify-center">
                       <p className="font-semibold text-slate-900 truncate" title={alert.title}>{alert.title}</p>
-                      <p className="text-sm text-slate-500">{alert.contractor} • <span className={alert.isIncome ? 'text-green-600 font-medium' : 'text-slate-700 font-medium'}>
+                      <p className="text-sm text-slate-500">{alert.contractor} • <span className={alert.isIncome ? 'text-emerald-600 font-medium' : 'text-slate-700 font-medium'}>
                         {alert.date.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' })}
                       </span>
                       </p>
                     </div>
-                    <div className={`flex flex-col justify-center items-end shrink-0 font-bold ${alert.date < now ? 'text-rose-600' : (alert.isIncome ? 'text-green-600' : 'text-slate-800')}`}>
+                    <div className={`flex flex-col justify-center items-end shrink-0 font-bold ${alert.date < now ? 'text-rose-600' : (alert.isIncome ? 'text-emerald-600' : 'text-slate-800')}`}>
                       {alert.isIncome ? '+' : '-'}{formatPln(alert.amount)}
                     </div>
                   </div>
@@ -758,7 +760,7 @@ export default async function DashboardPage({
             {recentInvoices.map((inv) => (
               <div key={inv.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50/30 hover:bg-slate-50 transition-all">
                 <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-xl ${inv.type === 'SPRZEDAŻ' ? 'bg-green-100 text-green-600' : 'bg-rose-100 text-rose-600'}`}>
+                  <div className={`p-3 rounded-xl ${inv.type === 'SPRZEDAŻ' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
                     {inv.type === 'SPRZEDAŻ' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
                   </div>
                   <div>
@@ -773,7 +775,7 @@ export default async function DashboardPage({
                       gross={inv.amountGross}
                       net={inv.amountNet}
                       isIncome={inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE'}
-                      className={`font-black text-lg ${(inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE') ? 'text-green-600' : 'text-slate-900'}`}
+                      className={`font-black text-lg ${(inv.type === 'SPRZEDAŻ' || inv.type === 'INCOME' || inv.type === 'REVENUE') ? 'text-emerald-600' : 'text-slate-900'}`}
                     />
                     <p className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full mt-1 inline-block ${inv.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
                       {inv.status === 'PAID' ? 'Opłacona' : 'Nieopłacona'}

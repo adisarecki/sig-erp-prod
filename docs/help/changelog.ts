@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
     {
+        date: "2026-04-16",
+        vector: "Vector 200",
+        title: "🎨 Globalna Harmonizacja UI & Signed Math Integrity",
+        type: "feature",
+        description:
+            "Zakończyliśmy proces systemowej unifikacji wizualnej SIG ERP. Wdrożyliśmy 'Prawo Wizualne' oparte na palecie Emerald/Rose/Cyan/Amber, " +
+            "która pozwala na natychmiastową interpretację kondycji finansowej firmy. Jednocześnie utwardziliśmy logikę Signed Math – system " +
+            "rygorystycznie zachowuje znaki wartości ujemnych (brak Math.abs()), co zapewnia 100% spójności danych między wszystkimi modułami.",
+        relatedHelpIds: ["vector-200-visual-law", "safe-to-spend", "vat-debt"]
+    },
+    {
         date: "2026-04-15",
         vector: "Vector 180.11",
         title: "🔍 Investigation Mode & Auto-Verification",

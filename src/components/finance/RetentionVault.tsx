@@ -29,9 +29,7 @@ export function RetentionVault({ retentions, projects, contractors, invoices = [
     const thirtyDaysFromNow = new Date()
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30)
 
-    const formatPln = (value: number) => {
-        return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(value)
-    }
+    // Note: Local formatPln removed in favor of CurrencyDisplay
 
     const handleMarkAsRecovered = async (id: string) => {
         setIsUpdating(id)
@@ -132,9 +130,11 @@ export function RetentionVault({ retentions, projects, contractors, invoices = [
                                                                             <p className="text-[10px] font-bold text-slate-400 uppercase mb-0.5">Źródło</p>
                                                                             <p className="text-xs font-semibold text-slate-700">{ret.source === 'INVOICE' ? 'Faktura VAT' : 'Umowa Projektowa'}</p>
                                                                         </div>
-                                                                        <div>
+                                                                         <div>
                                                                             <p className="text-[10px] font-bold text-slate-400 uppercase mb-0.5">Kwota Brutto</p>
-                                                                            <p className="text-xs font-semibold text-slate-700">{formatPln(Number(ret.amount))}</p>
+                                                                            <p className="text-xs font-semibold text-slate-700">
+                                                                                <CurrencyDisplay gross={ret.amount} net={ret.amount} intent="neutral" hideSign={true} />
+                                                                            </p>
                                                                         </div>
                                                                     </div>
                                                                     <div>
@@ -162,9 +162,9 @@ export function RetentionVault({ retentions, projects, contractors, invoices = [
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className={`text-lg font-black ${isExpiringSoon ? 'text-rose-600' : 'text-slate-900'}`}>
-                                                {formatPln(Number(ret.amount))}
-                                            </p>
+                                            <div className="text-lg font-black">
+                                                <CurrencyDisplay gross={ret.amount} net={ret.amount} intent={isExpiringSoon ? "warning" : "neutral"} hideSign={true} />
+                                            </div>
                                             <button
                                                 onClick={() => handleMarkAsRecovered(ret.id)}
                                                 disabled={isUpdating === ret.id}
@@ -186,9 +186,11 @@ export function RetentionVault({ retentions, projects, contractors, invoices = [
                 )}
             </div>
 
-            <div className="p-4 bg-indigo-900 text-white flex justify-between items-center">
-                <span className="text-xs font-bold uppercase tracking-widest opacity-80">Suma Zamrożona</span>
-                <span className="text-xl font-black">{formatPln(totalFrozen.toNumber())}</span>
+            <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
+                <span className="text-xs font-bold uppercase tracking-widest opacity-80">Suma Zamrożona (Kaucje)</span>
+                <span className="text-xl font-black">
+                    <CurrencyDisplay gross={totalFrozen} net={totalFrozen} intent="warning" hideSign={true} />
+                </span>
             </div>
         </div>
     )

@@ -1,5 +1,7 @@
 "use client"
 
+import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
+
 import { useState } from "react"
 import { Plus, Trash2, Edit2, Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -49,10 +51,6 @@ export function ProjectStageList({ projectId, stages }: ProjectStageListProps) {
         if (confirm("Czy na pewno chcesz usunąć ten etap?")) {
             await deleteProjectStage(id, projectId)
         }
-    }
-
-    const formatPln = (value: number) => {
-        return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(value)
     }
 
     return (
@@ -124,7 +122,9 @@ export function ProjectStageList({ projectId, stages }: ProjectStageListProps) {
                             <>
                                 <div className="flex-1">
                                     <h4 className="font-semibold text-slate-900">{stage.name}</h4>
-                                    <p className="text-xs text-slate-500 uppercase font-black tracking-tight">Budżet: {formatPln(stage.budgetEstimated)}</p>
+                                    <div className="text-xs text-slate-500 uppercase font-black tracking-tight flex items-center gap-1">
+                                        Budżet: <CurrencyDisplay gross={stage.budgetEstimated} net={stage.budgetEstimated} intent="neutral" hideSign={true} />
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition">
                                     <Button 

@@ -15,9 +15,7 @@ import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 import { mapFinancialValues, FinancialType } from "@/lib/utils/financeMapper"
 import Decimal from "decimal.js"
 
-const formatPln = (value: number) => {
-    return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(value)
-}
+// Note: Local formatPln removed in favor of CurrencyDisplay
 
 interface PageProps {
     params: Promise<{ id: string }>
@@ -127,8 +125,10 @@ export default async function ProjectCockpit({ params }: PageProps) {
                         <Wallet className="w-12 h-12" />
                     </div>
                     <CardHeader className="pb-2">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Budget Szacowany</p>
-                        <CardTitle className="text-xl font-black truncate">{formatPln(budgetEstimated)}</CardTitle>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Budżet Szacowany</p>
+                        <CardTitle className="text-xl font-black truncate">
+                            <CurrencyDisplay gross={budgetEstimated} net={budgetEstimated} intent="neutral" hideSign={true} className="text-white" />
+                        </CardTitle>
                     </CardHeader>
                 </Card>
 
@@ -138,7 +138,9 @@ export default async function ProjectCockpit({ params }: PageProps) {
                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Przychody (Faktury)</span>
                             <TrendingUp className="w-4 h-4 text-emerald-500" />
                         </div>
-                        <CardTitle className="text-xl font-black text-slate-900">{formatPln(totalInvoiced.toNumber())}</CardTitle>
+                        <CardTitle className="text-xl font-black text-slate-900">
+                             <CurrencyDisplay gross={totalInvoiced} net={totalInvoiced} intent="income" hideSign={true} />
+                        </CardTitle>
                     </CardHeader>
                 </Card>
 
@@ -148,7 +150,9 @@ export default async function ProjectCockpit({ params }: PageProps) {
                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Koszty Realne</span>
                             <ReceiptText className="w-4 h-4 text-rose-500" />
                         </div>
-                        <CardTitle className="text-xl font-black text-rose-600 truncate">{formatPln(totalCosts.toNumber())}</CardTitle>
+                        <CardTitle className="text-xl font-black text-rose-600 truncate">
+                            <CurrencyDisplay gross={totalCosts} net={totalCosts} intent="cost" hideSign={true} />
+                        </CardTitle>
                         <div className="mt-1 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
                             <div 
                                 className={`h-full ${percentUsed > 90 ? 'bg-rose-500' : 'bg-blue-500'}`}
@@ -164,8 +168,8 @@ export default async function ProjectCockpit({ params }: PageProps) {
                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Marża Kwotowa</span>
                             <div className={`w-2 h-2 rounded-full ${margin.lt(0) ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
                         </div>
-                        <CardTitle className={`text-xl font-black ${margin.lt(0) ? 'text-rose-700' : 'text-emerald-700'}`}>
-                            {formatPln(margin.toNumber())}
+                        <CardTitle className={`text-xl font-black`}>
+                            <CurrencyDisplay gross={margin} net={margin} intent={margin.gte(0) ? "income" : "cost"} />
                         </CardTitle>
                     </CardHeader>
                 </Card>
@@ -206,18 +210,20 @@ export default async function ProjectCockpit({ params }: PageProps) {
                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Planowana Marża</span>
                             <BadgeDollarSign className="w-4 h-4 text-indigo-500" />
                         </div>
-                        <CardTitle className="text-xl font-black text-indigo-700 truncate">{formatPln(plannedMargin)}</CardTitle>
+                        <CardTitle className="text-xl font-black text-indigo-700 truncate">
+                             <CurrencyDisplay gross={plannedMargin} net={plannedMargin} intent="neutral" hideSign={true} />
+                        </CardTitle>
                     </CardHeader>
                 </Card>
 
                 <Card className="bg-white border-slate-200 shadow-sm border-l-4 border-l-slate-400">
                     <CardHeader className="pb-2">
                         <div className="flex justify-between items-center text-slate-500">
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Kaucja Prognozowana (Info)</span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Kaucja Prognozowana</span>
                             <Info className="w-4 h-4 text-slate-400" />
                         </div>
                         <CardTitle className="text-xl font-black text-slate-400 truncate">
-                            {formatPln(budgetEstimated * (Number(project.retentionShortTermRate || 0) + Number(project.retentionLongTermRate || 0)))}
+                            <CurrencyDisplay gross={budgetEstimated * (Number(project.retentionShortTermRate || 0) + Number(project.retentionLongTermRate || 0))} intent="tax-shield" hideSign={true} />
                         </CardTitle>
                         <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Suma prognozowana (niefinansowa)</p>
                     </CardHeader>

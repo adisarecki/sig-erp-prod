@@ -5,9 +5,9 @@
 
 "use client";
 
-import React from "react";
-import { LiveSummary, FiscalCalculatorService } from "@/lib/audit";
-import Decimal from "decimal.js";
+import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
+import { LiveSummary, SemanticIntent } from "@/lib/audit/types";
+import { FiscalCalculatorService } from "@/lib/audit/fiscalCalculatorService";
 
 interface LiveSummaryBarProps {
   liveSummary: LiveSummary;
@@ -24,34 +24,38 @@ export function LiveSummaryBar({
 
   const stats = [
     {
-      label: "Items",
+      label: "Wszystkie",
       value: liveSummary.itemCount,
-      color: "text-gray-600",
+      color: "text-slate-600",
+      bg: "bg-slate-50",
     },
     {
-      label: "Verified",
+      label: "Zatwierdzone",
       value: liveSummary.verifiedCount,
-      color: "text-green-600",
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
     },
     {
-      label: "Pending",
+      label: "Do weryfikacji",
       value: liveSummary.pendingCount,
-      color: "text-yellow-600",
+      color: "text-amber-600",
+      bg: "bg-amber-50",
     },
     {
-      label: "Rejected",
+      label: "Odrzucone",
       value: liveSummary.rejectedCount,
-      color: "text-red-600",
+      color: "text-rose-600",
+      bg: "bg-rose-50",
     },
   ];
 
   if (isCompact) {
     return (
-      <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+      <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
         {stats.map((stat) => (
           <div key={stat.label} className="flex flex-col items-center">
-            <span className="text-xs text-gray-600">{stat.label}</span>
-            <span className={`text-lg font-bold ${stat.color}`}>
+            <span className="text-[10px] uppercase font-bold text-slate-500">{stat.label}</span>
+            <span className={`text-lg font-black ${stat.color}`}>
               {stat.value}
             </span>
           </div>
@@ -60,19 +64,28 @@ export function LiveSummaryBar({
     );
   }
 
+  // Map intents to background families
+  const intentBg: Record<SemanticIntent, string> = {
+    'income': 'bg-emerald-50 border-emerald-100',
+    'cost': 'bg-rose-50 border-rose-100',
+    'tax-shield': 'bg-cyan-50 border-cyan-100',
+    'warning': 'bg-amber-50 border-amber-100',
+    'neutral': 'bg-slate-50 border-slate-100'
+  };
+
   return (
-    <div className="space-y-4 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+    <div className="space-y-4 p-4 bg-white rounded-2xl border border-slate-200 shadow-sm animate-in fade-in slide-in-from-top-2">
       {/* Item Statistics */}
       <div className="grid grid-cols-4 gap-3">
         {stats.map((stat) => (
           <div
             key={stat.label}
-            className="flex flex-col items-center p-2 bg-gray-50 rounded"
+            className={`flex flex-col items-center p-3 ${stat.bg} rounded-xl border border-transparent hover:border-slate-200 transition-all`}
           >
-            <span className="text-xs font-medium text-gray-600">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
               {stat.label}
             </span>
-            <span className={`text-xl font-bold ${stat.color}`}>
+            <span className={`text-xl font-black ${stat.color}`}>
               {stat.value}
             </span>
           </div>
@@ -82,85 +95,75 @@ export function LiveSummaryBar({
       {/* Fiscal Liabilities */}
       <div className="grid grid-cols-3 gap-3">
         {/* VAT Saldo */}
-        <div
-          className="p-3 rounded-lg"
-          style={{ backgroundColor: `${liabilities.vatSaldo.color}15` }}
-        >
-          <div className="text-xs font-medium text-gray-600 mb-1">
+        <div className={`p-4 rounded-xl border ${intentBg[liabilities.vatSaldo.intent]}`}>
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
             {liabilities.vatSaldo.label}
           </div>
-          <div
-            className="text-lg font-bold"
-            style={{ color: liabilities.vatSaldo.color }}
-          >
-            {FiscalCalculatorService.formatLiability(
-              new Decimal(liveSummary.vatSaldo)
-            )}
+          <div className="text-xl">
+            <CurrencyDisplay 
+              gross={liveSummary.vatSaldo} 
+              net={liveSummary.vatSaldo} 
+              intent={liabilities.vatSaldo.intent} 
+              className="text-lg"
+            />
           </div>
         </div>
 
         {/* CIT Liability */}
-        <div
-          className="p-3 rounded-lg"
-          style={{ backgroundColor: `${liabilities.citLiability.color}15` }}
-        >
-          <div className="text-xs font-medium text-gray-600 mb-1">
+        <div className={`p-4 rounded-xl border ${intentBg[liabilities.citLiability.intent]}`}>
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
             {liabilities.citLiability.label}
           </div>
-          <div
-            className="text-lg font-bold"
-            style={{ color: liabilities.citLiability.color }}
-          >
-            {FiscalCalculatorService.formatLiability(
-              new Decimal(liveSummary.citLiability)
-            )}
+          <div className="text-xl">
+            <CurrencyDisplay 
+              gross={liveSummary.citLiability} 
+              net={liveSummary.citLiability} 
+              intent={liabilities.citLiability.intent} 
+              className="text-lg"
+            />
           </div>
         </div>
 
         {/* Gross Liability */}
-        <div
-          className="p-3 rounded-lg"
-          style={{ backgroundColor: `${liabilities.grossLiability.color}15` }}
-        >
-          <div className="text-xs font-medium text-gray-600 mb-1">
+        <div className={`p-4 rounded-xl border ${intentBg[liabilities.grossLiability.intent]}`}>
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
             {liabilities.grossLiability.label}
           </div>
-          <div
-            className="text-lg font-bold"
-            style={{ color: liabilities.grossLiability.color }}
-          >
-            {FiscalCalculatorService.formatLiability(
-              new Decimal(liveSummary.grossLiability)
-            )}
+          <div className="text-xl">
+            <CurrencyDisplay 
+              gross={liveSummary.grossLiability} 
+              net={liveSummary.grossLiability} 
+              intent={liabilities.grossLiability.intent} 
+              className="text-lg"
+            />
           </div>
         </div>
       </div>
 
-      {/* Totals */}
-      <div className="grid grid-cols-4 gap-2 text-sm">
-        <div>
-          <span className="text-gray-600">Net:</span>
-          <span className="font-bold ml-2">
-            {liveSummary.totals.netAmount.toString()} PLN
-          </span>
+      {/* Totals Summary Line */}
+      <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-100">
+        <div className="flex gap-6">
+            <div className="flex flex-col">
+                <span className="text-[8px] font-black text-slate-400 uppercase">NETTO SUMA</span>
+                <span className="text-xs font-bold text-slate-700">
+                    {liveSummary.totals.netAmount.toString()} PLN
+                </span>
+            </div>
+            <div className="flex flex-col">
+                <span className="text-[8px] font-black text-slate-400 uppercase">VAT SUMA</span>
+                <span className="text-xs font-bold text-slate-700">
+                    {liveSummary.totals.vatAmount.toString()} PLN
+                </span>
+            </div>
+            <div className="flex flex-col">
+                <span className="text-[8px] font-black text-slate-400 uppercase">BRUTTO SUMA</span>
+                <span className="text-xs font-bold text-slate-700">
+                    {liveSummary.totals.grossAmount.toString()} PLN
+                </span>
+            </div>
         </div>
-        <div>
-          <span className="text-gray-600">VAT (23%):</span>
-          <span className="font-bold ml-2">
-            {liveSummary.totals.vatAmount.toString()} PLN
-          </span>
-        </div>
-        <div>
-          <span className="text-gray-600">CIT ({new Decimal(liveSummary.citRate).mul(100).toFixed(0)}%):</span>
-          <span className="font-bold ml-2">
-            {liveSummary.totals.citAmount.toString()} PLN
-          </span>
-        </div>
-        <div>
-          <span className="text-gray-600">Gross:</span>
-          <span className="font-bold ml-2">
-            {liveSummary.totals.grossAmount.toString()} PLN
-          </span>
+        <div className="px-3 py-1 bg-slate-900 rounded text-white text-[10px] font-black uppercase tracking-[0.2em]">
+            RAPORT DANYCH SUROWYCH
         </div>
       </div>
     </div>

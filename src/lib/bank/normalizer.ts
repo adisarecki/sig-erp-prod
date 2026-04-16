@@ -89,12 +89,12 @@ export function normalizeTransaction(raw: RawTransaction): NormalizedTx {
     // 4. Metadata Assemble
     return {
         date: dateObj,
-        amount: Math.abs(amount),
+        amount: amount,
         type,
         counterparty: finalCounterparty,
         title: (extractedTitle || raw.rawTitle || "Transakcja Bankowa").trim(),
         description: fullDesc.trim(),
-        reference: raw.rawReference || `REF-${dateObj.getTime()}-${Math.abs(amount)}`,
+        reference: raw.rawReference || `REF-${dateObj.getTime()}-${amount}`,
         accountNumber: accountNumber ? accountNumber.replace(/\s/g, '') : null,
         address: address.trim() || null,
         nip: extractedNip,

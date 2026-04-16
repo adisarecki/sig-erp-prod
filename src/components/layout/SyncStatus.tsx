@@ -89,13 +89,13 @@ export function SyncStatus() {
                             <motion.span
                                 animate={{ rotate: 360 }}
                                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                className="absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75 border-t-2 border-yellow-600"
+                                className="absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75 border-t-2 border-amber-600"
                             />
                         )}
                         {status === "ok" && (
                             <>
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-20" />
-                                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-20" />
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                             </>
                         )}
                         {status === "error" && (
@@ -103,9 +103,9 @@ export function SyncStatus() {
                                 <motion.span 
                                     animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
                                     transition={{ duration: 1.5, repeat: Infinity }}
-                                    className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" 
+                                    className="absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" 
                                 />
-                                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600 shadow-[0_0_10px_rgba(220,38,38,0.5)]" />
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600 shadow-[0_0_10px_rgba(225,29,72,0.5)]" />
                             </>
                         )}
                     </div>
@@ -121,16 +121,16 @@ export function SyncStatus() {
                         <span className="font-bold text-slate-800 text-sm">Drift Resolution Center</span>
                     </div>
                     {status === "ok" ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                     ) : (
-                        <AlertTriangle className="w-4 h-4 text-red-500 animate-pulse" />
+                        <AlertTriangle className="w-4 h-4 text-rose-500 animate-pulse" />
                     )}
                 </div>
 
                 <div className="max-h-[400px] overflow-y-auto">
                     {status === "error" && driftingItems.length > 0 ? (
                         <div className="p-2 space-y-2">
-                            <div className="px-2 py-1 text-[10px] font-bold text-red-500 uppercase tracking-tight">
+                            <div className="px-2 py-1 text-[10px] font-bold text-rose-500 uppercase tracking-tight">
                                 {driftingItems.length} NIEDOPASOWANE REKORDY
                             </div>
                             
@@ -162,7 +162,7 @@ export function SyncStatus() {
                                                 <Button 
                                                     variant="outline" 
                                                     size="sm" 
-                                                    className="h-8 text-[10px] gap-1.5 hover:bg-green-50 hover:text-green-700 hover:border-green-200"
+                                                    className="h-8 text-[10px] gap-1.5 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
                                                     onClick={() => handleResolve(item.id, item.type, 'push')}
                                                     disabled={isResolving === item.id}
                                                 >
@@ -172,7 +172,7 @@ export function SyncStatus() {
                                                 <Button 
                                                     variant="outline" 
                                                     size="sm" 
-                                                    className="h-8 text-[10px] gap-1.5 hover:bg-red-50 hover:text-red-700 hover:border-red-200"
+                                                    className="h-8 text-[10px] gap-1.5 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200"
                                                     onClick={() => handleResolve(item.id, item.type, 'purge')}
                                                     disabled={isResolving === item.id}
                                                 >
@@ -202,8 +202,8 @@ export function SyncStatus() {
                         </div>
                     ) : (
                         <div className="p-8 flex flex-col items-center justify-center gap-2">
-                            <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center">
-                                <CheckCircle2 className="w-6 h-6 text-green-500" />
+                            <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center">
+                                <CheckCircle2 className="w-6 h-6 text-emerald-500" />
                             </div>
                             <span className="text-xs font-medium text-slate-600">Wszystkie dane są spójne</span>
                             <span className="text-[10px] text-slate-400">Ostatnia weryfikacja: {new Date().toLocaleTimeString()}</span>

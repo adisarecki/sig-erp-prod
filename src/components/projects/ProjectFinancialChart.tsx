@@ -11,8 +11,10 @@ interface ProjectFinancialChartProps {
 
 const formatPln = (value: number) => {
     return new Intl.NumberFormat("pl-PL", {
+        style: 'currency',
+        currency: 'PLN',
         maximumFractionDigits: 0
-    }).format(value) + " zł"
+    }).format(value)
 }
 
 export function ProjectFinancialChart({ budgetEstimated, totalInvoiced, totalCosts }: ProjectFinancialChartProps) {
@@ -23,9 +25,9 @@ export function ProjectFinancialChart({ budgetEstimated, totalInvoiced, totalCos
     }, [])
 
     const data = [
-        { name: "Budżet", kwota: budgetEstimated, color: "#64748b" },
-        { name: "Przychody", kwota: totalInvoiced, color: "#10b981" },
-        { name: "Koszty", kwota: totalCosts, color: "#ef4444" }
+        { name: "Budżet", kwota: budgetEstimated, color: "#64748b" }, // Slate
+        { name: "Przychody", kwota: totalInvoiced, color: "#10b981" }, // Emerald
+        { name: "Koszty", kwota: totalCosts, color: "#f43f5e" } // Rose
     ]
 
     if (!isMounted) return <div className="h-[300px] w-full bg-slate-50 animate-pulse rounded-xl" />

@@ -26,8 +26,10 @@ const formatDate = (dateString: string) => {
 
 const formatPln = (value: number) => {
     return new Intl.NumberFormat("pl-PL", {
+        style: 'currency',
+        currency: 'PLN',
         maximumFractionDigits: 0
-    }).format(value) + " zł"
+    }).format(value)
 }
 
 export function ProjectBurnChart({ invoices, transactions = [], budgetEstimated }: ProjectBurnChartProps) {
@@ -170,16 +172,16 @@ export function ProjectBurnChart({ invoices, transactions = [], budgetEstimated 
                                         <div className="space-y-1">
                                             <div className="flex justify-between gap-8 items-center">
                                                 <span className="text-xs font-bold text-slate-500">Zafakturowano:</span>
-                                                <span className="text-xs font-black text-amber-500">{new Intl.NumberFormat('pl-PL').format(payload[0]?.value as number || 0)} zł</span>
+                                                <span className="text-xs font-black text-emerald-500">{formatPln(payload[0]?.value as number || 0)}</span>
                                             </div>
                                             <div className="flex justify-between gap-8 items-center">
                                                 <span className="text-xs font-bold text-slate-500">Wydano (Netto):</span>
-                                                <span className="text-xs font-black text-blue-500">{new Intl.NumberFormat('pl-PL').format(payload[1]?.value as number || 0)} zł</span>
+                                                <span className="text-xs font-black text-rose-500">{formatPln(payload[1]?.value as number || 0)}</span>
                                             </div>
                                             <div className="flex justify-between gap-8 items-center pt-1 border-t">
                                                 <span className="text-xs font-bold text-slate-700">Skumulowany Zysk:</span>
                                                 <span className={`text-sm font-black ${(payload[2]?.value as number || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                                    {new Intl.NumberFormat('pl-PL').format(payload[2]?.value as number || 0)} zł
+                                                    {formatPln(payload[2]?.value as number || 0)}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between gap-8 items-center mt-1 pt-1 border-t border-dashed">
@@ -188,7 +190,7 @@ export function ProjectBurnChart({ invoices, transactions = [], budgetEstimated 
                                             </div>
                                             <div className="flex justify-between gap-8 items-center mt-1 pt-1 border-t border-dashed">
                                                 <span className="text-[10px] font-bold text-slate-400 italic">Do zafakturowania:</span>
-                                                <span className="text-[10px] font-black text-slate-400 italic">{new Intl.NumberFormat('pl-PL').format(payload[3]?.value as number || 0)} zł</span>
+                                                <span className="text-[10px] font-black text-slate-400 italic">{formatPln(payload[3]?.value as number || 0)}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -210,10 +212,10 @@ export function ProjectBurnChart({ invoices, transactions = [], budgetEstimated 
                         name="Przychody (Netto)"
                         type="monotone"
                         dataKey="income"
-                        stroke="#f59e0b" // Yellow/Amber
+                        stroke="#10b981" // Emerald
                         strokeWidth={2}
                         dot={false}
-                        activeDot={{ r: 4, strokeWidth: 0, fill: "#f59e0b" }}
+                        activeDot={{ r: 4, strokeWidth: 0, fill: "#10b981" }}
                     />
 
                     {/* Skumulowane Koszty */}
@@ -222,10 +224,10 @@ export function ProjectBurnChart({ invoices, transactions = [], budgetEstimated 
                         name="Koszty (Netto)"
                         type="monotone"
                         dataKey="expense"
-                        stroke="#3b82f6" // Blue
+                        stroke="#f43f5e" // Rose
                         strokeWidth={2}
                         dot={false}
-                        activeDot={{ r: 4, strokeWidth: 0, fill: "#3b82f6" }}
+                        activeDot={{ r: 4, strokeWidth: 0, fill: "#f43f5e" }}
                     />
 
                     {/* Wynik / Zysk */}

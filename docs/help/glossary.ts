@@ -397,5 +397,28 @@ export const glossaryEntries: HelpEntry[] = [
         related: ["is-audit-vault", "automatyczna-klasyfikacja"],
         uiTargets: ["InvoiceScanner → Szybki Skan"],
         vector: "Vector 180.11"
+    },
+
+    // ─────────────────────────────────────────────────────────
+    // VECTOR 200: VISUAL LAW (UNIFIED SEMANTICS)
+    // ─────────────────────────────────────────────────────────
+    {
+        id: "vector-200-visual-law",
+        title: "Wizualny Język Systemu",
+        category: "concept",
+        summary: "Rygorystyczny system kolorystyczny Emerald/Rose/Cyan/Amber służący błyskawicznej interpretacji stanu finansów.",
+        description:
+            "Fundamentem UX w SIG ERP jest unifikacja wizualna. System musi być czytelny w jedną sekundę.\n\n" +
+            "Kluczowe kolory i ich znaczenie:\n" +
+            "• EMERALD (Szmaragd): Dobro / Zysk / Bezpieczeństwo / Plus (+). Stosowany dla przychodów i dodatniej marży.\n" +
+            "• ROSE (Róż): Koszt / Ryzyko / Dług / Minus (-). Stosowany dla wszystkich wypływów i zobowiązań.\n" +
+            "• CYAN (Cyjan): Tarcza Fiskalna / Bufor. Specjalny kolor dla nadpłat VAT i CIT – to pieniądze, które chronią Twoją płynność.\n" +
+            "• AMBER (Bursztyn): Ostrzeżenie / Kaucja. Środki zamrożone (kaucje) lub wymagające uwagi.\n" +
+            "• SLATE (Łupek): Neutralne / Informacyjne.\n\n" +
+            "Reguła Signed Math Integrity: Kolor jest tylko warstwą interpretacji. matematyka zawsze pozostaje prawdziwa – system nigdy nie usuwa znaku minus poprzez Math.abs() w celach wizualnych.",
+        technicalSource: "ui",
+        related: ["safe-to-spend", "vat-debt", "cit-reserve"],
+        uiTargets: ["System-Wide Financial Rendering"],
+        vector: "Vector 200"
     }
 ]

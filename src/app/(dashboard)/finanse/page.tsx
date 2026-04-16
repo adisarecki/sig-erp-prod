@@ -403,14 +403,14 @@ export default async function FinancePage({
                     <div className="flex flex-wrap justify-center lg:justify-end gap-8 lg:gap-14">
                         <div className="text-center sm:text-right">
                             <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1 text-balance">Netto (Realny Bilans)</p>
-                            <p className={`text-xl font-black italic ${summaryNetPositive ? 'text-indigo-100' : 'text-rose-400'}`}>
+                            <p className={`text-xl font-black italic ${summaryNetPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                                 {summaryNet || '+0,00 zł'}
                             </p>
                         </div>
 
                         <div className="text-center sm:text-right">
                             <p className="text-[10px] font-bold uppercase tracking-tight text-slate-400 mb-1 text-balance">VAT (Kompensata)</p>
-                            <p className={`text-xl font-black ${summaryVatPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            <p className={`text-xl font-black ${summaryVatPositive ? 'text-cyan-400' : 'text-rose-400'}`}>
                                 {summaryVat || '+0,00 zł'}
                             </p>
                         </div>

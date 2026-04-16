@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import {
     Table,
     TableBody,
@@ -10,7 +10,7 @@ import {
     TableRow
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { formatPln } from "@/lib/utils"
+import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 import {
     Car,
     Wrench,
@@ -144,7 +144,9 @@ export function AssetsTable({ assets }: { assets: any[] }) {
                                     </span>
                                 </TableCell>
                                 <TableCell className="p-4">
-                                    <p className="font-bold text-slate-800">{formatPln(asset.purchaseNet)}</p>
+                                    <div className="font-bold text-slate-800">
+                                        <CurrencyDisplay gross={asset.purchaseNet} net={asset.purchaseNet} isIncome={true} hideSign={true} />
+                                    </div>
                                     <div className="flex items-center gap-1 mt-1">
                                         <Calendar className="w-3 h-3 text-slate-300" />
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">

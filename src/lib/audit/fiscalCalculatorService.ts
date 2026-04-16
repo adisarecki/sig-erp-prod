@@ -1,5 +1,5 @@
 import Decimal from "decimal.js";
-import { FiscalAggregates } from "./types";
+import { FiscalAggregates, SemanticIntent } from "./types";
 import { calculateReconciledTotals, formatSignedCurrency, FinancialItem } from "../finance/coreMath";
 
 export class FiscalCalculatorService {
@@ -43,7 +43,7 @@ export class FiscalCalculatorService {
 
   /**
    * Calculate fiscal liabilities
-   * Returns color-coded liability states for UI
+   * Returns semantic palette definitions for UI (Vector 200)
    */
   static calculateLiabilities(aggregates: FiscalAggregates) {
     const vatSaldo = aggregates.vatAmount;
@@ -53,18 +53,21 @@ export class FiscalCalculatorService {
     return {
       vatSaldo: {
         amount: vatSaldo,
-        color: vatSaldo.isNegative() ? "#10b981" : "#f43f5e", // Emerald Green if NADPŁATA
-        label: vatSaldo.isNegative() ? "NADPŁATA" : "DO ZAPŁATY",
+        intent: (vatSaldo.gt(0) ? "cost" : "tax-shield") as SemanticIntent, // Negative VAT (Shield) is Cyan
+        label: vatSaldo.gt(0) ? "DO ZAPŁATY" : "NADPŁATA / ZWROT",
+        colorClass: vatSaldo.gt(0) ? "text-rose-600" : "text-cyan-600",
       },
       citLiability: {
         amount: citLiability,
-        color: citLiability.isNegative() ? "#06b6d4" : "#f43f5e", // Cyan if loss
-        label: citLiability.isNegative() ? "TARCZA PODATKOWA" : "DO ZAPŁATY",
+        intent: (citLiability.gt(0) ? "cost" : "tax-shield") as SemanticIntent,
+        label: citLiability.gt(0) ? "DO ZAPŁATY" : "TARCZA PODATKOWA",
+        colorClass: citLiability.gt(0) ? "text-rose-600" : "text-cyan-600",
       },
       grossLiability: {
         amount: grossLiability,
-        color: grossLiability.isPositive() ? "#f43f5e" : "#10b981",
-        label: grossLiability.isPositive() ? "DO ZAPŁATY" : "DO ZWROTU",
+        intent: (grossLiability.gt(0) ? "income" : "cost") as SemanticIntent,
+        label: grossLiability.gt(0) ? "BILANS DODATNI" : "KOSZT / CASH IMPACT",
+        colorClass: grossLiability.gt(0) ? "text-emerald-600" : "text-rose-600",
       },
     };
   }

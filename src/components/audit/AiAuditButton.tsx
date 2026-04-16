@@ -67,7 +67,7 @@ export function AiAuditButton({ tenantId }: AiAuditButtonProps) {
             <DialogHeader className="relative z-10">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-indigo-500/20 rounded-xl">
-                    <Sparkles className="w-6 h-6 text-indigo-300" />
+                  <Sparkles className="w-6 h-6 text-indigo-300" />
                 </div>
                 <DialogTitle className="text-2xl font-black tracking-tight text-white">
                   Raport Diagnostyczny AI
@@ -95,35 +95,35 @@ export function AiAuditButton({ tenantId }: AiAuditButtonProps) {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-slate-50 rounded-2xl">
-                        <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Log ID</p>
-                        <p className="font-mono text-xs text-slate-600">{result.logId}</p>
-                    </div>
-                     <div className="p-4 bg-slate-50 rounded-2xl">
-                        <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Model</p>
-                        <p className="font-bold text-slate-900">OpenAI o1-preview</p>
-                    </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl">
+                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Log ID</p>
+                    <p className="font-mono text-xs text-slate-600">{result.logId}</p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl">
+                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Model</p>
+                    <p className="font-bold text-slate-900">OpenAI o1-preview</p>
+                  </div>
                 </div>
               </div>
             ) : (
               <div className="p-8 text-center space-y-4">
                 <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto">
-                    <AlertCircle className="w-8 h-8" />
+                  <AlertCircle className="w-8 h-8" />
                 </div>
                 <div>
-                   <h3 className="text-xl font-bold text-slate-900">Błąd Audytu</h3>
-                   <p className="text-slate-500">{result?.error || "Nie udało się pobrać raportu."}</p>
+                  <h3 className="text-xl font-bold text-slate-900">Błąd Audytu</h3>
+                  <p className="text-slate-500">{result?.error || "Nie udało się pobrać raportu."}</p>
                 </div>
               </div>
             )}
 
             <div className="pt-4">
-                <Button 
-                    onClick={() => setShowResult(false)}
-                    className="w-full h-12 rounded-2xl bg-slate-900 hover:bg-black text-white font-black uppercase tracking-widest"
-                >
-                    Zamknij Raport
-                </Button>
+              <Button
+                onClick={() => setShowResult(false)}
+                className="w-full h-12 rounded-2xl bg-slate-900 hover:bg-black text-white font-black uppercase tracking-widest"
+              >
+                Zamknij Raport
+              </Button>
             </div>
           </div>
         </DialogContent>

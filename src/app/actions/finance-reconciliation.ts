@@ -48,7 +48,7 @@ export async function createOnTheFly(bankStagingId: string, projectId: string | 
                 data: {
                     tenantId,
                     projectId: projectId || null,
-                    amount: Math.abs(item.amount),
+                    amount: item.amount,
                     type,
                     transactionDate: item.date,
                     category,

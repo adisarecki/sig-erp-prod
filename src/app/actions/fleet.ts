@@ -59,10 +59,10 @@ export async function getFleetSummary() {
         })
 
         const summary = await Promise.all(vehicles.map(async (v) => {
-            // [HARDENED RULE] Operational Cost (Accrual) = Invoices only
-            const operationalCost30d = v.invoices.reduce((sum, inv) => sum + Number(inv.amountGross), 0)
+            // [HARDENED RULE] Operational Cost (Accrual) = Invoices only (Costs are negative)
+            const operationalCost30d = v.invoices.reduce((sum, inv) => sum - Number(inv.amountGross), 0)
             
-            // [HARDENED RULE] Cash Outflow (Payment) = Transactions only
+            // [HARDENED RULE] Cash Outflow (Payment) = Transactions only (Outflows are negative)
             const cashOutflow30d = v.transactions.reduce((sum, tx) => sum + Number(tx.amount), 0)
             
             // [HARDENED RULE] Fuel detection: Structured Category as primary source
@@ -101,7 +101,7 @@ export async function getFleetSummary() {
             return {
                 ...v,
                 operationalCost30d,
-                cashOutflow30d: Math.abs(cashOutflow30d), // Use absolute for display if negative
+                cashOutflow30d,
                 latestFuelDate
             }
         }))

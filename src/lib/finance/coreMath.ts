@@ -63,6 +63,38 @@ export function calculateReconciledTotals(
 }
 
 /**
+ * Standardizes raw item data into signed FinancialItems for aggregation.
+ * - INCOME: Net (+), VAT (-), Gross (+)
+ * - COST: Net (-), VAT (+), Gross (-)
+ * - VAT logic: Positive (+) result in totalVat means a REFUND (Good).
+ */
+export function mapToFinancialItem(
+  type: 'INCOME' | 'REVENUE' | 'SPRZEDAŻ' | 'COST' | 'EXPENSE' | 'ZAKUP' | 'WYDATEK',
+  net: number | string | Decimal,
+  vat: number | string | Decimal,
+  gross: number | string | Decimal
+): FinancialItem {
+  const isIncome = ['INCOME', 'REVENUE', 'SPRZEDAŻ', 'PRZYCHÓD'].includes(type.toUpperCase());
+  const n = new Decimal(String(net));
+  const v = new Decimal(String(vat));
+  const g = new Decimal(String(gross));
+
+  if (isIncome) {
+    return {
+      netAmount: n,
+      vatAmount: v.negated(), // Sales VAT is a liability (reduces balance)
+      grossAmount: g
+    };
+  } else {
+    return {
+      netAmount: n.negated(), // Expense reduces net balance
+      vatAmount: v,           // Cost VAT is an asset (increases balance)
+      grossAmount: g.negated()
+    };
+  }
+}
+
+/**
  * Convenience method strictly for string display to preserve minus signs naturally.
  */
 export function formatSignedCurrency(amount: number | string | Decimal): string {

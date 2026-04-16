@@ -95,8 +95,8 @@ export function BankReconciliationHub({ items }: BankReconciliationHubProps) {
     });
 
     const getStatusTag = (item: StagingItem) => {
-        if (item.status === 'SUGGESTED') return <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase">AUTO_MATCHED</span>;
-        return <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase">REQUIRES_ACTION</span>;
+        if (item.status === 'SUGGESTED') return <span className="bg-emerald-400/10 text-emerald-500 px-2 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase border border-emerald-500/20">AUTO_MATCHED</span>;
+        return <span className="bg-amber-400/10 text-amber-600 px-2 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase border border-amber-500/20">REQUIRES_ACTION</span>;
     }
 
     return (
@@ -128,11 +128,11 @@ export function BankReconciliationHub({ items }: BankReconciliationHubProps) {
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-5">
-                                        <div className={`text-lg font-black tracking-tight ${item.amount > 0 ? "text-emerald-500" : "text-slate-900"}`}>
+                                        <div className="text-lg font-black tracking-tight">
                                             <CurrencyDisplay gross={item.amount} />
                                         </div>
                                         {item.status === 'SUGGESTED' ? (
-                                            <Button size="icon" className="w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 shadow-md text-white" disabled={processingId === item.id} onClick={() => handleConfirm(item)}>
+                                            <Button size="icon" className="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-700 shadow-md text-white transition-all active:scale-95" disabled={processingId === item.id} onClick={() => handleConfirm(item)}>
                                                 {processingId === item.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-5 h-5" />}
                                             </Button>
                                         ) : (
@@ -160,7 +160,7 @@ export function BankReconciliationHub({ items }: BankReconciliationHubProps) {
                                         <p className="text-xs text-slate-500 font-medium">Auto-grupowanie: {data.noise.items.length} operacji</p>
                                     </div>
                                     <div className="flex items-center gap-5">
-                                        <div className={`text-lg font-black tracking-tight ${data.noise.total > 0 ? "text-emerald-500" : "text-slate-500"}`}>
+                                        <div className="text-lg font-black tracking-tight">
                                             <CurrencyDisplay gross={data.noise.total} />
                                         </div>
                                         <Button variant="ghost" size="icon" className="w-10 h-10 rounded-full text-slate-400">
@@ -178,7 +178,7 @@ export function BankReconciliationHub({ items }: BankReconciliationHubProps) {
                                                     <p className="text-[10px] text-slate-400 truncate">{item.title}</p>
                                                 </div>
                                                 <div className="flex items-center gap-4">
-                                                    <div className={`text-sm font-bold ${item.amount > 0 ? "text-emerald-500" : "text-slate-600"}`}>
+                                                    <div className="text-sm font-bold">
                                                         <CurrencyDisplay gross={item.amount} />
                                                     </div>
                                                     <Button size="icon" variant="ghost" className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-600" disabled={processingId === item.id} onClick={() => handleCreateOnTheFly(item)}>

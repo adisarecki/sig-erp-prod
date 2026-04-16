@@ -195,7 +195,7 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
                         </Button>
                     </div>
                     {syncMessage && (
-                        <p className={`text-xs font-bold w-full text-right ${syncMessage.includes("Błąd") ? "text-red-500" : "text-green-600"}`}>
+                        <p className={`text-xs font-bold w-full text-right ${syncMessage.includes("Błąd") ? "text-rose-500" : "text-emerald-600"}`}>
                             {syncMessage}
                         </p>
                     )}
@@ -257,7 +257,7 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
                                                     </span>
                                                 )}
                                                 {inv.status === 'XML_MISSING' && (
-                                                    <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 flex items-center gap-1" title="Brak detali XML. Kliknij Pobierz XML, aby dociągnąć konto bankowe.">
+                                                    <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 flex items-center gap-1" title="Brak detali XML. Kliknij Pobierz XML, aby dociągnąć konto bankowe.">
                                                         <ShieldAlert className="w-3 h-3" /> Brak XML
                                                     </span>
                                                 )}
@@ -278,7 +278,7 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
                                                 const isSameDay = issueDate === dueDate;
                                                 const isPaid = inv.paymentStatus === 'PAID';
                                                 
-                                                let badgeClass = "bg-orange-100 text-orange-700";
+                                                let badgeClass = "bg-rose-100 text-rose-700";
                                                 let label = "Zaległa";
 
                                                 if (isPaid) {
@@ -344,8 +344,8 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
                             </div>
                         )}
                         {pendingContractors.map(c => (
-                            <div key={c.id} className="border-2 border-orange-200 bg-orange-50/30 rounded-2xl p-6 relative">
-                                <div className="absolute top-4 right-4 text-orange-300">
+                            <div key={c.id} className="border-2 border-amber-200 bg-amber-50/30 rounded-2xl p-6 relative">
+                                <div className="absolute top-4 right-4 text-amber-300">
                                     <ShieldAlert />
                                 </div>
                                 <h3 className="font-bold text-slate-900 pr-8">{c.name}</h3>
@@ -353,7 +353,7 @@ export function KSeFInboxClient({ initialInvoices, pendingContractors }: { initi
                                 <p className="text-xs text-slate-600 mt-2 line-clamp-2">{c.address || "Brak adresu w dokumencie KSeF"}</p>
                                 
                                 {c.bankAccounts && c.bankAccounts.length > 0 && (
-                                    <div className="mt-4 pt-4 border-t border-orange-200/50">
+                                    <div className="mt-4 pt-4 border-t border-amber-200/50">
                                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Znalezione konta KSeF (IBAN)</p>
                                         <div className="space-y-1">
                                             {c.bankAccounts.map((acc: string, idx: number) => (

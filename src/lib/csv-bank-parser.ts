@@ -68,7 +68,7 @@ export class CSVBankParser {
                 title: normalizedTitle,
                 description: col5,
                 typeDescription: typeDescription,
-                reference: `PKO-CSV-${index}-${rawDate}-${Math.abs(amountVal.toNumber())}`
+                reference: `PKO-CSV-${index}-${rawDate}-${amountVal.toNumber()}`
             };
         });
     }

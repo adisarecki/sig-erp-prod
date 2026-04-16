@@ -3,6 +3,7 @@ import { getAssetSummary } from "@/app/actions/assets"
 import { Truck, Wrench, Fuel, DollarSign, User, Calendar, MapPin, Tag, Activity, AlertTriangle } from "lucide-react"
 import { format } from "date-fns"
 import { pl } from "date-fns/locale"
+import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 
 export default async function FleetAndToolsPage() {
     const fleetResult = await getFleetSummary()
@@ -47,7 +48,7 @@ export default async function FleetAndToolsPage() {
                                     v.status === 'SERVICE' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 
                                     'bg-rose-500/10 text-rose-500 border border-rose-500/20'
                                 }`}>
-                                    {v.status === 'ACTIVE' ? 'Aktywny' : v.status === 'SERVICE' ? 'Serwis' : 'Niektywny'}
+                                    {v.status === 'ACTIVE' ? 'Aktywny' : v.status === 'SERVICE' ? 'Serwis' : 'Nieaktywny'}
                                 </div>
                             </div>
                             
@@ -63,30 +64,30 @@ export default async function FleetAndToolsPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <div className="flex items-center justify-between p-2 bg-blue-500/5 rounded-lg border border-blue-500/10">
+                                    <div className="flex items-center justify-between p-2 bg-rose-500/5 rounded-lg border border-rose-500/10">
                                         <div className="flex items-center space-x-2">
-                                            <Tag className="w-3.5 h-3.5 text-blue-400" />
+                                            <Tag className="w-3.5 h-3.5 text-rose-400" />
                                             <span className="text-xs text-slate-400">Koszt operacyjny (30 dni)</span>
                                         </div>
-                                        <span className="text-sm font-bold text-blue-400">
-                                            {v.operationalCost30d?.toLocaleString('pl-PL', { style: 'currency', currency: 'PLN' }) || '0,00 zł'}
-                                        </span>
+                                        <div className="font-bold">
+                                            <CurrencyDisplay gross={v.operationalCost30d} net={v.operationalCost30d} intent="cost" />
+                                        </div>
                                     </div>
 
-                                    <div className="flex items-center justify-between p-2 bg-emerald-500/5 rounded-lg border border-emerald-500/10 relative overflow-hidden">
+                                    <div className="flex items-center justify-between p-2 bg-rose-500/5 rounded-lg border border-rose-500/10 relative overflow-hidden">
                                         <div className="flex items-center space-x-2">
-                                            <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                                            <DollarSign className="w-3.5 h-3.5 text-rose-400" />
                                             <span className="text-xs text-slate-400">Wypływ gotówki (30 dni)</span>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            {v.operationalCost30d > 0 && v.cashOutflow30d === 0 && (
+                                            {v.operationalCost30d !== 0 && v.cashOutflow30d === 0 && (
                                                 <div title="Wykryto faktury bez przypisanych płatności (Cash Flow Miss)" className="cursor-help transition-transform hover:scale-110">
-                                                    <AlertTriangle className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+                                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
                                                 </div>
                                             )}
-                                            <span className="text-sm font-bold text-emerald-400">
-                                                {v.cashOutflow30d?.toLocaleString('pl-PL', { style: 'currency', currency: 'PLN' }) || '0,00 zł'}
-                                            </span>
+                                            <div className="font-bold">
+                                                <CurrencyDisplay gross={v.cashOutflow30d} net={v.cashOutflow30d} intent="cost" />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -132,11 +133,15 @@ export default async function FleetAndToolsPage() {
                                     <div className="pt-4 border-t border-slate-800/50 space-y-2">
                                         <div className="flex justify-between text-[10px]">
                                             <span className="text-slate-500 uppercase">Koszt (30d):</span>
-                                            <span className="text-blue-400 font-bold">{a.operationalCost30d?.toLocaleString('pl-PL', { style: 'currency', currency: 'PLN' })}</span>
+                                            <div className="font-bold">
+                                                <CurrencyDisplay gross={a.operationalCost30d} net={a.operationalCost30d} intent="cost" />
+                                            </div>
                                         </div>
                                         <div className="flex justify-between text-[10px]">
                                             <span className="text-slate-500 uppercase">Wypływ (30d):</span>
-                                            <span className="text-emerald-400 font-bold">{a.cashOutflow30d?.toLocaleString('pl-PL', { style: 'currency', currency: 'PLN' })}</span>
+                                            <div className="font-bold">
+                                                <CurrencyDisplay gross={a.cashOutflow30d} net={a.cashOutflow30d} intent="cost" />
+                                            </div>
                                         </div>
                                     </div>
 

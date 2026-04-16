@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback, useEffect } from "react"
+import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog"
@@ -18,6 +18,7 @@ import { getAutoMatchData, addCostInvoice, addIncomeInvoice, checkDuplicateInvoi
 import { getProjects } from "@/app/actions/projects"
 import { getContractors, autoCreateContractorWithGus } from "@/app/actions/crm"
 import { COST_CATEGORIES } from "@/lib/categories"
+import { calculateReconciledTotals, mapToFinancialItem } from "@/lib/finance/coreMath"
 
 interface QueueItem extends OcrInvoiceData {
     id: string
@@ -335,22 +336,29 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
     const currentEditingItem = editingIndex !== null ? queue[editingIndex] : null
     const someValid = queue.some(i => i.status === "VALID")
 
-    const liveSummary = queue.reduce((acc, item) => {
-        const net = parseFloat(String(item.netAmount || "0").replace(',', '.').replace(/[^0-9.]/g, '') || "0")
-        const vat = parseFloat(String(item.vatAmount || "0").replace(',', '.').replace(/[^0-9.]/g, '') || "0")
-        if (item.type === "INCOME") {
-            acc.netIncome += net
-            acc.vatIncome += vat
-        } else if (item.type === "COST" || item.type === "UNRECOGNIZED_ENTITY") {
-            acc.netCost += net
-            acc.vatCost += vat
-        }
-        return acc
-    }, { netIncome: 0, vatIncome: 0, netCost: 0, vatCost: 0 })
+    // ─── VECTOR 200.25: HARDENED SIGNED MATH SUMMARY ──────────────────────────
+    const liveSummary = useMemo(() => {
+        if (queue.length === 0) return { vatSaldo: 0, citEstimate: 0, totalNet: 0 };
+        
+        // Vector 200: Use central mapping to ensure signed symmetry
+        const signedItems = queue.map(item => mapToFinancialItem(
+            item.type as any,
+            item.netAmount,
+            item.vatAmount,
+            item.grossAmount
+        ));
+        
+        const totals = calculateReconciledTotals(signedItems);
+        
+        return {
+            vatSaldo: totals.totalVat,
+            citEstimate: totals.estimatedCit,
+            totalNet: totals.totalNet
+        };
+    }, [queue]);
 
-    const vatSaldo = liveSummary.vatIncome - liveSummary.vatCost
-    const isVatAsset = vatSaldo < 0 
-    const citEstimate = (liveSummary.netIncome - liveSummary.netCost) * 0.09
+    const { vatSaldo, citEstimate } = liveSummary;
+    const isVatAsset = vatSaldo > 0; 
 
     return (
         <Dialog open={open} onOpenChange={(val) => { setOpen(val); if (!val) resetState(); }}>
@@ -367,15 +375,16 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                             {scannerState === "INBOX" ? `Kolejka Skanów (${queue.length})` : "Szybki Skan / Ingestion"}
                         </span>
                         {scannerState === "INBOX" && (
-                            <div className="flex gap-4 items-center">
-                                <div className={`flex flex-col items-end px-4 py-1.5 rounded-lg border ${isVatAsset ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
-                                    <span className={`text-[10px] font-bold uppercase tracking-tighter ${isVatAsset ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                        {isVatAsset ? 'NADPLATA / ZWROT (Bezpieczna strona mocy 🟢)' : 'DO ZAPLATY (Mamy problem 🔴)'}
+                                <div className={`flex flex-col items-end px-4 py-1.5 rounded-lg border ${vatSaldo > 0 ? 'bg-cyan-50 border-cyan-200' : 'bg-rose-50 border-rose-200'}`}>
+                                    <span className={`text-[10px] font-bold uppercase tracking-tighter ${vatSaldo > 0 ? 'text-cyan-700' : 'text-rose-700'}`}>
+                                        {vatSaldo > 0 ? 'NADPŁATA / ZWROT (Tarcza Fiskalna 🛡️)' : 'DO ZAPŁATY (Zobowiązanie 🔴)'}
                                     </span>
-                                    <span className={`text-lg font-black leading-tight ${isVatAsset ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                        {Math.abs(vatSaldo).toFixed(2)} PLN
-                                    </span>
+                                    <div className="text-lg font-black leading-tight">
+                                        <CurrencyDisplay gross={vatSaldo} net={vatSaldo} intent={vatSaldo > 0 ? "tax-shield" : "cost"} hideSign={false} />
+                                    </div>
                                 </div>
+                        )}
+                        {scannerState === "INBOX" && (
                                 <div className="flex flex-col gap-1">
                                     <Button variant="outline" size="sm" onClick={() => validateQueue(queue)} className="text-[9px] h-7 uppercase font-bold tracking-tight">
                                         Re-Waliduj
@@ -384,7 +393,6 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                                         Zatwierdź Wszystkie
                                     </Button>
                                 </div>
-                            </div>
                         )}
                     </DialogTitle>
                     <DialogDescription>
@@ -397,15 +405,25 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                         <div className="flex gap-6">
                             <div>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">VAT Saldo</p>
-                                <p className={`text-sm font-black ${vatSaldo < 0 ? 'text-emerald-500' : 'text-rose-600'}`}>
-                                    {vatSaldo > 0 ? '+' : ''}{vatSaldo.toFixed(2)} PLN
-                                </p>
+                                <div className="text-sm font-black">
+                                    <CurrencyDisplay 
+                                        gross={vatSaldo} 
+                                        net={vatSaldo} 
+                                        intent={vatSaldo > 0 ? "tax-shield" : "cost"} 
+                                        className="text-sm"
+                                    />
+                                </div>
                             </div>
                             <div>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Estymowany CIT (9%)</p>
-                                <p className={`text-sm font-black ${citEstimate < 0 ? 'text-cyan-500' : 'text-rose-600'}`}>
-                                    {citEstimate > 0 ? '+' : ''}{citEstimate.toFixed(2)} PLN
-                                </p>
+                                <div className="text-sm font-black">
+                                    <CurrencyDisplay 
+                                        gross={citEstimate} 
+                                        net={citEstimate} 
+                                        intent={citEstimate > 0 ? "cost" : "tax-shield"} 
+                                        className="text-sm"
+                                    />
+                                </div>
                             </div>
                             <div>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Liczba Faktur</p>
@@ -450,8 +468,8 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             {queue.map((item, idx) => (
                                 <div key={item.id} className={`group relative p-4 rounded-2xl border-2 transition-all hover:shadow-md ${
-                                    item.isDuplicate ? 'border-orange-400 bg-orange-50/30' :
-                                    item.status === "ERROR" ? 'border-red-200 bg-red-50/30' : 
+                                    item.isDuplicate ? 'border-amber-400 bg-amber-50/30' :
+                                    item.status === "ERROR" ? 'border-rose-200 bg-rose-50/30' : 
                                     item.status === "SUCCESS" ? 'border-emerald-200 bg-emerald-50/30' : 
                                     (item.autoMatched?.category || item.autoMatched?.project) ? 'border-emerald-100 bg-emerald-50/10 shadow-sm' : 
                                     'border-slate-100 bg-white'
@@ -494,10 +512,12 @@ export function InvoiceScanner({ vehicles = [] }: { vehicles?: Vehicle[] }) {
                                                 <span className="text-[10px] text-slate-400 font-mono">{item.nip}</span>
                                             </div>
                                             <div className="text-right">
-                                                <div className="font-bold text-lg text-slate-900 leading-none">{item.netAmount} PLN</div>
-                                                <div className="text-[10px] text-slate-500 font-medium mt-1">
-                                                    VAT: {item.vatAmount} | BRUTTO: {item.grossAmount}
-                                                </div>
+                                                <CurrencyDisplay 
+                                                    gross={item.grossAmount} 
+                                                    net={item.netAmount} 
+                                                    intent={item.type === "INCOME" ? "income" : "cost"} 
+                                                    className="text-lg"
+                                                />
                                                 <div className="text-[9px] text-slate-400 mt-1 uppercase tracking-tighter">{item.issueDate}</div>
                                             </div>
                                         </div>

@@ -79,7 +79,7 @@ export async function scanForLeaks(tenantId: string): Promise<LeakageAlert[]> {
             id: `missing-inv-${bt.id}`,
             type: "MISSING_INVOICE",
             title: "Zgubiony koszt (Brak faktury)",
-            description: `Wydatek z konta bankowego (${Math.abs(Number(bt.rawAmount)).toFixed(2)} PLN) nie posiada przypisanej faktury ani transakcji w systemie.`,
+            description: `Wydatek z konta bankowego (${Number(bt.rawAmount).toFixed(2)} PLN) nie posiada przypisanej faktury ani transakcji w systemie.`,
             severity: "WARNING",
             entityId: bt.id
         })

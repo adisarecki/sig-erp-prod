@@ -3,7 +3,8 @@ import prisma from "@/lib/prisma"
 export const dynamic = "force-dynamic";
 import { AssetsTable } from "@/components/assets/AssetsTable"
 import { Button } from "@/components/ui/button"
-import { Plus, PackageSearch, TrendingDown, ClipboardCheck } from "lucide-react"
+import { Plus, PackageSearch, Coins, ClipboardCheck } from "lucide-react"
+import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 
 export default async function AssetsPage() {
     const tenantId = await getCurrentTenantId()
@@ -44,13 +45,13 @@ export default async function AssetsPage() {
 
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
                     <div className="p-4 bg-emerald-50 rounded-2xl text-emerald-600 shadow-inner">
-                        <TrendingDown className="w-6 h-6" />
+                        <Coins className="w-6 h-6" />
                     </div>
                     <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-0.5">Wartość Zakupu (Netto)</p>
-                        <p className="text-2xl font-black text-slate-900">
-                            {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(totalValue)}
-                        </p>
+                        <div className="text-2xl font-black text-slate-900">
+                            <CurrencyDisplay gross={totalValue} net={totalValue} isIncome={true} hideSign={true} className="text-slate-900" />
+                        </div>
                     </div>
                 </div>
 

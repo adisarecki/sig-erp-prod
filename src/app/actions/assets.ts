@@ -96,7 +96,7 @@ export async function getAssetSummary() {
             return {
                 ...a,
                 operationalCost30d,
-                cashOutflow30d: Math.abs(cashOutflow30d),
+                cashOutflow30d: cashOutflow30d,
                 lastCostDate
             }
         })
