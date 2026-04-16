@@ -89,6 +89,8 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
 | Vector 180 | Finance / Audit | FIXED | Universal Ingestion Hardening & Audit Vault. | Wdrożono izolację `isAudit` dla faktur i zapisów księgowych. Implementacja Skanera z Anchor NIP routingiem, detekcją duplikatów (NIP+Kwota) i atomicznym commitowaniem do Audytu. |
 | Vector 180.9 | Finance / UI | FIXED | UI/UX Refurbishment & Fiscal Hardening. | Refaktoryzacja Skanera na 'Net-First', automatyczna izolacja rocznika 2025 (Audit Shield), badgowanie floty (Vehicle Link) i nowa logika kolorystyczna paska VAT Saldo. |
 | Vector 180.11 | Finance / UI | FIXED | Investigation Mode & Auto-Verification. | Implementacja 'Pewniak' (High-Confidence Auto-Verify), persistent sessions (Append mode) w Skanerze, i recalibracja kolorów fiskalnych (Emerald/Cyan). |
+| Vector 200 | Finance / Logic | FIXED | Hardened Signed Math & Collision Engine. | Wdrożono rygorystyczną obsługę znaków (Signed Math) dla faktur korygujących. Implementacja 3-stopniowego silnika detekcji kolizji (Duplicate/Same-day/Temporal). |
+| Vector 300 | AI / Architecture | FIXED | OpenAI Audit Endpoint (Expert Diagnostic). | Implementacja bezpiecznego endpointu `/api/ai/audit` dla diagnostyki architektonicznej. Wdrożono PG-First Strategy i sanitację danych Red-Flag. |
 
 ---
 
@@ -143,4 +145,18 @@ Ten plik zawiera szczegółową historię zmian technicznych (Wektory) dla progr
     - Recalibracja kolorystyczna: Emerald Green (`#10b981`) dla nadpłat VAT i Cyan Blue (`#06b6d4`) dla estymowanych strat CIT (aktywa podatkowe).
     - Dokumentacja 'Investigation Session' w Glosariuszu.
 
-*Ostatnia aktywność techniczna: 2026-04-15. Build Verified (TSC: OK). Vector 180.11 operationalized.*
+### 2026-04-16 (Vector 200 & Vector 300)
+- **Vector 200**: **Hardened Signed Math & Collision Engine**:
+    - **Vector 200.30/200.50**: Wdrożono 3-poziomową detekcję kolizji (NIP + Numer + Data + Kwota).
+    - **Vector 200.99**: Bezwzględne wymuszenie ujemnych znaków dla korekt (Signed Math). Usunięto błędy wynikające z użycia `Math.abs()` w podsumowaniach.
+    - **Vector 200.51**: Mechanizm `repairSessionSigns` – automatyczna naprawa błędnych znaków podczas generowania podsumowań sesji.
+    - Centralizacja obliczeń w `coreMath.ts` dla wszystkich typów transakcji w sesji audytowej.
+
+- **Vector 300**: **OpenAI Audit Endpoint (Expert Diagnostic)**:
+    - Utworzono bezpieczny, serwerowy endpoint `/api/ai/audit` (restricted to Founder Whitelist).
+    - Zaimplementowano `auditService.ts` z silnikiem sanitacji Red-Flag (ukrywanie kluczy API, haseł DB).
+    - Wdrożono **PG-First Strategy**: Auditor AI priorytetyzuje dane z PostgreSQL (Ledger) ponad Firestore.
+    - Implementacja logowania technicznego wszystkich zapytań audytowych do tabeli `AuditLog` w PostgreSQL.
+    - Integracja z OpenAI SDK z automatycznym fallbackiem modelu (gpt-4o).
+
+*Ostatnia aktywność techniczna: 2026-04-16. Build Verified (TSC: OK). Vector 200 & 300 operationalized.*

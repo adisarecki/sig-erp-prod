@@ -80,7 +80,8 @@ export default async function DashboardPage({
     legacyDebtsSnap,
     projectStagesSnap,
     contractorsSnap,
-    retentionsSnap
+    retentionsSnap,
+    vehiclesSnap
   ] = await Promise.all([
     adminDb.collection("projects").where("tenantId", "==", tenantId).where("lifecycleStatus", "==", "ACTIVE").get(),
     adminDb.collection("transactions").where("tenantId", "==", tenantId).where("status", "==", "ACTIVE").get(),
@@ -89,7 +90,8 @@ export default async function DashboardPage({
     adminDb.collection("legacy_debts").where("tenantId", "==", tenantId).get(),
     adminDb.collection("project_stages").get(),
     adminDb.collection("contractors").where("tenantId", "==", tenantId).get(),
-    adminDb.collection("retentions").where("tenantId", "==", tenantId).get()
+    adminDb.collection("retentions").where("tenantId", "==", tenantId).get(),
+    adminDb.collection("vehicles").where("tenantId", "==", tenantId).get()
   ])
 
   const projects = projectsSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
@@ -100,6 +102,7 @@ export default async function DashboardPage({
   const allStages = projectStagesSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
   const contractors = contractorsSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
   const retentions = retentionsSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
+  const vehicles = vehiclesSnap.docs.map(d => ({ id: d.id, ...d.data() as any }))
 
   const enrichmentNotifications = await (prisma as any).notification.findMany({
     where: {
@@ -412,6 +415,7 @@ export default async function DashboardPage({
           <QuickActionsBar
             projects={projects.map(p => ({ id: p.id, name: p.name }))}
             contractors={contractors}
+            vehicles={vehicles}
           />
         </div>
       </div>

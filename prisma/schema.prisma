@@ -807,6 +807,8 @@ model AuditInvoiceItem {
   // Discrepancy Tracking
   flaggedAsDiscrepancy Boolean          @default(false)
   discrepancyReason String?
+  isAutoVerified    Boolean             @default(false)
+  autoVerifyReason  String?
   duplicateOf       String?             // If this is flagged as duplicate, reference to the original
   
   createdAt         DateTime            @default(now())

@@ -5,15 +5,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { AuditSessionService, ReportGeneratorService, VerificationEngine } from "@/lib/audit";
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
     const { tenantId } = await request.json();
-    const { sessionId } = params;
+    const { sessionId } = await params;
 
     if (!tenantId) {
       return NextResponse.json(
@@ -53,7 +53,7 @@ export async function POST(
         duplicateCount: report.duplicateCount,
         unrecognizedNipCount: report.unrecognizedNipCount,
         failedVerificationCount: report.failedVerificationCount,
-        discrepancyCount: report.discrepancyLog?.length || 0,
+        discrepancyCount: (report.discrepancyLog as any[])?.length || 0,
       },
       detectedDuplicates: duplicates.length,
     });

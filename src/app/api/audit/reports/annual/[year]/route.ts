@@ -8,10 +8,10 @@ import { ReportGeneratorService } from "@/lib/audit";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { year: string } }
+  { params }: { params: Promise<{ year: string }> }
 ) {
   try {
-    const { year } = params;
+    const { year } = await params;
     const tenantId = request.nextUrl.searchParams.get("tenantId");
 
     if (!tenantId || !year) {

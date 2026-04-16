@@ -5,10 +5,10 @@ const OWNER_NIP = '9542751368';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { ksefNumber: string } }
+    { params }: { params: Promise<{ ksefNumber: string }> }
 ) {
+    const { ksefNumber } = await params;
     try {
-        const ksefNumber = params.ksefNumber;
         const ksefSvc = new KSeFService();
 
         // 1. Session Handshake (v2.0)
@@ -26,7 +26,7 @@ export async function GET(
 
 
     } catch (error: any) {
-        console.error(`[KSeF_API_DETAILS] Error for ${params.ksefNumber}:`, error);
+        console.error(`[KSeF_API_DETAILS] Error for ${ksefNumber}:`, error);
         return NextResponse.json(
             { error: error.message || 'Błąd podczas pobierania detali faktury z KSeF' },
             { status: 500 }

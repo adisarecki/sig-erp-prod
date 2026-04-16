@@ -8,7 +8,7 @@ import { Prisma } from "@prisma/client";
 import Decimal from "decimal.js";
 import { autoCreateContractorWithGus } from "@/app/actions/crm";
 import { AuditSessionConfig, AuditInvoiceItemInput, LiveSummary, FiscalAggregates } from "./types";
-import { FiscalCalculatorService } from "./FiscalCalculatorService";
+import { FiscalCalculatorService } from "./fiscalCalculatorService";
 import { calculateReconciledTotals } from "../finance/coreMath";
 
 export class AuditSessionService {

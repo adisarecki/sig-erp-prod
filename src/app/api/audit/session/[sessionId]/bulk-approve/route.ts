@@ -9,11 +9,11 @@ import prisma from "@/lib/prisma";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
     const { tenantId } = await request.json();
-    const { sessionId } = params;
+    const { sessionId } = await params;
 
     if (!tenantId) {
       return NextResponse.json(

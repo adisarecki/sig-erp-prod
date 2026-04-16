@@ -9,11 +9,11 @@ import Decimal from "decimal.js";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
     const { tenantId, items } = await request.json();
-    const { sessionId } = params;
+    const { sessionId } = await params;
 
     if (!tenantId || !items || !Array.isArray(items)) {
       return NextResponse.json(

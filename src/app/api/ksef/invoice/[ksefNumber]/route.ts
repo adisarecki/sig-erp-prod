@@ -3,10 +3,10 @@ import { KSeFService } from '@/lib/ksef/ksefService';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { ksefNumber: string } }
+    { params }: { params: Promise<{ ksefNumber: string }> }
 ) {
+    const { ksefNumber } = await params;
     try {
-        const ksefNumber = params.ksefNumber;
         const ksefSvc = new KSeFService();
 
         // Fetch & Parse (Direct Token from .env)
@@ -19,7 +19,7 @@ export async function GET(
         });
 
     } catch (error: any) {
-        console.error(`[KSeF_API_INVOICE_ALIAS] Error for ${params.ksefNumber}:`, error.message);
+        console.error(`[KSeF_API_INVOICE_ALIAS] Error for ${ksefNumber}:`, error.message);
         return NextResponse.json(
             { error: error.message || 'Błąd podczas pobierania faktury z KSeF' },
             { status: 500 }

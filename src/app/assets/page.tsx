@@ -10,11 +10,11 @@ export default async function AssetsPage() {
     
     const assets = await prisma.asset.findMany({
         where: { tenantId },
-        orderBy: { purchaseDate: 'desc' },
-        include: { contractor: true }
+        orderBy: { createdAt: 'desc' },
+        include: { contractor: true, purchasedWith: true }
     })
 
-    const totalValue = assets.reduce((sum: number, a: any) => sum + Number(a.purchaseNet), 0)
+    const totalValue = assets.reduce((sum: number, a: any) => sum + Number(a.purchasedWith?.amountNet || 0), 0)
     const activeCount = assets.filter((a: any) => a.status === 'ACTIVE').length
 
     return (

@@ -65,6 +65,27 @@ export function AuditSessionProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const updateLiveSummary = useCallback(
+    async () => {
+      if (!sessionId || !tenantId) return;
+
+      try {
+        const response = await fetch(
+          `/api/audit/session/${sessionId}?tenantId=${tenantId}`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setLiveSummary(data.liveSummary);
+          setSession(data.session);
+        }
+      } catch (err) {
+        console.error("Failed to update live summary", err);
+      }
+    },
+    [sessionId, tenantId]
+  );
+
   const uploadItems = useCallback(
     async (items: any[]) => {
       if (!sessionId || !tenantId) throw new Error("No active session");
@@ -126,28 +147,7 @@ export function AuditSessionProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     },
-    [sessionId, tenantId]
-  );
-
-  const updateLiveSummary = useCallback(
-    async () => {
-      if (!sessionId || !tenantId) return;
-
-      try {
-        const response = await fetch(
-          `/api/audit/session/${sessionId}?tenantId=${tenantId}`
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          setLiveSummary(data.liveSummary);
-          setSession(data.session);
-        }
-      } catch (err) {
-        console.error("Failed to update live summary", err);
-      }
-    },
-    [sessionId, tenantId]
+    [sessionId, tenantId, updateLiveSummary]
   );
 
   const finalizeSession = useCallback(

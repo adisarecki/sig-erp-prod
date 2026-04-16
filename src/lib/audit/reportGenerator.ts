@@ -104,7 +104,7 @@ export class ReportGeneratorService {
     const reportData: AuditReportData = {
       period,
       fiscalYear,
-      fiscalMonth,
+      fiscalMonth: fiscalMonth ?? undefined,
       totalNetAmount: netAmount,
       totalVatAmount: vatAmount,
       totalGrossAmount: grossAmount,
@@ -138,7 +138,7 @@ export class ReportGeneratorService {
         )!.tenantId,
         period: reportData.period,
         fiscalYear: reportData.fiscalYear,
-        fiscalMonth: reportData.fiscalMonth,
+        fiscalMonth: reportData.fiscalMonth ?? undefined,
         totalNetAmount: reportData.totalNetAmount.toDP(2),
         totalVatAmount: reportData.totalVatAmount.toDP(2),
         totalGrossAmount: reportData.totalGrossAmount.toDP(2),
@@ -150,8 +150,8 @@ export class ReportGeneratorService {
         duplicateCount: reportData.duplicateCount,
         unrecognizedNipCount: reportData.unrecognizedNipCount,
         failedVerificationCount: reportData.failedVerificationCount,
-        discrepancyLog: reportData.discrepancyLog,
-        monthlyBreakdown: reportData.monthlyBreakdown,
+        discrepancyLog: reportData.discrepancyLog as any,
+        monthlyBreakdown: reportData.monthlyBreakdown as any,
         isFinalized: true,
         finalizedAt: new Date(),
       },
@@ -261,12 +261,12 @@ export class ReportGeneratorService {
 
       if (report.discrepancyLog) {
         allDiscrepancies.push(
-          ...(report.discrepancyLog as DiscrepancyRecord[])
+          ...(report.discrepancyLog as unknown as DiscrepancyRecord[])
         );
       }
 
       if (report.monthlyBreakdown) {
-        allMonthly.push(...(report.monthlyBreakdown as MonthlyReportSummary[]));
+        allMonthly.push(...(report.monthlyBreakdown as unknown as MonthlyReportSummary[]));
       }
     });
 

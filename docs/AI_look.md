@@ -214,6 +214,7 @@ Obliczony dla MAKSYMALNEGO bezpieczeństwa: `Saldo Bankowe - Dług VAT - Rezerwa
 | **170** | Fleet & Asset Registry | Specialized models for Vehicles and Tools, unit-level cost tracking, operational dashboard. |
 | **200.50** | Correction Model | Structured Adjustment Model (Before/After/Delta) for Faktura Korygująca documents. |
 | **200.99** | Central Math Core | Centralized signed math engine (coreMath.ts) to prevent sign-loss and math drift. |
+| **300** | AI Audit Endpoint | Secure, server-side expert diagnostic engine with Red-Flag sanitization (Vector 300). |
 
 ---
 
@@ -413,4 +414,13 @@ System SIG ERP posługuje się precyzyjną terminologią biznesową, aby AI nie 
 4. **Sign Integrity**: `getDelta` logic ensures that even if OCR misses the sign, the delta is calculated as `After - Before` to preserve fiscal truth.
 
 ---
-*Plik utrzymywany przez Antigravity dla kolejnych sesji AI. Ostatnia aktualizacja: 2026-04-16 (Vector 200.50 - STRUCTURED CORRECTION MODEL).*
+## 🔍 13. Vector 300: Secure AI Audit Endpoint
+
+### Architectural Integrity Rules:
+1. **Rule A — Expert Isolation**: The Audit Endpoint (`/api/ai/audit`) is a isolated, server-side diagnostic layer. It does NOT modify data directly but provides architectural reports.
+2. **Rule B — Red-Flag Sanitization**: All contextual data (logs, code, docs) MUST pass through the `sanitizeAuditContext` filter to redact API keys and DB credentials before reaching the LLM.
+3. **Rule C — PG-First Diagnostic**: The auditor prioritizes `LedgerEntry` summaries from PostgreSQL to identify drifts in the Mirroring (Firestore) system.
+4. **Rule D — Restricted Access**: Endpoint restricted via Auth-Whitelist (Founder/Admin only) to prevent prompt injection or data leakage.
+
+---
+*Plik utrzymywany przez Antigravity dla kolejnych sesji AI. Ostatnia aktualizacja: 2026-04-16 (Vector 300 - SECURE AI AUDIT ENDPOINT).*

@@ -8,10 +8,10 @@ import { AuditSessionService } from "@/lib/audit";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
-    const { sessionId } = params;
+    const { sessionId } = await params;
     const tenantId = request.nextUrl.searchParams.get("tenantId");
 
     if (!tenantId) {

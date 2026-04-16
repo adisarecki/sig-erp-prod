@@ -23,9 +23,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { formatPln } from "@/lib/utils"
 
-export default async function AssetDetailsPage({ params }: { params: { id: string } }) {
+export default async function AssetDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const asset = await db.asset.findUnique({
-        where: { id: params.id },
+        where: { id },
         include: {
             project: true,
             contractor: true,
@@ -36,7 +37,7 @@ export default async function AssetDetailsPage({ params }: { params: { id: strin
     if (!asset) return notFound()
 
     const audit = await db.syncAuditRecord.findUnique({
-        where: { entityType_entityId: { entityType: 'asset', entityId: params.id } }
+        where: { entityType_entityId: { entityType: 'asset', entityId: id } }
     })
 
     const categoryIcons = {

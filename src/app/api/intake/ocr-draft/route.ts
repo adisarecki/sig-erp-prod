@@ -51,6 +51,11 @@ export async function POST(request: NextRequest) {
         }, { status: 422 })
     }
 
+    const data = validation.data
+    let netAmountCents = 0
+    let grossAmountCents = 0
+    let vatAmountCents = 0
+
     try {
         const safeNet = data.netAmount || "0"
         const safeGross = data.grossAmount || "0"
