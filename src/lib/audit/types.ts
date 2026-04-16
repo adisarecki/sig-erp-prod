@@ -12,6 +12,8 @@ export interface AuditSessionConfig {
   sourceMonth?: number;
 }
 
+export type RecordContext = "OPERATIONAL" | "AUDIT_SESSION";
+
 export interface AuditInvoiceItemInput {
   invoiceNumber: string;
   issueDate: Date;
@@ -26,9 +28,11 @@ export interface AuditInvoiceItemInput {
   licensePlate?: string;
   category?: string;
   projectId?: string;
+  transactionType?: string;
   correctionReference?: string;
   correctionGroup?: string;
   isCorrection?: boolean;
+  linkedInvoiceId?: string;
 }
 
 export interface AuditItemVerificationResult {

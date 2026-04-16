@@ -15,7 +15,7 @@ import { getContractors } from "@/app/actions/crm"
 import { getVehicles } from "@/app/actions/fleet"
 
 import { TransactionHistory } from "@/components/finance/TransactionHistory"
-import { mapFinancialValues, FinancialType } from "@/lib/utils/financeMapper"
+import { mapFinancialValues, FinancialType, deepSerialize } from "@/lib/utils/financeMapper"
 import Decimal from "decimal.js"
 import { type Contractor } from "@/lib/types/crm"
 
@@ -52,13 +52,13 @@ export default async function FinancePage({
         leakageAlerts = await scanForLeaks(tenantId)
 
         // Pobieramy projekty z Firestore
-        projectsMap = await getProjects() as any[]
+        projectsMap = deepSerialize(await getProjects() as any[])
 
         // Pobieramy kontrahentów
-        contractorsMap = await getContractors() as any[]
+        contractorsMap = deepSerialize(await getContractors() as any[])
 
         // Pobieramy pojazdy
-        vehicles = await getVehicles()
+        vehicles = deepSerialize(await getVehicles())
 
         // Pobieramy transakcje z Firestore (Bank imports) i Invoices z Prisma (Single Source of Truth)
         const adminDb = getAdminDb()
@@ -68,14 +68,42 @@ export default async function FinancePage({
                 where: { 
                     tenantId,
                     status: { in: ['ACTIVE', 'XML_MISSING', 'PAID'] },
-                    isAudit: showAudit ? undefined : false
+                    recordContext: showAudit ? undefined : 'OPERATIONAL'
                 },
                 include: { contractor: true, vehicle: true },
                 orderBy: { issueDate: 'desc' }
             })
         ])
 
-        const rawTransactions = transactionsSnap.docs.map(d => ({ id: d.id, ...d.data() as any })).filter(t => t.status === "ACTIVE")
+        const rawTransactions = transactionsSnap.docs.map(d => {
+            const data = d.data() as any;
+            // VECTOR 200.5: Recursive normalization for serializability (Firestore Timestamps -> ISO)
+            const normalizeDates = (obj: any): any => {
+                if (!obj || typeof obj !== 'object') return obj;
+                if ('toDate' in obj && typeof obj.toDate === 'function') return obj.toDate().toISOString();
+                if (obj instanceof Date) return obj.toISOString();
+                if (Array.isArray(obj)) return obj.map(normalizeDates);
+                const newObj: any = {};
+                for (const key in obj) {
+                    newObj[key] = normalizeDates(obj[key]);
+                }
+                return newObj;
+            };
+
+            const normalizedData = normalizeDates(data);
+
+            return { 
+                id: d.id, 
+                ...normalizedData,
+                transactionDate: normalizedData.transactionDate || new Date().toISOString()
+            };
+        }).filter(t => {
+            // Apply status filter first
+            if (t.status !== "ACTIVE") return false;
+            // VECTOR 200.5: Audit Shield for Transactions (if they have isAudit property)
+            if (!showAudit && t.isAudit === true) return false;
+            return true;
+        })
         
         // Map Prisma Invoices to the expected internal format for historyItems
         const rawInvoices = prismaInvoices.map(inv => ({
@@ -240,6 +268,32 @@ export default async function FinancePage({
             transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         }
 
+        // PRE-CALCULATE SUMS (DNA Vector 099) - Move out of JSX for error safety
+        let preCalcNet = new Decimal(0);
+        let preCalcVat = new Decimal(0);
+        let preCalcGross = new Decimal(0);
+
+        transactions.forEach(t => {
+            const { signedNet, signedVat, signedGross } = mapFinancialValues(
+                t.amountNet || 0,
+                (t.amount || 0) - (t.amountNet || 0),
+                t.type as FinancialType
+            );
+            preCalcNet = preCalcNet.plus(signedNet);
+            preCalcVat = preCalcVat.plus(signedVat);
+            preCalcGross = preCalcGross.plus(signedGross);
+        });
+
+        const viewSummary = {
+            totalNet: preCalcNet.toNumber(),
+            totalVat: preCalcVat.toNumber(),
+            totalGross: preCalcGross.toNumber()
+        };
+
+        // Final pass: ensure all transactions items are fully serializable for Client Components
+        transactions = deepSerialize(transactions);
+        (global as any).currentViewSummary = viewSummary; // Temporary store or just pass down
+
     } catch (err: any) {
         console.error("Finance Page fetch error:", err)
         fetchError = err.message || "Wystąpił nieoczekiwany błąd podczas pobierania danych z bazy."
@@ -259,7 +313,7 @@ export default async function FinancePage({
                         variant="outline"
                         className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                     />
-                    <Link href="/finanse/import" className="bg-white border text-blue-600 hover:bg-blue-50 hover:border-blue-200 border-slate-200 px-4 py-2 rounded-md font-medium transition cursor-pointer shadow-sm">
+                    <Link href={`/finanse/import${showAudit ? '?audit=true' : ''}`} className="bg-white border text-blue-600 hover:bg-blue-50 hover:border-blue-200 border-slate-200 px-4 py-2 rounded-md font-medium transition cursor-pointer shadow-sm">
                         Import PKO BP
                     </Link>
                 </div>
@@ -307,7 +361,7 @@ export default async function FinancePage({
 
                     <div className="flex bg-slate-100 p-1 rounded-lg">
                         <Link 
-                            href={`/finanse?filter=${activeFilter}${!showAudit ? '&audit=true' : ''}`}
+                            href={`/finanse?filter=${activeFilter}${activeStatus ? `&status=${activeStatus}` : ''}${activeSort ? `&sort=${activeSort}` : ''}${activeYear ? `&year=${activeYear}` : ''}${!showAudit ? '&audit=true' : ''}`}
                             className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${showAudit ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
                             {showAudit ? '⚠️ DANE AUDYTOWE: WŁ.' : 'DANE AUDYTOWE: WYŁ.'}
@@ -332,21 +386,10 @@ export default async function FinancePage({
                     </div>
                     
                     {(() => {
-                        // Obliczamy sumy wektorowe (DNA Vector 099)
-                        let totalNet = new Decimal(0);
-                        let totalVat = new Decimal(0);
-                        let totalGross = new Decimal(0);
-
-                        transactions.forEach(t => {
-                            const { signedNet, signedVat, signedGross } = mapFinancialValues(
-                                t.amountNet || 0,
-                                (t.amount || 0) - (t.amountNet || 0),
-                                t.type as FinancialType
-                            );
-                            totalNet = totalNet.plus(signedNet);
-                            totalVat = totalVat.plus(signedVat);
-                            totalGross = totalGross.plus(signedGross);
-                        });
+                        const summary = (global as any).currentViewSummary || { totalNet: 0, totalVat: 0, totalGross: 0 };
+                        const totalNet = new Decimal(summary.totalNet);
+                        const totalVat = new Decimal(summary.totalVat);
+                        const totalGross = new Decimal(summary.totalGross);
 
                         return (
                             <div className="flex flex-wrap justify-center lg:justify-end gap-8 lg:gap-14">

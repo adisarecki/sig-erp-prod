@@ -231,7 +231,7 @@ model Invoice {
   purchasedAssets Asset[]    @relation("asset_purchase_source")
   rawOcrData   Json?
   auditDiscrepancy Boolean @default(false)
-  isAudit      Boolean         @default(false)
+  recordContext RecordContext @default(OPERATIONAL)
   auditItems   AuditInvoiceItem[] @relation("audit_to_invoice")
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
@@ -539,7 +539,7 @@ model LedgerEntry {
   date      DateTime
   rawOcrData Json?
   auditDiscrepancy Boolean @default(false)
-  isAudit   Boolean      @default(false)
+  recordContext RecordContext @default(OPERATIONAL)
   createdAt DateTime     @default(now())
 
   @@index([tenantId])
@@ -615,6 +615,11 @@ enum AuthoritySide {
   POSTGRES
   FIRESTORE
   EXTERNAL
+}
+
+enum RecordContext {
+  OPERATIONAL
+  AUDIT_SESSION
 }
 
 model SyncAuditRecord {
@@ -751,7 +756,8 @@ model AuditInvoiceItem {
   // Classification
   category          String              @default("PROJECT_COST") // PROJECT_COST, GENERAL_COST, etc.
   projectId         String?
-  
+  transactionType   String              @default("KOSZT")
+
   // Correction / Reconciliation Links
   isCorrection      Boolean             @default(false)
   correctionReference String?
@@ -769,7 +775,8 @@ model AuditInvoiceItem {
   // Linking to Actual Invoice (after commit)
   linkedInvoiceId   String?
   linkedInvoice     Invoice?            @relation("audit_to_invoice", fields: [linkedInvoiceId], references: [id])
-  
+  recordContext     RecordContext       @default(AUDIT_SESSION)
+
   // Discrepancy Tracking
   flaggedAsDiscrepancy Boolean          @default(false)
   discrepancyReason String?

@@ -4,7 +4,9 @@
  */
 
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import Decimal from "decimal.js";
+import { autoCreateContractorWithGus } from "@/app/actions/crm";
 import {
   AuditSessionConfig,
   AuditInvoiceItemInput,
@@ -45,6 +47,7 @@ export class AuditSessionService {
           orderBy: { issueDate: "desc" },
           include: {
             correctionOfItem: true,
+            linkedInvoice: true,
           },
         },
         generatedReport: true,
@@ -79,9 +82,13 @@ export class AuditSessionService {
       : netAmount.add(vatAmount);
 
     const correction = this._analyzeCorrection(item);
-    const correctedNet = correction.isCorrection ? netAmount.negated() : netAmount;
-    const correctedVat = correction.isCorrection ? vatAmount.negated() : vatAmount;
-    const correctedGross = correction.isCorrection ? grossAmount.negated() : grossAmount;
+    const isCorrection = item.isCorrection || correction.isCorrection;
+    const transactionType = this._determineTransactionType(item, session.nipAnchor);
+    const {
+      netAmount: correctedNet,
+      vatAmount: correctedVat,
+      grossAmount: correctedGross,
+    } = this._normalizeCorrectionAmounts(netAmount, vatAmount, grossAmount, isCorrection);
 
     const auditItem = await prisma.auditInvoiceItem.create({
       data: {
@@ -100,9 +107,11 @@ export class AuditSessionService {
         licensePlate: item.licensePlate,
         category: item.category || "PROJECT_COST",
         projectId: item.projectId,
+        transactionType,
         isCorrection: correction.isCorrection,
         correctionReference: correction.correctionReference,
         correctionGroup: correction.correctionGroup,
+        recordContext: "AUDIT_SESSION",
       },
     });
 
@@ -254,7 +263,8 @@ export class AuditSessionService {
     ];
 
     const text = textFragments.join(" ").toUpperCase();
-    const isCorrection = /KORYGUJĄCA|KORYGUJACA|\bKOR\b|DOTYCZY FAKTURY NR/.test(text);
+    const correctionPattern = /KORYGUJĄCA|KORYGUJACA|\bKOR\b|DOTYCZY FAKTURY NR|KOREKTA|RÓŻNICA|ROZNICA|PRZED KOREKT(?:Ą|A)|PO KOREKCIE/i;
+    const isCorrection = correctionPattern.test(text);
 
     let correctionReference: string | undefined;
     const referenceMatch = text.match(/DOTYCZY FAKTURY NR[:\s]*([A-Z0-9\/\-\.]+)/i);
@@ -278,12 +288,46 @@ export class AuditSessionService {
     };
   }
 
+  private static _normalizeCorrectionAmounts(
+    netAmount: Decimal,
+    vatAmount: Decimal,
+    grossAmount: Decimal,
+    isCorrection: boolean
+  ) {
+    const net = new Decimal(netAmount);
+    const vat = new Decimal(vatAmount);
+    const gross = new Decimal(grossAmount);
+
+    if (!isCorrection) {
+      return {
+        netAmount: net,
+        vatAmount: vat,
+        grossAmount: gross,
+      };
+    }
+
+    return {
+      netAmount: net.isNegative() ? net : net.negated(),
+      vatAmount: vat.isNegative() ? vat : vat.negated(),
+      grossAmount: gross.isNegative() ? gross : gross.negated(),
+    };
+  }
+
   private static _normalizeInvoiceNumber(invoiceNumber: string) {
     return invoiceNumber
       .trim()
       .replace(/\s+/g, "")
       .replace(/[^A-Z0-9\/\-\.]/gi, "")
       .toUpperCase();
+  }
+
+  private static _determineTransactionType(item: AuditInvoiceItemInput, nipAnchor: string) {
+    const cleanNip = item.nip.replace(/\D/g, "");
+    const normalizedAnchor = nipAnchor.replace(/\D/g, "");
+    const contractorText = `${item.contractorName || ""}`.toUpperCase();
+    const anchorHit = cleanNip === normalizedAnchor || contractorText.includes(normalizedAnchor);
+
+    return anchorHit ? "SPRZEDAŻ" : "KOSZT";
   }
 
   private static async _findCorrectionTarget(
@@ -401,21 +445,132 @@ export class AuditSessionService {
    * Finalize the audit session and generate report
    */
   static async finalizeSession(sessionId: string, tenantId: string) {
-    const session = await this.getSession(sessionId, tenantId);
+    await this.getSession(sessionId, tenantId);
 
-    // Update status to COMPLETED
-    const updated = await prisma.auditSession.update({
-      where: { id: sessionId },
-      data: {
-        status: "COMPLETED",
-      },
-      include: {
-        items: true,
+    const updated = await prisma.$transaction(async (tx) => {
+      await this._commitSessionItems(tx, sessionId, tenantId);
+
+      return tx.auditSession.update({
+        where: { id: sessionId },
+        data: {
+          status: "COMPLETED",
+        },
+        include: {
+          items: {
+            orderBy: { issueDate: "desc" },
+            include: {
+              correctionOfItem: true,
+              linkedInvoice: true,
+            },
+          },
+          generatedReport: true,
+        },
+      });
+    });
+
+    return updated;
+  }
+
+  private static async _commitSessionItems(
+    tx: Prisma.TransactionClient,
+    sessionId: string,
+    tenantId: string
+  ) {
+    const items = await tx.auditInvoiceItem.findMany({
+      where: {
+        auditSessionId: sessionId,
+        status: { in: ["VERIFIED", "MANUAL_OVERRIDE"] },
+        linkedInvoiceId: null,
       },
     });
 
-    // Generate report (handled by ReportGeneratorService)
-    return updated;
+    for (const item of items) {
+      const contractorId = await this._resolveContractorId(
+        tx,
+        item.nip,
+        item.contractorName,
+        tenantId
+      );
+      if (!contractorId) {
+        continue;
+      }
+
+      const invoiceType = item.transactionType || "KOSZT";
+      const invoice = await tx.invoice.create({
+        data: {
+          tenantId,
+          contractorId,
+          projectId: item.projectId,
+          type: invoiceType,
+          amountNet: item.netAmount,
+          amountGross: item.grossAmount,
+          taxRate: item.vatRate,
+          issueDate: item.issueDate,
+          dueDate: item.issueDate,
+          status: "ACTIVE",
+          paymentStatus: "UNPAID",
+          invoiceNumber: item.invoiceNumber,
+          externalId: item.invoiceNumber,
+          rawOcrData: item.rawOcrData,
+          auditDiscrepancy: item.flaggedAsDiscrepancy,
+          recordContext: "AUDIT_SESSION",
+        },
+      });
+
+      await tx.ledgerEntry.create({
+        data: {
+          tenantId,
+          projectId: item.projectId,
+          source: "INVOICE",
+          sourceId: invoice.id,
+          amount: item.netAmount,
+          type: invoiceType === "SPRZEDAŻ" ? "INCOME" : "EXPENSE",
+          date: item.issueDate,
+          rawOcrData: item.rawOcrData,
+          recordContext: "AUDIT_SESSION",
+        },
+      });
+
+      await tx.auditInvoiceItem.update({
+        where: { id: item.id },
+        data: { linkedInvoiceId: invoice.id },
+      });
+    }
+  }
+
+  private static async _resolveContractorId(
+    tx: Prisma.TransactionClient,
+    nip: string,
+    contractorName: string,
+    tenantId: string
+  ) {
+    const cleanNip = nip.replace(/\D/g, "");
+    if (cleanNip.length === 10) {
+      const existing = await tx.contractor.findFirst({
+        where: { tenantId, nip: cleanNip },
+        select: { id: true },
+      });
+      if (existing) {
+        return existing.id;
+      }
+      const gusCreated = await autoCreateContractorWithGus(cleanNip);
+      if (gusCreated) {
+        return gusCreated;
+      }
+    }
+
+    const fuzzy = await tx.contractor.findFirst({
+      where: {
+        tenantId,
+        name: {
+          contains: contractorName,
+          mode: "insensitive",
+        },
+      },
+      select: { id: true },
+    });
+
+    return fuzzy?.id || null;
   }
 
   /**

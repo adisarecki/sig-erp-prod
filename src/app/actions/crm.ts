@@ -491,16 +491,20 @@ export async function getContractors(): Promise<Contractor[]> {
         // Map do formatu oczekiwanego przez frontend (obsługa Decimal -> number)
         return contractors.map(c => ({
             ...c,
+            // Ensure dates are serializable if they aren't already
+            createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
+            updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
             invoices: c.invoices.map(inv => ({
                 ...inv,
-                amountGross: Number(inv.amountGross)
+                amountGross: Number(inv.amountGross),
+                dueDate: inv.dueDate instanceof Date ? inv.dueDate.toISOString() : inv.dueDate
             })),
             bankAccounts: c.accounts.map(a => ({
                 accountNumber: a.iban,
                 isDefault: false,
                 isVerified: !!a.isVerified
             }))
-        }))
+        })) as any[]
     } catch (error) {
         console.error("[CRM_GET_CONTRACTORS_ERROR]", error)
         return []

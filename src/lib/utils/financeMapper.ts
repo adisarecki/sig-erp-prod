@@ -17,17 +17,27 @@ export interface MappedFinancials {
  * DNA Vector 099: Zakupy (Net -, VAT +, Gross -) | Sprzedaż (Net +, VAT -, Gross +)
  */
 export function mapFinancialValues(amountNet: number | Decimal, vat: number | Decimal, type: FinancialType): MappedFinancials {
-    const net = new Decimal(String(amountNet));
-    const v = new Decimal(String(vat));
+    // Failsafe: No-NaN Rule (Vector 200.5)
+    // Coerce undefined, null, "", or non-numeric strings to "0"
+    const normalize = (val: any) => {
+        if (val === undefined || val === null || val === "" || isNaN(Number(val))) return "0";
+        return String(val);
+    };
+
+    const net = new Decimal(normalize(amountNet));
+    const v = new Decimal(normalize(vat));
     const gross = net.plus(v);
 
-    const isIncome = type && ['INCOME', 'SPRZEDAŻ', 'REVENUE', 'PRZYCHÓD'].includes(type.toUpperCase());
+    const isIncome = type && typeof type === 'string' && ['INCOME', 'SPRZEDAŻ', 'REVENUE', 'PRZYCHÓD'].includes(type.toUpperCase());
 
+    // Vector 200.5: Preserve Signed Delta. Do NOT use .abs() if we want to allow negative corrections.
+    // Income: Net+, VAT-, Gross+ (unless negative correction)
+    // Expense: Net-, VAT+, Gross- (unless negative refund)
     if (isIncome) {
         return {
-            signedNet: net.abs(),
-            signedVat: v.abs().negated(), // VAT Należny (Liability)
-            signedGross: gross.abs(),
+            signedNet: net,
+            signedVat: v.negated(),
+            signedGross: gross,
             netColor: 'text-emerald-600',
             vatColor: 'text-rose-600',
             grossColor: 'text-emerald-600',
@@ -35,9 +45,9 @@ export function mapFinancialValues(amountNet: number | Decimal, vat: number | De
         };
     } else {
         return {
-            signedNet: net.abs().negated(), // Koszt (Expense)
-            signedVat: v.abs(),            // VAT Naliczony (Shield/Asset)
-            signedGross: gross.abs().negated(),
+            signedNet: net.negated(),
+            signedVat: v,
+            signedGross: gross.negated(),
             netColor: 'text-rose-600',
             vatColor: 'text-emerald-600',
             grossColor: 'text-rose-600',
@@ -65,4 +75,45 @@ export function getFinancialColor(value: number | Decimal): string {
     const val = new Decimal(String(value));
     if (val.eq(0)) return 'text-amber-400';
     return val.gt(0) ? 'text-emerald-400' : 'text-rose-500';
+}
+
+/**
+ * Universal Deep Serialization (Vector 200.6)
+ * Recursively converts non-serializable objects (Firestore Timestamps, Dates, Decimals)
+ * into plain JSON-safe values to prevent Server Component render crashes.
+ */
+export function deepSerialize<T>(data: T): T {
+    if (data === null || data === undefined) return data;
+
+    // Handle Arrays
+    if (Array.isArray(data)) {
+        return data.map(item => deepSerialize(item)) as unknown as T;
+    }
+
+    // Handle Objects
+    if (typeof data === 'object') {
+        // 1. Handle Firestore Timestamps (duck typing)
+        if ('toDate' in data && typeof (data as any).toDate === 'function') {
+            return (data as any).toDate().toISOString() as unknown as T;
+        }
+
+        // 2. Handle JS Dates
+        if (data instanceof Date) {
+            return data.toISOString() as unknown as T;
+        }
+
+        // 3. Handle Prisma / Decimal.js objects
+        if ('toNumber' in data && typeof (data as any).toNumber === 'function') {
+            return (data as any).toNumber() as unknown as T;
+        }
+
+        // 4. Handle generic objects (recursive)
+        const result: any = {};
+        for (const [key, value] of Object.entries(data)) {
+            result[key] = deepSerialize(value);
+        }
+        return result as T;
+    }
+
+    return data;
 }

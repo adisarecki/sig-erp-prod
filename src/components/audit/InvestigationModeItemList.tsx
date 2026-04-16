@@ -88,6 +88,8 @@ export function InvestigationModeItemList({ items }: InvestigationModeItemListPr
                       <Badge className="bg-cyan-100 text-cyan-800 border-none">🔗 POWIĄZANO Z #{item.correctionReference}</Badge>
                     ) : item.correctionOfItem?.invoiceNumber ? (
                       <Badge className="bg-emerald-100 text-emerald-800 border-none">🔗 POWIĄZANO Z #{item.correctionOfItem.invoiceNumber}</Badge>
+                    ) : item.linkedInvoice?.invoiceNumber ? (
+                      <Badge className="bg-slate-100 text-slate-900 border-none">🔗 Zapisano jako #{item.linkedInvoice.invoiceNumber}</Badge>
                     ) : null}
                   </div>
                   <div className="text-sm text-slate-600">{item.contractorName} • {new Date(item.issueDate).toLocaleDateString()}</div>
