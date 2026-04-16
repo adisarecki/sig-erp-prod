@@ -1113,7 +1113,7 @@ export async function bulkCommitToAudit(draftInvoices: any[]) {
                         invoiceNumber: draft.invoiceNumber,
                         externalId: draft.invoiceNumber,
                         rawOcrData: draft as any,
-                        isAudit: true, // VECTOR 180: ISOLATION FLAG
+                        recordContext: 'AUDIT_SESSION',
                         auditDiscrepancy: true 
                     } as any
                 });
@@ -1126,7 +1126,7 @@ export async function bulkCommitToAudit(draftInvoices: any[]) {
                         amount: new Prisma.Decimal((draft.netAmount || "0").replace(',', '.').replace(/[^0-9.]/g, '') || "0"),
                         type: draft.type === "INCOME" ? 'INCOME' : 'EXPENSE',
                         date: date,
-                        isAudit: true, // VECTOR 180
+                        recordContext: 'AUDIT_SESSION',
                         rawOcrData: draft as any
                     }
                 });

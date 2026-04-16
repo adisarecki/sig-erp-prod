@@ -21,16 +21,16 @@ import { type Contractor } from "@/lib/types/crm"
 
 // ... (existing functions)
 
-export default async function FinancePage({ 
-    searchParams 
-}: { 
-    searchParams: Promise<{ 
-        filter?: string; 
-        status?: string; 
-        sort?: string; 
+export default async function FinancePage({
+    searchParams
+}: {
+    searchParams: Promise<{
+        filter?: string;
+        status?: string;
+        sort?: string;
         year?: string;
         audit?: string;
-    }> 
+    }>
 }) {
     const params = await searchParams
     const activeFilter = params.filter || 'ALL'
@@ -73,7 +73,7 @@ export default async function FinancePage({
         const [transactionsSnap, prismaInvoices] = await Promise.all([
             adminDb.collection("transactions").where("tenantId", "==", tenantId).get(),
             prisma.invoice.findMany({
-                where: { 
+                where: {
                     tenantId,
                     status: { in: ['ACTIVE', 'XML_MISSING', 'PAID'] },
                     recordContext: showAudit ? undefined : 'OPERATIONAL'
@@ -100,8 +100,8 @@ export default async function FinancePage({
 
             const normalizedData = normalizeDates(data);
 
-            return { 
-                id: d.id, 
+            return {
+                id: d.id,
                 ...normalizedData,
                 transactionDate: normalizedData.transactionDate || new Date().toISOString()
             };
@@ -112,7 +112,7 @@ export default async function FinancePage({
             if (!showAudit && t.isAudit === true) return false;
             return true;
         })
-        
+
         // Map Prisma Invoices to the expected internal format for historyItems
         const rawInvoices = prismaInvoices.map(inv => ({
             id: inv.id,
@@ -130,7 +130,7 @@ export default async function FinancePage({
             paymentMethod: (inv as any).paymentMethod,
             reconciliationStatus: (inv as any).reconciliationStatus,
             externalId: inv.invoiceNumber || inv.ksefId,
-            description: inv.invoiceNumber || (inv.type === 'REVENUE' ? 'Faktura Sprzedaży' : 'Faktura Zakupu'), 
+            description: inv.invoiceNumber || (inv.type === 'REVENUE' ? 'Faktura Sprzedaży' : 'Faktura Zakupu'),
             category: inv.ksefType || 'VAT',
             createdAt: inv.createdAt.toISOString(),
             // Pass contractor name through to avoid double search
@@ -194,7 +194,7 @@ export default async function FinancePage({
                 const dueDate = new Date(inv.dueDate)
                 const linkedTx = txByInvoiceId.get(inv.id)
                 const contractor = contractorsMap.find((c: Contractor) => c.id === inv.contractorId)
-                
+
                 let badge = 'DO ZAPŁATY'
                 let color = 'bg-amber-100 text-amber-700'
                 let displayDate = inv.issueDate || inv.createdAt
@@ -212,7 +212,7 @@ export default async function FinancePage({
                 } else {
                     const invDue = new Date(inv.dueDate);
                     const invIssue = new Date(inv.issueDate);
-                    
+
                     if (invDue < now && invIssue.getTime() !== invDue.getTime()) {
                         badge = 'ZALEGŁA'
                         color = 'bg-rose-100 text-rose-700'
@@ -248,7 +248,7 @@ export default async function FinancePage({
                 // Filter typu (Project/General)
                 if (activeFilter === 'PROJECT' && t.classification !== 'PROJECT_COST') return false
                 if (activeFilter === 'GENERAL' && t.classification !== 'GENERAL_COST') return false
-                
+
                 // Filter statusu (Vector 024)
                 if (activeStatus === 'UNPAID') {
                     if (t.statusBadge === 'OPŁACONA') return false
@@ -264,7 +264,7 @@ export default async function FinancePage({
 
                 return true
             })
-            
+
         // Logika sortowania (Vector 024)
         if (activeSort === 'dueDate_ASC') {
             transactions.sort((a, b) => {
@@ -329,8 +329,8 @@ export default async function FinancePage({
                 </div>
                 <div className="flex items-center gap-3">
                     <TooltipHelp content="Moduł Łowca Kontrahentów - importuje historię z banku PKO BP do budowania bazy kontrahentów." />
-                    <KSeFSyncButton 
-                        hasToken={!!tenant?.ksefToken} 
+                    <KSeFSyncButton
+                        hasToken={!!tenant?.ksefToken}
                         variant="outline"
                         className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                     />
@@ -358,21 +358,21 @@ export default async function FinancePage({
                     <h2 className="font-semibold text-slate-800 flex items-center gap-2">
                         <FileText className="w-5 h-5 text-slate-500" /> Rejestr Transakcji
                     </h2>
-                    
+
                     <div className="flex bg-slate-100 p-1 rounded-lg self-stretch sm:self-auto">
-                        <Link 
+                        <Link
                             href="/finanse?filter=ALL"
                             className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === 'ALL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
                             WSZYSTKIE
                         </Link>
-                        <Link 
+                        <Link
                             href="/finanse?filter=PROJECT"
                             className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === 'PROJECT' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
                             PROJEKTOWE
                         </Link>
-                        <Link 
+                        <Link
                             href={`/finanse?filter=GENERAL${showAudit ? '&audit=true' : ''}`}
                             className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === 'GENERAL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
@@ -381,7 +381,7 @@ export default async function FinancePage({
                     </div>
 
                     <div className="flex bg-slate-100 p-1 rounded-lg">
-                        <Link 
+                        <Link
                             href={`/finanse?filter=${activeFilter}${activeStatus ? `&status=${activeStatus}` : ''}${activeSort ? `&sort=${activeSort}` : ''}${activeYear ? `&year=${activeYear}` : ''}${!showAudit ? '&audit=true' : ''}`}
                             className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${showAudit ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
@@ -389,14 +389,14 @@ export default async function FinancePage({
                         </Link>
                     </div>
                 </div>
-                
-                <TransactionHistory 
-                    transactions={transactions} 
+
+                <TransactionHistory
+                    transactions={transactions}
                     projectsMap={Object.fromEntries(projectsMap.map(p => [p.id, p.name]))}
                     allProjects={projectsMap}
                     allVehicles={vehicles}
                 />
-                
+
                 {/* FOOTER SUMMARY BAR (Vector 097) - All values pre-computed server-side, no Decimal in JSX */}
                 <div className="bg-slate-900 text-white px-8 py-6 flex flex-col lg:flex-row justify-between items-center gap-6 border-t-4 border-indigo-500 rounded-b-xl">
                     <div className="flex flex-col">
