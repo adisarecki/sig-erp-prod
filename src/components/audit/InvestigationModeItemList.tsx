@@ -3,6 +3,7 @@
 import React from "react";
 import Decimal from "decimal.js";
 import { Badge } from "@/components/ui/badge";
+import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 
 interface InvestigationModeItemListProps {
   items: any[];
@@ -221,21 +222,15 @@ export function InvestigationModeItemList({ items }: InvestigationModeItemListPr
                     <div className="grid gap-1 text-sm text-slate-600">
                       <div className="flex items-center justify-between">
                         <span>Net</span>
-                        <span className={`font-semibold ${net.lt(0) ? "text-rose-600" : "text-slate-900"}`}>
-                          {fmt(net)}
-                        </span>
+                        <CurrencyDisplay net={net} gross={net} intent={net.lt(0) ? "cost" : "income"} hideSign={false} className="text-sm" />
                       </div>
                       <div className="flex items-center justify-between">
                         <span>VAT</span>
-                        <span className={`font-semibold ${vat.lt(0) ? "text-rose-600" : "text-slate-900"}`}>
-                          {fmt(vat)}
-                        </span>
+                        <CurrencyDisplay net={vat} gross={vat} intent={vat.lt(0) ? "cost" : "tax-shield"} hideSign={false} className="text-sm" />
                       </div>
                       <div className="flex items-center justify-between">
                         <span>Gross</span>
-                        <span className={`font-semibold ${gross.lt(0) ? "text-rose-600" : "text-slate-900"}`}>
-                          {fmt(gross)}
-                        </span>
+                        <CurrencyDisplay net={gross} gross={gross} intent={gross.lt(0) ? "cost" : "income"} hideSign={false} className="text-sm" />
                       </div>
                     </div>
 

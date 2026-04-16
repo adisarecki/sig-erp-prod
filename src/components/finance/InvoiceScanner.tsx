@@ -18,6 +18,7 @@ import { getAutoMatchData, addCostInvoice, addIncomeInvoice, checkDuplicateInvoi
 import { getProjects } from "@/app/actions/projects"
 import { getContractors, autoCreateContractorWithGus } from "@/app/actions/crm"
 import { COST_CATEGORIES } from "@/lib/categories"
+import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 import { calculateReconciledTotals, mapToFinancialItem } from "@/lib/finance/coreMath"
 
 interface QueueItem extends OcrInvoiceData {
