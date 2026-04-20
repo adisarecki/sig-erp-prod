@@ -86,45 +86,67 @@ export function FileUploadZone() {
   };
 
   const simulateUpload = async (files: File[]) => {
-    // In production, this would:
-    // 1. Send to OCR service
-    // 2. Parse invoice data
-    // 3. Call uploadItems with extracted data
+        try {
+            const parsedItems: any[] = [];
 
-    try {
-      // Mock OCR parsing
-      const mockItems = files.map((file, idx) => ({
-        invoiceNumber: `INV-${Date.now()}-${idx}`,
-        issueDate: new Date(),
-        nip: "0000000000",
-        contractorName: "Sample Contractor",
-        netAmount: 1000 + Math.random() * 5000,
-        vatRate: 0.23,
-        grossAmount: 1230 + Math.random() * 6150,
-        ocrConfidence: 80 + Math.random() * 20,
-        licensePlate: Math.random() > 0.5 ? "WE452YS" : undefined,
-      }));
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append("file", file);
 
-      await uploadItems(mockItems);
+                const response = await fetch("/api/ocr/scan", {
+                    method: "POST",
+                    body: formData,
+                });
 
-      // Update progress
-      setUploadProgress((prev) =>
-        prev.map((p) => ({
-          ...p,
-          progress: 100,
-          status: "success",
-        }))
-      );
-    } catch (error: any) {
-      setUploadProgress((prev) =>
-        prev.map((p) => ({
-          ...p,
-          status: "error",
-          error: error.message,
-        }))
-      );
-    }
-  };
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || `OCR upload failed for ${file.name}`);
+                }
+
+                if (!Array.isArray(result.data)) {
+                    throw new Error(`OCR returned invalid data for ${file.name}`);
+                }
+
+                result.data.forEach((data: any, idx: number) => {
+                    parsedItems.push({
+                        invoiceNumber: data.invoiceNumber || `OCR-${Date.now()}-${idx}`,
+                        issueDate: data.issueDate ? new Date(data.issueDate) : new Date(),
+                        nip: data.nip || data.sellerNip || data.buyerNip || "",
+                        contractorName: data.parsedName || data.contractorName || "Unknown Contractor",
+                        netAmount: data.netAmount ?? 0,
+                        vatAmount: data.vatAmount ?? undefined,
+                        grossAmount: data.grossAmount ?? undefined,
+                        vatRate: data.vatRate ?? 0.23,
+                        ocrConfidence: data.ocrConfidence ?? 80,
+                        rawOcrData: data,
+                        licensePlate: data.licensePlate,
+                    });
+                });
+            }
+
+            if (parsedItems.length === 0) {
+                throw new Error("OCR did not return any invoice items.");
+            }
+
+            await uploadItems(parsedItems);
+
+            setUploadProgress((prev) =>
+              prev.map((p) => ({
+                ...p,
+                progress: 100,
+                status: "success",
+              }))
+            );
+        } catch (error: any) {
+            setUploadProgress((prev) =>
+              prev.map((p) => ({
+                ...p,
+                status: "error",
+                error: error.message,
+              }))
+            );
+        }
+    };
 
   return (
     <div className="space-y-4">
