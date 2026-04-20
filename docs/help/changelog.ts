@@ -16,6 +16,15 @@ export interface ChangelogEntry {
 
 export const changelogEntries: ChangelogEntry[] = [
     {
+        date: "2026-04-20",
+        vector: "Vector 180.15",
+        title: "🔧 Investigation Mode - Robust Upload Parsing",
+        type: "fix",
+        description:
+            "Ujednolicono parser wartość w ścieżce uploadu sesji audytowej. System teraz prawidłowo odczytuje netto/vat/brutto w formatach z przecinkami, kropkami i separatorami tysięcy oraz vatRate jako ułamek lub procent.",
+        relatedHelpIds: ["investigation-session", "investigation-mode-audit"]
+    },
+    {
         date: "2026-04-16",
         vector: "Vector 200",
         title: "🎨 Globalna Harmonizacja UI & Signed Math Integrity",

@@ -10,6 +10,7 @@ import { autoCreateContractorWithGus } from "@/app/actions/crm";
 import { AuditSessionConfig, AuditInvoiceItemInput, LiveSummary, FiscalAggregates } from "./types";
 import { FiscalCalculatorService } from "./fiscalCalculatorService";
 import { calculateReconciledTotals } from "../finance/coreMath";
+import { parseFinancialAmount, parseFinancialRate } from "@/lib/utils/financeMapper";
 
 export class AuditSessionService {
   /**
@@ -69,19 +70,19 @@ export class AuditSessionService {
   ) {
     const session = await this.getSession(sessionId, tenantId);
 
-    // Calculate VAT if not provided
-    const safeNum = (v: any) => {
-      const n = parseFloat(String(v ?? '0').replace(',', '.'));
-      return isNaN(n) ? 0 : n;
-    };
-    const netAmount = new Decimal(safeNum(item.netAmount));
-    const vatRate = new Decimal(safeNum(item.vatRate) || "0.23");
-    const vatAmount = item.vatAmount != null
-      ? new Decimal(safeNum(item.vatAmount))
-      : netAmount.mul(vatRate);
-    const grossAmount = item.grossAmount != null
-      ? new Decimal(safeNum(item.grossAmount))
-      : netAmount.add(vatAmount);
+    const normalizedNet = parseFinancialAmount(item.netAmount) ?? new Decimal(0);
+    const normalizedVatRate = parseFinancialRate(item.vatRate) ?? new Decimal("0.23");
+    const normalizedVat = item.vatAmount != null
+      ? parseFinancialAmount(item.vatAmount) ?? new Decimal(0)
+      : normalizedNet.mul(normalizedVatRate);
+    const normalizedGross = item.grossAmount != null
+      ? parseFinancialAmount(item.grossAmount) ?? normalizedNet.add(normalizedVat)
+      : normalizedNet.add(normalizedVat);
+
+    const netAmount = normalizedNet;
+    const vatRate = normalizedVatRate;
+    const vatAmount = normalizedVat;
+    const grossAmount = normalizedGross;
 
     // ─── VECTOR 200.30: HARDENED COLLISION ENGINE ──────────────────────────
     // Step 1: Keyword-based correction signals (legacy layer)
@@ -185,15 +186,15 @@ export class AuditSessionService {
         // VECTOR 200.50: persist structured model
         correctedInvoiceNumber: item.correctedInvoiceNumber,
         correctedInvoiceDate: item.correctedInvoiceDate ? new Date(item.correctedInvoiceDate) : null,
-        beforeNetAmount: item.beforeNetAmount ? new Decimal(safeNum(item.beforeNetAmount)) : null,
-        beforeVatAmount: item.beforeVatAmount ? new Decimal(safeNum(item.beforeVatAmount)) : null,
-        beforeGrossAmount: item.beforeGrossAmount ? new Decimal(safeNum(item.beforeGrossAmount)) : null,
-        afterNetAmount: item.afterNetAmount ? new Decimal(safeNum(item.afterNetAmount)) : null,
-        afterVatAmount: item.afterVatAmount ? new Decimal(safeNum(item.afterVatAmount)) : null,
-        afterGrossAmount: item.afterGrossAmount ? new Decimal(safeNum(item.afterGrossAmount)) : null,
-        deltaNetAmount: item.deltaNetAmount ? new Decimal(safeNum(item.deltaNetAmount)) : correctedNet,
-        deltaVatAmount: item.deltaVatAmount ? new Decimal(safeNum(item.deltaVatAmount)) : correctedVat,
-        deltaGrossAmount: item.deltaGrossAmount ? new Decimal(safeNum(item.deltaGrossAmount)) : correctedGross,
+        beforeNetAmount: item.beforeNetAmount ? parseFinancialAmount(item.beforeNetAmount) : null,
+        beforeVatAmount: item.beforeVatAmount ? parseFinancialAmount(item.beforeVatAmount) : null,
+        beforeGrossAmount: item.beforeGrossAmount ? parseFinancialAmount(item.beforeGrossAmount) : null,
+        afterNetAmount: item.afterNetAmount ? parseFinancialAmount(item.afterNetAmount) : null,
+        afterVatAmount: item.afterVatAmount ? parseFinancialAmount(item.afterVatAmount) : null,
+        afterGrossAmount: item.afterGrossAmount ? parseFinancialAmount(item.afterGrossAmount) : null,
+        deltaNetAmount: item.deltaNetAmount ? parseFinancialAmount(item.deltaNetAmount) : correctedNet,
+        deltaVatAmount: item.deltaVatAmount ? parseFinancialAmount(item.deltaVatAmount) : correctedVat,
+        deltaGrossAmount: item.deltaGrossAmount ? parseFinancialAmount(item.deltaGrossAmount) : correctedGross,
         
         recordContext: "AUDIT_SESSION",
       },

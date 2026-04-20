@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuditSessionService } from "@/lib/audit";
 import Decimal from "decimal.js";
+import { parseFinancialAmount, parseFinancialRate } from "@/lib/utils/financeMapper";
 
 export async function POST(
   request: NextRequest,
@@ -25,10 +26,10 @@ export async function POST(
     // Convert items with proper Decimal types
     const normalizedItems = items.map((item) => ({
       ...item,
-      netAmount: new Decimal(item.netAmount),
-      vatAmount: item.vatAmount ? new Decimal(item.vatAmount) : undefined,
-      grossAmount: item.grossAmount ? new Decimal(item.grossAmount) : undefined,
-      vatRate: item.vatRate ? new Decimal(item.vatRate) : new Decimal("0.23"),
+      netAmount: parseFinancialAmount(item.netAmount) ?? new Decimal(0),
+      vatAmount: parseFinancialAmount(item.vatAmount),
+      grossAmount: parseFinancialAmount(item.grossAmount),
+      vatRate: parseFinancialRate(item.vatRate) ?? new Decimal("0.23"),
     }));
 
     const result = await AuditSessionService.addBatchInvoiceItems(

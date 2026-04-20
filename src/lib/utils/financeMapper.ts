@@ -77,6 +77,43 @@ export function getFinancialColor(value: number | Decimal): string {
     return val.gt(0) ? 'text-emerald-400' : 'text-rose-500';
 }
 
+export function parseFinancialAmount(value: any): Decimal | undefined {
+    if (value === undefined || value === null || value === "") return undefined;
+    if (value instanceof Decimal) return value;
+    if (typeof value === "number") return new Decimal(value);
+
+    let sanitized = String(value).trim();
+    const isPercentage = sanitized.includes("%");
+    sanitized = sanitized.replace(/[^0-9.,\-\s%]/g, "").replace(/\s+/g, "");
+
+    const hasComma = sanitized.includes(",");
+    const hasDot = sanitized.includes(".");
+    if (hasComma && hasDot) {
+        sanitized = sanitized.replace(/\./g, "").replace(/,/g, ".");
+    } else if (hasComma && !hasDot) {
+        sanitized = sanitized.replace(/,/g, ".");
+    }
+
+    sanitized = sanitized.replace(/%/g, "");
+    if (sanitized === "" || sanitized === "+" || sanitized === "-") return undefined;
+
+    try {
+        const parsed = new Decimal(sanitized);
+        return isPercentage ? parsed.div(100) : parsed;
+    } catch {
+        return undefined;
+    }
+}
+
+export function parseFinancialRate(value: any): Decimal | undefined {
+    const amount = parseFinancialAmount(value);
+    if (amount === undefined) return undefined;
+    if (amount.gt(1) && amount.lte(100)) {
+        return amount.div(100);
+    }
+    return amount;
+}
+
 /**
  * Universal Deep Serialization (Vector 200.6)
  * Recursively converts non-serializable objects (Firestore Timestamps, Dates, Decimals)

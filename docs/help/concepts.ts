@@ -43,6 +43,7 @@ export const conceptEntries: ConceptEntry[] = [
             "**Kluczowe Funkcje:**\n" +
             "- **Sesja Persistent**: RozkSeF lub miesiąc, system nie czyści dokumentów między wrzutami (1-5 plików naraz)\n" +
             "- **Live Summary Bar**: Real-time agregacja VAT (23%) i CIT (9%) z dynamicznym kolorami\n" +
+            "- **Robustny parser uploadu**: obsługa wartości netto/vat/brutto w formatach `1234.56`, `1 234,56`, `1.234,56` oraz `vatRate` jako `0.23` lub `23%`\n" +
             "- **PEWNIAK System**: Automatyczna weryfikacja faktur z OCR confidence > 95%, znanych dostawców (Orlen, Stefania Machniewska) i pojazdu WE452YS\n" +
             "- **Bulk Approve (ZATWIERDŹ WSZYSTKIE)**: Zatwierdź wszystkie zweryfikowane faktury jednym przyciskiem\n" +
             "- **Zakończ Wczytywanie**: Generuje raport z agregacją miesięczną, podsumowaniem rocznym i logiem rozbieżności\n\n" +

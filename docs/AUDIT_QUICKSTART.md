@@ -99,6 +99,9 @@ const item = await AuditSessionService.addInvoiceItem(
 );
 ```
 
+> Obsługiwane formaty kwot w uploadzie: `1234.56`, `1 234,56`, `1.234,56`.
+> `vatRate` akceptuje także zapis procentowy, np. `23%`.
+
 ### Auto-Verify (PEWNIAK System)
 
 ```typescript

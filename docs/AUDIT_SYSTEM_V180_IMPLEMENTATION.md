@@ -83,6 +83,7 @@ POST   /api/audit/session/{sessionId}/upload
        └─ Input: {tenantId, items[]}
        └─ Output: Created AuditInvoiceItem array
        └─ Note: Batch upload 1-5 files simultaneously
+       └─ Supported formats: netAmount/vatAmount/grossAmount can be `1234.56`, `1 234,56`, `1.234,56`; vatRate accepts `0.23` or `23%`
 
 POST   /api/audit/session/{sessionId}/verify
        └─ Input: {tenantId, autoVerifyAll?, itemIds[]?}
