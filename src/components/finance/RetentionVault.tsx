@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/popover"
 import { ExternalLink, FileText, Info, Search } from "lucide-react"
 import { HelpLink } from "@/components/ui/HelpLink"
+import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay"
 
 interface RetentionVaultProps {
     retentions: any[]

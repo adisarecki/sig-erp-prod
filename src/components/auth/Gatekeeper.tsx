@@ -40,8 +40,12 @@ export function Gatekeeper({ children }: { children: React.ReactNode }) {
             if (userSnap.exists() && userSnap.data().requirePasswordChange) {
               setIsChangingPassword(true)
             }
-          } catch (err) {
-            console.error("Błąd sprawdzania flagi hasła:", err)
+          } catch (err: any) {
+            if (err.code === 'permission-denied') {
+              console.warn("Brak uprawnień do odczytu użytkownika w Firestore. Pomijam flagę wymuszonej zmiany hasła.")
+            } else {
+              console.error("Błąd sprawdzania flagi hasła:", err)
+            }
           }
         }
       } else {

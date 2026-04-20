@@ -231,8 +231,9 @@ model Invoice {
   purchasedAssets Asset[]    @relation("asset_purchase_source")
   rawOcrData   Json?
   auditDiscrepancy Boolean @default(false)
-  recordContext RecordContext @default(OPERATIONAL)
-  auditItems   AuditInvoiceItem[] @relation("audit_to_invoice")
+  isAudit         Boolean @default(false)
+  recordContext   RecordContext @default(OPERATIONAL)
+  auditItems      AuditInvoiceItem[] @relation("audit_to_invoice")
 
   // VECTOR 200.50: Correction Modeling
   isCorrection         Boolean   @default(false)
