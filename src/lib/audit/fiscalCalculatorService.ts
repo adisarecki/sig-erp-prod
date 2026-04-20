@@ -2,6 +2,31 @@ import Decimal from "decimal.js";
 import { FiscalAggregates, SemanticIntent } from "./types";
 import { calculateReconciledTotals, formatSignedCurrency, FinancialItem } from "../finance/coreMath";
 
+function normalizeDecimal(value: Decimal | number | string | null | undefined, path: string): Decimal {
+  const rawType = typeof value;
+  const constructorName = value?.constructor?.name;
+
+  if (value instanceof Decimal) {
+    return value;
+  }
+
+  if (value == null) {
+    console.warn("Decimal normalization: null/undefined value", { path, rawType, value, constructorName });
+    return new Decimal(0);
+  }
+
+  if (rawType !== "number" && rawType !== "string") {
+    console.warn("Decimal normalization: unexpected non-primitive value", { path, rawType, value, constructorName });
+  }
+
+  try {
+    return new Decimal(value);
+  } catch (error) {
+    console.error("Decimal normalization failed", { path, rawType, value, constructorName, error });
+    return new Decimal(0);
+  }
+}
+
 export class FiscalCalculatorService {
   /**
    * Calculate VAT from net amount and rate
@@ -46,9 +71,9 @@ export class FiscalCalculatorService {
    * Returns semantic palette definitions for UI (Vector 200)
    */
   static calculateLiabilities(aggregates: FiscalAggregates) {
-    const vatSaldo = aggregates.vatAmount;
-    const citLiability = aggregates.citAmount;
-    const grossLiability = aggregates.grossAmount;
+    const vatSaldo = normalizeDecimal(aggregates.vatAmount, "aggregates.vatAmount");
+    const citLiability = normalizeDecimal(aggregates.citAmount, "aggregates.citAmount");
+    const grossLiability = normalizeDecimal(aggregates.grossAmount, "aggregates.grossAmount");
 
     return {
       vatSaldo: {

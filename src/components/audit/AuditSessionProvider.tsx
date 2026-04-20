@@ -65,6 +65,40 @@ export function AuditSessionProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const parseDecimal = (value: any, path: string) => {
+    if (value instanceof Decimal) return value;
+    const rawType = typeof value;
+    const constructorName = value?.constructor?.name;
+    if (value == null) {
+      console.warn("LiveSummary normalization: null/undefined", { path, rawType, value, constructorName });
+      return new Decimal(0);
+    }
+    try {
+      return new Decimal(value);
+    } catch (error) {
+      console.error("LiveSummary normalization failed", { path, rawType, value, constructorName, error });
+      return new Decimal(0);
+    }
+  };
+
+  const normalizeLiveSummary = (raw: any) => {
+    if (!raw) return null;
+
+    return {
+      ...raw,
+      totals: {
+        netAmount: parseDecimal(raw?.totals?.netAmount, "liveSummary.totals.netAmount"),
+        vatAmount: parseDecimal(raw?.totals?.vatAmount, "liveSummary.totals.vatAmount"),
+        grossAmount: parseDecimal(raw?.totals?.grossAmount, "liveSummary.totals.grossAmount"),
+        citAmount: parseDecimal(raw?.totals?.citAmount, "liveSummary.totals.citAmount"),
+      },
+      vatSaldo: parseDecimal(raw?.vatSaldo, "liveSummary.vatSaldo"),
+      citLiability: parseDecimal(raw?.citLiability, "liveSummary.citLiability"),
+      grossLiability: parseDecimal(raw?.grossLiability, "liveSummary.grossLiability"),
+      citRate: parseDecimal(raw?.citRate, "liveSummary.citRate"),
+    };
+  };
+
   const updateLiveSummary = useCallback(
     async () => {
       if (!sessionId || !tenantId) return;
@@ -76,7 +110,7 @@ export function AuditSessionProvider({ children }: { children: ReactNode }) {
 
         if (response.ok) {
           const data = await response.json();
-          setLiveSummary(data.liveSummary);
+          setLiveSummary(normalizeLiveSummary(data.liveSummary));
           setSession(data.session);
         }
       } catch (err) {
